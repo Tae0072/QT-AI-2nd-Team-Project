@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: gateway
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  # Spring Cloud Gateway 라우팅 — DECISIONS.md §3 기준
+  cloud:
+    gateway:
+      routes:
+        # BFF Aggregator
+        - id: bff-passages
+          uri: http://bff-aggregator:8083
+          predicates:
+            - Path=/api/v1/passages/**,/api/v1/me/**
+
+        # Bible Service
+        - id: bible-service
+          uri: http://bible-service:8082
+          predicates:
+            - Path=/bible/**,/api/v1/commentary/**
+
+        # AI Service (Python FastAPI :8085)
+        - id: ai-service
+          uri: http://ai-service:8085
+          predicates:
+            - Path=/ai/**
+
+        # Journal Service
+        - id: journal-service
+          uri: http://journal-service:8084
+          predicates:
+            - Path=/api/v1/journals/**
+
+        # Auth Service
+        - id: auth-service
+          uri: http://auth-service:8081
+          predicates:
+            - Path=/auth/**
+
+  # JWT RS256 검증 — Auth Service의 JWK Set 사용
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${AUTH_SERVICE_JWK_URI:http://auth-service:8081/.well-known/jwks.json}
+
+server:
+  port: ${GATEWAY_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,gateway
+  endpoint:
+    health:
+      show-details: when-authorized
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${JAEGER_ENDPOINT:http://jaeger:4318/v1/traces}
+
+logging:
+  level:
+    root: INFO
+    com.qtai: DEBUG
+    org.springframework.cloud.gateway: INFO

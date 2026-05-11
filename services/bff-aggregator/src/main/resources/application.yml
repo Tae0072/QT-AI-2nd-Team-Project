@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: bff-aggregator
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  # Redis-WS (STOMP session, JWT blacklist) — DECISIONS.md 기준 6380
+  data:
+    redis:
+      host: ${REDIS_WS_HOST:localhost}
+      port: ${REDIS_WS_PORT:6380}
+
+  # Kafka Producer (user.activity.tracked)
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      retries: 5
+      properties:
+        enable.idempotence: true
+        # Apicurio Schema Registry
+        apicurio.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8086/apis/registry/v2}
+        apicurio.registry.use-id: contentId
+
+  # JWT RS256 검증
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${AUTH_SERVICE_JWK_URI:http://auth-service:8081/.well-known/jwks.json}
+
+# 다운스트림 서비스 endpoint
+qtai:
+  services:
+    auth: ${AUTH_SERVICE_URL:http://auth-service:8081}
+    bible: ${BIBLE_SERVICE_URL:http://bible-service:8082}
+    ai: ${AI_SERVICE_URL:http://ai-service:8085}
+    journal: ${JOURNAL_SERVICE_URL:http://journal-service:8084}
+
+server:
+  port: ${BFF_PORT:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${JAEGER_ENDPOINT:http://jaeger:4318/v1/traces}
+
+logging:
+  level:
+    root: INFO
+    com.qtai: DEBUG
