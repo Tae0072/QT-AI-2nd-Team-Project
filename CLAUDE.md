@@ -122,12 +122,14 @@ services/ai-service/
   src/main/
     java/com/qtai/ai/
       AiServiceApplication.java
-      controller/AiSessionController.java        # POST /ai/sessions, POST /ai/sessions/{id}/turns (SSE)
-      service/
-        ClaudeStreamService.java                 # Anthropic Java SDK 래퍼 (SSE 스트리밍)
-        ChromaDbClient.java                      # ChromaDB REST 호출 (RestClient)
-      kafka/AiSessionCompletedPublisher.java     # ai.session.completed 발행
-      prompts/QtPromptTemplates.java             # 큐티 A~D 시스템 프롬프트
+      presentation/AiSessionController.java      # POST /ai/sessions, POST /ai/sessions/{id}/turns (SSE)
+      application/usecase/                       # StartSession, ProcessTurn, CompleteSession
+      domain/model/                              # AiSession, AiTurn, PromptTemplate
+      infrastructure/
+        llm/ClaudeStreamService.java             # Anthropic Java SDK 래퍼 (SSE 스트리밍)
+        rag/ChromaDbClient.java                  # ChromaDB REST 호출 (RestClient)
+        kafka/AiSessionCompletedPublisher.java   # ai.session.completed 발행
+      prompt/QtPromptTemplates.java              # 큐티 A~D 시스템 프롬프트
     resources/
       application.yml
 ```

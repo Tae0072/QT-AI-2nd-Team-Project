@@ -94,6 +94,8 @@ QT-AI-2nd-Team-Project/
     └── DevE_김지민/
 ```
 
+서비스별 목업 패키지 구조는 [`services/ARCHITECTURE.md`](services/ARCHITECTURE.md)를 기준으로 합니다.
+
 ---
 
 ## 아키텍처 개요

@@ -30,12 +30,14 @@ services/ai-service/
 └── src/main/
     ├── java/com/qtai/ai/
     │   ├── AiServiceApplication.java
-    │   ├── controller/AiSessionController.java
-    │   ├── service/
-    │   │   ├── ClaudeStreamService.java   # Anthropic Java SDK 래퍼
-    │   │   └── ChromaDbClient.java        # ChromaDB REST 호출
-    │   ├── kafka/AiSessionCompletedPublisher.java
-    │   └── prompts/QtPromptTemplates.java # 큐티 A~D
+    │   ├── presentation/AiSessionController.java
+    │   ├── application/usecase/
+    │   ├── domain/model/
+    │   ├── infrastructure/
+    │   │   ├── llm/ClaudeStreamService.java
+    │   │   ├── rag/ChromaDbClient.java
+    │   │   └── kafka/AiSessionCompletedPublisher.java
+    │   └── prompt/QtPromptTemplates.java
     └── resources/
         └── application.yml
 ```
