@@ -1,0 +1,173 @@
+name: QT-AI CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # ===========================================================================
+  # Spring Boot 서비스 (gateway, bff-aggregator, auth, bible, journal)
+  # ===========================================================================
+  spring-build:
+    name: Spring Boot Build & Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - gateway
+          - bff-aggregator
+          - auth-service
+          - bible-service
+          - journal-service
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+        continue-on-error: true  # gradlew가 아직 없으면 skip
+
+      - name: Build with Gradle
+        run: |
+          if [ -f gradlew ]; then
+            ./gradlew build --no-daemon -x test
+          else
+            echo "gradlew not found, skipping build for ${{ matrix.service }}"
+          fi
+
+      - name: Run Tests
+        run: |
+          if [ -f gradlew ]; then
+            ./gradlew test --no-daemon
+          fi
+
+  # ===========================================================================
+  # AI Service (Python FastAPI)
+  # ===========================================================================
+  ai-service-lint:
+    name: AI Service Lint & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/ai-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "requirements.txt not found, skipping for now"
+          fi
+
+      - name: Lint with ruff (if available)
+        run: |
+          if command -v ruff &> /dev/null; then
+            ruff check .
+          elif [ -f requirements.txt ] && grep -q ruff requirements.txt; then
+            ruff check .
+          else
+            echo "ruff not configured yet, skipping"
+          fi
+
+      - name: Run Tests
+        run: |
+          if [ -f requirements.txt ] && grep -q pytest requirements.txt; then
+            pytest
+          else
+            echo "pytest not configured yet, skipping"
+          fi
+
+  # ===========================================================================
+  # Flutter 앱
+  # ===========================================================================
+  flutter-test:
+    name: Flutter Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+        continue-on-error: true  # pubspec.yaml 없으면 skip
+
+      - name: Install Flutter dependencies
+        run: |
+          if [ -f pubspec.yaml ]; then
+            flutter pub get
+          else
+            echo "pubspec.yaml not found, skipping Flutter steps"
+          fi
+
+      - name: Run Flutter Tests
+        run: |
+          if [ -f pubspec.yaml ]; then
+            flutter test
+          fi
+
+  # ===========================================================================
+  # DECISIONS.md 충돌 체크
+  # ===========================================================================
+  decisions-guard:
+    name: Decisions Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check forbidden patterns
+        run: |
+          echo "=== Checking forbidden patterns ==="
+
+          FAILED=0
+
+          # PostgreSQL 충돌 검사
+          if grep -r --include="*.yaml" --include="*.yml" --include="*.properties" \
+             -l "jdbc:postgresql\|PostgreSQL\|postgresql" . \
+             --exclude-dir=.git --exclude-dir=node_modules 2>/dev/null | grep -v DECISIONS.md | grep -v AGENTS.md | grep -v CLAUDE.md | grep -v README.md; then
+            echo "ERROR: PostgreSQL 설정 발견! MySQL 8.0만 허용"
+            FAILED=1
+          fi
+
+          # ZooKeeper 충돌 검사
+          if grep -r --include="*.yaml" --include="*.yml" --include="*.properties" \
+             -l "zookeeper.connect" . \
+             --exclude-dir=.git 2>/dev/null; then
+            echo "ERROR: ZooKeeper 설정 발견! KRaft만 허용"
+            FAILED=1
+          fi
+
+          # .env 파일이 커밋되지 않았는지 확인
+          if [ -f .env ]; then
+            echo "ERROR: .env 파일이 커밋되었습니다! .gitignore에 .env를 추가하세요"
+            FAILED=1
+          fi
+
+          if [ $FAILED -eq 0 ]; then
+            echo "All checks passed!"
+          else
+            exit 1
+          fi
