@@ -2,13 +2,13 @@ name: QT-AI CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master, develop ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ master, develop ]
 
 jobs:
   # ===========================================================================
-  # Spring Boot 서비스 (gateway, bff-aggregator, auth, bible, journal)
+  # Spring Boot 서비스 (gateway, bff-aggregator, auth, bible, ai, journal)
   # ===========================================================================
   spring-build:
     name: Spring Boot Build & Test
@@ -20,6 +20,7 @@ jobs:
           - bff-aggregator
           - auth-service
           - bible-service
+          - ai-service
           - journal-service
     defaults:
       run:
@@ -50,50 +51,6 @@ jobs:
         run: |
           if [ -f gradlew ]; then
             ./gradlew test --no-daemon
-          fi
-
-  # ===========================================================================
-  # AI Service (Python FastAPI)
-  # ===========================================================================
-  ai-service-lint:
-    name: AI Service Lint & Test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/ai-service
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            echo "requirements.txt not found, skipping for now"
-          fi
-
-      - name: Lint with ruff (if available)
-        run: |
-          if command -v ruff &> /dev/null; then
-            ruff check .
-          elif [ -f requirements.txt ] && grep -q ruff requirements.txt; then
-            ruff check .
-          else
-            echo "ruff not configured yet, skipping"
-          fi
-
-      - name: Run Tests
-        run: |
-          if [ -f requirements.txt ] && grep -q pytest requirements.txt; then
-            pytest
-          else
-            echo "pytest not configured yet, skipping"
           fi
 
   # ===========================================================================
@@ -157,6 +114,12 @@ jobs:
              -l "zookeeper.connect" . \
              --exclude-dir=.git 2>/dev/null; then
             echo "ERROR: ZooKeeper 설정 발견! KRaft만 허용"
+            FAILED=1
+          fi
+
+          # ai-service에 Python 파일 있으면 경고 (Spring Boot 전환 후 Python 금지)
+          if find services/ai-service -name "*.py" -o -name "requirements.txt" 2>/dev/null | grep -q .; then
+            echo "ERROR: ai-service에 Python 파일 발견! Spring Boot 전담 (DECISIONS.md §6)"
             FAILED=1
           fi
 

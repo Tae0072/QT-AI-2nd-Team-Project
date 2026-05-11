@@ -29,11 +29,13 @@
 
 ## ai-service PR 시 추가 체크
 
-<!-- ai-service가 아니리면 삭제 -->
+<!-- ai-service 관련 PR이 아니면 삭제 -->
 
-- [ ] Python FastAPI 코드만 있음 (Java/Spring Boot 없음)
+- [ ] Spring Boot 3.3 / Java 21 준수 (Python 파일 없음)
+- [ ] LLM 호출: `com.anthropic:anthropic-java` (공급자 교체 금지)
+- [ ] SSE: Spring `SseEmitter` 사용
+- [ ] SSE 이벤트 순서: `turn_started` → `token` → `rag_sources` → `turn_completed` → `[DONE]`
 - [ ] Kafka envelope `data` 키 사용
-- [ ] SSE 이벤트: `turn_started` → `token` → `rag_sources` → `turn_completed` → `[DONE]`
 
 ## 테스트
 

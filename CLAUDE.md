@@ -31,11 +31,11 @@
 
 ```
 services/
-├── gateway/           # Owner: 강태오 — JWT 필터, 라우팅, Rate Limit (Spring Boot 3.3)
+├── gateway/           # Owner: 강태오 — JWT 필터, 라우팅, Rate Limit (Spring Cloud Gateway)
 ├── bff-aggregator/    # Owner: 강태오 — UseCase 패턴, CompletableFuture 병렬 호출 (Spring Boot 3.3)
 ├── auth-service/      # Owner: 이지윤 — JWT RS256, Google OAuth, Refresh Rotation (Spring Boot 3.3)
 ├── bible-service/     # Owner: 김태혁 — 성경 다중 JOIN, Redis 캐시 (Spring Boot 3.3)
-├── ai-service/        # Owner: 강상민 — FastAPI (Python 전담), ChromaDB RAG, SSE, 큐티 프롬프트
+├── ai-service/        # Owner: 강상민 — Anthropic Java SDK + SSE + ChromaDB RAG (Spring Boot 3.3)
 └── journal-service/   # Owner: 이승욱 — 이벤트 소싱, Kafka 컨슈머, @Lock PESSIMISTIC_WRITE (Spring Boot 3.3)
 
 apps/
@@ -57,17 +57,19 @@ workspaces/
 
 ---
 
-## 서비스별 기술 스택 (환각 방지)
+## 서비스별 기술 스택
 
 | 서비스 | 언어 | 프레임워크 | DB | 포트(로컬) |
 |--------|------|------------|-----|------------|
-| gateway | Java 21 | Spring Boot 3.3 | — | 8080 |
+| gateway | Java 21 | Spring Cloud Gateway | — | 8080 |
 | bff-aggregator | Java 21 | Spring Boot 3.3 | — | 8083 |
 | auth-service | Java 21 | Spring Boot 3.3 | MySQL 8.0 | 8081 |
 | bible-service | Java 21 | Spring Boot 3.3 | MySQL 8.0 | 8082 |
-| ai-service | Python 3.11+ | FastAPI | ChromaDB | 8085 |
+| ai-service | Java 21 | Spring Boot 3.3 | MySQL 8.0 + ChromaDB | 8085 |
 | journal-service | Java 21 | Spring Boot 3.3 | MySQL 8.0 | 8084 |
 | mobile | Dart | Flutter 3.24 | — | — |
+
+> **모든 백엔드가 Spring Boot로 통일됨.** (v1.0 Python FastAPI 결정 → W0에 Spring Boot로 전환)
 
 ---
 
@@ -111,29 +113,35 @@ Content-Type: application/problem+json
 
 ---
 
-## ai-service 전용 규칙 (Python FastAPI)
-
-> ⚠️ **ai-service 디렉토리에 Java / Kotlin / Spring Boot 코드 절대 금지**
+## ai-service 핵심 스택 (Spring Boot 3.3 / Java 21)
 
 ```
 services/ai-service/
-  main.py                      # FastAPI app 진입점
-  requirements.txt
-  routers/
-    session.py                 # POST /ai/sessions, POST /ai/sessions/{id}/turns (SSE)
-  rag/
-    chroma_client.py
-    embedder.py
-  prompts/
-    templates.py               # 큐티 A~D 시스템 프롬프트
-  kafka/
-    event_publisher.py         # ai.session.completed 발행
+  build.gradle.kts                  # com.anthropic:anthropic-java 포함
+  settings.gradle.kts
+  src/main/
+    java/com/qtai/ai/
+      AiServiceApplication.java
+      controller/AiSessionController.java        # POST /ai/sessions, POST /ai/sessions/{id}/turns (SSE)
+      service/
+        ClaudeStreamService.java                 # Anthropic Java SDK 래퍼 (SSE 스트리밍)
+        ChromaDbClient.java                      # ChromaDB REST 호출 (RestClient)
+      kafka/AiSessionCompletedPublisher.java     # ai.session.completed 발행
+      prompts/QtPromptTemplates.java             # 큐티 A~D 시스템 프롬프트
+    resources/
+      application.yml
 ```
 
-- LLM: Anthropic Claude API (SSE 스트리밍)
-- Vector Store: ChromaDB
-- Kafka 발행: `kafka-python` 또는 `confluent-kafka`
-- BFF에서 호출: `RestClient → http://ai-service.qtai.svc.cluster.local:8085`
+### 사용 라이브러리
+- **`com.anthropic:anthropic-java`** — Anthropic 공식 Java SDK, SSE 스트리밍 지원
+- **Spring `SseEmitter`** — 클라이언트로 SSE 프록시 스트리밍
+- **Spring `RestClient`** — ChromaDB REST API 호출
+- **Spring Kafka** — 이벤트 발행
+
+### 주의
+- LLM 공급자 교체 금지 (Anthropic Claude 고정 — DECISIONS.md §6)
+- Kafka envelope: `data` 키 사용 (`payload` 금지)
+- SSE 이벤트: `turn_started` → `token` → `rag_sources` → `turn_completed` → `[DONE]`
 
 ---
 
@@ -154,7 +162,6 @@ services/ai-service/
 ```
 
 > **`payload` 키 절대 금지 — 반드시 `data` 사용**
-> 전체 스키마 → [문서 레포 `events/schema/`](https://github.com/Tae0072/2nd-Team-Project/tree/main/events/schema)
 
 ---
 
@@ -193,7 +200,6 @@ turn_completed → 응답 완료
 ❌ build.gradle (Groovy) 생성
 ❌ application.yml에 평문 Secret
 ❌ 서비스 간 직접 DB JOIN
-❌ ai-service에 Spring Boot / Java 코드
 ❌ JOURNAL_EVENTS 수정·삭제
 ❌ Kafka envelope에 payload 키 사용
 ❌ 성경 데이터에 개역개정 / ESV / NIV 텍스트

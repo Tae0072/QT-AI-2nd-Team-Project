@@ -8,7 +8,7 @@
 ## 프로젝트 개요
 
 - **앱명:** QT-AI (큐티 AI) — 성경 묵상 AI 코칭 앱
-- **아키텍처:** Flutter + Spring Boot MSA + Python FastAPI + Kafka
+- **아키텍처:** Flutter + Spring Boot MSA (모든 백엔드 Java/Spring) + Kafka
 - **문서 레포:** https://github.com/Tae0072/2nd-Team-Project
 - **개발 레포:** https://github.com/Tae0072/QT-AI-2nd-Team-Project (이 레포)
 
@@ -44,9 +44,11 @@
 | Tracing | **Jaeger** + OpenTelemetry | — | **Tempo 금지** |
 | Logs | Loki + Promtail | — | |
 | Metrics | Prometheus + Micrometer | — | |
-| AI Backend | FastAPI | Python 3.11+ | Spring Boot 혼용 금지 |
-| Vector Store | ChromaDB | — | |
+| AI LLM SDK | **`com.anthropic:anthropic-java`** | 최신 | Anthropic 공식 Java SDK |
+| Vector Store | ChromaDB | — | Spring RestClient로 REST 호출 |
 | Mobile | Flutter | 3.24+ | Dart null-safety 필수 |
+
+> **모든 백엔드 서비스는 Spring Boot 3.3 / Java 21로 통일.** (v1.0 Python FastAPI 결정 → W0에 전환)
 
 ---
 
@@ -58,28 +60,30 @@
 | `services/bff-aggregator/` | 강태오 | UseCase 패턴, CompletableFuture 병렬 호출 |
 | `services/auth-service/` | 이지윤 | JWT RS256, Google OAuth, Refresh Rotation |
 | `services/bible-service/` | 김태혁 | 성경 다중 JOIN, Redis 캐시 |
-| `services/ai-service/` | 강상민 | FastAPI (Python), ChromaDB RAG, SSE, 큐티 A~D 프롬프트 |
+| `services/ai-service/` | 강상민 | Anthropic Java SDK, ChromaDB RAG, SSE, 큐티 A~D 프롬프트 |
 | `services/journal-service/` | 이승욱 | 이벤트 소싱, Kafka 컨슈머, PESSIMISTIC_WRITE |
 | `apps/mobile/` | 김지민 | Riverpod, Dio, SSE 수신, Sliver Scroll |
 
 ---
 
-## ai-service 스택 (Python FastAPI 단독 — Spring Boot 혼용 금지)
+## ai-service 스택 (Spring Boot 3.3 / Java 21)
 
 ```
 services/ai-service/
-  main.py               # FastAPI 진입점
-  requirements.txt
-  routers/
-    session.py          # POST /ai/sessions
-                        # POST /ai/sessions/{id}/turns  ← SSE 스트리밍
-  rag/
-    chroma_client.py
-    embedder.py
-  prompts/
-    templates.py        # 큐티 A~D 시스템 프롬프트
-  kafka/
-    event_publisher.py  # ai.session.completed 발행
+  build.gradle.kts            # com.anthropic:anthropic-java 포함
+  settings.gradle.kts
+  src/main/
+    java/com/qtai/ai/
+      AiServiceApplication.java
+      controller/AiSessionController.java     # POST /ai/sessions
+                                              # POST /ai/sessions/{id}/turns  ← SSE 스트리밍 (SseEmitter)
+      service/
+        ClaudeStreamService.java              # Anthropic Java SDK 래퍼
+        ChromaDbClient.java                   # ChromaDB REST 호출 (RestClient)
+      kafka/AiSessionCompletedPublisher.java  # ai.session.completed 발행
+      prompts/QtPromptTemplates.java          # 큐티 A~D 시스템 프롬프트
+    resources/
+      application.yml
 ```
 
 BFF → AI 서비스 호출:
@@ -180,7 +184,7 @@ Content-Type: application/problem+json
    → DataIntegrityViolationException catch + skip 패턴 필수
 ❌ Spring Boot 2.x 전용 API (WebMvcConfigurerAdapter, @EnableSwagger2 등)
 ❌ PostgreSQL dialect / ZooKeeper 설정 / Tempo tracing
-❌ ai-service에 Java/Spring Boot 코드
+❌ LLM 공급자 교체 (Anthropic Claude 고정)
 ❌ Kafka envelope에 payload 키 (data 사용)
 ❌ AI SSE 경로에 /messages (올바른 경로: /turns)
 ❌ 성경 데이터에 개역개정 / ESV / NIV
