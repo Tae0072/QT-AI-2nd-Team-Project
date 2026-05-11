@@ -1,0 +1,43 @@
+# CODEOWNERS — QT-AI 서비스별 코드 담당자
+#
+# PR 승인 전에 해당 Owner의 review가 필요합니다.
+# GitHub username을 실제 값으로 교체하세요.
+#
+# 형식: {path-pattern}   @{github-username}
+
+# 전체 파일 기본값 (Lead 강태오)
+*                           @Tae0072
+
+# =============================================================================
+# 서비스 담당자
+# =============================================================================
+
+# API Gateway — 강태오
+services/gateway/           @Tae0072
+
+# BFF Aggregator — 강태오
+services/bff-aggregator/    @Tae0072
+
+# Auth Service — 이지윤 (← GitHub username 입력 필요)
+# services/auth-service/    @jiyun-github-id
+
+# Bible Service — 김태혁 (← GitHub username 입력 필요)
+# services/bible-service/   @taehyeok-github-id
+
+# AI Service — 강상민 (← GitHub username 입력 필요)
+# services/ai-service/      @sangmin-github-id
+
+# Journal Service — 이승욱 (← GitHub username 입력 필요)
+# services/journal-service/ @seungwook-github-id
+
+# Flutter 앱 — 김지민 (← GitHub username 입력 필요)
+# apps/mobile/              @jimin-github-id
+
+# =============================================================================
+# 인프라 — 강태오
+# =============================================================================
+infra/                      @Tae0072
+.github/                    @Tae0072
+DECISIONS.md                @Tae0072
+CLAUDE.md                   @Tae0072
+AGENTS.md                   @Tae0072
