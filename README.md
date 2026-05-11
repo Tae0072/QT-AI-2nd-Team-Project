@@ -152,9 +152,18 @@ docker compose --profile observability up -d              # + Jaeger/Prometheus/
 ### 3. 서비스 실행 (예: ai-service)
 
 ```bash
-cd services/ai-service
-gradle wrapper --gradle-version=8.10   # 첫 1회만
-./gradlew bootRun
+./gradlew -p services/ai-service bootRun
+```
+
+서비스별 빌드/테스트:
+
+```bash
+./gradlew -p services/gateway test
+./gradlew -p services/bff-aggregator test
+./gradlew -p services/auth-service test
+./gradlew -p services/bible-service test
+./gradlew -p services/ai-service test
+./gradlew -p services/journal-service test
 ```
 
 ### 4. AI 에이전트 사용 시
