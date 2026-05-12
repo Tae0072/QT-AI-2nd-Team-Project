@@ -2,14 +2,11 @@ name: QT-AI CI
 
 on:
   push:
-    branches: [ master, develop ]
+    branches: [ master, dev ]
   pull_request:
-    branches: [ master, develop ]
+    branches: [ master, dev ]
 
 jobs:
-  # ===========================================================================
-  # Spring Boot 서비스 (gateway, bff-aggregator, auth, bible, ai, journal)
-  # ===========================================================================
   spring-build:
     name: Spring Boot Build & Test
     runs-on: ubuntu-latest
@@ -44,9 +41,6 @@ jobs:
       - name: Run Tests
         run: ./gradlew -p services/${{ matrix.service }} test --no-daemon
 
-  # ===========================================================================
-  # Flutter 앱
-  # ===========================================================================
   flutter-test:
     name: Flutter Test
     runs-on: ubuntu-latest
@@ -61,7 +55,7 @@ jobs:
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
-        continue-on-error: true  # pubspec.yaml 없으면 skip
+        continue-on-error: true
 
       - name: Install Flutter dependencies
         run: |
@@ -77,9 +71,6 @@ jobs:
             flutter test
           fi
 
-  # ===========================================================================
-  # DECISIONS.md 충돌 체크
-  # ===========================================================================
   decisions-guard:
     name: Decisions Guard
     runs-on: ubuntu-latest
@@ -89,10 +80,8 @@ jobs:
       - name: Check forbidden patterns
         run: |
           echo "=== Checking forbidden patterns ==="
-
           FAILED=0
 
-          # JDBC URL 기준으로만 검사 (주석 제외, .github 워크플로우 자체 제외)
           if grep -r --include="*.yaml" --include="*.yml" --include="*.properties" \
              -l "jdbc:postgresql" . \
              --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github 2>/dev/null; then
@@ -100,7 +89,6 @@ jobs:
             FAILED=1
           fi
 
-          # ZooKeeper 실제 설정값 검사 (.github 워크플로우 자체는 제외)
           if grep -r --include="*.yaml" --include="*.yml" --include="*.properties" \
              -l "zookeeper.connect" . \
              --exclude-dir=.git --exclude-dir=.github 2>/dev/null; then
@@ -108,15 +96,13 @@ jobs:
             FAILED=1
           fi
 
-          # ai-service에 Python 파일 있으면 경고 (Spring Boot 전환 후 Python 금지)
           if find services/ai-service -name "*.py" -o -name "requirements.txt" 2>/dev/null | grep -q .; then
             echo "ERROR: ai-service에 Python 파일 발견! Spring Boot 전담 (DECISIONS.md §6)"
             FAILED=1
           fi
 
-          # .env 파일이 커밋되지 않았는지 확인
           if [ -f .env ]; then
-            echo "ERROR: .env 파일이 커밋되었습니다! .gitignore에 .env를 추가하세요"
+            echo "ERROR: .env 파일이 커밋되었습니다!"
             FAILED=1
           fi
 
