@@ -92,10 +92,10 @@ jobs:
 
           FAILED=0
 
-          # JDBC URL 기준으로만 검사 (주석은 제외, 실제 연결 설정만 감지)
+          # JDBC URL 기준으로만 검사 (주석 제외, .github 워크플로우 자체 제외)
           if grep -r --include="*.yaml" --include="*.yml" --include="*.properties" \
              -l "jdbc:postgresql" . \
-             --exclude-dir=.git --exclude-dir=node_modules 2>/dev/null; then
+             --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github 2>/dev/null; then
             echo "ERROR: PostgreSQL JDBC URL 발견! MySQL 8.0만 허용 (DECISIONS.md §1)"
             FAILED=1
           fi
