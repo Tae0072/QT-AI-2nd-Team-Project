@@ -62,19 +62,17 @@ jobs:
               const raw = fs.readFileSync(outputFile, 'utf8');
               const data = JSON.parse(raw);
 
-              // JSON이 배열인 경우: type === 'result' 항목에서 추출
+              // JSON이 배열인 경우: type === 'result' 항목에서 추요
               if (Array.isArray(data)) {
                 const resultItem = data.find(item => item.type === 'result');
                 reviewText = resultItem
                   ? (resultItem.result || resultItem.output || resultItem.text || '')
                   : '';
-                console.log('배열 파싱 — resultItem 타입:', resultItem ? resultItem.type : 'not found');
+                console.log('배열 파싱 성공, result 길이:', reviewText.length);
               } else {
-                // JSON이 객체인 경우 (이전 형식)
                 reviewText = data.result || data.output || data.text || '';
+                console.log('객체 파싱 성공, result 길이:', reviewText.length);
               }
-
-              console.log('reviewText 길이:', reviewText.length);
             } catch(e) {
               console.log('JSON 읽기 실패:', e.message);
             }
@@ -84,7 +82,6 @@ jobs:
               return;
             }
 
-            // 마지막 줄에서 APPROVE / REQUEST_CHANGES 판별
             const lines = reviewText.trim().split('\n');
             const lastLine = lines[lines.length - 1].trim();
             const decision = lastLine === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES';
@@ -96,14 +93,13 @@ jobs:
             await github.rest.pulls.createReview({
               ...repoInfo,
               pull_number: prNumber,
-              body: `## 🤖 Claude 자동 코드 리뷰\n\n${reviewText}`,
+              body: `## \uD83E\uDD16 Claude \uC790\uB3D9 \ucf54\ub4dc \ub9ac\ubdf0\n\n${reviewText}`,
               event: decision
             });
             console.log('리뷰 등록 완료:', decision);
 
             if (decision !== 'APPROVE') return;
 
-            // APPROVE → CI 폴링 후 squash merge → dev
             const MAX_WAIT_MS   = 10 * 60 * 1000;
             const POLL_INTERVAL = 15 * 1000;
             const THIS_JOB_NAME = 'claude-review';
@@ -127,16 +123,16 @@ jobs:
               if (failed.length > 0) {
                 await github.rest.issues.createComment({
                   ...repoInfo, issue_number: prNumber,
-                  body: `## ⛔ 자동 머지 취소\n\nCI 실패: ${failed.map(r=>`\`${r.name}\``).join(', ')}\n\n수정 후 다시 push해주세요.`
+                  body: `## \u26D4 \uC790\uB3D9 \uBA38\uC9C0 \uCDE8\uC18C\n\nCI \uC2E4\uD328: ${failed.map(r=>\`\\\`${r.name}\\\`\`).join(', ')}\n\n\uC218\uC815 \uD6C4 \uB2E4\uC2DC push\uD574\uC8FC\uC138\uC694.`
                 });
                 return;
               }
               await github.rest.pulls.merge({ ...repoInfo, pull_number: prNumber, merge_method: 'squash' });
-              console.log('✅ squash merge → dev 완료');
+              console.log('\u2705 squash merge \u2192 dev \uC644\uB8CC');
               return;
             }
 
             await github.rest.issues.createComment({
               ...repoInfo, issue_number: prNumber,
-              body: '## ⏱️ 자동 머지 타임아웃\n\nCI 10분 내 미완료 — 직접 확인 후 머지해주세요.'
+              body: '## \u23F1\uFE0F \uC790\uB3D9 \uBA38\uC9C0 \uD0C0\uC784\uC544\uC6C3\n\nCI 10\uBD84 \uB0B4 \uBBF8\uC644\uB8CC \u2014 \uC9C1\uC811 \uD655\uC778 \uD6C4 \uBA38\uC9C0\uD574\uC8FC\uC138\uC694.'
             });
