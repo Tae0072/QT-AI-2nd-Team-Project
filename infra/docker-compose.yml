@@ -5,11 +5,11 @@
 #   docker compose up -d                          # 핵심 인프라만
 #   docker compose --profile observability up -d   # + Jaeger/Prometheus/Grafana
 #
-# 포트 (DECISIONS.md §1 기준):
+# 포트 (DECISIONS.md 기준):
 #   mysql            :3306
 #   redis-cache      :6379  (Bible Service 캐시)
 #   redis-ws         :6380  (Auth + BFF 세션)
-#   kafka            :9092  (KRaft 모드, ZooKeeper 없음)
+#   kafka            :9092  (KRaft 모드, ZooKeeper 미사용)
 #   schema-registry  :8086  (Apicurio)
 #   chromadb         :8000
 #   jaeger UI        :16686
@@ -21,7 +21,7 @@ name: qtai
 
 services:
   # =============================================================================
-  # MySQL 8.0 — PostgreSQL 금지
+  # MySQL 8.0 (DECISIONS.md 기준 RDBMS)
   # =============================================================================
   mysql:
     image: mysql:8.0
@@ -43,7 +43,7 @@ services:
       retries: 10
 
   # =============================================================================
-  # Redis x 2 — DECISIONS.md 기준
+  # Redis x 2 (DECISIONS.md 기준)
   # =============================================================================
   redis-cache:
     image: redis:7-alpine
@@ -70,7 +70,7 @@ services:
       interval: 5s
 
   # =============================================================================
-  # Kafka (KRaft 단일 노드) — ZooKeeper 금지
+  # Kafka KRaft 단일 노드 (DECISIONS.md 기준)
   # =============================================================================
   kafka:
     image: apache/kafka:3.8.0
@@ -96,8 +96,7 @@ services:
       - kafka-data:/var/lib/kafka/data
 
   # =============================================================================
-  # Apicurio Schema Registry — Confluent SR 금지 (라이선스)
-  # 호스트 포트 8086 — DECISIONS.md 기준 (Auth 8081과 충돌 방지)
+  # Apicurio Schema Registry (호스트 포트 8086, DECISIONS.md 기준)
   # =============================================================================
   schema-registry:
     image: apicurio/apicurio-registry-mem:2.5.11.Final
@@ -109,7 +108,7 @@ services:
       - kafka
 
   # =============================================================================
-  # ChromaDB — AI Service Vector Store
+  # ChromaDB (AI Service Vector Store)
   # =============================================================================
   chromadb:
     image: chromadb/chroma:0.5.18
@@ -125,7 +124,7 @@ services:
   # 실행: docker compose --profile observability up -d
   # =============================================================================
 
-  # Jaeger — Tempo 금지
+  # Jaeger (DECISIONS.md 기준 — Tempo 미사용)
   jaeger:
     image: jaegertracing/all-in-one:1.62
     container_name: qtai-jaeger

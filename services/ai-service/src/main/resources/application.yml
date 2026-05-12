@@ -42,13 +42,13 @@ spring:
           jwk-set-uri: ${AUTH_SERVICE_JWK_URI:http://auth-service:8081/.well-known/jwks.json}
 
 qtai:
-  # Anthropic Claude API
+  # Anthropic Claude API (DECISIONS.md §6)
   anthropic:
     api-key: ${ANTHROPIC_API_KEY}
-    model: claude-sonnet-4-5
+    model: claude-sonnet-4-6
     max-tokens: 4096
 
-  # ChromaDB — Vector Store
+  # ChromaDB (Vector Store)
   chromadb:
     host: ${CHROMADB_HOST:localhost}
     port: ${CHROMADB_PORT:8000}

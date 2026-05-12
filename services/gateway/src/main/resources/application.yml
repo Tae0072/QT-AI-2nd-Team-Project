@@ -4,7 +4,7 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
 
-  # Spring Cloud Gateway 라우팅 — DECISIONS.md §3 기준
+  # Spring Cloud Gateway 라우팅 (DECISIONS.md §3 기준)
   cloud:
     gateway:
       routes:
@@ -20,7 +20,7 @@ spring:
           predicates:
             - Path=/bible/**,/api/v1/commentary/**
 
-        # AI Service (Python FastAPI :8085)
+        # AI Service (Spring Boot :8085)
         - id: ai-service
           uri: http://ai-service:8085
           predicates:
@@ -38,7 +38,7 @@ spring:
           predicates:
             - Path=/auth/**
 
-  # JWT RS256 검증 — Auth Service의 JWK Set 사용
+  # JWT RS256 검증 (Auth Service JWK Set)
   security:
     oauth2:
       resourceserver:

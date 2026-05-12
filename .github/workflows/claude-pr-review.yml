@@ -44,7 +44,7 @@ jobs:
             4. **Spring Boot 3.x 호환성**: deprecated API 사용 여부
             5. **트랜잭션**: @Transactional 누락, 범위 오류
             6. **MSA 주의사항**: Kafka 이벤트 페어, API 호출 타임아웃, 서비스 의존성
-            7. **도메인 로직**: KTAS 레벨 처리, 응급 배차 로직의 정확성
+            7. **도메인 로직**: 성경 묵상 세션 흐름, AI 코칭 턴 처리, 묵상 노트 생성 로직의 정확성
 
             ## 응답 형식
             리뷰 내용을 한국어로 작성하고, 마지막 줄에 반드시 다음 중 하나만 출력:
@@ -62,7 +62,7 @@ jobs:
                 'anthropic-version': '2023-06-01'
               },
               body: JSON.stringify({
-                model: 'claude-Sonnet-4-6',
+                model: 'claude-sonnet-4-6',
                 max_tokens: 2000,
                 messages: [{ role: 'user', content: prompt }]
               })

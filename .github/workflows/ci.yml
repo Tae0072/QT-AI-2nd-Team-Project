@@ -92,19 +92,19 @@ jobs:
 
           FAILED=0
 
-          # PostgreSQL 충돌 검사
+          # JDBC URL 기준으로만 검사 (주석은 제외, 실제 연결 설정만 감지)
           if grep -r --include="*.yaml" --include="*.yml" --include="*.properties" \
-             -l "jdbc:postgresql\|PostgreSQL\|postgresql" . \
-             --exclude-dir=.git --exclude-dir=node_modules 2>/dev/null | grep -v DECISIONS.md | grep -v AGENTS.md | grep -v CLAUDE.md | grep -v README.md; then
-            echo "ERROR: PostgreSQL 설정 발견! MySQL 8.0만 허용"
+             -l "jdbc:postgresql" . \
+             --exclude-dir=.git --exclude-dir=node_modules 2>/dev/null; then
+            echo "ERROR: PostgreSQL JDBC URL 발견! MySQL 8.0만 허용 (DECISIONS.md §1)"
             FAILED=1
           fi
 
-          # ZooKeeper 충돌 검사
+          # ZooKeeper 실제 설정값 검사 (.github 워크플로우 자체는 제외)
           if grep -r --include="*.yaml" --include="*.yml" --include="*.properties" \
              -l "zookeeper.connect" . \
-             --exclude-dir=.git 2>/dev/null; then
-            echo "ERROR: ZooKeeper 설정 발견! KRaft만 허용"
+             --exclude-dir=.git --exclude-dir=.github 2>/dev/null; then
+            echo "ERROR: ZooKeeper 설정 발견! KRaft만 허용 (DECISIONS.md §3)"
             FAILED=1
           fi
 
