@@ -8,8 +8,9 @@ jobs:
   claude-review:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
+      checks: read
 
     steps:
       - name: Checkout code
@@ -27,6 +28,7 @@ jobs:
           echo "diff_b64=${DIFF_CONTENT}" >> $GITHUB_OUTPUT
 
       - name: Claude Code Review
+        id: claude_review
         uses: actions/github-script@v7
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -91,13 +93,93 @@ jobs:
               body: `## 🤖 Claude 자동 코드 리뷰\n\n${reviewText}`,
               event: decision
             });
-            // APPROVE인 경우에만 자동 머지 (CI도 통과한 경우)
-            if (decision === 'APPROVE') {
-              // Branch protection rule에서 required checks가 통과한 경우에만 머지
-              await github.rest.pulls.merge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.payload.pull_request.number,
-                merge_method: 'squash'
+
+            // decision을 다음 step으로 전달
+            core.setOutput('decision', decision);
+
+      # -----------------------------------------------------------------------
+      # CI 통과 확인 후 머지 (Claude APPROVE인 경우에만 실행)
+      # ci.yml 3개 job (spring-build, flutter-test, decisions-guard)이
+      # 모두 success여야 squash merge 진행
+      # -----------------------------------------------------------------------
+      - name: Wait for CI & Auto Merge
+        if: steps.claude_review.outputs.decision == 'APPROVE'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const MAX_WAIT_MS    = 10 * 60 * 1000;  // 최대 10분 대기
+            const POLL_INTERVAL  = 15 * 1000;        // 15초 간격 폴링
+            const THIS_JOB_NAME  = 'Claude PR Auto Review';
+
+            const sha = context.payload.pull_request.head.sha;
+            const prNumber = context.payload.pull_request.number;
+            const repoInfo = { owner: context.repo.owner, repo: context.repo.repo };
+
+            const startTime = Date.now();
+
+            while (Date.now() - startTime < MAX_WAIT_MS) {
+              const { data: { check_runs } } = await github.rest.checks.listForRef({
+                ...repoInfo,
+                ref: sha,
               });
+
+              // 현재 Claude 리뷰 job은 제외하고 CI job만 판별
+              const ciChecks = check_runs.filter(r => r.name !== THIS_JOB_NAME);
+
+              if (ciChecks.length === 0) {
+                console.log('CI 체크 아직 등록되지 않음, 대기 중...');
+                await new Promise(r => setTimeout(r, POLL_INTERVAL));
+                continue;
+              }
+
+              const pending = ciChecks.filter(r => r.status !== 'completed');
+              if (pending.length > 0) {
+                console.log(`CI 완료 대기 중: ${pending.map(r => r.name).join(', ')}`);
+                await new Promise(r => setTimeout(r, POLL_INTERVAL));
+                continue;
+              }
+
+              // 전체 완료 — 실패 여부 확인
+              const failed = ciChecks.filter(r => r.conclusion !== 'success');
+              if (failed.length > 0) {
+                const failList = failed.map(r => `\`${r.name}\` (${r.conclusion})`).join(', ');
+                console.log(`CI 실패 항목 있음 — 자동 머지 취소: ${failList}`);
+                await github.rest.issues.createComment({
+                  ...repoInfo,
+                  issue_number: prNumber,
+                  body: [
+                    '## ⛔ 자동 머지 취소',
+                    '',
+                    'Claude 리뷰는 **APPROVE**이나, 아래 CI 체크가 실패하여 머지하지 않습니다.',
+                    '',
+                    `**실패 항목:** ${failList}`,
+                    '',
+                    '오류를 수정한 뒤 다시 push해주세요.',
+                  ].join('\n')
+                });
+                return;
+              }
+
+              // 전체 success → squash merge
+              console.log('CI 전체 통과 — 자동 squash merge 진행');
+              await github.rest.pulls.merge({
+                ...repoInfo,
+                pull_number: prNumber,
+                merge_method: 'squash',
+              });
+              console.log('머지 완료');
+              return;
             }
+
+            // 10분 타임아웃
+            console.log('CI 대기 타임아웃 (10분) — 자동 머지 건너뜀');
+            await github.rest.issues.createComment({
+              ...repoInfo,
+              issue_number: prNumber,
+              body: [
+                '## ⏱️ 자동 머지 타임아웃',
+                '',
+                'CI 체크가 **10분** 내 완료되지 않아 자동 머지를 건너뜁니다.',
+                '직접 CI 결과를 확인한 뒤 머지해주세요.',
+              ].join('\n')
+            });
