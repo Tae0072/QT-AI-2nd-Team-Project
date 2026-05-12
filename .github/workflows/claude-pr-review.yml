@@ -50,28 +50,53 @@ jobs:
         if: always()
         uses: actions/github-script@v7
         env:
-          # RUNNER_TEMP를 명시적으로 전달 (claude-execution-output.json 경로용)
           CLAUDE_OUTPUT_FILE: ${{ runner.temp }}/claude-execution-output.json
+          OUTPUTS_RESULT: ${{ steps.claude_review.outputs.result }}
+          OUTPUTS_OUTPUT: ${{ steps.claude_review.outputs.output }}
         with:
           script: |
             const fs = require('fs');
 
-            // claude-code-base-action 결과를 JSON 파일에서 읽기
-            let reviewText = '';
+            // ── 진단: JSON 파일 전체 내용 출력 ──────────────────────────
             const outputFile = process.env.CLAUDE_OUTPUT_FILE;
-            console.log('JSON 파일 경로:', outputFile);
+            console.log('▶ JSON 파일 경로:', outputFile);
+            console.log('▶ outputs.result:', (process.env.OUTPUTS_RESULT || '').substring(0, 100));
+            console.log('▶ outputs.output:', (process.env.OUTPUTS_OUTPUT || '').substring(0, 100));
 
+            let rawFile = '';
             try {
-              const raw = fs.readFileSync(outputFile, 'utf8');
-              const data = JSON.parse(raw);
-              reviewText = data.result || '';
-              console.log('=== JSON 읽기 성공, 길이:', reviewText.length, '===');
+              rawFile = fs.readFileSync(outputFile, 'utf8');
+              console.log('▶ 파일 크기(bytes):', rawFile.length);
+              console.log('▶ 파일 내용(첫 500자):', rawFile.substring(0, 500));
             } catch(e) {
-              console.log('JSON 읽기 실패:', e.message);
+              console.log('▶ 파일 읽기 실패:', e.message);
+            }
+            // ────────────────────────────────────────────────────────────
+
+            // 리뷰 텍스트 추출 (여러 소스 시도)
+            let reviewText = '';
+
+            // 1순위: JSON 파일의 result / output / text 필드
+            if (rawFile) {
+              try {
+                const data = JSON.parse(rawFile);
+                console.log('▶ JSON 키 목록:', Object.keys(data).join(', '));
+                reviewText = data.result || data.output || data.text || '';
+              } catch(e) {
+                console.log('▶ JSON 파싱 실패:', e.message);
+              }
             }
 
+            // 2순위: action outputs.result
+            if (!reviewText) reviewText = process.env.OUTPUTS_RESULT || '';
+
+            // 3순위: action outputs.output
+            if (!reviewText) reviewText = process.env.OUTPUTS_OUTPUT || '';
+
+            console.log('▶ 최종 reviewText 길이:', reviewText.length);
+
             if (!reviewText) {
-              console.log('리뷰 출력 없음 — 워크플로우 로그를 확인하세요.');
+              console.log('리뷰 출력 없음 — 위 진단 로그를 확인하세요.');
               return;
             }
 
@@ -79,95 +104,55 @@ jobs:
             const lines = reviewText.trim().split('\n');
             const lastLine = lines[lines.length - 1].trim();
             const decision = lastLine === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES';
-
-            console.log('=== 판정:', decision, '===');
+            console.log('▶ 판정:', decision);
 
             const repoInfo = { owner: context.repo.owner, repo: context.repo.repo };
             const prNumber = context.payload.pull_request.number;
 
-            // PR에 리뷰 코멘트 등록
             await github.rest.pulls.createReview({
               ...repoInfo,
               pull_number: prNumber,
               body: `## 🤖 Claude 자동 코드 리뷰\n\n${reviewText}`,
               event: decision
             });
-            console.log('리뷰 등록 완료:', decision);
+            console.log('▶ 리뷰 등록 완료:', decision);
 
-            if (decision !== 'APPROVE') {
-              console.log('REQUEST_CHANGES — 자동 머지 건너뜀');
-              return;
-            }
+            if (decision !== 'APPROVE') return;
 
-            // APPROVE: CI 완료까지 최대 10분 폴링 후 squash merge → dev
+            // APPROVE → CI 폴링 후 squash merge
             const MAX_WAIT_MS   = 10 * 60 * 1000;
             const POLL_INTERVAL = 15 * 1000;
-            // 실제 job 이름 (YAML jobs: 아래 key)
             const THIS_JOB_NAME = 'claude-review';
             const sha = context.payload.pull_request.head.sha;
             const startTime = Date.now();
 
-            console.log('CI 완료 대기 시작, SHA:', sha);
-
             while (Date.now() - startTime < MAX_WAIT_MS) {
               const { data: { check_runs } } = await github.rest.checks.listForRef({
-                ...repoInfo,
-                ref: sha,
+                ...repoInfo, ref: sha,
               });
-
-              // 현재 claude-review job 제외하고 나머지 CI job만 확인
               const ciChecks = check_runs.filter(r => r.name !== THIS_JOB_NAME);
-              console.log('CI 체크 목록:', ciChecks.map(r => `${r.name}(${r.status}/${r.conclusion})`).join(', ') || '없음');
+              console.log('CI 체크:', ciChecks.map(r => `${r.name}(${r.conclusion || r.status})`).join(', ') || '없음');
 
               if (ciChecks.length === 0) {
-                console.log('CI 체크 없음 — 15초 후 재확인');
-                await new Promise(r => setTimeout(r, POLL_INTERVAL));
-                continue;
+                await new Promise(r => setTimeout(r, POLL_INTERVAL)); continue;
               }
-
-              const pending = ciChecks.filter(r => r.status !== 'completed');
-              if (pending.length > 0) {
-                console.log(`CI 완료 대기 중: ${pending.map(r => r.name).join(', ')}`);
-                await new Promise(r => setTimeout(r, POLL_INTERVAL));
-                continue;
+              if (ciChecks.some(r => r.status !== 'completed')) {
+                await new Promise(r => setTimeout(r, POLL_INTERVAL)); continue;
               }
-
               const failed = ciChecks.filter(r => r.conclusion !== 'success');
               if (failed.length > 0) {
-                const failList = failed.map(r => `\`${r.name}\` (${r.conclusion})`).join(', ');
                 await github.rest.issues.createComment({
-                  ...repoInfo,
-                  issue_number: prNumber,
-                  body: [
-                    '## ⛔ 자동 머지 취소',
-                    '',
-                    'Claude 리뷰는 **APPROVE**이나, 아래 CI 체크가 실패하여 머지하지 않습니다.',
-                    '',
-                    `**실패 항목:** ${failList}`,
-                    '',
-                    '오류를 수정한 뒤 다시 push해주세요.',
-                  ].join('\n')
+                  ...repoInfo, issue_number: prNumber,
+                  body: `## ⛔ 자동 머지 취소\n\nCI 실패: ${failed.map(r=>`\`${r.name}\``).join(', ')}\n\n수정 후 다시 push해주세요.`
                 });
                 return;
               }
-
-              console.log('CI 전체 통과 — squash merge → dev 진행');
-              await github.rest.pulls.merge({
-                ...repoInfo,
-                pull_number: prNumber,
-                merge_method: 'squash',
-              });
-              console.log('✅ 머지 완료 → dev');
+              await github.rest.pulls.merge({ ...repoInfo, pull_number: prNumber, merge_method: 'squash' });
+              console.log('✅ squash merge → dev 완료');
               return;
             }
 
             await github.rest.issues.createComment({
-              ...repoInfo,
-              issue_number: prNumber,
-              body: [
-                '## ⏱️ 자동 머지 타임아웃',
-                '',
-                'CI 체크가 **10분** 내 완료되지 않아 자동 머지를 건너뜁니다.',
-                '직접 CI 결과를 확인한 뒤 머지해주세요.',
-              ].join('\n')
+              ...repoInfo, issue_number: prNumber,
+              body: '## ⏱️ 자동 머지 타임아웃\n\nCI 10분 내 미완료 — 직접 확인 후 머지해주세요.'
             });
