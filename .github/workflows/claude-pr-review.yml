@@ -42,7 +42,7 @@ jobs:
             6. MSA 주의사항: Kafka 이벤트 페어, API 호출 타임아웃, 서비스 의존성
             7. 도메인 로직: 성경 묵상 세션 흐름, AI 코칭 턴 처리, 묵상 노트 생성 로직의 정확성
 
-            리뷰 내용을 모두 작성한 뒤, **마지막 줄**에 다른 텍스트 없이 다음 중 하나만 출력하세요:
+            리뷰 내용을 모두 작성한 뒤, 마지막 줄에 다른 텍스트 없이 다음 중 하나만 출력하세요:
             APPROVE
             REQUEST_CHANGES
 
@@ -54,85 +54,83 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-
-            let reviewText = '';
             const outputFile = process.env.CLAUDE_OUTPUT_FILE;
 
+            let reviewText = '';
             try {
               const raw = fs.readFileSync(outputFile, 'utf8');
               const data = JSON.parse(raw);
-
-              // JSON이 배열인 경우: type === 'result' 항목에서 추요
               if (Array.isArray(data)) {
-                const resultItem = data.find(item => item.type === 'result');
-                reviewText = resultItem
-                  ? (resultItem.result || resultItem.output || resultItem.text || '')
-                  : '';
-                console.log('배열 파싱 성공, result 길이:', reviewText.length);
+                const found = data.find(function(item) { return item.type === 'result'; });
+                reviewText = found ? (found.result || found.output || '') : '';
               } else {
-                reviewText = data.result || data.output || data.text || '';
-                console.log('객체 파싱 성공, result 길이:', reviewText.length);
+                reviewText = data.result || data.output || '';
               }
+              console.log('reviewText length:', reviewText.length);
             } catch(e) {
-              console.log('JSON 읽기 실패:', e.message);
+              console.log('JSON read error:', e.message);
             }
 
             if (!reviewText) {
-              console.log('리뷰 출력 없음');
+              console.log('No review output');
               return;
             }
 
             const lines = reviewText.trim().split('\n');
             const lastLine = lines[lines.length - 1].trim();
             const decision = lastLine === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES';
-            console.log('판정:', decision);
+            console.log('Decision:', decision);
 
-            const repoInfo = { owner: context.repo.owner, repo: context.repo.repo };
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
             const prNumber = context.payload.pull_request.number;
 
             await github.rest.pulls.createReview({
-              ...repoInfo,
+              owner: owner,
+              repo: repo,
               pull_number: prNumber,
-              body: `## \uD83E\uDD16 Claude \uC790\uB3D9 \ucf54\ub4dc \ub9ac\ubdf0\n\n${reviewText}`,
+              body: '## 🤖 Claude 자동 코드 리뷰\n\n' + reviewText,
               event: decision
             });
-            console.log('리뷰 등록 완료:', decision);
+            console.log('Review posted:', decision);
 
             if (decision !== 'APPROVE') return;
 
-            const MAX_WAIT_MS   = 10 * 60 * 1000;
+            const MAX_WAIT_MS = 10 * 60 * 1000;
             const POLL_INTERVAL = 15 * 1000;
-            const THIS_JOB_NAME = 'claude-review';
+            const THIS_JOB = 'claude-review';
             const sha = context.payload.pull_request.head.sha;
-            const startTime = Date.now();
+            const start = Date.now();
 
-            while (Date.now() - startTime < MAX_WAIT_MS) {
-              const { data: { check_runs } } = await github.rest.checks.listForRef({
-                ...repoInfo, ref: sha,
-              });
-              const ciChecks = check_runs.filter(r => r.name !== THIS_JOB_NAME);
-              console.log('CI 체크:', ciChecks.map(r => `${r.name}(${r.conclusion || r.status})`).join(', ') || '없음');
+            while (Date.now() - start < MAX_WAIT_MS) {
+              const resp = await github.rest.checks.listForRef({ owner: owner, repo: repo, ref: sha });
+              const ciChecks = resp.data.check_runs.filter(function(r) { return r.name !== THIS_JOB; });
+              const names = ciChecks.map(function(r) { return r.name + '(' + (r.conclusion || r.status) + ')'; }).join(', ');
+              console.log('CI checks:', names || 'none');
 
               if (ciChecks.length === 0) {
-                await new Promise(r => setTimeout(r, POLL_INTERVAL)); continue;
+                await new Promise(function(res) { setTimeout(res, POLL_INTERVAL); });
+                continue;
               }
-              if (ciChecks.some(r => r.status !== 'completed')) {
-                await new Promise(r => setTimeout(r, POLL_INTERVAL)); continue;
+              if (ciChecks.some(function(r) { return r.status !== 'completed'; })) {
+                await new Promise(function(res) { setTimeout(res, POLL_INTERVAL); });
+                continue;
               }
-              const failed = ciChecks.filter(r => r.conclusion !== 'success');
+              const failed = ciChecks.filter(function(r) { return r.conclusion !== 'success'; });
               if (failed.length > 0) {
+                const failNames = failed.map(function(r) { return r.name; }).join(', ');
                 await github.rest.issues.createComment({
-                  ...repoInfo, issue_number: prNumber,
-                  body: `## \u26D4 \uC790\uB3D9 \uBA38\uC9C0 \uCDE8\uC18C\n\nCI \uC2E4\uD328: ${failed.map(r=>\`\\\`${r.name}\\\`\`).join(', ')}\n\n\uC218\uC815 \uD6C4 \uB2E4\uC2DC push\uD574\uC8FC\uC138\uC694.`
+                  owner: owner, repo: repo, issue_number: prNumber,
+                  body: '## ⛔ 자동 머지 취소\n\nCI 실패: ' + failNames + '\n\n수정 후 다시 push해주세요.'
                 });
                 return;
               }
-              await github.rest.pulls.merge({ ...repoInfo, pull_number: prNumber, merge_method: 'squash' });
-              console.log('\u2705 squash merge \u2192 dev \uC644\uB8CC');
+              await github.rest.pulls.merge({ owner: owner, repo: repo, pull_number: prNumber, merge_method: 'squash' });
+              console.log('Merged to dev');
               return;
             }
 
             await github.rest.issues.createComment({
-              ...repoInfo, issue_number: prNumber,
-              body: '## \u23F1\uFE0F \uC790\uB3D9 \uBA38\uC9C0 \uD0C0\uC784\uC544\uC6C3\n\nCI 10\uBD84 \uB0B4 \uBBF8\uC644\uB8CC \u2014 \uC9C1\uC811 \uD655\uC778 \uD6C4 \uBA38\uC9C0\uD574\uC8FC\uC138\uC694.'
+              owner: owner, repo: repo, issue_number: prNumber,
+              body: '## ⏱️ 자동 머지 타임아웃\n\nCI 10분 내 미완료 — 직접 확인 후 머지해주세요.'
             });
