@@ -26,8 +26,8 @@ services/auth-service/      @ij447504-source
 # AI Service — 강상민
 services/ai-service/        @sangminka
 
-# Journal Service — 이승욱 (← GitHub username 공백 포함으로 보류, 확인 필요)
-# services/journal-service/ @seungwook-github-id
+# Journal Service — 이승욱
+services/journal-service/   @LeeSeung-Wook
 
 # Flutter 앱 — 김지민
 apps/mobile/                @rmfdnjf98
