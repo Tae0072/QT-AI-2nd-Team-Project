@@ -4,7 +4,7 @@ QT-AI는 성경 QT(조용한 시간)를 돕는 AI 코칭 앱입니다.
 
 ## 파트너 러너
 
-팔 Flutter 3.24 + Spring Boot 3.3 / Java 21 (MSA 6서비스)
+Flutter 3.24 + Spring Boot 3.3 / Java 21 (MSA 6서비스)
 
 ## 팀원
 
