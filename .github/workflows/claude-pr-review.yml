@@ -3,6 +3,9 @@ name: Claude PR Auto Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    # 팀원 PR 대상: dev 브랜치
+    # dev → master PR은 Lead(강태오)가 직접 검토 후 수동 머지
+    branches: [ dev ]
 
 jobs:
   claude-review:
@@ -52,7 +55,7 @@ jobs:
             REQUEST_CHANGES
 
       # -----------------------------------------------------------------------
-      # 리뷰 결과 PR에 등록 + APPROVE 시 CI 완료 확인 후 squash merge
+      # 리뷰 결과 PR에 등록 + APPROVE 시 CI 완료 확인 후 squash merge → dev
       # -----------------------------------------------------------------------
       - name: Post Review & Auto Merge
         if: always()
@@ -93,7 +96,7 @@ jobs:
               return;
             }
 
-            // APPROVE: CI 완료까지 최대 10분 폴링 후 squash merge
+            // APPROVE: CI 완료까지 최대 10분 폴링 후 squash merge → dev
             const MAX_WAIT_MS   = 10 * 60 * 1000;
             const POLL_INTERVAL = 15 * 1000;
             const THIS_JOB_NAME = 'Claude PR Auto Review';
@@ -139,14 +142,14 @@ jobs:
                 return;
               }
 
-              // 전체 success → squash merge
-              console.log('CI 전체 통과 — 자동 squash merge 진행');
+              // 전체 success → squash merge → dev
+              console.log('CI 전체 통과 — 자동 squash merge → dev 진행');
               await github.rest.pulls.merge({
                 ...repoInfo,
                 pull_number: prNumber,
                 merge_method: 'squash',
               });
-              console.log('머지 완료');
+              console.log('머지 완료 → dev');
               return;
             }
 
