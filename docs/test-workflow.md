@@ -7,3 +7,4 @@
 - 전체 success 시 squash merge 자동 진행
 
 테스트 시각: 2026-05-12
+재트리거: OAuth 방식 전환 후 재테스트 (CLAUDE_CODE_OAUTH_TOKEN)
