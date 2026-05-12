@@ -51,52 +51,36 @@ jobs:
         uses: actions/github-script@v7
         env:
           CLAUDE_OUTPUT_FILE: ${{ runner.temp }}/claude-execution-output.json
-          OUTPUTS_RESULT: ${{ steps.claude_review.outputs.result }}
-          OUTPUTS_OUTPUT: ${{ steps.claude_review.outputs.output }}
         with:
           script: |
             const fs = require('fs');
 
-            // ── 진단: JSON 파일 전체 내용 출력 ──────────────────────────
-            const outputFile = process.env.CLAUDE_OUTPUT_FILE;
-            console.log('▶ JSON 파일 경로:', outputFile);
-            console.log('▶ outputs.result:', (process.env.OUTPUTS_RESULT || '').substring(0, 100));
-            console.log('▶ outputs.output:', (process.env.OUTPUTS_OUTPUT || '').substring(0, 100));
-
-            let rawFile = '';
-            try {
-              rawFile = fs.readFileSync(outputFile, 'utf8');
-              console.log('▶ 파일 크기(bytes):', rawFile.length);
-              console.log('▶ 파일 내용(첫 500자):', rawFile.substring(0, 500));
-            } catch(e) {
-              console.log('▶ 파일 읽기 실패:', e.message);
-            }
-            // ────────────────────────────────────────────────────────────
-
-            // 리뷰 텍스트 추출 (여러 소스 시도)
             let reviewText = '';
+            const outputFile = process.env.CLAUDE_OUTPUT_FILE;
 
-            // 1순위: JSON 파일의 result / output / text 필드
-            if (rawFile) {
-              try {
-                const data = JSON.parse(rawFile);
-                console.log('▶ JSON 키 목록:', Object.keys(data).join(', '));
+            try {
+              const raw = fs.readFileSync(outputFile, 'utf8');
+              const data = JSON.parse(raw);
+
+              // JSON이 배열인 경우: type === 'result' 항목에서 추출
+              if (Array.isArray(data)) {
+                const resultItem = data.find(item => item.type === 'result');
+                reviewText = resultItem
+                  ? (resultItem.result || resultItem.output || resultItem.text || '')
+                  : '';
+                console.log('배열 파싱 — resultItem 타입:', resultItem ? resultItem.type : 'not found');
+              } else {
+                // JSON이 객체인 경우 (이전 형식)
                 reviewText = data.result || data.output || data.text || '';
-              } catch(e) {
-                console.log('▶ JSON 파싱 실패:', e.message);
               }
+
+              console.log('reviewText 길이:', reviewText.length);
+            } catch(e) {
+              console.log('JSON 읽기 실패:', e.message);
             }
-
-            // 2순위: action outputs.result
-            if (!reviewText) reviewText = process.env.OUTPUTS_RESULT || '';
-
-            // 3순위: action outputs.output
-            if (!reviewText) reviewText = process.env.OUTPUTS_OUTPUT || '';
-
-            console.log('▶ 최종 reviewText 길이:', reviewText.length);
 
             if (!reviewText) {
-              console.log('리뷰 출력 없음 — 위 진단 로그를 확인하세요.');
+              console.log('리뷰 출력 없음');
               return;
             }
 
@@ -104,7 +88,7 @@ jobs:
             const lines = reviewText.trim().split('\n');
             const lastLine = lines[lines.length - 1].trim();
             const decision = lastLine === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES';
-            console.log('▶ 판정:', decision);
+            console.log('판정:', decision);
 
             const repoInfo = { owner: context.repo.owner, repo: context.repo.repo };
             const prNumber = context.payload.pull_request.number;
@@ -115,11 +99,11 @@ jobs:
               body: `## 🤖 Claude 자동 코드 리뷰\n\n${reviewText}`,
               event: decision
             });
-            console.log('▶ 리뷰 등록 완료:', decision);
+            console.log('리뷰 등록 완료:', decision);
 
             if (decision !== 'APPROVE') return;
 
-            // APPROVE → CI 폴링 후 squash merge
+            // APPROVE → CI 폴링 후 squash merge → dev
             const MAX_WAIT_MS   = 10 * 60 * 1000;
             const POLL_INTERVAL = 15 * 1000;
             const THIS_JOB_NAME = 'claude-review';
