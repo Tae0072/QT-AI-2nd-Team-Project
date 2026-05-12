@@ -1,8 +1,5 @@
 // Auth Service — 이지윤
 // JWT RS256 발급 + Google OAuth + Refresh Rotation
-//
-// 사용 전 1회성 셋업:
-//   gradle wrapper --gradle-version=8.10
 
 plugins {
     java
@@ -29,7 +26,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-oauth2-client")  // Google OAuth
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
 
     // Kafka Producer (user.deactivated)
     implementation("org.springframework.kafka:spring-kafka")
@@ -45,6 +42,12 @@ dependencies {
     implementation("io.jsonwebtoken:jjwt-api:0.12.6")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
+
+    // Lombok
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
+    testCompileOnly("org.projectlombok:lombok")
+    testAnnotationProcessor("org.projectlombok:lombok")
 
     // Metrics + Tracing (Jaeger)
     implementation("io.micrometer:micrometer-registry-prometheus")
