@@ -18,6 +18,6 @@ Service-specific focus:
 | Service | Main W1 Fill-in |
 | --- | --- |
 | `gateway` | Gateway Auth, JWT filter, route config, rate limit policy |
-| `bff-aggregator` | passage/dashboard use cases, service clients, websocket notification bridge |
-| `bible-service` | book/verse/commentary model, Journal aggregate, Kafka idempotent consumer, Redis cache |
-| `ai-service` | session/turn model, DeepSeek streaming, ChromaDB RAG, completion event publisher |
+| `bff-aggregator` | today QT/passages use cases, service clients, websocket notification bridge |
+| `bible-service` | book/verse/commentary/explanation model, today Journal aggregate, Kafka idempotent consumer, Redis cache |
+| `ai-service` | today QT session/turn model, DeepSeek streaming, ChromaDB RAG, completion event publisher |

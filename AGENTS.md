@@ -25,8 +25,9 @@
 | 🟡 중요 | [문서 레포] `02_ERD_문서.md` | 테이블 구조·외래키 정책·인덱스 |
 | 🟡 중요 | [문서 레포] `03_아키텍처_정의서.md` | 서비스 경계·통신 패턴 |
 | 🟢 참고 | [문서 레포] `docs/adr/` | 기술 결정 근거 |
+| 🟢 참고 | [문서 레포] `24_회의결정_2026-05-13_오전.md` | 2026-05-13 오전 회의 MVP 제품 범위 |
 
-> **묵상 기록 API 기준:** 별도 Journal Service/OpenAPI를 사용하지 않는다. `/api/v1/journals...` 계약은 문서 레포 `apis/bible/openapi.yaml` 기준으로 Bible Service에서 구현한다.
+> **묵상 기록 API 기준:** 별도 Journal Service/OpenAPI를 사용하지 않는다. `/api/v1/journals...` 계약은 문서 레포 `apis/bible/openapi.yaml` 기준으로 Bible Service에서 구현한다. 자유 본문 `POST /api/v1/journals`는 만들지 않고, 오늘 QT DRAFT는 `POST /api/v1/journals/today`만 사용한다.
 
 ---
 
@@ -61,11 +62,25 @@
 | `services/gateway/` | 강태오 | Gateway Auth(JWT·Google OAuth·Refresh), 라우팅, Rate Limit |
 | `services/bff-aggregator/` | 강태오 | UseCase 패턴, CompletableFuture 병렬 호출, WebSocket 알림 |
 | `services/bible-service/` | 이지윤·이승욱 | 성경 본문, 주석, Redis 캐시, 묵상일지(Journal) 통합, Kafka 컨슈머 |
-| `services/ai-service/` | 강태오(팀장)·김태혁·강상민 | DeepSeek API, ChromaDB RAG, SSE, QT A~D 프롬프트 |
+| `services/ai-service/` | 강태오(팀장)·김태혁·강상민 | DeepSeek API, ChromaDB RAG, SSE, 오늘 QT AI 질문 |
 | `apps/mobile/` | 김지민 | Riverpod, Dio, SSE 수신, Sliver Scroll, 관리자 웹 보조 |
 
 > **Auth Service 제거 (2026-05-12):** 독립 `services/auth-service/` 신규 구현 금지. 인증은 Gateway Auth 모듈에서 처리한다.
 > **Journal Service 제거 (2026-05-12):** 독립 `services/journal-service/` 신규 구현 금지. 묵상일지는 Bible Service 도메인이다.
+
+---
+
+## 2026-05-13 MVP 제품 범위
+
+- 앱 첫 화면은 별도 홈이 아니라 오늘 QT 화면이다. 오늘 QT 본문/설명을 먼저 로딩하고 나머지는 백그라운드로 로딩한다.
+- 오늘 QT는 MVP에서 하루 1구절이다. API/DB는 `verseStart`, `verseEnd`를 쓰되 MVP에서는 두 값이 같다.
+- 일반 성경 보기/검색은 읽기 전용이다. AI 질문과 Journal 생성은 오늘 QT 본문에서만 허용한다.
+- AI 세션 생성은 `qtDate`와 passage가 오늘 QT와 일치해야 한다. 불일치 시 `AI_PASSAGE_NOT_TODAY_QT`.
+- 본문 설명(요약, 배경, 어려운 단어, 출처)은 Bible DB 저장 데이터다. AI는 적용 질문과 묵상 보조 응답에 집중한다.
+- Journal은 오늘 QT 기준 4필드(`felt`, `memorableVerse`, `application`, `prayer`) 자동 저장이다. 사용자에게 글자 수 제한을 노출하지 않는다.
+- `ai.session.completed`는 새 Journal 생성이 아니라 오늘 Journal에 `aiSessionId`와 AI 요약을 첨부한다.
+- 찬양은 AI 추천곡 저장/제거만 MVP에 포함한다. 직접 YouTube URL 입력, 가사/음원/스트리밍 제공은 제외한다.
+- 교회 인증은 MVP 기본 제외다. 버튼 자리는 둘 수 있지만 인증 여부로 앱 사용을 막지 않는다.
 
 ---
 
@@ -182,6 +197,12 @@ AI Service endpoint는 `POST /ai/sessions/{id}/turns`다. `/messages` 경로를 
 ❌ Kafka 컨슈머 idempotencyKey 검증 누락
    → DataIntegrityViolationException catch + skip 패턴
 ❌ 독립 auth-service / journal-service 신규 구현
+❌ 자유 본문 `POST /api/v1/journals` 생성
+❌ 오늘 QT가 아닌 본문에서 AI 세션 또는 Journal 생성
+❌ Journal 화면에 사용자 노출 글자 수 제한/저장 버튼 강제
+❌ 직접 YouTube URL 입력, 가사/음원/스트리밍 제공
+❌ 교회 인증을 필수 가입/사용 gate로 처리
+❌ 별도 홈 화면을 첫 화면으로 강제
 ❌ Spring Boot 2.x 전용 API
 ❌ PostgreSQL dialect / ZooKeeper 설정 / Tempo tracing
 ❌ Anthropic SDK 또는 Claude 고정 코드
