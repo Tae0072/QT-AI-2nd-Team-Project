@@ -21,7 +21,7 @@ services/bff-aggregator/    @Tae0072
 services/bible-service/     @ij447504-source @LeeSeung-Wook
 
 # AI Service — 강태오·김태혁·강상민
-services/ai-service/        @Tae0072 @sangminka
+services/ai-service/        @Tae0072 @xogurrh012 @sangminka
 
 # Flutter 앱 — 김지민
 apps/mobile/                @rmfdnjf98

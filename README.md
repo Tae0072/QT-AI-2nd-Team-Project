@@ -18,7 +18,7 @@ QT-AI는 사용자가 매일 오늘 QT 본문을 읽고, AI의 묵상 보조 응
 | --- | --- | --- | --- |
 | 강태오 | Lead / Gateway / BFF / DevOps | `services/gateway/`, `services/bff-aggregator/`, `infra/` | `workspaces/Lead_강태오/` |
 | 이지윤 | Backend / Bible | `services/bible-service/` | `workspaces/DevA_이지윤/` |
-| 김태혁 | Backend / AI | `services/ai-service/` | `workspaces/DevB_김태혁/` |
+| 김태혁 ([@xogurrh012](https://github.com/xogurrh012)) | Backend / AI | `services/ai-service/` | `workspaces/DevB_김태혁/` |
 | 강상민 | Backend / AI/RAG | `services/ai-service/` | `workspaces/DevC_강상민/` |
 | 이승욱 | Backend / Bible + Kafka | `services/bible-service/` | `workspaces/DevD_이승욱/` |
 | 김지민 | Frontend | `apps/mobile/` | `workspaces/DevE_김지민/` |
