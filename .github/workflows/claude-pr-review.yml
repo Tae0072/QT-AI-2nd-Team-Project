@@ -42,6 +42,13 @@ jobs:
             6. MSA 주의사항: Kafka 이벤트 페어, API 호출 타임아웃, 서비스 의존성
             7. 도메인 로직: 성경 묵상 세션 흐름, AI 코칭 턴 처리, 묵상 노트 생성 로직의 정확성
 
+            ## 테스트 코드 필수 조건 (중요!)
+            - feat / fix / refactor 타입 PR은 단위 테스트(Unit Test) 코드가 반드시 PR에 포함되어야 합니다.
+            - 통합 테스트(Integration Test)가 포함되거나, 미포함 사유가 PR 본문에 명시되어야 합니다.
+            - "다음 PR에서 추가 예정" 이라는 사유만으로는 APPROVE 불가 — REQUEST_CHANGES를 내리세요.
+            - 테스트가 존재하더라도 핵심 로직(Service, UseCase)에 대한 테스트가 없으면 REQUEST_CHANGES.
+            - docs / chore 타입은 테스트 불필요.
+
             리뷰 내용을 모두 작성한 뒤, 마지막 줄에 다른 텍스트 없이 다음 중 하나만 출력하세요:
             APPROVE
             REQUEST_CHANGES

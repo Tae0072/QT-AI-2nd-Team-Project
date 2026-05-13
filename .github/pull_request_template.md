@@ -1,14 +1,11 @@
 ## 구현 내용
-
-<!-- 이 PR에서 문제를 해결하거나 추가하는 변경 사항을 간략하게 설명하세요. -->
+<!-- 이 PR에서 해결하거나 추가하는 변경 사항을 간략하게 설명하세요. -->
 
 ## 관련 이슈 / 타스크
-
 <!-- Closes #000 / Fixes #000 -->
 
 ## 변경 유형
-
-- [ ] 특정 (feat)
+- [ ] 기능 추가 (feat)
 - [ ] 버그 수정 (fix)
 - [ ] 리팩토링 (refactor)
 - [ ] 테스트 (test)
@@ -16,7 +13,6 @@
 - [ ] 인프라 / CI (chore)
 
 ## 코드 체크리스트
-
 - [ ] `DECISIONS.md` 값과 충돌이 없음
 - [ ] PostgreSQL / ZooKeeper / Tempo 코드 없음
 - [ ] `application.yml` 또는 코드에 평문 Secret 없음
@@ -25,22 +21,13 @@
 - [ ] 성경 데이터: 개역개정/ESV/NIV 코드 없음
 - [ ] `@Transactional` 없는 DB 변경 메서드 없음
 - [ ] Kafka 이벤트 발행은 `@TransactionalEventListener(AFTER_COMMIT)`
-- [ ] 테스트 코드 포함 또는 테스트 고려 이유 명시
 
-## ai-service PR 시 추가 체크
+## 테스트 체크리스트
+<!-- feat / fix / refactor 타입은 아래 항목 필수 — 미충족 시 Claude가 REQUEST_CHANGES -->
+- [ ] 단위 테스트(Unit Test) 작성 완료 및 `./gradlew test` 로컬 통과
+- [ ] 통합 테스트(Integration Test) 작성 완료
+      또는 미작성 사유: <!-- 예: 외부 의존성(Google OAuth) 특성상 Mock 처리 -->
+- [ ] docs / chore 타입은 해당 없음 (위 항목 무시)
 
-<!-- ai-service 관련 PR이 아니면 삭제 -->
-
-- [ ] Spring Boot 3.3 / Java 21 준수 (Python 파일 없음)
-- [ ] LLM 호출: `com.anthropic:anthropic-java` (공급자 교체 금지)
-- [ ] SSE: Spring `SseEmitter` 사용
-- [ ] SSE 이벤트 순서: `turn_started` → `token` → `rag_sources` → `turn_completed` → `[DONE]`
-- [ ] Kafka envelope `data` 키 사용
-
-## 테스트
-
+## 테스트 방법
 <!-- 어떻게 테스트했는지 설명 (Unit / Integration / 수동) -->
-
-## 스크린샷 / 로그 (선택)
-
-<!-- 필요시 넣어주세요 -->
