@@ -1,95 +1,100 @@
 # AGENTS.md — QT-AI AI 에이전트 협업 가이드
 
-> Cursor / GitHub Copilot / 기타 AI 에이전트가 이 저장소에서 작업할 때 반드시 참조해야 하는 컨텍스트 파일.
-> **Claude Code 사용자는 `CLAUDE.md`도 함께 참조.**
+> Cursor / GitHub Copilot / Claude Code / 기타 AI 에이전트가 이 저장소에서 작업할 때 반드시 참조해야 하는 컨텍스트 파일.
+> 문서 레포 최신 기준과 충돌하면 `DECISIONS.md`가 우선이다.
 
 ---
 
 ## 프로젝트 개요
 
 - **앱명:** QT-AI (큐티 AI) — 성경 묵상 AI 코칭 앱
-- **아키텍처:** Flutter + Spring Boot MSA (모든 백엔드 Java/Spring) + Kafka
+- **아키텍처:** Flutter + Spring Boot MSA + Kafka
 - **문서 레포:** https://github.com/Tae0072/2nd-Team-Project
-- **개발 레포:** https://github.com/Tae0072/QT-AI-2nd-Team-Project (이 레포)
+- **개발 레포:** https://github.com/Tae0072/QT-AI-2nd-Team-Project
+- **문서 레포 base URL:** `https://github.com/Tae0072/2nd-Team-Project/blob/master/`
 
 ---
 
-## 필수 참조 문서 (코드 생성 전 반드시 로드)
+## 필수 참조 문서
 
 | 우선순위 | 파일 | 목적 |
-|----------|------|------|
-| 🔴 필수 | `DECISIONS.md` (이 레포) | 포트·TTL·스택·저작권 단일 기준 |
+| --- | --- | --- |
+| 🔴 필수 | `DECISIONS.md` (이 레포) | 포트·TTL·스택·Route·Envelope 단일 기준 |
 | 🔴 필수 | [문서 레포] `apis/{service}/openapi.yaml` | 작업 서비스 API 계약 |
-| 🔴 필수 | [문서 레포] `events/schema/{topic}-value.json` | Kafka envelope 스키마 |
-| 🟡 중요 | [문서 레포] `02_ERD_문서.md` | 테이블 구조·외래키·인덱스 |
+| 🔴 필수 | [문서 레포] `events/schema/{topic}-value.json` | Kafka envelope 및 data 스키마 |
+| 🟡 중요 | [문서 레포] `02_ERD_문서.md` | 테이블 구조·외래키 정책·인덱스 |
 | 🟡 중요 | [문서 레포] `03_아키텍처_정의서.md` | 서비스 경계·통신 패턴 |
-| 🟢 참고 | [문서 레포] `docs/adr/` | 기술 결정 근거 (ADR) |
+| 🟢 참고 | [문서 레포] `docs/adr/` | 기술 결정 근거 |
 
-**문서 레포 base URL:** `https://github.com/Tae0072/2nd-Team-Project/blob/main/`
+> **묵상 기록 API 기준:** 별도 Journal Service/OpenAPI를 사용하지 않는다. `/api/v1/journals...` 계약은 문서 레포 `apis/bible/openapi.yaml` 기준으로 Bible Service에서 구현한다.
 
 ---
 
-## 기술 스택 확정 목록 (환각 방지)
+## 기술 스택 확정 목록
 
 | 영역 | 확정 스택 | 버전 | 주의 |
-|------|----------|------|------|
+| --- | --- | --- | --- |
 | JDK | Java | 21 LTS | Java 17 코드 생성 금지 |
-| Framework | Spring Boot | 3.3.x | 2.x API 사용 금지 |
-| Build | Gradle Kotlin DSL | 8.x | `build.gradle` (Groovy) 생성 금지 |
-| RDBMS | **MySQL** | 8.0 | **PostgreSQL 절대 금지** |
-| ORM | JPA + Hibernate | 6.x | `@SQLRestriction` 사용 (`@Where` 금지) |
+| Framework | Spring Boot | 3.3.x | Spring Boot 2.x API 사용 금지 |
+| Build | Gradle Kotlin DSL | 8.x | `build.gradle` Groovy 생성 금지 |
+| RDBMS | MySQL | 8.0 | PostgreSQL dialect/DDL 금지 |
+| ORM | JPA + Hibernate | 6.x | `@SQLRestriction` 사용, `@Where` 금지 |
 | Migration | Flyway | 10.x | |
-| Messaging | Kafka | KRaft 모드 | **ZooKeeper 금지** |
+| Messaging | Kafka | KRaft mode | ZooKeeper 금지 |
 | Schema Registry | Apicurio Registry | 2.5+ | |
-| Tracing | **Jaeger** + OpenTelemetry | — | **Tempo 금지** |
+| Tracing | Jaeger + OpenTelemetry | — | Tempo 금지 |
 | Logs | Loki + Promtail | — | |
 | Metrics | Prometheus + Micrometer | — | |
-| AI LLM SDK | **`com.anthropic:anthropic-java`** | 최신 | Anthropic 공식 Java SDK |
-| Vector Store | ChromaDB | — | Spring RestClient로 REST 호출 |
+| AI LLM | DeepSeek API | OpenAI 호환 | Anthropic SDK 코드 생성 금지 |
+| LLM Client | Spring `RestClient` 또는 streaming 처리용 `WebClient` | — | 별도 Anthropic SDK 없음 |
+| Vector Store | ChromaDB | — | Spring `RestClient`로 REST 호출 |
 | Mobile | Flutter | 3.24+ | Dart null-safety 필수 |
 
-> **모든 백엔드 서비스는 Spring Boot 3.3 / Java 21로 통일.** (v1.0 Python FastAPI 결정 → W0에 전환)
+> 모든 백엔드 서비스는 Spring Boot 3.3 / Java 21로 통일한다.
 
 ---
 
 ## 서비스별 담당자
 
 | 서비스 디렉토리 | Owner | 담당 범위 |
-|----------------|-------|----------|
-| `services/gateway/` | 강태오 | JWT 필터, 라우팅, Rate Limit |
-| `services/bff-aggregator/` | 강태오 | UseCase 패턴, CompletableFuture 병렬 호출 |
-| `services/auth-service/` | 이지윤 | JWT RS256, Google OAuth, Refresh Rotation |
-| `services/bible-service/` | 김태혁 | 성경 다중 JOIN, Redis 캐시 |
-| `services/ai-service/` | 강상민 | Anthropic Java SDK, ChromaDB RAG, SSE, 큐티 A~D 프롬프트 |
-| `services/journal-service/` | 이승욱 | 이벤트 소싱, Kafka 컨슈머, PESSIMISTIC_WRITE |
-| `apps/mobile/` | 김지민 | Riverpod, Dio, SSE 수신, Sliver Scroll |
+| --- | --- | --- |
+| `services/gateway/` | 강태오 | Gateway Auth(JWT·Google OAuth·Refresh), 라우팅, Rate Limit |
+| `services/bff-aggregator/` | 강태오 | UseCase 패턴, CompletableFuture 병렬 호출, WebSocket 알림 |
+| `services/bible-service/` | 이지윤·이승욱 | 성경 본문, 주석, Redis 캐시, 묵상일지(Journal) 통합, Kafka 컨슈머 |
+| `services/ai-service/` | 강태오(팀장)·김태혁·강상민 | DeepSeek API, ChromaDB RAG, SSE, QT A~D 프롬프트 |
+| `apps/mobile/` | 김지민 | Riverpod, Dio, SSE 수신, Sliver Scroll, 관리자 웹 보조 |
+
+> **Auth Service 제거 (2026-05-12):** 독립 `services/auth-service/` 신규 구현 금지. 인증은 Gateway Auth 모듈에서 처리한다.
+> **Journal Service 제거 (2026-05-12):** 독립 `services/journal-service/` 신규 구현 금지. 묵상일지는 Bible Service 도메인이다.
 
 ---
 
-## ai-service 스택 (Spring Boot 3.3 / Java 21)
+## AI Service 스택
 
-```
+```text
 services/ai-service/
-  build.gradle.kts            # com.anthropic:anthropic-java 포함
+  build.gradle.kts                    # DeepSeek API 호출, Anthropic SDK 없음
   settings.gradle.kts
   src/main/
     java/com/qtai/ai/
       AiServiceApplication.java
-      presentation/AiSessionController.java   # POST /ai/sessions, POST /ai/sessions/{id}/turns
-      application/usecase/                    # StartSession, ProcessTurn, CompleteSession
-      domain/model/                           # AiSession, AiTurn, PromptTemplate
+      presentation/AiSessionController.java     # POST /ai/sessions, POST /ai/sessions/{id}/turns
+      application/usecase/
+      domain/model/
       infrastructure/
-        llm/ClaudeStreamService.java          # Anthropic Java SDK 래퍼
-        rag/ChromaDbClient.java               # ChromaDB REST 호출 (RestClient)
+        llm/DeepSeekStreamService.java          # DeepSeek OpenAI 호환 API 래퍼
+        rag/ChromaDbClient.java                 # ChromaDB REST 호출
         kafka/AiSessionCompletedPublisher.java
-      prompt/QtPromptTemplates.java           # 큐티 A~D 시스템 프롬프트
-    resources/
-      application.yml
+      prompt/QtPromptTemplates.java
+    resources/application.yml
 ```
 
-BFF → AI 서비스 호출:
+BFF → AI 서비스 호출 예:
+
 ```java
-RestClient.post().uri("http://ai-service.qtai.svc.cluster.local:8085/ai/sessions").retrieve()
+RestClient.post()
+    .uri("http://ai-service.qtai.svc.cluster.local:8085/ai/sessions")
+    .retrieve();
 ```
 
 ---
@@ -98,96 +103,90 @@ RestClient.post().uri("http://ai-service.qtai.svc.cluster.local:8085/ai/sessions
 
 ```json
 {
-  "eventId":         "evt_01HZX...",
-  "eventType":       "ai.session.completed",
-  "eventVersion":    1,
-  "schemaSubject":   "ai.session.completed-value",
-  "occurredAt":      "2026-05-26T14:30:00Z",
-  "traceId":         "0af7651916cd43dd...",
+  "eventId": "evt_01HZX...",
+  "eventType": "ai.session.completed",
+  "eventVersion": 1,
+  "schemaSubject": "ai.session.completed-value",
+  "occurredAt": "2026-05-26T14:30:00Z",
+  "traceId": "0af7651916cd43dd...",
   "producerService": "ai-service",
-  "idempotencyKey":  "ai.session.completed:{sessionId}",
-  "data":            { }
+  "idempotencyKey": "ai.session.completed:{sessionId}",
+  "data": {}
 }
 ```
 
-> ⚠️ **`payload` 키 사용 금지 — `data`만 허용**
+> Envelope에서 `payload` 키 사용 금지. 표준 키는 `data`다.
 
-### 토픽별 idempotencyKey 형식
-
-| 토픽 | 형식 | Producer |
-|------|------|----------|
-| `user.deactivated` | `user.deactivated:{userId}` | auth-service |
+| 토픽 | idempotencyKey 형식 | Producer |
+| --- | --- | --- |
 | `user.activity.tracked` | `read.passage:{userId}:{book}:{ch}:{v}:{epochMinute}` | bff-aggregator |
 | `ai.session.completed` | `ai.session.completed:{sessionId}` | ai-service |
-| `journal.created` | `journal.created:{journalId}` | journal-service |
-| `journal.updated` | `journal.update:{ULID}` | journal-service |
-| `journal.deleted` | `journal.delete:{journalId}:{epochMs}` | journal-service |
-| `journal.creation.failed` | `journal.creation.failed:{sessionId}` | journal-service |
+| `journal.created` | `journal.created:{journalId}` | bible-service |
+| `journal.updated` | `journal.update:{ULID}` | bible-service |
+| `journal.deleted` | `journal.delete:{journalId}:{epochMs}` | bible-service |
+| `journal.creation.failed` | `journal.creation.failed:{sessionId}` | bible-service |
 | `notification.requested` | `{type}:{userId}:{occurredAt}` | 다수 |
+
+> `user.deactivated`는 MVP 제외. 계정 탈퇴와 해당 이벤트는 v1.1 이후 검토한다.
 
 ---
 
-## API 에러 응답 표준 (RFC 7807 ProblemDetail)
+## API 에러 응답 표준
 
-```
+```http
 Content-Type: application/problem+json
+```
+
+```json
 {
   "type": "https://api.qtai.app/errors/{slug}",
   "title": "...",
-  "status": 4xx 또는 5xx,
+  "status": 400,
   "code": "DOMAIN_ERROR_CODE",
   "traceId": "...",
   "timestamp": "2026-05-26T14:30:00.123Z"
 }
 ```
 
-> `application/json` + `ErrorResponse{code, message, traceId}` 구버전 패턴 생성 금지
+> `application/json` + `ErrorResponse{code, message, traceId}` 구버전 패턴 생성 금지.
 
 ---
 
-## SSE 이벤트 계약 (AI Service `/turns` 엔드포인트)
+## SSE 이벤트 계약
+
+AI Service endpoint는 `POST /ai/sessions/{id}/turns`다. `/messages` 경로를 만들지 않는다.
 
 | 이벤트 | 의미 |
-|--------|------|
-| `turn_started` | 응답 시작 신호 |
+| --- | --- |
+| `turn_started` | 응답 시작 |
 | `token` | 스트리밍 토큰 청크 |
 | `rag_sources` | RAG 참조 출처 |
-| `turn_completed` | 응답 완료 |
-| `[DONE]` | SSE 스트림 종료 |
+| `turn_completed` | 응답 완료와 DB 적재 완료 |
+| `error` | 스트림 중 오류 |
+| `end` | `data: [DONE]` 종료 신호 |
 
 ---
 
-## 토큰 정책
+## 금지 패턴
 
-| 항목 | 값 |
-|------|----|
-| Access Token TTL | **1800s (30분)** |
-| Refresh Token TTL | **14일** |
-| Refresh Blacklist | Redis-WS `auth:refresh:revoked:{jti}` TTL=만료까지 |
-| Access Blacklist | **없음** (30분 단명) |
-| JWT 알고리즘 | RS256 |
-
----
-
-## 금지 패턴 (환각 체크리스트)
-
-```
+```text
 ❌ @Transactional 없는 DB 변경 메서드
 ❌ @Transactional 블록 내 KafkaTemplate.send() 직접 호출
    → 반드시 @TransactionalEventListener(AFTER_COMMIT) 사용
 ❌ application.yml / 코드에 평문 API Key · 비밀번호
-   → K8s Secret + envFrom: secretKeyRef 필수
+   → K8s Secret + envFrom: secretKeyRef 사용
 ❌ 서비스 간 직접 DB JOIN / 직접 @Repository 공유
    → RestClient 또는 Kafka 이벤트로만
 ❌ JOURNAL_EVENTS 테이블 수정·삭제 코드
-   → append-only (이벤트 소싱)
-❌ Kafka 컨슈머에 idempotencyKey 검증 없음
-   → DataIntegrityViolationException catch + skip 패턴 필수
-❌ Spring Boot 2.x 전용 API (WebMvcConfigurerAdapter, @EnableSwagger2 등)
+   → append-only 이벤트 소싱
+❌ Kafka 컨슈머 idempotencyKey 검증 누락
+   → DataIntegrityViolationException catch + skip 패턴
+❌ 독립 auth-service / journal-service 신규 구현
+❌ Spring Boot 2.x 전용 API
 ❌ PostgreSQL dialect / ZooKeeper 설정 / Tempo tracing
-❌ LLM 공급자 교체 (Anthropic Claude 고정)
-❌ Kafka envelope에 payload 키 (data 사용)
-❌ AI SSE 경로에 /messages (올바른 경로: /turns)
+❌ Anthropic SDK 또는 Claude 고정 코드
+❌ Kafka envelope에 payload 키
+❌ AI SSE 경로에 /messages
 ❌ 성경 데이터에 개역개정 / ESV / NIV
 ```
 
@@ -196,31 +195,31 @@ Content-Type: application/problem+json
 ## 성경 데이터 저작권
 
 | 데이터 | 허용 여부 |
-|--------|-----------|
+| --- | --- |
 | KJV (영어) | ✅ Public Domain |
 | 개역한글 | ⚠️ 비상업·교육 목적 + 출처 표기 필수 |
 | Matthew Henry 주석 (영문) | ✅ Public Domain |
-| **개역개정** | ❌ **사용 금지 — 대한성서공회 저작권** |
-| **ESV / NIV** | ❌ **사용 금지 — 라이선스 비용** |
+| 개역개정 | ❌ 사용 금지 |
+| ESV / NIV | ❌ 사용 금지 |
 | 한글 주석 / 신학 논문 | ❌ 더미 데이터로 대체 |
 
 ---
 
 ## 워크스페이스 폴더 격리 규칙
 
-```
+```text
 workspaces/
-├── Lead_강태오/   ← 강태오 전용
-├── DevA_이지윤/   ← 이지윤 전용
-├── DevB_김태혁/   ← 김태혁 전용
-├── DevC_강상민/   ← 강상민 전용
-├── DevD_이승욱/   ← 이승욱 전용
-└── DevE_김지민/   ← 김지민 전용
+├── Lead_강태오/
+├── DevA_이지윤/
+├── DevB_김태혁/
+├── DevC_강상민/
+├── DevD_이승욱/
+└── DevE_김지민/
 ```
 
-1. **타인 폴더 접근 금지** — AI 에이전트도 동일
-2. `workspaces/` 내 파일은 빌드·런타임·CI에 영향 없음
-3. 작업 시작 전 `workflows/` → 작업 → `reports/` 순서 필수
-4. 공통 템플릿 `_template.md` 수정 금지
+1. 타인 폴더 접근 금지. AI 에이전트도 동일하다.
+2. `workspaces/` 내 파일은 빌드·런타임·CI에 영향이 없어야 한다.
+3. 작업 시작 전 `workflows/` 작성 → 작업 → `reports/` 작성 순서를 지킨다.
+4. 공통 템플릿 `_template.md`는 수정하지 않는다.
 
-세부 내용: `workspaces/README.md` 참조
+세부 내용은 `workspaces/README.md`를 참조한다.

@@ -27,15 +27,13 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${AUTH_SERVICE_JWK_URI:http://auth-service:8081/.well-known/jwks.json}
+          jwk-set-uri: ${GATEWAY_JWK_URI:http://gateway:8080/.well-known/jwks.json}
 
 # 다운스트림 서비스 endpoint
 qtai:
   services:
-    auth: ${AUTH_SERVICE_URL:http://auth-service:8081}
     bible: ${BIBLE_SERVICE_URL:http://bible-service:8082}
     ai: ${AI_SERVICE_URL:http://ai-service:8085}
-    journal: ${JOURNAL_SERVICE_URL:http://journal-service:8084}
 
 server:
   port: ${BFF_PORT:8083}

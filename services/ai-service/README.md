@@ -1,53 +1,34 @@
-# AI Service — 강상민
+# AI Service — DeepSeek/RAG/SSE
 
-## 역할
-AI 코칭 서비스 (**Spring Boot 3.3 / Java 21**)
+Owner: 강태오·김태혁·강상민
 
-## 담당
-- ChromaDB RAG (성경 구절 검색)
-- Anthropic Claude API 호출 (SSE 스트리밍)
-- 큐티 A~D 프롬프트 관리
-- 세션 완료 시 `ai.session.completed` Kafka 이벤트 발행
+## Scope
 
-## 포트
-8085 (로컬 / K8s ClusterIP 8080)
+- DeepSeek API(OpenAI 호환) 호출과 SSE 토큰 스트리밍
+- ChromaDB 기반 RAG 조회
+- AI session/turn 저장
+- `ai.session.completed` Kafka 이벤트 발행
 
-## 참조 명세
-- OpenAPI: https://github.com/Tae0072/2nd-Team-Project/blob/main/apis/ai/openapi.yaml
-- DECISIONS.md §6 — AI Service 스택
+## Stack
 
-## 핵심 라이브러리
-- `com.anthropic:anthropic-java:2.30.0` — Claude API (SSE 스트리밍 지원)
-- Spring `RestClient` — ChromaDB HTTP 호출
-- Spring `SseEmitter` — 클라이언트로 SSE 스트리밍
-- Spring Kafka — 이벤트 발행
+- Spring Boot 3.3 / Java 21
+- Spring `RestClient` 또는 streaming 처리용 `WebClient`
+- Spring `SseEmitter`
+- ChromaDB REST API
+- Spring Kafka
+- MySQL 8.0
 
-## 디렉토리 구조
-```
-services/ai-service/
-├── build.gradle.kts
-├── settings.gradle.kts
-└── src/main/
-    ├── java/com/qtai/ai/
-    │   ├── AiServiceApplication.java
-    │   ├── presentation/AiSessionController.java
-    │   ├── application/usecase/
-    │   ├── domain/model/
-    │   ├── infrastructure/
-    │   │   ├── llm/ClaudeStreamService.java
-    │   │   ├── rag/ChromaDbClient.java
-    │   │   └── kafka/AiSessionCompletedPublisher.java
-    │   └── prompt/QtPromptTemplates.java
-    └── resources/
-        └── application.yml
-```
+## Canonical Endpoints
 
-## SSE 이벤트 계약
-```
-turn_started → token (반복) → rag_sources → turn_completed → [DONE]
-```
+- `POST /ai/sessions`
+- `POST /ai/sessions/{sessionId}/turns`
+- `POST /ai/sessions/{sessionId}/complete`
+- `GET /ai/sessions/{sessionId}`
+- `GET /ai/sessions`
 
-## ⚠️ 주의
-- Kafka envelope: `data` 키 사용 (payload 아님)
-- Kafka 발행은 `@TransactionalEventListener(AFTER_COMMIT)` 패턴 사용
-- 성경 데이터: 개역개정 / ESV / NIV 적재 금지 (DECISIONS.md §8)
+## Guardrails
+
+- Anthropic SDK 사용 금지
+- `ANTHROPIC_API_KEY` 사용 금지
+- SSE 경로 `/messages` 생성 금지
+- Kafka envelope는 `data` 키 사용

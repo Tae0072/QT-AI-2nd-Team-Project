@@ -1,5 +1,5 @@
-// AI Service — 강상민
-// Anthropic Claude API (SSE 스트리밍) + ChromaDB RAG + Kafka 이벤트 발행
+// AI Service — 강태오·김태혁·강상민
+// DeepSeek API (OpenAI 호환 SSE) + ChromaDB RAG + Kafka 이벤트 발행
 // Spring Boot 3.3 / Java 21 — 다른 서비스와 일관된 스택
 //
 // 사용 전 1회성 셋업:
@@ -38,10 +38,6 @@ dependencies {
 
     // JWT 검증 (RS256)
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
-
-    // Anthropic Java SDK — Claude API (SSE 스트리밍 지원)
-    // 최신 버전 확인: https://github.com/anthropics/anthropic-sdk-java
-    implementation("com.anthropic:anthropic-java:2.30.0")
 
     // Kafka Producer (ai.session.completed)
     implementation("org.springframework.kafka:spring-kafka")

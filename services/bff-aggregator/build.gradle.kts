@@ -28,7 +28,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-websocket")  // STOMP
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
-    // RestClient (동기 HTTP) — Bible / Auth / Journal 호출
+    // RestClient (동기 HTTP) — Bible / AI 호출
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
     // WebClient + SSE (AI Service 프록시)

@@ -1,32 +1,32 @@
 package com.qtai.ai.infrastructure.llm;
 
-import com.anthropic.client.AnthropicClient;
-import com.anthropic.client.okhttp.AnthropicOkHttpClient;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 
 /**
- * Anthropic Claude API adapter.
+ * DeepSeek OpenAI-compatible API adapter.
  */
 @Service
-public class ClaudeStreamService {
+public class DeepSeekStreamService {
 
-    @Value("${qtai.anthropic.api-key}")
+    private final RestClient restClient;
+
+    @Value("${qtai.deepseek.api-key}")
     private String apiKey;
 
-    @Value("${qtai.anthropic.model:claude-sonnet-4-5}")
+    @Value("${qtai.deepseek.model:deepseek-chat}")
     private String model;
 
-    @Value("${qtai.anthropic.max-tokens:4096}")
+    @Value("${qtai.deepseek.max-tokens:4096}")
     private long maxTokens;
 
-    private AnthropicClient client;
-
-    @PostConstruct
-    void init() {
-        this.client = AnthropicOkHttpClient.builder()
-            .apiKey(apiKey)
+    public DeepSeekStreamService(
+        RestClient.Builder builder,
+        @Value("${qtai.deepseek.base-url:https://api.deepseek.com}") String baseUrl
+    ) {
+        this.restClient = builder
+            .baseUrl(baseUrl)
             .build();
     }
 

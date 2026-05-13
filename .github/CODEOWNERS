@@ -17,17 +17,11 @@ services/gateway/           @Tae0072
 # BFF Aggregator — 강태오
 services/bff-aggregator/    @Tae0072
 
-# Auth Service — 이지윤
-services/auth-service/      @ij447504-source
+# Bible Service — 이지윤·이승욱
+services/bible-service/     @ij447504-source @LeeSeung-Wook
 
-# Bible Service — 김태혁 (← GitHub username 입력 필요)
-# services/bible-service/   @taehyeok-github-id
-
-# AI Service — 강상민
-services/ai-service/        @sangminka
-
-# Journal Service — 이승욱
-services/journal-service/   @LeeSeung-Wook
+# AI Service — 강태오·김태혁·강상민
+services/ai-service/        @Tae0072 @sangminka
 
 # Flutter 앱 — 김지민
 apps/mobile/                @rmfdnjf98
