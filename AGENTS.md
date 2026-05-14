@@ -73,7 +73,7 @@
 ## 2026-05-13 MVP 제품 범위
 
 - 앱 첫 화면은 별도 홈이 아니라 오늘 QT 화면이다. 오늘 QT 본문/설명을 먼저 로딩하고 나머지는 백그라운드로 로딩한다.
-- 오늘 QT는 MVP에서 하루 1구절이다. API/DB는 `verseStart`, `verseEnd`를 쓰되 MVP에서는 두 값이 같다.
+- 오늘 QT는 **하루 1개 본문(범위 허용)** 이다 — 한 절·한 단락·다중 장 모두 가능 (DECISIONS.md §3.1, 02_ERD v2.3, ADR-0021). API/DB는 `chapterStart`·`verseStart`·`chapterEnd`·`verseEnd` + `startOrdinal`/`endOrdinal`을 사용한다. 한 절이면 start == end로 들어온다. 유일한 좌표 제약은 `(chapterStart, verseStart) ≤ (chapterEnd, verseEnd)`. **"오늘 QT 1개"** 원칙은 유지(qt_date PK).
 - 일반 성경 보기/검색은 읽기 전용이다. AI 질문과 Journal 생성은 오늘 QT 본문에서만 허용한다.
 - AI 세션 생성은 `qtDate`와 passage가 오늘 QT와 일치해야 한다. 불일치 시 `AI_PASSAGE_NOT_TODAY_QT`.
 - 본문 설명(요약, 배경, 어려운 단어, 출처)은 Bible DB 저장 데이터다. AI는 적용 질문과 묵상 보조 응답에 집중한다.

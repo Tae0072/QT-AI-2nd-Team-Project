@@ -4,36 +4,27 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
 
-  # Redis-WS (STOMP session, JWT blacklist) — DECISIONS.md 기준 6380
   data:
     redis:
       host: ${REDIS_WS_HOST:localhost}
       port: ${REDIS_WS_PORT:6380}
 
-  # Kafka Producer (user.activity.tracked)
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      acks: all
-      retries: 5
-      properties:
-        enable.idempotence: true
-        # Apicurio Schema Registry
-        apicurio.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8086/apis/registry/v2}
-        apicurio.registry.use-id: contentId
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
 
-  # JWT RS256 검증
   security:
     oauth2:
       resourceserver:
         jwt:
           jwk-set-uri: ${GATEWAY_JWK_URI:http://gateway:8080/.well-known/jwks.json}
 
-# 다운스트림 서비스 endpoint
-qtai:
-  services:
-    bible: ${BIBLE_SERVICE_URL:http://bible-service:8082}
-    ai: ${AI_SERVICE_URL:http://ai-service:8085}
+bff:
+  bible-service:
+    url: ${BIBLE_SERVICE_URL:http://bible-service:8082}
+  ai-service:
+    url: ${AI_SERVICE_URL:http://ai-service:8085}
 
 server:
   port: ${BFF_PORT:8083}

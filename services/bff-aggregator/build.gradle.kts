@@ -1,8 +1,5 @@
-// BFF Aggregator — 강태오
-// UseCase 패턴 + CompletableFuture 병렬 호출 + WebSocket(STOMP)
-//
-// 사용 전 1회성 셋업:
-//   gradle wrapper --gradle-version=8.10
+// BFF Aggregator — 강태오 (Lead)
+// UseCase 패턴, RestClient 병렬, STOMP WebSocket
 
 plugins {
     java
@@ -25,23 +22,12 @@ repositories {
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-websocket")  // STOMP
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-
-    // RestClient (동기 HTTP) — Bible / AI 호출
+    implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-
-    // WebClient + SSE (AI Service 프록시)
-    implementation("org.springframework.boot:spring-boot-starter-webflux")
-
-    // Redis-WS (STOMP session, JWT blacklist)
-    implementation("org.springframework.boot:spring-boot-starter-data-redis")
-
-    // Kafka Producer (user.activity.tracked)
-    implementation("org.springframework.kafka:spring-kafka")
-
-    // JWT 검증
+    implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
+    implementation("org.springframework.kafka:spring-kafka")
 
     // Metrics + Tracing
     implementation("io.micrometer:micrometer-registry-prometheus")
@@ -49,6 +35,7 @@ dependencies {
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.kafka:spring-kafka-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>QT-AI UI 목업</title>
+  <link rel="stylesheet" href="_styles.css">
+  <style>
+    body { background: #1F2937; color: #F9FAFB; padding: 40px; }
+    .mockup-grid { display: grid; grid-template-columns: repeat(auto-fit, 410px); gap: 24px; justify-content: center; }
+    .mockup-cell { background: #374151; border-radius: 16px; padding: 20px; }
+    .mockup-cell h3 { margin: 0 0 4px; font-size: 16px; }
+    .mockup-cell p { margin: 0 0 12px; color: #9CA3AF; font-size: 13px; }
+    iframe { width: 390px; height: 844px; border: none; border-radius: 28px; background: white; }
+    h1 { text-align: center; }
+    h1 small { display: block; color: #9CA3AF; font-size: 14px; font-weight: normal; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h1>QT-AI 모바일 UI 목업
+    <small>오늘 QT · 묵상 노트 · AI 대화 — 2026-05-14 MVP 기준</small>
+  </h1>
+  <div class="mockup-grid">
+    <div class="mockup-cell">
+      <h3>① 오늘 QT (첫 화면)</h3>
+      <p>본문 · 한 줄 요약 · 배경 · 어려운 단어 · AI/노트 진입</p>
+      <iframe src="today_qt.html"></iframe>
+    </div>
+    <div class="mockup-cell">
+      <h3>② 묵상 노트 (4필드 자동저장)</h3>
+      <p>저장 버튼 없음, 글자 수 제한 노출 없음</p>
+      <iframe src="journal_editor.html"></iframe>
+    </div>
+    <div class="mockup-cell">
+      <h3>③ AI 대화 (SSE 스트리밍)</h3>
+      <p>오늘 QT 본문에 한정된 1회성 Q&amp;A</p>
+      <iframe src="ai_chat.html"></iframe>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,9 +1,8 @@
-// AI Service — 강태오·김태혁·강상민
-// DeepSeek API (OpenAI 호환 SSE) + ChromaDB RAG + Kafka 이벤트 발행
-// Spring Boot 3.3 / Java 21 — 다른 서비스와 일관된 스택
+// AI Service — 강상민(주도) · 강태오(Lead) · 김태혁
+// DeepSeek API SSE + 오늘 QT 1회성 Q&A + Kafka producer
 //
-// 사용 전 1회성 셋업:
-//   gradle wrapper --gradle-version=8.10
+// ⚠️ Anthropic SDK 사용 금지 (DECISIONS.md §6, AGENTS.md)
+// ⚠️ RAG/ChromaDB/벡터 DB 신규 사용 금지 (ADR-0013)
 
 plugins {
     java
@@ -25,27 +24,27 @@ repositories {
 }
 
 dependencies {
-    // Spring MVC + SseEmitter (SSE 스트리밍)
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")  // WebClient for DeepSeek SSE
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    implementation("org.springframework.kafka:spring-kafka")
 
-    // 세션·턴 저장
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     runtimeOnly("com.mysql:mysql-connector-j")
+
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-mysql")
 
-    // JWT 검증 (RS256)
-    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
-
-    // Kafka Producer (ai.session.completed)
-    implementation("org.springframework.kafka:spring-kafka")
-
-    // Metrics + Tracing (Jaeger)
+    // Metrics + Tracing
     implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")
+
+    compileOnly("org.projectlombok:lombok:1.18.32")
+    annotationProcessor("org.projectlombok:lombok:1.18.32")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.kafka:spring-kafka-test")

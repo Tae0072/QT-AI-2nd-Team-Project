@@ -98,11 +98,11 @@
 
 ---
 
-## 3.1 MVP 제품 범위 확정 (2026-05-13 오전 회의)
+## 3.1 MVP 제품 범위 확정 (2026-05-13 오전 회의 → 2026-05-14 저녁 갱신)
 
 | 항목 | 확정 |
 | --- | --- |
-| 오늘의 QT 본문 단위 | MVP는 **한 절 고정**. 단, DB/API는 `verseStart`, `verseEnd`를 사용하고 MVP에서는 두 값이 항상 같다. |
+| 오늘의 QT 본문 단위 | **하루 1개 본문 (범위 허용).** 실제 크론이 가져오는 데이터가 단일 절이 아니라 단락 범위(예: 창세기 41:37–57 = 21절)이므로 **"한 절 고정" 전제는 폐기 (2026-05-14 ADR-0021).** DB/API는 `chapter_start`·`verse_start`·`chapter_end`·`verse_end` 4컬럼 + `start_ordinal`/`end_ordinal` 사용. 한 절(start == end), 한 단락(같은 장 안 범위), 다중 장 본문 모두 허용. 유일한 좌표 제약은 `(chapter_start, verse_start) ≤ (chapter_end, verse_end)`. **"오늘 QT는 하루 1개"** 원칙은 유지 (`bible_today_qt_schedule.qt_date` PK, `journal_journals (user_id, qt_date)` UNIQUE). 02_ERD §3.7·§5.2·§4.3 v2.3 참조. |
 | 일반 성경 보기 | 책·장·절 조회 전용. 자유 본문 기반 AI 질문·묵상 기록은 MVP 제외. |
 | AI 연결 범위 | AI 질문은 오늘의 QT 본문에서만 시작한다. 사용자가 여러 번 질문할 수 있지만 각 질문은 독립 1회성 Q&A다. |
 | 본문 설명 | Bible Service DB에 미리 저장한다. 필드는 쉬운 요약, 배경 설명, 어려운 단어, 출처. 적용 질문은 AI가 담당한다. |

@@ -1,27 +1,14 @@
 package com.qtai.ai.infrastructure.rag;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
-
 /**
- * ChromaDB REST adapter.
+ * @deprecated ADR-0013 (2026-05-14): ChromaDB / 벡터 DB / RAG 폐기.
+ * AI 응답 컨텍스트는 사전 적재된 {@code bible_explanations}(source_type = REFERENCE_SOURCE) row를 참조한다.
+ * 본 파일은 삭제 권한 문제로 빈 셸만 남겨두며, @Service를 두지 않아 컴포넌트 스캔 대상에서 제외된다.
+ * 추후 git rm 예정.
+ *
+ * <p>금지: 본 클라이언트를 다시 살려서 사용하면 AGENTS.md 금지 패턴 위반.
  */
-@Service
-public class ChromaDbClient {
-
-    private final RestClient restClient;
-
-    public ChromaDbClient(
-        @Value("${qtai.chromadb.host:localhost}") String host,
-        @Value("${qtai.chromadb.port:8000}") int port
-    ) {
-        this.restClient = RestClient.builder()
-            .baseUrl("http://" + host + ":" + port)
-            .build();
-    }
-
-    public Object query(String collectionName, String queryText, int nResults) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+@Deprecated
+public final class ChromaDbClient {
+    private ChromaDbClient() {}
 }
