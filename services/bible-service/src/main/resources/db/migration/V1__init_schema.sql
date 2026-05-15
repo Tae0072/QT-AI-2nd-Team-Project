@@ -65,9 +65,10 @@ CREATE TABLE IF NOT EXISTS bible_explanations (
     KEY idx_expl_source_type (source_type, editor_verified_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 오늘 QT 본문 스케줄. MVP는 하루 1구절 고정 (slot_no 없음).
--- 성서유니온 19:00 스크래퍼가 매일 1 row 적재. verseStart == verseEnd 인 단일 절 (MVP).
--- DB 컬럼은 verse_start / verse_end 를 유지하여 향후 구절 확장 시에도 스키마 변경 없게 한다.
+-- 오늘 QT 본문 스케줄. 하루 1행 (qt_date PK), 본문 길이 자유 — 한 절·단락·다중 장 모두 허용 (ADR-0021, 02_ERD v2.3).
+-- 성서유니온 19:00 스크래퍼가 매일 1 row 적재 (예: 창세기 41:37-57 = 21절).
+-- 한 절일 경우 chapter_start == chapter_end AND verse_start == verse_end 로 들어옴.
+-- 유일한 좌표 제약은 (chapter_start, verse_start) <= (chapter_end, verse_end).
 CREATE TABLE IF NOT EXISTS bible_today_qt_schedule (
     qt_date       DATE        NOT NULL,
     book_id       BIGINT      NOT NULL,

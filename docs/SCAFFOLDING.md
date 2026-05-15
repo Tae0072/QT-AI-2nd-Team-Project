@@ -26,7 +26,7 @@ workspaces/         ← 팀원별 작업 폴더 (workflows/ + reports/)
 | COMMENTARIES → `bible_explanations` | 엔티티 / Repository / Controller / Flyway V1 |
 | `bible_explanations` 범위 컬럼 (`chapter_start ~ verse_end`) | Genesis 41:37-57 등 Tyndale/MHC 원천 대응 |
 | `source_type` 2분류 (REFERENCE_SOURCE / GENERATED_EXPLANATION) | REFERENCE는 절대 노출 X, AI 컨텍스트 적재 전용 |
-| `bible_today_qt_schedule` 테이블 | 성서유니온 19:00 스크래퍼 적재 자리. **MVP는 하루 1구절** (slot_no 없음) |
+| `bible_today_qt_schedule` 테이블 | 성서유니온 19:00 스크래퍼 적재 자리. **하루 1행 (qt_date PK), 본문 길이 자유** (한 절·단락·다중 장 모두 허용. slot_no 없음. ADR-0021) |
 | `rag_sources` → `sources` | AI 도메인 / SSE / `ai_turns.sources` JSON 컬럼 |
 | AI SSE 경로 `/ai/sessions/{id}/turns` | `/messages` 아님 |
 | Journal `(user_id, qt_date)` UNIQUE | 하루 1 QT 정책 유지 |

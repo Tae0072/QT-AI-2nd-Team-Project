@@ -13,7 +13,8 @@ import java.time.LocalDate;
 /**
  * AI 질문 세션. 02_ERD §4.3.
  *
- * <p>1구절(MVP)에 대해 사용자별 N회 세션 가능. 각 세션은 1회성 Q&A.
+ * <p>오늘 QT 본문(하루 1개, 범위 허용 — chapterStart/verseStart/chapterEnd/verseEnd + ordinal,
+ * ADR-0021)에 대해 사용자별 N회 세션 가능. 각 세션은 1회성 Q&A.
  */
 @Entity
 @Table(name = "ai_sessions")

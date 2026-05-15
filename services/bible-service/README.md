@@ -5,7 +5,7 @@ Owner: 이지윤·이승욱
 ## Scope
 
 - 성경 본문, 주석, 쉬운 본문 설명 조회
-- 오늘 QT 본문 1구절 제공 (`verseStart == verseEnd`)
+- 오늘 QT 본문 제공 — 하루 1개 본문, 범위 허용 (`chapterStart`/`verseStart`/`chapterEnd`/`verseEnd` + ordinal, ADR-0021)
 - 오늘 QT Journal DRAFT 생성/조회: `POST /api/v1/journals/today`
 - Journal 4필드 자동 저장, 발행, 공유, 좋아요, 댓글, 신고
 - `ai.session.completed` consume 후 오늘 Journal에 AI 요약과 `aiSessionId` 첨부
