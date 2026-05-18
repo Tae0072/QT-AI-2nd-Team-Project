@@ -11,6 +11,7 @@ jobs:
     name: Spring Boot Build & Test
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service:
           - gateway
@@ -25,7 +26,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check service module exists
+        id: check
+        run: |
+          if [ -f "services/${{ matrix.service }}/build.gradle.kts" ] && [ -f "gradlew" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::services/${{ matrix.service }}/build.gradle.kts 또는 gradlew 부재 — 빌드/테스트 단계 skip"
+          fi
+
       - name: Set up JDK 21
+        if: steps.check.outputs.exists == 'true'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -33,43 +45,49 @@ jobs:
           cache: gradle
 
       - name: Grant execute permission for gradlew
+        if: steps.check.outputs.exists == 'true'
         run: chmod +x gradlew
 
       - name: Build with Gradle
+        if: steps.check.outputs.exists == 'true'
         run: ./gradlew -p services/${{ matrix.service }} build --no-daemon -x test
 
       - name: Run Tests
+        if: steps.check.outputs.exists == 'true'
         run: ./gradlew -p services/${{ matrix.service }} test --no-daemon
 
   flutter-test:
     name: Flutter Test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/mobile
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check mobile module exists
+        id: check
+        run: |
+          if [ -f "apps/mobile/pubspec.yaml" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::apps/mobile/pubspec.yaml 부재 — Flutter 단계 skip"
+          fi
+
       - name: Set up Flutter
+        if: steps.check.outputs.exists == 'true'
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
-        continue-on-error: true
 
       - name: Install Flutter dependencies
-        run: |
-          if [ -f pubspec.yaml ]; then
-            flutter pub get
-          else
-            echo "pubspec.yaml not found, skipping Flutter steps"
-          fi
+        if: steps.check.outputs.exists == 'true'
+        working-directory: apps/mobile
+        run: flutter pub get
 
       - name: Run Flutter Tests
-        run: |
-          if [ -f pubspec.yaml ]; then
-            flutter test
-          fi
+        if: steps.check.outputs.exists == 'true'
+        working-directory: apps/mobile
+        run: flutter test
 
   decisions-guard:
     name: Decisions Guard
