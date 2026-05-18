@@ -55,6 +55,9 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_MODEL: ${{ env.ANTHROPIC_MODEL_NAME }}
+          # bash 특수문자 escape: PR diff의 $(...), `...`, "..." 을 bash가 재해석하지 않도록 env로 export
+          PR_DIFF: ${{ steps.get_diff.outputs.diff_content }}
+          DIFF_MAX_BYTES_INT: ${{ env.DIFF_MAX_BYTES }}
         run: |
           PROMPT="당신은 QT-AI 프로젝트의 시니어 백엔드 개발자입니다. 아래 PR diff를 분석하여 한국어로 코드 리뷰를 작성하세요.
 
@@ -144,8 +147,8 @@ jobs:
           APPROVE
           REQUEST_CHANGES
 
-          ## PR Diff (최대 ${{ env.DIFF_MAX_BYTES }} bytes)
-          ${{ steps.get_diff.outputs.diff_content }}"
+          ## PR Diff (최대 ${DIFF_MAX_BYTES_INT} bytes)
+          ${PR_DIFF}"
 
           echo "=== Claude Code CLI 실행 중 ==="
           REVIEW=$(claude --print "$PROMPT" 2>&1)
