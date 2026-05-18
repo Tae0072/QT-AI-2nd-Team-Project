@@ -24,6 +24,35 @@ jobs:
         run: |
           git diff origin/${{ github.base_ref }}...HEAD | head -c 10000 > pr_diff.txt
 
+      - name: Collect PR context
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          {
+            echo "## PR Number"
+            echo "#${PR_NUMBER}"
+            echo ""
+            echo "## PR Title"
+            echo "${PR_TITLE}"
+            echo ""
+            echo "## Author (GitHub login)"
+            echo "${PR_AUTHOR}"
+            echo ""
+            echo "## Head Branch"
+            echo "${PR_BRANCH}"
+            echo ""
+            echo "## PR Body"
+            echo "${PR_BODY}"
+          } > pr_meta.txt
+
+      - name: List changed file paths
+        run: |
+          git diff --name-only origin/${{ github.base_ref }}...HEAD > pr_files.txt
+
       - name: Claude PR Review
         id: claude_review
         uses: anthropics/claude-code-base-action@beta
@@ -31,27 +60,107 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           timeout_minutes: 10
           prompt: |
-            pr_diff.txt 파일을 읽어 시니어 백엔드 개발자로서 한국어로 코드 리뷰를 작성하세요.
+            아래 세 파일을 모두 읽고, QT-AI 프로젝트의 PR 리뷰를 한국어로 작성하세요.
 
-            ## 리뷰 기준
-            1. 코드 품질: 가독성, 네이밍, 중복 코드
-            2. 버그 가능성: NPE, 인덱스 오류, 예외 처리 누락
-            3. 보안: 하드코딩된 시크릿, SQL Injection, 권한 검증 누락
-            4. Spring Boot 3.x 호환성: deprecated API 사용 여부
-            5. 트랜잭션: @Transactional 누락, 범위 오류
-            6. MSA 주의사항: Kafka 이벤트 페어, API 호출 타임아웃, 서비스 의존성
-            7. 도메인 로직: 성경 묵상 세션 흐름, AI 코칭 턴 처리, 묵상 노트 생성 로직의 정확성
+            - `pr_meta.txt` : PR 번호, 제목, 작성자(GitHub login), head 브랜치 이름, PR 본문
+            - `pr_files.txt` : PR에서 변경된 파일 경로 목록(추가/수정/삭제 전체)
+            - `pr_diff.txt` : 코드 diff (최대 10000자, 잘려 있을 수 있음)
 
-            ## 테스트 코드 필수 조건 (중요!)
-            - feat / fix / refactor 타입 PR은 단위 테스트(Unit Test) 코드가 반드시 PR에 포함되어야 합니다.
-            - 통합 테스트(Integration Test)가 포함되거나, 미포함 사유가 PR 본문에 명시되어야 합니다.
-            - "다음 PR에서 추가 예정" 이라는 사유만으로는 APPROVE 불가 — REQUEST_CHANGES를 내리세요.
-            - 테스트가 존재하더라도 핵심 로직(Service, UseCase)에 대한 테스트가 없으면 REQUEST_CHANGES.
-            - docs / chore 타입은 테스트 불필요.
+            ## 검사 원칙
 
-            리뷰 내용을 모두 작성한 뒤, 마지막 줄에 다른 텍스트 없이 다음 중 하나만 출력하세요:
+            아래 9개 게이트를 차례로 검사하고, **모두 PASS면 APPROVE / 하나라도 FAIL이면 REQUEST_CHANGES**.
+            게이트 외 일반 코드 품질(가독성, 네이밍, 보안, deprecated API 등)은 코멘트로만 적고
+            REQUEST_CHANGES 사유로 사용하지 마세요. 머지 차단은 9개 게이트만.
+
+            "chore 같은데 실질은 feat다" 같은 PR 타입 재해석은 금지합니다.
+            type은 PR 제목의 prefix(`{type}(scope): ...`)와 브랜치 prefix만으로 판정합니다.
+
+            ## 9개 자동 머지 게이트
+
+            ### Gate 1. 브랜치 규칙
+            - 브랜치 이름이 `{type}/{scope}-{short-task}` 형식이어야 함
+            - `type`은 다음 중 하나: feature, bugfix, refactor, test, docs, chore, hotfix
+            - 형식 위반(예: `mybranch`, `feat/abc`, `feature-xyz`) 시 FAIL
+
+            ### Gate 2. 소유권 (CODEOWNERS)
+            - PR diff의 모든 변경 경로가 작성자의 소유 영역에 속해야 함
+            - 단일 qtai-server 13도메인 + 인프라 매핑:
+              - 강태오 (`@Tae0072`, Lead): `workspaces/Lead_강태오/**`, `.github/**`, `infra/**`, `DECISIONS.md`, `CLAUDE.md`, `AGENTS.md`, `BRANCHING.md`, `README.md`, 단일 qtai-server의 `domain.member`, `domain.qt`, `domain.admin` (Lead는 모든 영역 가능)
+              - 이지윤 (`@ij447504-source`): `domain.bible`, `data/bible-sources/**`, `workspaces/DevA_이지윤/**`
+              - 김태혁 (`@xogurrh012`): `domain.study`(simulator 부분), `workspaces/DevB_김태혁/**`
+              - 강상민 (`@sangminka`): `domain.ai`, `workspaces/DevC_강상민/**`
+              - 이승욱 (`@LeeSeung-Wook`): `domain.note`, `domain.sharing`, `domain.praise`, `workspaces/DevD_이승욱/**`
+              - 김지민 (`@rmfdnjf98`): `apps/mobile/**`, `flutter-app/**`, `workspaces/DevE_김지민/**`
+            - 작성자가 `Tae0072`(Lead)면 모든 영역 PASS
+            - 그 외 작성자가 본인 영역 외 경로를 변경하면 FAIL
+
+            ### Gate 3. 역할 / 도메인 경계
+            - 다른 도메인의 Entity/Service/Repository를 직접 import하면 FAIL
+            - 도메인 호출은 `com.qtai.domain.{module}.api.*`(Port + DTO)만 허용
+            - 다른 팀원의 `workspaces/{이름}/` 폴더를 건드리면 FAIL
+            - 단순히 자기 영역 안 코드면 PASS
+
+            ### Gate 4. 단위 테스트
+            - PR 타입이 `feature`, `bugfix`, `refactor` 중 하나면 단위 테스트 파일이 PR diff에 추가/수정되어 있어야 함
+              (예: `*Test.java`, `*Tests.java`, `*_test.dart`, `*.test.ts`, `*.spec.ts`)
+            - 핵심 로직(Service, UseCase, Repository) 변경이 있으면 해당 클래스에 대한 테스트가 반드시 있어야 함
+            - `docs`, `chore`, `test` 타입은 이 게이트 PASS (면제)
+
+            ### Gate 5. 통합 테스트
+            - PR 타입이 `feature`면 통합 테스트(`@SpringBootTest`, `IntegrationTest`, integration_test 등)가 포함되거나
+              PR 본문에 미포함 사유가 구체적으로 명시되어 있어야 함
+            - "다음 PR에서 추가 예정"처럼 막연한 사유만 있으면 FAIL
+            - `bugfix`, `refactor`, `docs`, `chore`, `test`는 면제
+
+            ### Gate 6. 테스트 실행 (CI 통과)
+            - 이 게이트는 Claude가 직접 검사하지 않음. 자동 머지 직전 CI 체크 polling으로 별도 검증됨
+            - Claude는 항상 이 게이트를 PASS로 간주 (단, Gate 4/5에서 테스트 존재만 확인)
+
+            ### Gate 7. 워크플로우 + 리포트 (모든 작업 의무)
+            - PR diff에 다음 두 파일이 추가되어 있어야 함
+              - `workspaces/{담당자}/workflows/YYYY-MM-DD_{task}.md` (작업 전 계획)
+              - `workspaces/{담당자}/reports/YYYY-MM-DD_{task}_report.md` (작업 후 결과)
+            - PR 본문에 두 파일 경로가 명시되어 있어야 함 (예: "workflow: workspaces/...", "report: workspaces/...")
+            - 둘 중 하나라도 빠지면 FAIL
+            - 단 PR 본문에 "Lead 단독 hotfix이며 워크플로우/리포트 면제" 같은 명시적 사유가 있고 작성자가 `Tae0072`(Lead)이면 PASS 허용
+
+            ### Gate 8. 금지 패턴 (QT-AI v3.1 차단 기준)
+            - PR diff에 다음 패턴이 **사용(코드/설정/시드)** 형태로 등장하면 FAIL.
+              **"금지를 설명하는 문서성 파일"**(예: `*.md` 안의 차단 기준 명시, pull_request_template의 체크리스트, 본 yml의 게이트 설명)은 면제.
+            - 세션형 AI: `SseEmitter`, `text/event-stream`, `Flux<ServerSentEvent`, `/ai/sessions/`, 다중 턴 AI 챗봇
+            - 메시징/인프라: `KafkaTemplate`, `spring-kafka`, `kind: Deployment`, `apiVersion: apps/v1`, Helm chart
+            - 검색/임베딩: `RAG`, `ChromaDB`, `chromadb`, `Weaviate`, `io.weaviate`, `Elasticsearch`, `org.elasticsearch`, `VectorStore`, `EmbeddingStore`
+            - 성경 번역본: `개역개정`, `ESV`, `NIV` (시드/테스트 fixture/응답 어디든)
+            - 본문 저장: 성서 유니온 본문 텍스트, 두란노 본문 텍스트 자체 저장
+            - 교회 인증: `church verification`, `churchAuth`, `church_cert`, 교회 인증 화면/버튼/API/DB 필드
+            - 찬양: AI 찬양 추천(`recommend.*song`, `song.*recommend`), 가사 서버 저장(`lyrics`), 음원 파일 저장(`audioFile`), `youtubeUrl`, `youtube_url`
+            - 자동 저장(사용자 의도하지 않은 상태 저장)
+
+            ### Gate 9. 검증 명령
+            - PR 본문에 실제 실행한 검증 명령과 결과(PASS/FAIL)가 명시되어야 함
+            - 예: `git diff --check`, `./gradlew test`, `flutter test`, `flutter analyze`, 금지 패턴 grep 명령 등
+            - "테스트 했음" 같은 추상적 표현만 있으면 FAIL
+            - 명령이 1개 이상 + 각 결과가 명시되면 PASS
+            - docs/chore PR도 최소 `git diff --check`와 금지 패턴 grep은 명시되어야 함
+
+            ## 출력 형식
+
+            먼저 9개 게이트를 표로 작성:
+
+            | Gate | 항목 | 결과 | 비고 |
+            | --- | --- | --- | --- |
+            | 1 | 브랜치 규칙 | PASS/FAIL | (FAIL 시 무엇이 빠졌는지) |
+            | 2 | 소유권 | PASS/FAIL | |
+            | ...                | ...        |
+            | 9 | 검증 명령 | PASS/FAIL | |
+
+            그 다음 일반 코드 품질 코멘트(참고용, REQUEST_CHANGES 사유 X) 몇 줄.
+
+            마지막 줄에 다른 텍스트 없이 다음 중 하나:
             APPROVE
             REQUEST_CHANGES
+
+            (9개 게이트 전부 PASS면 APPROVE, 하나라도 FAIL이면 REQUEST_CHANGES)
 
       - name: Post Review & Auto Merge
         if: always()
