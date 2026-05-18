@@ -1,36 +1,113 @@
-# CODEOWNERS — QT-AI 서비스별 코드 담당자
+# CODEOWNERS — QT-AI v3.1 (Modular Monolith)
 #
-# PR 승인 전에 해당 Owner의 review가 필요합니다.
-#
+# 거버닝: 07_요구사항_정의서.md v3.1 + 03_아키텍처_정의서.md v1.0
 # 형식: {path-pattern}   @{github-username}
-
-# 전체 파일 기본값 (Lead 강태오)
-*                           @Tae0072
-
-# =============================================================================
-# 서비스 담당자
-# =============================================================================
-
-# API Gateway — 강태오
-services/gateway/           @Tae0072
-
-# BFF Aggregator — 강태오
-services/bff-aggregator/    @Tae0072
-
-# Bible Service — 이지윤·이승욱
-services/bible-service/     @ij447504-source @LeeSeung-Wook
-
-# AI Service — 강태오·김태혁·강상민
-services/ai-service/        @Tae0072 @xogurrh012 @sangminka
-
-# Flutter 앱 — 김지민
-apps/mobile/                @rmfdnjf98
+#
+# 정책:
+#   - 강태오(@Tae0072)는 모든 파트의 추가 owner — 어디든 도울 수 있음
+#   - 자동 머지: Claude PR 리뷰 APPROVE + 모든 CI(1~7) success → squash merge → dev
+#   - 사람 리뷰는 머지 후에도 review/comment 가능
+#
+# 그룹 약어:
+#   - 바이블 서버 협업 그룹 = @rmfdnjf98(김지민) @LeeSeung-Wook(이승욱) @ij447504-source(이지윤)
 
 # =============================================================================
-# 인프라 — 강태오
+# 전체 기본값 — 매핑 안 된 신규 경로용 fallback
 # =============================================================================
-infra/                      @Tae0072
-.github/                    @Tae0072
-DECISIONS.md                @Tae0072
-CLAUDE.md                   @Tae0072
-AGENTS.md                   @Tae0072
+*                                                                   @Tae0072
+
+# =============================================================================
+# 백엔드: 단일 qtai-server Modular Monolith — 13 도메인 패키지
+# 루트 패키지: com.qtai
+# 도메인: member · bible · qt · study · note · sharing · report ·
+#         notification · praise · mission · ai · admin · audit
+# 모든 도메인에 강태오(@Tae0072) 추가 — 전체 도움 권한
+# =============================================================================
+
+# member — 강태오 (Kakao OAuth, JWT, 회원, 튜토리얼, 탈퇴, 회원 제재)
+qtai-server/src/main/java/com/qtai/domain/member/                   @Tae0072
+qtai-server/src/test/java/com/qtai/domain/member/                   @Tae0072
+
+# bible — 바이블 서버 협업 그룹 (김지민·이승욱·이지윤 + 강태오)
+qtai-server/src/main/java/com/qtai/domain/bible/                    @rmfdnjf98 @LeeSeung-Wook @ij447504-source @Tae0072
+qtai-server/src/test/java/com/qtai/domain/bible/                    @rmfdnjf98 @LeeSeung-Wook @ij447504-source @Tae0072
+
+# qt — 강태오 (QT 범위, 오늘 QT, 관리자 QT 등록)
+qtai-server/src/main/java/com/qtai/domain/qt/                       @Tae0072
+qtai-server/src/test/java/com/qtai/domain/qt/                       @Tae0072
+
+# study — 김태혁(시뮬레이터) + 강상민(해설/용어 협업) + 강태오
+qtai-server/src/main/java/com/qtai/domain/study/                    @xogurrh012 @sangminka @Tae0072
+qtai-server/src/test/java/com/qtai/domain/study/                    @xogurrh012 @sangminka @Tae0072
+
+# note — 이승욱 + 강태오 (QT 노트, 자유 노트, 묵상 달력)
+qtai-server/src/main/java/com/qtai/domain/note/                     @LeeSeung-Wook @Tae0072
+qtai-server/src/test/java/com/qtai/domain/note/                     @LeeSeung-Wook @Tae0072
+
+# sharing — 이승욱 + 강태오 (닉네임 나눔, 댓글, 좋아요)
+qtai-server/src/main/java/com/qtai/domain/sharing/                  @LeeSeung-Wook @Tae0072
+qtai-server/src/test/java/com/qtai/domain/sharing/                  @LeeSeung-Wook @Tae0072
+
+# praise — 이승욱 + 강태오 (찬양 큐레이션, 내 찬양 목록)
+qtai-server/src/main/java/com/qtai/domain/praise/                   @LeeSeung-Wook @Tae0072
+qtai-server/src/test/java/com/qtai/domain/praise/                   @LeeSeung-Wook @Tae0072
+
+# ai — 강상민 + 강태오 (AI 해설, 편집자 에이전트, 배치, F-15 단발 Q&A)
+qtai-server/src/main/java/com/qtai/domain/ai/                       @sangminka @Tae0072
+qtai-server/src/test/java/com/qtai/domain/ai/                       @sangminka @Tae0072
+
+# report — 바이블 서버 협업 그룹 (3인 공동 + 강태오)
+qtai-server/src/main/java/com/qtai/domain/report/                   @rmfdnjf98 @LeeSeung-Wook @ij447504-source @Tae0072
+qtai-server/src/test/java/com/qtai/domain/report/                   @rmfdnjf98 @LeeSeung-Wook @ij447504-source @Tae0072
+
+# notification — 바이블 서버 협업 그룹 (3인 공동 + 강태오)
+qtai-server/src/main/java/com/qtai/domain/notification/             @rmfdnjf98 @LeeSeung-Wook @ij447504-source @Tae0072
+qtai-server/src/test/java/com/qtai/domain/notification/             @rmfdnjf98 @LeeSeung-Wook @ij447504-source @Tae0072
+
+# mission — 바이블 서버 협업 그룹 (3인 공동 + 강태오)
+qtai-server/src/main/java/com/qtai/domain/mission/                  @rmfdnjf98 @LeeSeung-Wook @ij447504-source @Tae0072
+qtai-server/src/test/java/com/qtai/domain/mission/                  @rmfdnjf98 @LeeSeung-Wook @ij447504-source @Tae0072
+
+# admin — 강태오 (관리자 대시보드, 공통 orchestration)
+qtai-server/src/main/java/com/qtai/domain/admin/                    @Tae0072
+qtai-server/src/test/java/com/qtai/domain/admin/                    @Tae0072
+
+# audit — 강태오 (감사 로그 조회/기록, 수정·삭제 API 금지)
+qtai-server/src/main/java/com/qtai/domain/audit/                    @Tae0072
+qtai-server/src/test/java/com/qtai/domain/audit/                    @Tae0072
+
+# =============================================================================
+# Flutter 앱 — 바이블 서버 협업 그룹 3인 공동 + 강태오
+# =============================================================================
+flutter-app/                                                        @rmfdnjf98 @LeeSeung-Wook @ij447504-source @Tae0072
+
+# =============================================================================
+# API 계약 (OpenAPI) — 바이블 서버 협업 그룹 3인 공동 + 강태오
+# =============================================================================
+apis/                                                               @rmfdnjf98 @LeeSeung-Wook @ij447504-source @Tae0072
+
+# =============================================================================
+# 데이터 소스 검토 — 이지윤 + 강태오
+# =============================================================================
+data/bible-sources/                                                 @ij447504-source @Tae0072
+
+# =============================================================================
+# 인프라/CI/문서 — 강태오 단독
+# =============================================================================
+infra/                                                              @Tae0072
+.github/                                                            @Tae0072
+docs/                                                               @Tae0072
+DECISIONS.md                                                        @Tae0072
+CLAUDE.md                                                           @Tae0072
+AGENTS.md                                                           @Tae0072
+README.md                                                           @Tae0072
+
+# =============================================================================
+# 개인 워크스페이스 — 각자 본인 폴더 + 강태오 (Lead 도움 권한)
+# =============================================================================
+workspaces/Lead_강태오/                                              @Tae0072
+workspaces/이지윤/                                                   @ij447504-source @Tae0072
+workspaces/이승욱/                                                   @LeeSeung-Wook @Tae0072
+workspaces/김지민/                                                   @rmfdnjf98 @Tae0072
+workspaces/강상민/                                                   @sangminka @Tae0072
+workspaces/김태혁/                                                   @xogurrh012 @Tae0072
