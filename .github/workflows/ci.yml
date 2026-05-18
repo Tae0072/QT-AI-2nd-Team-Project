@@ -13,29 +13,22 @@ jobs:
   spring-build:
     name: qtai-server Build & Test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: qtai-server
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up JDK 21
+        if: hashFiles('qtai-server/gradlew') != ''
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: gradle
 
-      - name: Grant execute permission for gradlew
-        run: |
-          if [ -f gradlew ]; then
-            chmod +x gradlew
-          fi
-        continue-on-error: true
-
       - name: Build with Gradle
         run: |
-          if [ -f gradlew ]; then
+          if [ -d qtai-server ] && [ -f qtai-server/gradlew ]; then
+            cd qtai-server
+            chmod +x gradlew
             ./gradlew build --no-daemon -x test
           else
             echo "qtai-server gradlew not yet scaffolded — skipping (메모리 24 3번 PR 이전 단계)"
@@ -43,13 +36,15 @@ jobs:
 
       - name: Run Tests
         run: |
-          if [ -f gradlew ]; then
+          if [ -d qtai-server ] && [ -f qtai-server/gradlew ]; then
+            cd qtai-server
             ./gradlew test --no-daemon
           fi
 
       - name: JaCoCo Coverage Report
         run: |
-          if [ -f gradlew ]; then
+          if [ -d qtai-server ] && [ -f qtai-server/gradlew ]; then
+            cd qtai-server
             ./gradlew jacocoTestReport --no-daemon
           fi
         continue-on-error: true
@@ -60,22 +55,20 @@ jobs:
   flutter-test:
     name: Flutter Analyze & Test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: flutter-app
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Flutter
+        if: hashFiles('flutter-app/pubspec.yaml') != ''
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
-        continue-on-error: true
 
       - name: Install Flutter dependencies
         run: |
-          if [ -f pubspec.yaml ]; then
+          if [ -d flutter-app ] && [ -f flutter-app/pubspec.yaml ]; then
+            cd flutter-app
             flutter pub get
           else
             echo "pubspec.yaml not found — Flutter scaffold 이전 단계"
@@ -83,13 +76,15 @@ jobs:
 
       - name: Flutter Analyze
         run: |
-          if [ -f pubspec.yaml ]; then
+          if [ -d flutter-app ] && [ -f flutter-app/pubspec.yaml ]; then
+            cd flutter-app
             flutter analyze
           fi
 
       - name: Flutter Test
         run: |
-          if [ -f pubspec.yaml ]; then
+          if [ -d flutter-app ] && [ -f flutter-app/pubspec.yaml ]; then
+            cd flutter-app
             flutter test
           fi
 
@@ -187,9 +182,11 @@ jobs:
           fi
 
           # 12) 금지 표현 (메모리 14) — 코드/문서 모두
+          # workspaces/ 디렉터리는 명세 인용이 자연스러운 개인 작업 공간이라 면제
+          # (README workspaces "빌드·런타임·테스트·CI에 영향 0")
           if grep -rE --include="*.md" --include="*.java" --include="*.kt" --include="*.dart" \
              "저작권 문제 없음|유실률 0% 보장|내부 API 경로" . \
-             --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github --exclude-dir=docs 2>/dev/null; then
+             --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github --exclude-dir=docs --exclude-dir=workspaces 2>/dev/null; then
             echo "[BLOCK] 금지 표현 발견 — 23_도메인_용어사전.md v1.0 갱신 표현 사용"
             FAILED=1
           fi
@@ -221,3 +218,92 @@ jobs:
             echo "=== Requirements Guard v3.1 — FAILED ==="
             exit 1
           fi
+
+  # =============================================================================
+  # gitleaks — Secret 누출 검사 (메모리 25 PR 자동 게이트 1번)
+  # =============================================================================
+  gitleaks:
+    name: Gitleaks Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =============================================================================
+  # Spectral Lint — OpenAPI 스펙 검증 (메모리 25 PR 자동 게이트 2번)
+  # apis/ 디렉터리에 OpenAPI 스펙 파일이 있을 때만 실행
+  # =============================================================================
+  spectral-lint:
+    name: OpenAPI Spectral Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check apis/ directory
+        id: check_apis
+        run: |
+          if [ -d apis ]; then
+            count=$(find apis -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) 2>/dev/null | wc -l)
+            if [ "$count" -gt 0 ]; then
+              echo "exists=true" >> $GITHUB_OUTPUT
+              echo "apis/ 디렉터리에 OpenAPI 스펙 파일 $count 개 발견"
+            else
+              echo "exists=false" >> $GITHUB_OUTPUT
+              echo "apis/ 디렉터리는 있으나 OpenAPI 스펙 파일 없음 — skip"
+            fi
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "apis/ 디렉터리 없음 — skip (메모리 24 6번 PR 이전 단계)"
+          fi
+
+      - name: Setup Node.js
+        if: steps.check_apis.outputs.exists == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Spectral CLI
+        if: steps.check_apis.outputs.exists == 'true'
+        run: npm install -g @stoplight/spectral-cli
+
+      - name: Run Spectral Lint
+        if: steps.check_apis.outputs.exists == 'true'
+        run: |
+          if [ -f .spectral.yaml ]; then
+            echo "사용자 정의 .spectral.yaml 사용"
+            spectral lint "apis/**/*.{yaml,yml,json}" --ruleset .spectral.yaml --fail-severity=warn
+          else
+            echo "기본 OpenAPI ruleset 사용 — .spectral.yaml 미정의 (별도 PR로 추가 예정)"
+            spectral lint "apis/**/*.{yaml,yml,json}" --fail-severity=warn
+          fi
+
+  # =============================================================================
+  # Docker Compose Config — compose 파일 유효성 검사 (메모리 25 PR 자동 게이트 5번)
+  # v1 배포 = Docker Compose (14_배포_가이드.md)
+  # =============================================================================
+  docker-compose-config:
+    name: Docker Compose Config Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check docker-compose file
+        id: check_compose
+        run: |
+          if [ -f docker-compose.yml ] || [ -f compose.yaml ] || [ -f compose.yml ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Docker Compose 파일 발견"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "docker-compose.yml / compose.yaml / compose.yml 없음 — skip (v1 Docker Compose 부트스트랩 이전 단계)"
+          fi
+
+      - name: Validate Docker Compose Config
+        if: steps.check_compose.outputs.exists == 'true'
+        run: docker compose config --quiet
