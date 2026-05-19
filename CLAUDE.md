@@ -10,7 +10,7 @@
 - DB/cache: MySQL 8.0, 테스트 H2, Caffeine app cache
 - Redis: token/rate/idempotency 등 필요 범위 검토 후 사용
 - AI: DeepSeek OpenAI-compatible client
-- 외부 API: Flutter 앱/Admin Web이 `/api/v1/**` 호출
+- 외부 API: 사용자 Flutter 앱(`/api/v1/**` 관리자 경로 제외 + `/oauth2/**`)과 별도 관리자 웹 프런트엔드(`/api/v1/admin/**`)가 같은 `qtai-server`를 호출. 관리자 UI는 Flutter 앱이 아니라 별도 웹(2026-05-19 강사님 직강 결정, `03_아키텍처_정의서.md` v1.2 §4.9 / §13.6)
 - OAuth 경로: Kakao OAuth 시작/콜백은 `/oauth2/**` 예외 경로로 두며, 앱 콘텐츠 API를 여기에 두지 않는다.
 - 기본 응답·주석·PR 설명 언어: 한국어 우선
 - 백엔드 코드 컨벤션: `CODE_CONVENTION.md`를 우선 확인
