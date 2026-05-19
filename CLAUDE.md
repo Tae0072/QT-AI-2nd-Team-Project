@@ -11,8 +11,9 @@
 - Redis: token/rate/idempotency 등 필요 범위 검토 후 사용
 - AI: DeepSeek OpenAI-compatible client
 - 외부 API: Flutter 앱/Admin Web이 `/api/v1/**` 호출
+- OAuth 경로: Kakao OAuth 시작/콜백은 `/oauth2/**` 예외 경로로 두며, 앱 콘텐츠 API를 여기에 두지 않는다.
 - 기본 응답·주석·PR 설명 언어: 한국어 우선
-- 코드 컨벤션: `CODE_CONVENTION.md`를 우선 확인
+- 백엔드 코드 컨벤션: `CODE_CONVENTION.md`를 우선 확인
 
 ## 2. 기준 문서 우선순위
 
@@ -55,8 +56,9 @@
 
 ## 5. API 규칙
 
-- 사용자·관리자 HTTP API는 `/api/v1/**` 아래에 둔다.
-- 관리자 API는 적절한 admin role을 요구한다.
+- 사용자·관리자 HTTP API는 `/api/v1/**` 아래에 둔다. 단, Kakao OAuth 시작/콜백은 `/oauth2/**` 예외 경로를 사용한다.
+- 관리자 API는 일반 회원 토큰의 `members.role=ADMIN`과 `admin_users.admin_role`을 모두 확인한 뒤, `OPERATOR`, `REVIEWER`, `CONTENT_CREATOR`, `SUPER_ADMIN` 중 API 명세에 맞는 세부 권한을 요구한다.
+- 시스템 API와 배치/AI 내부 작업은 사용자 계정이 아니라 `SYSTEM_BATCH` 주체로 기록한다.
 - 인증되지 않은 사용자는 Kakao login 시작만 가능하다.
 - 앱 콘텐츠 API는 인증된 역할 기준으로 보호한다.
 - 내부 Java Interface는 OpenAPI에 노출하지 않는다.
@@ -81,6 +83,7 @@
 - 가치 판단, 신앙 평가, 상담, 설교식 단정 요청은 차단한다.
 - 외부 AI 응답 원문은 검증 전 사용자에게 반환하지 않는다.
 - 승인된 사용자 노출 해설은 `verse_explanations` 기준으로 제공한다.
+- 검증용 한국어 주석 원문과 참조 자료는 사용자 응답, 로그, 관리자 일반 목록에 노출하지 않는다.
 - AI Provider API key는 `external.llm` 같은 외부 연동 영역에서만 사용하고 로그에 남기지 않는다.
 - AI 작업은 `ai_generation_jobs`, `ai_generated_assets`, `ai_validation_logs`에 prompt/model/hash/status/error, 생성 지시 자산 버전, 검증 체크리스트 버전, 수행 주체를 기록한다.
 
@@ -119,7 +122,8 @@
 - AI 자유 챗봇/SSE 부재
 - F-15 Q&A 차단·검증·실패 처리
 - 승인되지 않은 AI 산출물 미노출
-- admin authorization
+- A/B/승인 해설 데이터와 검증 참조 자료 미노출
+- admin authorization과 `SYSTEM_BATCH` 주체 검증
 - Bible source metadata와 금지 번역본 데이터 차단
 - event handler 실패 로그와 재처리 가능 상태
 - 도메인 간 금지 import
@@ -134,15 +138,6 @@
 ./gradlew -p qtai-server jacocoTestCoverageVerification
 npx @stoplight/spectral-cli lint apis/*/openapi.yaml --ruleset .spectral.yaml
 gitleaks detect --source . --redact --exit-code 1
-```
-
-`flutter-app`이 같은 저장소에 있고 화면 변경이 포함되면 아래도 실행한다.
-
-```bash
-cd flutter-app
-flutter pub get
-flutter analyze
-flutter test --coverage
 ```
 
 ## 12. Git·PR 규칙

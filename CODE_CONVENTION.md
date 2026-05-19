@@ -1,6 +1,6 @@
-# CODE_CONVENTION.md — QT-AI 구현 저장소 코드 컨벤션
+# CODE_CONVENTION.md — QT-AI 백엔드 코드 컨벤션
 
-이 문서는 실제 구현 저장소의 `qtai-server`와 `flutter-app`에서 공통으로 적용할 코드 작성 기준이다. 요구사항·아키텍처·API 기준은 문서 저장소의 `07_요구사항_정의서.md`, `03_아키텍처_정의서.md`, `04_API_명세서.md`, `18_코드_품질_게이트.md`를 우선한다.
+이 문서는 실제 구현 저장소의 `qtai-server`에서 적용할 백엔드 코드 작성 기준이다. 요구사항·아키텍처·API 기준은 문서 저장소의 `07_요구사항_정의서.md`, `03_아키텍처_정의서.md`, `04_API_명세서.md`, `18_코드_품질_게이트.md`를 우선한다.
 
 ## 1. 공통 원칙
 
@@ -54,6 +54,7 @@ domain/<name>
 - `note`, `sharing`, `praise`는 `bible` 하위가 아니라 최상위 도메인이다.
 - Controller가 Repository를 직접 호출하지 않는다.
 - 내부 도메인 호출을 HTTP 경로로 우회하지 않는다.
+- v1에서는 다른 도메인 호출 시 상대 도메인의 `api` UseCase/DTO를 직접 의존하는 방식을 기본으로 한다. `client` 패키지는 반복 조합이나 어댑터 계층이 필요해질 때 2차로 도입한다.
 - `audit.api.WriteAuditLogUseCase`처럼 문서에서 허용한 횡단 UseCase만 예외로 둔다.
 
 ## 3. Backend 네이밍
@@ -76,7 +77,7 @@ domain/<name>
 - 메서드는 동사로 시작한다: `create`, `update`, `delete`, `find`, `get`, `list`, `approve`, `reject`, `publish`, `markAsRead`.
 - boolean 메서드는 `is`, `has`, `can`, `should`로 시작한다.
 - 약어는 프로젝트 표준 약어만 사용한다: `QT`, `AI`, `DTO`, `API`, `URL`, `ID`.
-- DB 컬럼은 `snake_case`를 사용한다. API JSON 필드는 `04_API_명세서.md` 기준을 따르고, Java/Dart 코드에서는 `camelCase`를 사용한다.
+- DB 컬럼은 `snake_case`를 사용한다. API JSON 필드는 `04_API_명세서.md` 기준을 따르고, Java 코드에서는 `camelCase`를 사용한다.
 
 ## 4. Backend DTO 규칙
 
@@ -139,7 +140,10 @@ public record UpdateProfileRequest(
 - 비즈니스 조건문을 Controller에 두지 않는다.
 - 성공 응답은 공통 응답 포맷으로 감싼다.
 - 생성은 `201 Created`, 삭제·로그아웃·완료 처리는 필요한 경우 `204 No Content`를 사용한다.
-- 관리자 API는 적절한 admin role을 확인한다.
+- 관리자 API는 일반 회원 토큰의 `members.role=ADMIN`과 `admin_users.admin_role`을 모두 확인한다.
+- `SUPER_ADMIN`은 전체 관리자 기능을 수행할 수 있고, `OPERATOR`, `REVIEWER`, `CONTENT_CREATOR`는 API 명세에 정의된 범위만 수행할 수 있다.
+- `ADMIN` role만으로 관리자 기능을 허용하지 않는다.
+- 시스템 API와 배치/AI 내부 작업은 사용자 계정이 아니라 `SYSTEM_BATCH` 주체로 기록한다.
 
 ## 9. Exception과 Logging
 
@@ -157,7 +161,13 @@ public record UpdateProfileRequest(
 - 사용자 요청 경로에서 해설·시뮬레이터를 즉시 생성하지 않는다.
 - F-15 Q&A는 단어, 시대상, 역사적 배경 질문으로 제한한다.
 - AI 응답은 검증 전 사용자에게 노출하지 않는다.
-- AI 작업은 `ai_generation_jobs`, `ai_generated_assets`, `ai_validation_logs`에 기록한다.
+- 검증용 한국어 주석 원문과 참조 자료는 사용자 응답, 로그, 관리자 일반 목록에 노출하지 않는다.
+- 사용자에게 노출하는 해설은 승인된 `verse_explanations` 기준으로만 제공한다.
+- 모든 AI 호출은 먼저 `ai_generation_jobs`로 실행 이력을 만들고 `promptVersion`을 추적한다.
+- 생성 결과는 `ai_generated_assets`, 검증 결과는 `ai_validation_logs`에 연결한다.
+- 사용자 노출 산출물과 검증 로그에는 `promptVersion`, `modelName`, `sources`, `checklistVersionId`, `status/error`를 추적 가능하게 남긴다.
+- F-15 Q&A도 `job_type=QA`, `asset_type=QA_RESPONSE`, 1·2층 검증 로그를 연결한다.
+- 차단된 Q&A는 사용자 노출 산출물을 만들지 않고 `ai_qa_requests.status=BLOCKED`와 `blockedReason`만 남긴다.
 - 찬양은 운영자 큐레이션 메타데이터만 다룬다. AI 찬양 추천, 가사 저장, 음원 저장, 직접 YouTube URL 입력은 금지한다.
 - 개역개정, ESV, NIV seed/test/fixture/response 데이터는 금지한다.
 
@@ -190,107 +200,31 @@ qtai-server/src/test/java/com/qtai
 - AI 자유 챗봇/SSE 부재
 - F-15 Q&A 차단·검증·실패 처리
 - 승인되지 않은 AI 산출물 미노출
-- admin authorization
+- A/B/승인 해설 데이터와 검증 참조 자료 미노출
+- admin authorization과 `SYSTEM_BATCH` 주체 검증
 - Bible source metadata와 금지 번역본 차단
 - event handler 실패 로그와 재처리 가능 상태
 - Controller에서 Repository 직접 호출 금지
 
-## 12. Flutter 구조와 네이밍
+## 12. API 계약 규칙
 
-Flutter 앱은 feature-first 구조를 우선한다.
-
-```text
-flutter-app/lib
-├── app
-├── core
-├── shared
-└── features
-    ├── auth
-    ├── today_qt
-    ├── bible
-    ├── note
-    ├── sharing
-    ├── praise
-    ├── mission
-    ├── ai_qa
-    ├── my_page
-    └── admin
-```
-
-| 대상 | 형식 | 예시 |
-| --- | --- | --- |
-| 파일명 | `snake_case.dart` | `today_qt_screen.dart` |
-| 클래스명 | `PascalCase` | `TodayQtScreen` |
-| 변수/메서드 | `camelCase` | `loadTodayQt()` |
-| Widget | 목적 + `Widget/Tile/Card/Button/Screen` | `SimulatorStatusButton` |
-| State/Controller | 목적 + `State/Controller/Notifier` | `TodayQtController` |
-| Model/DTO | 서버 응답 의미 + `Dto/Model` | `TodayQtResponseDto` |
-| Test file | 대상 + `_test.dart` | `today_qt_screen_test.dart` |
-
-- 한 파일에는 주된 public Widget 하나를 둔다.
-- 재사용되는 UI는 `shared/` 또는 feature 내부 `widgets/`로 분리한다.
-- API DTO와 화면 표시용 Model을 구분한다.
-- 서버 JSON 필드는 DTO에서 명확히 매핑한다.
-- 로그인 전에는 콘텐츠 화면으로 진입하지 않는다.
-- Today QT, 성경 본문, 해설, 찬양, 묵상 저장, 묵상 달력은 인증 후 접근한다.
-
-## 13. Flutter 코드 스타일
-
-- `flutter_lints` 기준을 사용한다.
-- `prefer_const_constructors`, `prefer_final_locals`, `require_trailing_commas`, `avoid_print`를 지킨다.
-- 디버그 출력은 `print` 대신 프로젝트 로거를 사용한다.
-- 비동기 함수는 실패 상태를 명시적으로 처리한다.
-- loading, empty, error, success 상태를 UI에서 구분한다.
-- 긴 `build()` 메서드는 private widget method 또는 별도 Widget으로 분리한다.
-- 화면 텍스트는 가능하면 상수 또는 localization 확장 가능 구조로 둔다.
-- 버튼 활성화 조건은 서버 상태값과 동일하게 둔다. 시뮬레이터 버튼은 `READY`일 때만 활성화한다.
-- AI Q&A 화면은 single-turn 입력/응답만 지원한다. 채팅방·대화 목록·streaming UI를 만들지 않는다.
-
-## 14. Flutter 테스트 규칙
-
-- 주요 화면은 Widget test를 작성한다.
-- 순수 Dart 로직은 unit test로 검증한다.
-- Repository/API client는 mock 또는 fake client로 성공·실패를 모두 검증한다.
-- 인증 전 접근, 관리자 권한 없음, offline/error 상태를 테스트한다.
-- Today QT 화면은 본문, 해설 진입점, 노트 진입점, simulator status 표시를 검증한다.
-- AI Q&A 화면은 차단 응답, 검증 실패, 외부 AI 장애 안내를 검증한다.
-
-## 15. API 연동 규칙
-
-- 서버와 앱 모두 API 경로는 `/api/v1/**`를 기준으로 한다.
-- 앱은 서버 ErrorCode를 임의 문자열로 재해석하지 않는다.
-- 서버 enum 값은 앱에서 동일 문자열로 매핑한다.
+- 외부 공개 HTTP API 경로는 `/api/v1/**`를 기준으로 한다. 단, Kakao OAuth 시작/콜백은 `/oauth2/**` 예외 경로를 사용한다.
+- ErrorCode와 enum 값은 `04_API_명세서.md`와 동일하게 유지한다.
 - `READY`, `MISSING`, `FAILED`, `DISABLED` 외 simulator status를 만들지 않는다.
 - 사용자 응답 DTO에 검증 참조 원문, prompt 원문, provider secret을 포함하지 않는다.
-- API 변경 시 서버 테스트, OpenAPI 문서, Flutter DTO/parser 테스트를 함께 갱신한다.
+- API 변경 시 서버 테스트와 OpenAPI 문서를 함께 갱신한다.
 
-## 16. 검증 명령
-
-Backend:
+## 13. 검증 명령
 
 ```bash
 ./gradlew -p qtai-server build
 ./gradlew -p qtai-server test jacocoTestReport
 ./gradlew -p qtai-server jacocoTestCoverageVerification
-```
-
-OpenAPI/secret:
-
-```bash
 npx @stoplight/spectral-cli lint apis/*/openapi.yaml --ruleset .spectral.yaml
 gitleaks detect --source . --redact --exit-code 1
 ```
 
-Flutter:
-
-```bash
-cd flutter-app
-flutter pub get
-flutter analyze
-flutter test --coverage
-```
-
-## 17. PR 전 체크리스트
+## 14. PR 전 체크리스트
 
 - 관련 F-ID와 기준 문서를 PR에 적었는가
 - 도메인 경계를 깨지 않았는가
@@ -299,5 +233,5 @@ flutter test --coverage
 - 쓰기 Service에 `@Transactional`이 있는가
 - AI 자유 챗봇/SSE/RAG/AI 찬양 추천을 추가하지 않았는가
 - secret과 민감 정보가 코드·로그·예시에 없는가
-- 변경 범위에 맞는 서버/Flutter 테스트를 추가했는가
+- 변경 범위에 맞는 백엔드 테스트를 추가했는가
 - 실행한 검증 명령과 실패/미실행 사유를 PR에 남겼는가
