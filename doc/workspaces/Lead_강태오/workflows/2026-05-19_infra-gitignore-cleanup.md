@@ -18,8 +18,10 @@
 
 ## 비범위
 - 도메인 코드 변경 없음
-- 빌드/CI 설정 변경 없음
 - `flutter-app/` 손대지 않음
+
+## 작업 중 발견된 추가 수정
+- **`.github/workflows/qt-ai-ci.yml` Requirements Guard §12 보정**: 루트 `CLAUDE.md` / `CODE_CONVENTION.md`가 "금지 표현 쓰지 마라" 가이드 자체를 포함해 grep에 걸리는 메타 문제. 직전 커밋 `3f4598f`가 `doc/`만 제외하고 루트 가이드 두 파일을 빼먹은 누락. 본 PR 머지 차단 해소를 위해 `--exclude=CLAUDE.md --exclude=CODE_CONVENTION.md` 추가.
 
 ## 검증 계획
 - `git ls-files | grep -E "(\.gradle/|/bin/)"` 결과 0건
