@@ -1,0 +1,28 @@
+services:
+  qtai-server:
+    build: .
+    image: qtai-server:local
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/qtai
+      SPRING_DATASOURCE_USERNAME: qtai
+      SPRING_DATASOURCE_PASSWORD: qtai
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: qtai
+      MYSQL_USER: qtai
+      MYSQL_PASSWORD: qtai
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - qtai-db:/var/lib/mysql
+
+volumes:
+  qtai-db:

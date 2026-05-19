@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: QT-AI API
+  version: "1.0.0"
+  description: QT-AI 서버 v1 OpenAPI 명세 (각 도메인 PR에서 점진적으로 채워나감)
+servers:
+  - url: http://localhost:8080
+    description: Local
+paths: {}
+components:
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          nullable: true
+        error:
+          type: object
+          nullable: true
+          properties:
+            code:
+              type: string
+            message:
+              type: string
