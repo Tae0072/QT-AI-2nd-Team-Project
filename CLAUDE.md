@@ -46,13 +46,16 @@
 
 ## 4. 패키지·레이어 기준
 
-- `domain.<name>.api`: 외부 도메인에서 호출 가능한 UseCase interface와 DTO
-- `domain.<name>.internal`: Entity, enum, Service, Repository, QueryRepository 등 내부 구현
-- `domain.<name>.web`: `/api/v1/**` Controller와 request/response DTO
-- `common`: 공통 응답, 예외, 유틸
-- `config`, `security`, `external`, `batch`는 공통 기술 영역으로 둔다.
+2026-05-19 강사님 직강에서 확정한 도메인 표준 구조를 따른다(`03_아키텍처_정의서.md` v1.1 §3.1).
 
-기존 저장소 구조가 다르면 기존 구조를 우선하되 위 경계를 깨지 않는다.
+- `domain.<name>.api`: 외부 도메인에서 호출 가능한 UseCase interface와 DTO (`api/dto`)
+- `domain.<name>.internal`: Entity, enum, Service, Repository, QueryRepository, 도메인 전용 예외 등 내부 구현. 외부 도메인 접근 절대 금지
+- `domain.<name>.client`: 다른 도메인의 `api/UseCase` 호출 어댑터(`client/{타도메인명}/...UseCaseMock.java`)와 도메인 전용 외부 시스템 호출 어댑터. 선택 패키지로, 다른 도메인 호출이 없거나 외부 시스템 호출이 없는 도메인은 두지 않는다
+- `domain.<name>.web`: `/api/v1/**` Controller와 외부 HTTP Request/Response DTO
+- `common`: 공통 응답, 예외, 유틸
+- `config`, `security`, `external`, `batch`는 공통 기술 영역으로 둔다. 여러 도메인이 공유하는 외부 시스템 호출은 `external/`에 둔다.
+
+다른 도메인 호출은 항상 상대 도메인의 `api/UseCase` 인터페이스를 통한다. 통합 전에는 호출자 도메인의 `client/{타도메인명}/...UseCaseMock.java`로 임시 구현해 작업하고, 상대 도메인의 진짜 구현체가 등록되면 Mock을 삭제한다. 외부 시스템(Kakao, DeepSeek 등) 호출은 `client/{벤더명}Client`로 표현한다. 기존 저장소 구조가 다르면 기존 구조를 우선하되 위 경계를 깨지 않는다.
 
 ## 5. API 규칙
 

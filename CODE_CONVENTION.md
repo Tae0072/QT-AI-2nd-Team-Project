@@ -40,21 +40,25 @@ qtai-server/src/main/java/com/qtai
     └── audit
 ```
 
-각 도메인은 기본적으로 아래 하위 패키지를 사용한다.
+각 도메인은 2026-05-19 강사님 직강에서 확정한 표준 구조를 사용한다(`03_아키텍처_정의서.md` v1.1 §3.1).
 
 ```text
 domain/<name>
-├── api       # 다른 도메인이 호출 가능한 UseCase interface와 DTO
-├── internal  # Entity, Enum, Service, Repository, QueryRepository 등 내부 구현
+├── api       # 다른 도메인이 호출 가능한 UseCase interface와 DTO (api/dto)
+├── internal  # Entity, Enum, Service, Repository, QueryRepository, 도메인 전용 예외 — 외부 접근 절대 금지
+├── client    # 다른 도메인 호출 어댑터(client/{타도메인}/...UseCaseMock) + 도메인 전용 외부 시스템 호출 (선택)
+│   └── {타도메인명 또는 벤더명}
 └── web       # /api/v1/** Controller, Request/Response DTO
 ```
 
 - 다른 도메인이 import할 수 있는 타입은 `api/` 하위 UseCase/DTO로 제한한다.
-- 다른 도메인의 `internal/`, `web/` 타입을 직접 import하지 않는다.
+- 다른 도메인의 `internal/`, `client/`, `web/` 타입을 직접 import하지 않는다.
 - `note`, `sharing`, `praise`는 `bible` 하위가 아니라 최상위 도메인이다.
 - Controller가 Repository를 직접 호출하지 않는다.
 - 내부 도메인 호출을 HTTP 경로로 우회하지 않는다.
-- v1에서는 다른 도메인 호출 시 상대 도메인의 `api` UseCase/DTO를 직접 의존하는 방식을 기본으로 한다. `client` 패키지는 반복 조합이나 어댑터 계층이 필요해질 때 2차로 도입한다.
+- 다른 도메인 호출은 상대 도메인의 `api/UseCase` 인터페이스로만 한다. 통합 전에는 호출자 도메인의 `client/{타도메인명}/...UseCaseMock.java`로 임시 구현해 작업하고, 상대 도메인의 진짜 구현체가 등록되면 Mock을 삭제한다. Mock 클래스에는 `// TODO: 통합 후 삭제` 주석을 남긴다.
+- `client/`는 선택 패키지다. 다른 도메인을 호출하지 않고 도메인 전용 외부 시스템도 사용하지 않는 도메인(예: `bible`, `member`, `audit`)은 두지 않는다.
+- 외부 시스템 호출 중 여러 도메인이 공유하는 것은 `external/` 영역에 두고, 한 도메인 전용이면 그 도메인의 `client/{벤더명}Client`로 둔다.
 - `audit.api.WriteAuditLogUseCase`처럼 문서에서 허용한 횡단 UseCase만 예외로 둔다.
 
 ## 3. Backend 네이밍
