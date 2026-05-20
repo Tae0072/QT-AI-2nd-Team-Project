@@ -184,9 +184,11 @@ jobs:
           # 12) 금지 표현 (메모리 14) — 코드/문서 모두
           # workspaces/ 디렉터리는 명세 인용이 자연스러운 개인 작업 공간이라 면제
           # (README workspaces "빌드·런타임·테스트·CI에 영향 0")
+          # CLAUDE.md / CODE_CONVENTION.md 는 "이런 표현 쓰지 마라" 가이드라서 메타 인용 면제
           if grep -rE --include="*.md" --include="*.java" --include="*.kt" --include="*.dart" \
              "저작권 문제 없음|유실률 0% 보장|내부 API 경로" . \
-             --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github --exclude-dir=doc --exclude-dir=docs --exclude-dir=workspaces 2>/dev/null; then
+             --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github --exclude-dir=doc --exclude-dir=docs --exclude-dir=workspaces \
+             --exclude=CLAUDE.md --exclude=CODE_CONVENTION.md 2>/dev/null; then
             echo "[BLOCK] 금지 표현 발견 — 23_도메인_용어사전.md v1.0 갱신 표현 사용"
             FAILED=1
           fi
