@@ -1,7 +1,5 @@
 package com.qtai.common.exception;
 
-import org.springframework.http.HttpStatus;
-
 /**
  * 서비스 전역 에러 카탈로그.
  *
