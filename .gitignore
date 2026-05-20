@@ -1,0 +1,32 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Gradle / Java build artifacts
+.gradle/
+build/
+bin/
+out/
+*.class
+hs_err_pid*
+replay_pid*
+
+# Eclipse / Cursor Java LSP local metadata
+.classpath
+.project
+.settings/
+.factorypath
+
+# Local Claude Code state
+.claude/
+
