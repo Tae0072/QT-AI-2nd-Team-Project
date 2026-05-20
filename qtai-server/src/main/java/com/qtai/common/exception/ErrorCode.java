@@ -2,26 +2,29 @@ package com.qtai.common.exception;
 
 import org.springframework.http.HttpStatus;
 
+/**
+ * 서비스 전역 에러 카탈로그.
+ *
+ * 코드 규칙: 도메인 약자(1자) + 4자리 번호. C=Common, M=Member, Q=Qt, ...
+ * 클라이언트는 code로 분기하고, message는 기본 사용자 안내 문구.
+ */
 public enum ErrorCode {
 
-    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "C0001", "서버 내부 오류"),
-    INVALID_INPUT(HttpStatus.BAD_REQUEST, "C0002", "잘못된 요청"),
-    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "C0003", "인증이 필요합니다"),
-    FORBIDDEN(HttpStatus.FORBIDDEN, "C0004", "권한이 없습니다"),
-    NOT_FOUND(HttpStatus.NOT_FOUND, "C0005", "리소스를 찾을 수 없습니다");
+    // 공통
+    INTERNAL_ERROR("C0001", "서버 내부 오류가 발생했습니다."),
+    INVALID_INPUT("C0002", "잘못된 요청입니다."),
 
-    private final HttpStatus status;
+    // 회원
+    MEMBER_NOT_FOUND("M0001", "회원을 찾을 수 없습니다."),
+    UNAUTHORIZED("M0002", "인증이 필요합니다."),
+    FORBIDDEN("M0003", "권한이 없습니다.");
+
     private final String code;
     private final String message;
 
-    ErrorCode(HttpStatus status, String code, String message) {
-        this.status = status;
+    ErrorCode(String code, String message) {
         this.code = code;
         this.message = message;
-    }
-
-    public HttpStatus getStatus() {
-        return status;
     }
 
     public String getCode() {
