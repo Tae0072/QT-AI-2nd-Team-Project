@@ -17,7 +17,11 @@ public enum ErrorCode {
     // 회원
     MEMBER_NOT_FOUND("M0001", "회원을 찾을 수 없습니다."),
     UNAUTHORIZED("M0002", "인증이 필요합니다."),
-    FORBIDDEN("M0003", "권한이 없습니다.");
+    FORBIDDEN("M0003", "권한이 없습니다."),
+
+    // AI
+    AI_GENERATION_JOB_NOT_FOUND("A0001", "AI 생성 작업을 찾을 수 없습니다."),
+    AI_ASSET_NOT_FOUND("A0002", "AI 산출물을 찾을 수 없습니다.");
 
     private final String code;
     private final String message;

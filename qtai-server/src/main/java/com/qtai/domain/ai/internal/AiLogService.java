@@ -114,11 +114,11 @@ public class AiLogService {
 
     private AiGenerationJob findGenerationJob(Long jobId) {
         return generationJobRepository.findById(jobId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "AI 생성 작업을 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.AI_GENERATION_JOB_NOT_FOUND));
     }
 
     private AiGeneratedAsset findGeneratedAsset(Long assetId) {
         return generatedAssetRepository.findById(assetId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "AI 산출물을 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.AI_ASSET_NOT_FOUND));
     }
 }
