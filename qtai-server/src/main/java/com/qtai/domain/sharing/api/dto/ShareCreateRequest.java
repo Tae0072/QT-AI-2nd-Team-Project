@@ -1,7 +1,8 @@
 package com.qtai.domain.sharing.api.dto;
 
-/**
- * TODO: 공유 생성 요청 DTO — 대상 리소스 종류(qt/note/study)와 id.
- */
-public record ShareCreateRequest() {
-}
+/** 공유 생성 요청 DTO. */
+public record ShareCreateRequest(
+        // TODO: String resourceType   — QT / NOTE / STUDY (필수)
+        // TODO: Long resourceId       — 공유할 원본 ID (필수)
+        // TODO: LocalDateTime expiresAt — 만료 시각 (선택, null이면 무기한)
+) {}
