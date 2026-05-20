@@ -1,19 +1,17 @@
 package com.qtai.domain.ai.web;
 
 /**
- * AI REST 엔드포인트. base path: /api/v1/ai
+ * AI REST endpoint placeholder. Base path: /api/v1/ai.
  *
- * F-15 정책: 단발 요청 → 동기 응답 또는 202 Accepted + polling 패턴만 허용.
- * SSE / WebSocket 스트리밍 엔드포인트 금지.
- *
- * 엔드포인트:
- *   POST /generate  → AI 응답 생성 (GenerateAiResponseUseCase)
+ * F-15 only allows single-turn Q&A request and polling result lookup.
+ * Streaming, free chat sessions, and multi-turn context are excluded.
  */
 // TODO: @RestController, @RequestMapping("/api/v1/ai"), @RequiredArgsConstructor
 public class AiController {
 
-    // TODO: final GenerateAiResponseUseCase generateAiResponseUseCase;
+    // TODO: final RequestAiQaUseCase requestAiQaUseCase;
+    // TODO: final GetAiQaResultUseCase getAiQaResultUseCase;
 
-    // TODO: POST "/generate" — @RequestBody AiPromptRequest + @AuthenticationPrincipal memberId
-    //       → ApiResponse.success(AiResponse) 반환
+    // TODO: POST "/qa-requests" maps web request DTO to RequestAiQaCommand.
+    // TODO: GET "/qa-requests/{requestId}" maps path/auth data to GetAiQaResultCommand.
 }
