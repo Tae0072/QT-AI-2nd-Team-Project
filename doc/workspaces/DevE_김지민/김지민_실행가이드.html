@@ -10,10 +10,10 @@
 </head>
 <body>
 <header>
-  <div class="wrap"><div class="hdr"><span class="proj">QT-AI</span><div><div class="dev-name">김지민 실행가이드 <span class="role-chip">Flutter / Admin / Today QT 화면 / bible 협업</span></div><div class="dev-sub">기준일 2026-05-15 · 김지민_공식일정표.md · 00_개발_일정_총괄표.md v0.1 · 07_요구사항_정의서.md v3.1</div></div><nav class="wnav-wrap"><button class="wnav cur" data-target="sec-0">역할</button><button class="wnav" data-target="sec-1">소유권</button><button class="wnav" data-target="sec-2">PR 가이드</button><button class="wnav" data-target="sec-3">일정</button><button class="wnav" data-target="sec-4">AI 에이전트</button><button class="wnav" data-target="sec-5">자기완결성</button><button class="wnav" data-target="sec-6">워크플로우</button><button class="wnav" data-target="sec-7">검증 명령</button><button class="wnav" data-target="sec-8">금지 패턴</button></nav></div></div>
+  <div class="wrap"><div class="hdr"><span class="proj">QT-AI</span><div><div class="dev-name">김지민 실행가이드 <span class="role-chip">Flutter / Admin(별도 웹) / Today QT 화면 / note(FreeNote&#183;ShareNote) / bible 협업</span></div><div class="dev-sub">기준일 2026-05-20 · 김지민_공식일정표.md v0.3 · 00_개발_일정_총괄표.md v0.2 · 07_요구사항_정의서.md v3.1</div></div><nav class="wnav-wrap"><button class="wnav cur" data-target="sec-0">역할</button><button class="wnav" data-target="sec-1">소유권</button><button class="wnav" data-target="sec-2">PR 가이드</button><button class="wnav" data-target="sec-3">일정</button><button class="wnav" data-target="sec-4">AI 에이전트</button><button class="wnav" data-target="sec-5">자기완결성</button><button class="wnav" data-target="sec-6">워크플로우</button><button class="wnav" data-target="sec-7">검증 명령</button><button class="wnav" data-target="sec-8">금지 패턴</button></nav></div></div>
 </header>
 <main class="wrap">
-<section id="sec-0" class="sec"><div class="sec-hdr"><div class="sec-num">0</div><div class="sec-title">역할 핵심 선언</div></div><div class="callout"><strong>김지민 — Flutter 화면, 관리자 화면, Today QT 사용자 흐름</strong><br>1 첫 화면은 Today QT 중심이며 별도 마케팅 홈을 만들지 않는다.<br>2 미인증 기능 화면 차단과 로그인 후 접근 기준을 명확히 한다.<br>3 시뮬레이터 버튼은 READY일 때만 활성화하고 MISSING/FAILED/DISABLED는 비활성화한다.<br>4 AI 자유 챗봇, AI 찬양 추천, 교회 인증 버튼은 MVP 화면에 넣지 않는다.</div><div class="callout red mt12"><strong>본인 우선 액션 4가지</strong><br>1 Today QT 화면에서 본문·해설·묵상·시뮬레이터 상태를 모두 표시<br>2 미인증 기능 화면 차단과 로그인 후 접근 기준을 구분<br>3 관리자 메뉴 범위를 오늘 QT, 승인 해설, 시뮬레이터, 신고, 찬양 큐레이션으로 제한<br>4 금지 UI 버튼이 화면에 남지 않았는지 PR 전 확인</div><div class="two mt12"><div class="callout blue"><strong>중심 영역</strong><br>mobile / admin</div><div class="callout"><strong>작업 요약</strong><br>Today QT 화면, 로그인 경계, 묵상 작성, 마이페이지, 묵상 달력, 관리자 운영 화면</div></div><div class="mt12"><div class="wt">담당 경로 (구현 저장소 기준)</div><ul class="path-list"><li>flutter-app/lib/features/today_qt/ — Today QT 화면</li>
+<section id="sec-0" class="sec"><div class="sec-hdr"><div class="sec-num">0</div><div class="sec-title">역할 핵심 선언</div></div><div class="callout"><strong>김지민 — Flutter 화면, 관리자 웹(별도 프런트엔드), Today QT 사용자 흐름, FreeNote/ShareNote</strong><br>1 첫 화면은 Today QT 중심이며 별도 마케팅 홈을 만들지 않는다.<br>2 미인증 기능 화면 차단과 로그인 후 접근 기준을 명확히 한다.<br>3 시뮬레이터 버튼은 READY일 때만 활성화하고 MISSING/FAILED/DISABLED는 비활성화한다.<br>4 AI 자유 챗봇, AI 찬양 추천, 교회 인증 버튼은 MVP 화면에 넣지 않는다.<br>5 관리자 UI는 Flutter 앱이 아니라 별도 웹 프런트엔드다(2026-05-19 강사님 직강 결정).<br>6 note 도메인에서 FreeNote(자유 노트)와 ShareNote(공유 노트)를 담당한다. SermonNote는 이지윤이 담당한다.</div><div class="callout red mt12"><strong>본인 우선 액션 4가지</strong><br>1 Today QT 화면에서 본문·해설·묵상·시뮬레이터 상태를 모두 표시<br>2 미인증 기능 화면 차단과 로그인 후 접근 기준을 구분<br>3 관리자 메뉴 범위를 오늘 QT, 승인 해설, 시뮬레이터, 신고, 찬양 큐레이션으로 제한<br>4 금지 UI 버튼이 화면에 남지 않았는지 PR 전 확인</div><div class="two mt12"><div class="callout blue"><strong>중심 영역</strong><br>Flutter 앱 / 관리자 웹(별도) / note(FreeNote&#183;ShareNote)</div><div class="callout"><strong>작업 요약</strong><br>Today QT 화면, 로그인 경계, 묵상 작성, 마이페이지, 묵상 달력, 관리자 운영 화면</div></div><div class="mt12"><div class="wt">담당 경로 (구현 저장소 기준)</div><ul class="path-list"><li>flutter-app/lib/features/today_qt/ — Today QT 화면</li>
 <li>flutter-app/lib/features/note/ — 묵상 작성·달력</li>
 <li>flutter-app/lib/features/admin/ — 관리자 화면</li>
 <li>flutter-app/test/ — 화면/상태 테스트</li>
@@ -27,7 +27,7 @@
 </tr>
 <tr>
 <td>주 역할</td>
-<td>Flutter / Admin / Today QT 화면 / bible 협업</td>
+<td>Flutter / Admin(별도 웹) / Today QT 화면 / note(FreeNote·ShareNote) / bible 협업</td>
 </tr>
 <tr>
 <td>기준 문서</td>
@@ -47,7 +47,7 @@
 </div>
 </section>
 <section id="sec-2" class="sec"><div class="sec-hdr"><div class="sec-num">2</div><div class="sec-title">PR 가이드 — 이 섹션만 읽으면 작업 흐름 확인 가능</div></div><div class="callout blue"><strong>다운로드본 Lead 실행가이드의 패널형 양식과 체크리스트 밀도를 반영했다.</strong> 단, Kafka/K8s/SSE/세션형 AI 같은 구버전 내용은 v3.1 금지 기준으로 바꿨다.</div><div class="pr-panel-list mt12">
-  <div class="pr-panel"><div class="pr-panel-hdr" onclick="togglePanel('UI-pr-1')"><div class="pr-panel-num">1</div><div class="pr-panel-title"><strong>① 브랜치 명명 규칙 — type/scope-task</strong><span>feature/mobile-* · feature/admin-* · bugfix/mobile-*</span></div><div class="pr-panel-chev open" id="chev-UI-pr-1">⌄</div></div><div class="pr-panel-body show" id="UI-pr-1"><pre><button class="copy-btn" onclick="copyPre(this)">Copy</button><code>git checkout dev
+  <div class="pr-panel"><div class="pr-panel-hdr" onclick="togglePanel('UI-pr-1')"><div class="pr-panel-num">1</div><div class="pr-panel-title"><strong>① 브랜치 명명 규칙 — type/scope-task</strong><span>feature/mobile-* · feature/admin-* · feature/note-free-* · feature/note-share-* · bugfix/mobile-*</span></div><div class="pr-panel-chev open" id="chev-UI-pr-1">⌄</div></div><div class="pr-panel-body show" id="UI-pr-1"><pre><button class="copy-btn" onclick="copyPre(this)">Copy</button><code>git checkout dev
 git pull origin dev
 git checkout -b feature/mobile-today-qt-screen
 # alternative
