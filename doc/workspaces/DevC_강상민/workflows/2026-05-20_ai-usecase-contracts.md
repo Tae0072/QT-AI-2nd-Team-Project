@@ -47,7 +47,7 @@ AI 도메인은 QT 본문, 성경 구절, 관리자 권한, 감사 로그와 연
 - Request/Response가 아니라 UseCase용 `Command`, `Result` 명칭을 사용한다.
 - 외부 HTTP DTO는 `web` 패키지에서 별도로 만든다.
 - DTO에는 Entity를 넣지 않는다.
-- 사용자 응답에 검증용 주석 원문, prompt 원문, provider raw response를 넣지 않는다.
+- 사용자 응답에 검증 참조 원문, prompt 원문, provider raw response를 넣지 않는다.
 
 ## 구현 순서
 

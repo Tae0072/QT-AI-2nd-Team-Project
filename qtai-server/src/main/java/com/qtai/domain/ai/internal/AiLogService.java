@@ -9,13 +9,13 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 
 @Service
-public class AiLogService {
+class AiLogService {
 
     private final AiGenerationJobRepository generationJobRepository;
     private final AiGeneratedAssetRepository generatedAssetRepository;
     private final AiValidationLogRepository validationLogRepository;
 
-    public AiLogService(
+    AiLogService(
             AiGenerationJobRepository generationJobRepository,
             AiGeneratedAssetRepository generatedAssetRepository,
             AiValidationLogRepository validationLogRepository
@@ -104,9 +104,11 @@ public class AiLogService {
                 errorMessage,
                 createdAt
         );
-        AiValidationLog savedLog = validationLogRepository.save(log);
         if (result == AiValidationResult.REJECTED) {
             asset.reject(createdAt);
+        }
+        AiValidationLog savedLog = validationLogRepository.save(log);
+        if (result == AiValidationResult.REJECTED) {
             generatedAssetRepository.save(asset);
         }
         return savedLog;

@@ -12,6 +12,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
+
 @Entity
 @Table(name = "ai_generation_jobs")
 public class AiGenerationJob {
@@ -81,17 +84,20 @@ public class AiGenerationJob {
     }
 
     public void markRunning(OffsetDateTime startedAt) {
+        requireTransition(AiGenerationJobStatus.RUNNING, AiGenerationJobStatus.QUEUED);
         this.startedAt = Objects.requireNonNull(startedAt, "startedAt must not be null");
         this.status = AiGenerationJobStatus.RUNNING;
     }
 
     public void markSucceeded(OffsetDateTime finishedAt) {
+        requireTransition(AiGenerationJobStatus.SUCCEEDED, AiGenerationJobStatus.RUNNING);
         this.finishedAt = Objects.requireNonNull(finishedAt, "finishedAt must not be null");
         this.status = AiGenerationJobStatus.SUCCEEDED;
         this.errorMessage = null;
     }
 
     public void markFailed(String errorMessage, OffsetDateTime finishedAt) {
+        requireTransition(AiGenerationJobStatus.FAILED, AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING);
         this.finishedAt = Objects.requireNonNull(finishedAt, "finishedAt must not be null");
         this.status = AiGenerationJobStatus.FAILED;
         this.errorMessage = truncate(requireText(errorMessage, "errorMessage"), ERROR_MESSAGE_MAX_LENGTH);
@@ -149,5 +155,17 @@ public class AiGenerationJob {
             return value;
         }
         return value.substring(0, maxLength);
+    }
+
+    private void requireTransition(AiGenerationJobStatus nextStatus, AiGenerationJobStatus... allowedCurrentStatuses) {
+        for (AiGenerationJobStatus allowedCurrentStatus : allowedCurrentStatuses) {
+            if (status == allowedCurrentStatus) {
+                return;
+            }
+        }
+        throw new BusinessException(
+                ErrorCode.INVALID_INPUT,
+                "Invalid AI generation job status transition: " + status + " -> " + nextStatus
+        );
     }
 }

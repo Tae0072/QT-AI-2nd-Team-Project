@@ -71,7 +71,7 @@ public class AiValidationLog {
         this.result = Objects.requireNonNull(result, "result must not be null");
         this.reviewerType = Objects.requireNonNull(reviewerType, "reviewerType must not be null");
         this.checklistVersionId = checklistVersionId;
-        this.checklistJson = checklistJson;
+        this.checklistJson = AiJsonStorageGuard.rejectRawProviderOrReferenceText(checklistJson, "checklistJson");
         this.errorMessage = normalizeErrorMessage(errorMessage);
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
     }

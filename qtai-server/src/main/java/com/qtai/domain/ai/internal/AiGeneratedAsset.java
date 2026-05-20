@@ -13,6 +13,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
+
 @Entity
 @Table(name = "ai_generated_assets")
 public class AiGeneratedAsset {
@@ -73,7 +76,10 @@ public class AiGeneratedAsset {
         this.targetType = Objects.requireNonNull(targetType, "targetType must not be null");
         this.targetId = Objects.requireNonNull(targetId, "targetId must not be null");
         this.promptVersion = requireText(promptVersion, "promptVersion");
-        this.payloadJson = requireText(payloadJson, "payloadJson");
+        this.payloadJson = AiJsonStorageGuard.rejectRawProviderOrReferenceText(
+                requireText(payloadJson, "payloadJson"),
+                "payloadJson"
+        );
         this.sourceLabel = sourceLabel;
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         this.status = AiGeneratedAssetStatus.VALIDATING;
@@ -102,16 +108,19 @@ public class AiGeneratedAsset {
     }
 
     public void approve(OffsetDateTime reviewedAt) {
+        requireTransition(AiGeneratedAssetStatus.APPROVED, AiGeneratedAssetStatus.VALIDATING);
         this.reviewedAt = Objects.requireNonNull(reviewedAt, "reviewedAt must not be null");
         this.status = AiGeneratedAssetStatus.APPROVED;
     }
 
     public void reject(OffsetDateTime reviewedAt) {
+        requireTransition(AiGeneratedAssetStatus.REJECTED, AiGeneratedAssetStatus.VALIDATING);
         this.reviewedAt = Objects.requireNonNull(reviewedAt, "reviewedAt must not be null");
         this.status = AiGeneratedAssetStatus.REJECTED;
     }
 
     public void hide(OffsetDateTime reviewedAt) {
+        requireTransition(AiGeneratedAssetStatus.HIDDEN, AiGeneratedAssetStatus.VALIDATING, AiGeneratedAssetStatus.APPROVED);
         this.reviewedAt = Objects.requireNonNull(reviewedAt, "reviewedAt must not be null");
         this.status = AiGeneratedAssetStatus.HIDDEN;
     }
@@ -165,5 +174,17 @@ public class AiGeneratedAsset {
             throw new IllegalArgumentException(fieldName + " must not be blank");
         }
         return value;
+    }
+
+    private void requireTransition(AiGeneratedAssetStatus nextStatus, AiGeneratedAssetStatus... allowedCurrentStatuses) {
+        for (AiGeneratedAssetStatus allowedCurrentStatus : allowedCurrentStatuses) {
+            if (status == allowedCurrentStatus) {
+                return;
+            }
+        }
+        throw new BusinessException(
+                ErrorCode.INVALID_INPUT,
+                "Invalid AI generated asset status transition: " + status + " -> " + nextStatus
+        );
     }
 }
