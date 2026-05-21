@@ -65,7 +65,8 @@
 | 생성 작업 실패 | `ai_generation_jobs.status=FAILED`와 실패 사유를 남긴다. |
 | 산출물 검증 실패 | `ai_validation_logs.result=REJECTED`를 남기고 산출물은 사용자 노출 상태로 전환하지 않는다. |
 | 검토 필요 | `NEEDS_REVIEW`는 관리자 검토 대상으로 유지하고 자동 승인하지 않는다. |
-| 재처리 가능 | `FAILED`, `REJECTED`, `NEEDS_REVIEW` 중 원인과 target 정보가 남은 경우 관리자 또는 배치 재처리 후보가 된다. |
+| 작업 재처리 가능 | `ai_generation_jobs.status=FAILED`이고 원인과 target 정보가 남은 경우 관리자 또는 배치 재처리 후보가 된다. |
+| 산출물/검증 재처리 가능 | `ai_generated_assets.status=REJECTED` 또는 `ai_validation_logs.result=REJECTED/NEEDS_REVIEW`이고 target 정보가 남은 경우 재처리 후보가 된다. |
 | 중복 실행 방지 | 동일 target type/id, asset type, prompt version, input hash 기준으로 `QUEUED` 또는 `RUNNING` 작업이 있으면 새 작업 생성을 차단한다. |
 | 관리자 재생성 | 기존 asset/log를 수정 삭제하지 않고 새 generation job과 새 asset을 만든다. |
 | 기존 승인본 | 새 산출물이 승인되기 전까지 기존 `APPROVED`/`ACTIVE` 노출본은 유지한다. |
@@ -95,7 +96,7 @@
 | --- | --- |
 | 논리 키 | `targetType + targetId + assetType + promptVersion + inputHash` |
 | 차단 상태 | 동일 논리 키의 `QUEUED` 또는 `RUNNING` 작업이 있으면 새 작업 생성을 차단한다. |
-| 허용 상태 | 기존 작업이 `SUCCEEDED`, `FAILED`, `REJECTED`, `HIDDEN`에 대응되는 완료 상태면 관리자 재생성 정책에 따라 새 작업을 만들 수 있다. |
+| 허용 상태 | 기존 job이 `SUCCEEDED`/`FAILED` 또는 기존 asset이 `REJECTED`/`HIDDEN`인 완료 상태면 관리자 재생성 정책에 따라 새 작업을 만들 수 있다. |
 | 현재 gap | `inputHash`는 용어사전에 정의되어 있으나 현재 ERD/코드에는 물리 저장 위치가 없다. W2 구현에서 저장 위치와 유니크/조회 인덱스를 결정해야 한다. |
 
 ### 관리자 재생성 기준
@@ -108,6 +109,8 @@
 | `VALIDATING` asset | 불가 | 검증 중인 작업을 덮어쓰지 않는다. |
 | `QUEUED`/`RUNNING` job | 불가 | 중복 실행 방지 대상이다. |
 | `APPROVED`/`ACTIVE` 노출본 | 조건부 가능 | 기존 노출본을 유지한 채 새 이력으로 재생성한다. 새 산출물이 승인되기 전까지 기존 노출본을 교체하지 않는다. |
+
+관리자 재생성 호출은 `admin` HTTP 경로에서 받고 실제 생성 요청은 `ai.api` UseCase로 위임하며, `members.role=ADMIN`과 `admin_users.admin_role=REVIEWER` 또는 `SUPER_ADMIN` 권한을 요구한다.
 
 ## 구현 순서
 
