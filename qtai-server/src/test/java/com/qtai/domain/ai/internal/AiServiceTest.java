@@ -101,11 +101,28 @@ class AiServiceTest {
                 List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate active generation job"));
+                .thenThrow(new DataIntegrityViolationException(
+                        "Duplicate entry for key 'uk_ai_generation_jobs_active_target_prompt'"));
 
         assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand()))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+    }
+
+    @Test
+    void createAiGenerationJobDoesNotMapUnrelatedDataIntegrityViolation() {
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.QT_PASSAGE,
+                35L,
+                "2026.05.1",
+                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
+        )).thenReturn(false);
+        when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class)))
+                .thenThrow(new DataIntegrityViolationException("not-null violation on created_at"));
+
+        assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand()))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
@@ -261,6 +278,26 @@ class AiServiceTest {
     }
 
     @Test
+    void regenerateAiAssetMapsUniqueConstraintRaceToStatusTransitionError() {
+        AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.REJECTED);
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                1001L,
+                "2026.05.1",
+                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
+        )).thenReturn(false);
+        when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "Duplicate entry for key 'uk_ai_generation_jobs_active_target_prompt'"));
+
+        assertThatThrownBy(() -> aiService.regenerateAiAsset(adminCommand("REVIEWER")))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+    }
+
+    @Test
     void memberRoleAdminAndReviewerOrSuperAdminRoleAreRequired() {
         assertThatThrownBy(() -> aiService.regenerateAiAsset(command("USER", "REVIEWER")))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
@@ -269,6 +306,39 @@ class AiServiceTest {
         assertThatThrownBy(() -> aiService.regenerateAiAsset(command("ADMIN", "OPERATOR")))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+    }
+
+    @Test
+    void invalidRegenerateAiAssetCommandFieldsAreBlockedBeforeAuthorization() {
+        assertInvalidRegenerateCommand(new RegenerateAiAssetCommand(
+                7L,
+                500L,
+                " ",
+                "REVIEWER",
+                "출처 표기가 부족합니다.",
+                3L,
+                CREATED_AT
+        ));
+        assertInvalidRegenerateCommand(new RegenerateAiAssetCommand(
+                7L,
+                500L,
+                "ADMIN",
+                "",
+                "출처 표기가 부족합니다.",
+                3L,
+                CREATED_AT
+        ));
+        assertInvalidRegenerateCommand(new RegenerateAiAssetCommand(
+                7L,
+                500L,
+                "ADMIN",
+                "REVIEWER",
+                "출처 표기가 부족합니다.",
+                0L,
+                CREATED_AT
+        ));
+        verify(generatedAssetRepository, never()).findById(any());
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
     }
 
     private static RegenerateAiAssetCommand adminCommand(String adminRole) {
@@ -300,6 +370,12 @@ class AiServiceTest {
                 3L,
                 CREATED_AT
         );
+    }
+
+    private void assertInvalidRegenerateCommand(RegenerateAiAssetCommand command) {
+        assertThatThrownBy(() -> aiService.regenerateAiAsset(command))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
     }
 
     private static AiGeneratedAsset assetWithStatus(AiGeneratedAssetStatus status) {

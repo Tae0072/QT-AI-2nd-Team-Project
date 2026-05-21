@@ -1,6 +1,7 @@
 package com.qtai.domain.ai.internal;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,8 @@ import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
 
 @Service
 public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAssetUseCase {
+
+    private static final String ACTIVE_JOB_UNIQUE_CONSTRAINT = "uk_ai_generation_jobs_active_target_prompt";
 
     private static final List<AiGenerationJobStatus> ACTIVE_GENERATION_STATUSES = List.of(
             AiGenerationJobStatus.QUEUED,
@@ -116,6 +119,9 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         try {
             return generationJobRepository.saveAndFlush(job);
         } catch (DataIntegrityViolationException exception) {
+            if (!isActiveJobUniqueConstraintViolation(exception)) {
+                throw exception;
+            }
             throw new BusinessException(
                     ErrorCode.INVALID_STATUS_TRANSITION,
                     "같은 대상의 진행 중 AI 생성 작업이 있어 새 작업을 생성할 수 없습니다."
@@ -149,6 +155,8 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         }
         requirePositive(command.adminId(), "adminId");
         requirePositive(command.assetId(), "assetId");
+        requireText(command.memberRole(), "memberRole");
+        requireText(command.adminRole(), "adminRole");
         requirePositive(command.promptVersionId(), "promptVersionId");
         requireText(command.reason(), "reason");
         if (command.requestedAt() == null) {
@@ -166,6 +174,20 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         if (value == null || value.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, fieldName + " must not be blank");
         }
+    }
+
+    private static boolean isActiveJobUniqueConstraintViolation(DataIntegrityViolationException exception) {
+        Throwable mostSpecificCause = exception.getMostSpecificCause();
+        return containsActiveJobUniqueConstraint(exception.getMessage())
+                || containsActiveJobUniqueConstraint(mostSpecificCause.getMessage());
+    }
+
+    private static boolean containsActiveJobUniqueConstraint(String message) {
+        if (message == null) {
+            return false;
+        }
+        return message.toLowerCase(Locale.ROOT)
+                .contains(ACTIVE_JOB_UNIQUE_CONSTRAINT.toLowerCase(Locale.ROOT));
     }
 
     private static AiGenerationJobType parseJobType(String value) {

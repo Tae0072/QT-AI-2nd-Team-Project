@@ -27,6 +27,7 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.slf4j.MDC;
@@ -60,6 +61,7 @@ class AdminAiAssetControllerTest {
     @AfterEach
     void tearDown() {
         MDC.clear();
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -165,6 +167,33 @@ class AdminAiAssetControllerTest {
     }
 
     @Test
+    void securityContextHolderAuthenticationIsUsedWhenArgumentIsMissing() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(adminPrincipal(7L, "ADMIN_ROLE_REVIEWER"));
+        when(regenerateAiAssetUseCase.regenerateAiAsset(any(RegenerateAiAssetCommand.class)))
+                .thenReturn(new RegenerateAiAssetResult(
+                        101L,
+                        "QUEUED",
+                        OffsetDateTime.parse("2026-05-21T10:30:00+09:00")
+                ));
+
+        mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/regenerate", 500L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "출처 표기가 부족합니다.",
+                                  "promptVersionId": 3
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.success").value(true));
+
+        ArgumentCaptor<RegenerateAiAssetCommand> commandCaptor =
+                ArgumentCaptor.forClass(RegenerateAiAssetCommand.class);
+        verify(regenerateAiAssetUseCase).regenerateAiAsset(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().adminId()).isEqualTo(7L);
+    }
+
+    @Test
     void unauthenticatedRequestReturnsUnauthorizedEvenWithForgedHeaders() throws Exception {
         mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/regenerate", 500L)
                         .header("X-Admin-Id", "7")
@@ -202,6 +231,23 @@ class AdminAiAssetControllerTest {
         verify(regenerateAiAssetUseCase, never()).regenerateAiAsset(any(RegenerateAiAssetCommand.class));
     }
 
+    @Test
+    void nonNumericPrincipalReturnsUnauthorized() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/regenerate", 500L)
+                        .principal(principal("admin@example.com", "ROLE_ADMIN", "ADMIN_ROLE_REVIEWER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "principal 형식 확인",
+                                  "promptVersionId": 3
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("M0002"));
+        verify(regenerateAiAssetUseCase, never()).regenerateAiAsset(any(RegenerateAiAssetCommand.class));
+    }
+
     private static Authentication adminPrincipal(Long adminId, String... adminAuthorities) {
         String[] authorities = new String[adminAuthorities.length + 1];
         authorities[0] = "ROLE_ADMIN";
@@ -209,10 +255,10 @@ class AdminAiAssetControllerTest {
         return principal(adminId, authorities);
     }
 
-    private static Authentication principal(Long principalId, String... authorities) {
+    private static Authentication principal(Object principal, String... authorities) {
         List<SimpleGrantedAuthority> grantedAuthorities = Arrays.stream(authorities)
                 .map(SimpleGrantedAuthority::new)
                 .toList();
-        return new UsernamePasswordAuthenticationToken(principalId, "N/A", grantedAuthorities);
+        return new UsernamePasswordAuthenticationToken(principal, "N/A", grantedAuthorities);
     }
 }
