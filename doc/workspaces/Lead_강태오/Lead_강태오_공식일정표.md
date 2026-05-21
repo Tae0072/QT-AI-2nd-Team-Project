@@ -3,7 +3,7 @@
 > **문서 버전:** v3.5-align.1
 > **작성일:** 2026-05-20
 > **최종 갱신:** 2026-05-21
-> **기준 문서:** `00_개발_일정_총괄표.md` v0.3, `07_요구사항_정의서.md` v3.5, `04_API_명세서.md` v1.7, `25_기능_명세서.md` v0.8
+> **기준 문서:** `00_개발_일정_총괄표.md` v0.3, `07_요구사항_정의서.md` v3.5, `03_아키텍처_정의서.md` v1.2, `04_API_명세서.md` v1.7, `02_ERD_문서.md` v2.2, `06_화면_기능_정의서.md` v1.4, `25_기능_명세서.md` v0.8
 > **적용 범위:** 강태오 Lead 일정표이면서, 다른 팀원 개인 일정표 작성 시 복제 가능한 공통 기준
 > **연관 문서:** `09_Git_규칙.md`, `18_코드_품질_게이트.md`, `23_도메인_용어사전.md`, `24_템플릿_문서_매핑표.md`, `개발자별_일정표/00_공통_브랜치_PR_워크플로우_규칙.md`
 
@@ -117,6 +117,8 @@ git checkout dev
 git pull origin dev
 ./gradlew -p qtai-server test
 rg -n "Kafka|Kubernetes|Helm|/ai/sessions|SSE|RAG|ChromaDB|Elasticsearch|개역개정|ESV|NIV" .
+rg -n "domain\.[a-z]+\.(application|dao|domain|dto|exception)\." qtai-server/src
+rg -n "관리자.*Flutter 앱|Flutter.*admin" qtai-server flutter-app
 ```
 
 문서 저장소에서는 Markdown 표, 코드펜스, API JSON, 금지 기준 문구를 확인한다.
