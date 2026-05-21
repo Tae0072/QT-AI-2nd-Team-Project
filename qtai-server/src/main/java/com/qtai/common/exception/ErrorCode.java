@@ -11,6 +11,7 @@ public enum ErrorCode {
     // 공통
     INTERNAL_ERROR("C0001", "서버 내부 오류가 발생했습니다."),
     INVALID_INPUT("C0002", "잘못된 요청입니다."),
+    INVALID_STATUS_TRANSITION("C0003", "상태 전이를 수행할 수 없습니다."),
 
     // 회원
     MEMBER_NOT_FOUND("M0001", "회원을 찾을 수 없습니다."),
