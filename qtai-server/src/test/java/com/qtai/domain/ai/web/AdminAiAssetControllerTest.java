@@ -2,6 +2,7 @@ package com.qtai.domain.ai.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -12,6 +13,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.List;
 
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +23,9 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -59,9 +65,7 @@ class AdminAiAssetControllerTest {
                 ));
 
         mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/regenerate", 500L)
-                        .header("X-Admin-Id", "7")
-                        .header("X-Member-Role", "ADMIN")
-                        .header("X-Admin-Role", "REVIEWER")
+                        .principal(adminPrincipal(7L, "ADMIN_ROLE_REVIEWER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -90,13 +94,8 @@ class AdminAiAssetControllerTest {
 
     @Test
     void forbiddenAdminRoleReturnsForbiddenResponse() throws Exception {
-        when(regenerateAiAssetUseCase.regenerateAiAsset(any(RegenerateAiAssetCommand.class)))
-                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
-
         mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/regenerate", 500L)
-                        .header("X-Admin-Id", "7")
-                        .header("X-Member-Role", "ADMIN")
-                        .header("X-Admin-Role", "OPERATOR")
+                        .principal(adminPrincipal(7L, "ADMIN_ROLE_OPERATOR"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -107,6 +106,7 @@ class AdminAiAssetControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("M0003"));
+        verify(regenerateAiAssetUseCase, never()).regenerateAiAsset(any(RegenerateAiAssetCommand.class));
     }
 
     @Test
@@ -115,9 +115,7 @@ class AdminAiAssetControllerTest {
                 .thenThrow(new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION));
 
         mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/regenerate", 500L)
-                        .header("X-Admin-Id", "7")
-                        .header("X-Member-Role", "ADMIN")
-                        .header("X-Admin-Role", "REVIEWER")
+                        .principal(adminPrincipal(7L, "ADMIN_ROLE_REVIEWER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -128,5 +126,57 @@ class AdminAiAssetControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("C0003"));
+    }
+
+    @Test
+    void unauthenticatedRequestReturnsUnauthorizedEvenWithForgedHeaders() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/regenerate", 500L)
+                        .header("X-Admin-Id", "7")
+                        .header("X-Member-Role", "ADMIN")
+                        .header("X-Admin-Role", "REVIEWER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "헤더 위조 시도",
+                                  "promptVersionId": 3
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("M0002"));
+        verify(regenerateAiAssetUseCase, never()).regenerateAiAsset(any(RegenerateAiAssetCommand.class));
+    }
+
+    @Test
+    void forgedHeadersDoNotOverrideSecurityContextRoles() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/regenerate", 500L)
+                        .principal(principal(7L, "ROLE_USER", "ADMIN_ROLE_REVIEWER"))
+                        .header("X-Member-Role", "ADMIN")
+                        .header("X-Admin-Role", "REVIEWER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "권한 헤더 위조 시도",
+                                  "promptVersionId": 3
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("M0003"));
+        verify(regenerateAiAssetUseCase, never()).regenerateAiAsset(any(RegenerateAiAssetCommand.class));
+    }
+
+    private static Authentication adminPrincipal(Long adminId, String... adminAuthorities) {
+        String[] authorities = new String[adminAuthorities.length + 1];
+        authorities[0] = "ROLE_ADMIN";
+        System.arraycopy(adminAuthorities, 0, authorities, 1, adminAuthorities.length);
+        return principal(adminId, authorities);
+    }
+
+    private static Authentication principal(Long principalId, String... authorities) {
+        List<SimpleGrantedAuthority> grantedAuthorities = Arrays.stream(authorities)
+                .map(SimpleGrantedAuthority::new)
+                .toList();
+        return new UsernamePasswordAuthenticationToken(principalId, "N/A", grantedAuthorities);
     }
 }
