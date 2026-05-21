@@ -309,3 +309,38 @@ jobs:
       - name: Validate Docker Compose Config
         if: steps.check_compose.outputs.exists == 'true'
         run: docker compose config --quiet
+
+  # =============================================================================
+  # ci-all — 모든 잡 결과를 하나로 집계
+  # 브랜치 보호의 Required status check로 이 잡 하나만 등록하면 됩니다.
+  # skipped(변경 없음)는 통과로 간주합니다.
+  # =============================================================================
+  ci-all:
+    name: ci-all
+    needs:
+      - spring-build
+      - flutter-test
+      - requirements-guard
+      - gitleaks
+      - spectral-lint
+      - docker-compose-config
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Aggregate CI status
+        run: |
+          echo "=== CI 잡 결과 집계 ==="
+          echo "spring-build:        ${{ needs.spring-build.result }}"
+          echo "flutter-test:        ${{ needs.flutter-test.result }}"
+          echo "requirements-guard:  ${{ needs.requirements-guard.result }}"
+          echo "gitleaks:            ${{ needs.gitleaks.result }}"
+          echo "spectral-lint:       ${{ needs.spectral-lint.result }}"
+          echo "docker-compose:      ${{ needs.docker-compose-config.result }}"
+
+          # failure 또는 cancelled 가 하나라도 있으면 전체 실패
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || \
+                "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "❌ ci-all FAILED — 위 결과를 확인하세요."
+            exit 1
+          fi
+          echo "✅ ci-all PASSED"
