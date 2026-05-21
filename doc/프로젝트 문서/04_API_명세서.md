@@ -1,6 +1,6 @@
-# QT-AI API 명세서 v1.6
+# QT-AI API 명세서 v1.7
 
-> **문서 버전:** v1.3  
+> **문서 버전:** v1.7  
 > **작성일:** 2026-05-17  
 > **기준 문서:** `01.요구사항명세서_현재완성v1.md`, `02_ERD_문서_v2.md`, `04_화면정의서.md`, `03_화면설계_스토리보드.md`  
 > **작성 관점:** 백엔드 API 설계, 화면-API-ERD 연결성, 인증/권한, 예외 처리
@@ -38,7 +38,6 @@
 | 사용자 API | `/api/v1` | 모바일/웹 클라이언트 사용자 기능 |
 | 관리자 API | `/api/v1/admin` | 관리자 콘솔 |
 | 시스템 API | `/api/v1/system` | 배치/검증 agent 전용 |
-| OAuth 콜백 | `/oauth2` | 소셜 로그인 콜백 |
 
 ### 1.3 인증 방식
 
@@ -143,18 +142,20 @@
 
 ### 2.3 인증 API
 
-#### 2.3.1 카카오 로그인 시작
+#### 2.3.1 카카오 로그인
 
-- **Method + URL:** `GET /oauth2/authorization/kakao`
+- **Method + URL:** `POST /api/v1/auth/kakao`
 - **인증:** 불필요
-- **Response:** 카카오 인증 페이지 redirect
+- **설명:** Flutter SDK가 카카오 토큰을 직접 발급받아 서버에 전달한다. 서버는 카카오 사용자 식별자를 확인한 후 `members`, `member_auth_providers`를 생성하거나 조회하고, 서비스 자체 Access Token / Refresh Token을 발급한다. 서버사이드 `/oauth2/**` 리다이렉트 경로는 사용하지 않는다.
 - **연결 화면:** A-02
+- **Request Body:**
 
-#### 2.3.2 OAuth 콜백
+```json
+{
+  "kakaoAccessToken": "kakao_access_token_value"
+}
+```
 
-- **Method + URL:** `GET /oauth2/callback/kakao?code={code}&state={state}`
-- **인증:** 불필요
-- **처리:** 카카오 사용자 식별자 확인 후 `members`, `member_auth_providers` 생성 또는 조회
 - **Response 예시:**
 
 ```json
@@ -175,13 +176,13 @@
 }
 ```
 
-#### 2.3.3 토큰 재발급
+#### 2.3.2 토큰 재발급
 
 - **Method + URL:** `POST /api/v1/auth/token/refresh`
 - **인증:** Refresh Token
 - **Response:** 신규 Access Token
 
-#### 2.3.4 로그아웃
+#### 2.3.3 로그아웃
 
 - **Method + URL:** `POST /api/v1/auth/logout`
 - **인증:** USER
@@ -195,7 +196,7 @@
 | 화면 ID | 화면명 | 필요 API |
 |---|---|---|
 | A-01 | 스플래시 | `GET /api/v1/me/session` |
-| A-02 | 카카오 로그인 | `GET /oauth2/authorization/kakao`, `GET /oauth2/callback/kakao` |
+| A-02 | 카카오 로그인 | `POST /api/v1/auth/kakao` |
 | A-03 | 닉네임 설정 | `GET /api/v1/members/nickname/check`, `PATCH /api/v1/me/profile` |
 | A-04 | QT 튜토리얼 | `GET /api/v1/tutorial`, `POST /api/v1/me/tutorial/complete` |
 | Q-01 | 오늘 QT 기본 | `GET /api/v1/qt/today`, `GET /api/v1/qt/{qtPassageId}` |
@@ -385,7 +386,52 @@
   - `409 NICKNAME_CHANGE_LOCKED` — 마지막 변경 후 7일이 지나지 않음
   - `401 UNAUTHORIZED` / `401 TOKEN_EXPIRED`
 
-### 4.1.6 튜토리얼 완료
+### 4.1.6 사용자 설정 조회
+
+- **Method + URL:** `GET /api/v1/me/settings`
+- **인증:** USER
+- **연결 화면:** M-06
+- **ERD:** `members` (또는 별도 `member_settings` 테이블 도입 시 `02` 반영 필요)
+- **설명:** 절 선택 방식, 글쓰기 방식 등 사용자 앱 동작 설정을 조회한다. v1에서는 절 선택 방식을 단일 선택만 지원하며, 범위 선택 옵션은 v2에서 활성화한다.
+
+```json
+{
+  "verseSelectionMode": "SINGLE",
+  "writingMode": "PLAIN"
+}
+```
+
+- **실패 코드:** `401 TOKEN_EXPIRED`, `403 FORBIDDEN`
+
+### 4.1.7 사용자 설정 수정
+
+- **Method + URL:** `PATCH /api/v1/me/settings`
+- **인증:** USER
+- **연결 화면:** M-06
+- **ERD:** `members` (또는 `member_settings`)
+- **설명:** 절 선택 방식, 글쓰기 방식 등 사용자 설정을 수정한다. 요청 바디에 포함된 필드만 수정한다(Partial Update).
+
+요청:
+
+```json
+{
+  "verseSelectionMode": "SINGLE",
+  "writingMode": "PLAIN"
+}
+```
+
+성공 응답 (`200 OK`):
+
+```json
+{
+  "verseSelectionMode": "SINGLE",
+  "writingMode": "PLAIN"
+}
+```
+
+- **실패 코드:** `400 VALIDATION_ERROR`, `401 TOKEN_EXPIRED`, `403 FORBIDDEN`
+
+### 4.1.8 튜토리얼 완료
 
 - **Method + URL:** `POST /api/v1/me/tutorial/complete`
 - **인증:** USER
@@ -557,6 +603,7 @@
     "studyContent": true,
     "aiQuestion": true,
     "tts": true,
+    "simulatorStatus": "MISSING",
     "simulator": false
   }
 }
@@ -2109,93 +2156,94 @@
 
 | # | Method | URL | 권한 | 설명 |
 |---:|---|---|---|---|
-| 1 | GET | `/oauth2/authorization/kakao` | ANONYMOUS | 카카오 로그인 시작 |
-| 2 | GET | `/oauth2/callback/kakao` | ANONYMOUS | 카카오 로그인 콜백 |
-| 3 | POST | `/api/v1/auth/token/refresh` | Refresh Token | 토큰 재발급 |
-| 4 | POST | `/api/v1/auth/logout` | USER | 로그아웃 |
-| 5 | GET | `/api/v1/me/session` | 선택 | 세션 조회 |
-| 6 | GET | `/api/v1/me` | USER | 내 정보 조회 |
-| 7 | PATCH | `/api/v1/me/profile` | USER | 프로필 수정 |
-| 8 | POST | `/api/v1/me/tutorial/complete` | USER | 튜토리얼 완료 |
-| 9 | POST | `/api/v1/me/withdraw` | USER | 회원 탈퇴 |
-| 10 | GET | `/api/v1/bible/books` | USER | 성경 권 목록 |
-| 11 | GET | `/api/v1/bible/verses` | USER | 성경 절 조회 |
-| 12 | GET | `/api/v1/qt/today` | USER | 오늘 QT 조회 |
-| 13 | GET | `/api/v1/qt/{qtPassageId}` | USER | QT 상세 조회 |
-| 14 | GET | `/api/v1/qt/{qtPassageId}/study-content` | USER | 요약/해설/단어 조회 |
-| 15 | GET | `/api/v1/qt/{qtPassageId}/simulator-clips/{clipId}` | USER | 시뮬레이터 조회 |
-| 16 | GET | `/api/v1/notes` | USER | 노트 목록 |
-| 17 | GET | `/api/v1/notes/{noteId}` | USER | 노트 상세 |
-| 18 | POST | `/api/v1/notes` | USER | 노트 생성 |
-| 19 | PATCH | `/api/v1/notes/{noteId}` | USER | 노트 수정 |
-| 20 | DELETE | `/api/v1/notes/{noteId}` | USER | 노트 삭제 |
-| 21 | POST | `/api/v1/notes/{noteId}/share` | USER | 노트 공유 |
-| 22 | GET | `/api/v1/sharing-posts` | USER | 나눔 피드 |
-| 23 | GET | `/api/v1/sharing-posts/{postId}` | USER | 나눔 상세 |
-| 24 | POST | `/api/v1/sharing-posts/{postId}/like` | USER | 좋아요 |
-| 25 | DELETE | `/api/v1/sharing-posts/{postId}/like` | USER | 좋아요 취소 |
-| 26 | POST | `/api/v1/sharing-posts/{postId}/comments` | USER | 댓글 작성 |
-| 27 | DELETE | `/api/v1/comments/{commentId}` | USER | 댓글 삭제 |
-| 28 | POST | `/api/v1/reports` | USER | 신고 접수 |
-| 29 | POST | `/api/v1/ai/qa-requests` | USER | AI 질문 |
-| 30 | GET | `/api/v1/ai/qa-requests/{requestId}` | USER | AI 질문 결과 |
-| 31 | GET | `/api/v1/me/dashboard` | USER | 마이페이지 대시보드 |
-| 32 | GET | `/api/v1/notifications` | USER | 알림 목록 |
-| 33 | PATCH | `/api/v1/notifications/{notificationId}/read` | USER | 알림 읽음 |
-| 34 | GET | `/api/v1/praise-songs` | USER | 찬양 큐레이션 |
-| 35 | GET | `/api/v1/me/praise-songs` | USER | 내 찬양 목록 |
-| 36 | POST | `/api/v1/me/praise-songs` | USER | 내 찬양 저장 |
-| 37 | GET | `/api/v1/admin/dashboard` | ADMIN | 관리자 대시보드 |
-| 38 | GET | `/api/v1/admin/qt-passages` | OPERATOR | QT 관리 목록 |
-| 39 | POST | `/api/v1/admin/qt-passages` | OPERATOR | QT 등록 |
-| 40 | PATCH | `/api/v1/admin/qt-passages/{id}` | OPERATOR | QT 수정 |
-| 41 | GET | `/api/v1/admin/ai/assets` | REVIEWER | AI 산출물 목록 |
-| 42 | POST | `/api/v1/admin/ai/assets/{assetId}/approve` | REVIEWER | AI 산출물 승인 |
-| 43 | POST | `/api/v1/admin/ai/assets/{assetId}/reject` | REVIEWER | AI 산출물 반려 |
-| 44 | GET | `/api/v1/admin/reports` | OPERATOR | 신고 목록 |
-| 45 | POST | `/api/v1/admin/reports/{reportId}/resolve` | OPERATOR | 신고 처리 |
-| 46 | GET | `/api/v1/admin/audit-logs` | ADMIN | 감사 로그 조회 |
-| 47 | POST | `/api/v1/system/ai/generation-jobs` | SYSTEM_BATCH | AI 생성 작업 |
-| 48 | POST | `/api/v1/system/ai/assets` | SYSTEM_BATCH | AI 산출물 등록 |
-| 49 | POST | `/api/v1/system/ai/validation-logs` | SYSTEM_BATCH | AI 검증 로그 등록 |
-| 50 | GET | `/api/v1/tutorial` | USER | 튜토리얼 콘텐츠 조회 |
-| 51 | GET | `/api/v1/members/nickname/check` | USER | 닉네임 중복 확인 |
-| 52 | GET | `/api/v1/notes/draft` | USER | 임시 노트 조회 |
-| 53 | GET | `/api/v1/note-categories` | USER | 노트 카테고리 조회 |
-| 54 | GET | `/api/v1/sharing-posts/{postId}/comments` | USER | 댓글 목록 |
-| 55 | GET | `/api/v1/me/sharing-posts` | USER | 내 나눔 목록 |
-| 56 | PATCH | `/api/v1/sharing-posts/{postId}/hide` | USER/OPERATOR | 나눔 공개 중단 |
-| 57 | DELETE | `/api/v1/sharing-posts/{postId}` | USER/OPERATOR | 나눔 삭제 |
-| 58 | GET | `/api/v1/me/meditation-calendar` | USER | 묵상 달력 |
-| 59 | DELETE | `/api/v1/me/praise-songs/{id}` | USER | 내 찬양 삭제 |
-| 60 | POST | `/api/v1/admin/ai/assets/{assetId}/hide` | REVIEWER | AI 산출물 숨김 |
-| 61 | POST | `/api/v1/admin/ai/assets/{assetId}/regenerate` | REVIEWER | AI 산출물 재생성 요청 |
-| 62 | POST | `/api/v1/admin/ai/assets/{assetId}/evaluation-candidates` | REVIEWER | 평가 케이스 후보 등록 |
-| 63 | POST | `/api/v1/admin/members/{memberId}/suspend` | OPERATOR | 회원 제재 |
-| 64 | POST | `/api/v1/admin/members/{memberId}/activate` | OPERATOR | 회원 제재 해제 |
-| 65 | GET | `/api/v1/admin/ai/monitoring` | ADMIN | AI 운영 모니터링 |
-| 66 | GET | `/api/v1/admin/ai/validation-checklists` | REVIEWER | 검증 체크리스트 목록 |
-| 67 | POST | `/api/v1/admin/ai/validation-checklists` | REVIEWER | 검증 체크리스트 생성 |
-| 68 | POST | `/api/v1/admin/ai/validation-checklists/{id}/activate` | REVIEWER | 검증 체크리스트 활성화 |
-| 69 | POST | `/api/v1/admin/ai/validation-checklists/{id}/retire` | REVIEWER | 검증 체크리스트 폐기 |
-| 70 | GET | `/api/v1/admin/ai/evaluation-sets` | REVIEWER/CONTENT_CREATOR | 평가 셋 목록 |
-| 71 | POST | `/api/v1/admin/ai/evaluation-sets` | REVIEWER/CONTENT_CREATOR | 평가 셋 생성 |
-| 72 | GET | `/api/v1/admin/ai/evaluation-sets/{setId}/cases` | REVIEWER/CONTENT_CREATOR | 평가 케이스 목록 |
-| 73 | POST | `/api/v1/admin/ai/evaluation-sets/{setId}/cases` | REVIEWER/CONTENT_CREATOR | 평가 케이스 생성 |
-| 74 | POST | `/api/v1/admin/ai/evaluation-cases/{caseId}/approve` | REVIEWER | 평가 케이스 승인 |
-| 75 | POST | `/api/v1/admin/ai/evaluation-cases/{caseId}/reject` | REVIEWER | 평가 케이스 반려 |
-| 76 | POST | `/api/v1/system/validation-reference-jobs` | SYSTEM_BATCH | 검증용 참조 작업 생성 |
-| 77 | GET | `/api/v1/system/validation-reference-jobs/{jobId}` | SYSTEM_BATCH | 검증용 참조 작업 조회 |
-| 78 | POST | `/api/v1/system/validation-reference-jobs/{jobId}/expire` | SYSTEM_BATCH | 검증용 참조 작업 만료 |
-| 79 | GET | `/api/v1/admin/praise-songs` | OPERATOR | 관리자 찬양 목록 |
-| 80 | POST | `/api/v1/admin/praise-songs` | OPERATOR | 관리자 찬양 등록 |
-| 81 | PATCH | `/api/v1/admin/praise-songs/{id}` | OPERATOR | 관리자 찬양 수정 |
-| 82 | POST | `/api/v1/admin/praise-songs/{id}/hide` | OPERATOR | 관리자 찬양 숨김 |
-| 83 | GET | `/api/v1/admin/notices` | OPERATOR | 관리자 공지 목록 |
-| 84 | POST | `/api/v1/admin/notices` | OPERATOR | 공지 생성 |
-| 85 | PATCH | `/api/v1/admin/notices/{id}` | OPERATOR | 공지 수정 |
-| 86 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
-| 87 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
+| 1 | POST | `/api/v1/auth/kakao` | ANONYMOUS | 카카오 로그인 (Flutter SDK 토큰 전달) |
+| 2 | POST | `/api/v1/auth/token/refresh` | Refresh Token | 토큰 재발급 |
+| 3 | POST | `/api/v1/auth/logout` | USER | 로그아웃 |
+| 4 | GET | `/api/v1/me/session` | 선택 | 세션 조회 |
+| 5 | GET | `/api/v1/me` | USER | 내 정보 조회 |
+| 6 | PATCH | `/api/v1/me/profile` | USER | 프로필 수정 |
+| 7 | GET | `/api/v1/me/settings` | USER | 사용자 설정 조회 |
+| 8 | PATCH | `/api/v1/me/settings` | USER | 사용자 설정 수정 |
+| 9 | POST | `/api/v1/me/tutorial/complete` | USER | 튜토리얼 완료 |
+| 10 | POST | `/api/v1/me/withdraw` | USER | 회원 탈퇴 |
+| 11 | GET | `/api/v1/bible/books` | USER | 성경 권 목록 |
+| 12 | GET | `/api/v1/bible/verses` | USER | 성경 절 조회 |
+| 13 | GET | `/api/v1/qt/today` | USER | 오늘 QT 조회 |
+| 14 | GET | `/api/v1/qt/{qtPassageId}` | USER | QT 상세 조회 |
+| 15 | GET | `/api/v1/qt/{qtPassageId}/study-content` | USER | 요약/해설/단어 조회 |
+| 16 | GET | `/api/v1/qt/{qtPassageId}/simulator-clips/{clipId}` | USER | 시뮬레이터 조회 |
+| 17 | GET | `/api/v1/notes` | USER | 노트 목록 |
+| 18 | GET | `/api/v1/notes/{noteId}` | USER | 노트 상세 |
+| 19 | POST | `/api/v1/notes` | USER | 노트 생성 |
+| 20 | PATCH | `/api/v1/notes/{noteId}` | USER | 노트 수정 |
+| 21 | DELETE | `/api/v1/notes/{noteId}` | USER | 노트 삭제 |
+| 22 | POST | `/api/v1/notes/{noteId}/share` | USER | 노트 공유 |
+| 23 | GET | `/api/v1/sharing-posts` | USER | 나눔 피드 |
+| 24 | GET | `/api/v1/sharing-posts/{postId}` | USER | 나눔 상세 |
+| 25 | POST | `/api/v1/sharing-posts/{postId}/like` | USER | 좋아요 |
+| 26 | DELETE | `/api/v1/sharing-posts/{postId}/like` | USER | 좋아요 취소 |
+| 27 | POST | `/api/v1/sharing-posts/{postId}/comments` | USER | 댓글 작성 |
+| 28 | DELETE | `/api/v1/comments/{commentId}` | USER | 댓글 삭제 |
+| 29 | POST | `/api/v1/reports` | USER | 신고 접수 |
+| 30 | POST | `/api/v1/ai/qa-requests` | USER | AI 질문 |
+| 31 | GET | `/api/v1/ai/qa-requests/{requestId}` | USER | AI 질문 결과 |
+| 32 | GET | `/api/v1/me/dashboard` | USER | 마이페이지 대시보드 |
+| 33 | GET | `/api/v1/notifications` | USER | 알림 목록 |
+| 34 | PATCH | `/api/v1/notifications/{notificationId}/read` | USER | 알림 읽음 |
+| 35 | GET | `/api/v1/praise-songs` | USER | 찬양 큐레이션 |
+| 36 | GET | `/api/v1/me/praise-songs` | USER | 내 찬양 목록 |
+| 37 | POST | `/api/v1/me/praise-songs` | USER | 내 찬양 저장 |
+| 38 | GET | `/api/v1/admin/dashboard` | ADMIN | 관리자 대시보드 |
+| 39 | GET | `/api/v1/admin/qt-passages` | OPERATOR | QT 관리 목록 |
+| 40 | POST | `/api/v1/admin/qt-passages` | OPERATOR | QT 등록 |
+| 41 | PATCH | `/api/v1/admin/qt-passages/{id}` | OPERATOR | QT 수정 |
+| 42 | GET | `/api/v1/admin/ai/assets` | REVIEWER | AI 산출물 목록 |
+| 43 | POST | `/api/v1/admin/ai/assets/{assetId}/approve` | REVIEWER | AI 산출물 승인 |
+| 44 | POST | `/api/v1/admin/ai/assets/{assetId}/reject` | REVIEWER | AI 산출물 반려 |
+| 45 | GET | `/api/v1/admin/reports` | OPERATOR | 신고 목록 |
+| 46 | POST | `/api/v1/admin/reports/{reportId}/resolve` | OPERATOR | 신고 처리 |
+| 47 | GET | `/api/v1/admin/audit-logs` | ADMIN | 감사 로그 조회 |
+| 48 | POST | `/api/v1/system/ai/generation-jobs` | SYSTEM_BATCH | AI 생성 작업 |
+| 49 | POST | `/api/v1/system/ai/assets` | SYSTEM_BATCH | AI 산출물 등록 |
+| 50 | POST | `/api/v1/system/ai/validation-logs` | SYSTEM_BATCH | AI 검증 로그 등록 |
+| 51 | GET | `/api/v1/tutorial` | USER | 튜토리얼 콘텐츠 조회 |
+| 52 | GET | `/api/v1/members/nickname/check` | USER | 닉네임 중복 확인 |
+| 53 | GET | `/api/v1/notes/draft` | USER | 임시 노트 조회 |
+| 54 | GET | `/api/v1/note-categories` | USER | 노트 카테고리 조회 |
+| 55 | GET | `/api/v1/sharing-posts/{postId}/comments` | USER | 댓글 목록 |
+| 56 | GET | `/api/v1/me/sharing-posts` | USER | 내 나눔 목록 |
+| 57 | PATCH | `/api/v1/sharing-posts/{postId}/hide` | USER/OPERATOR | 나눔 공개 중단 |
+| 58 | DELETE | `/api/v1/sharing-posts/{postId}` | USER/OPERATOR | 나눔 삭제 |
+| 59 | GET | `/api/v1/me/meditation-calendar` | USER | 묵상 달력 |
+| 60 | DELETE | `/api/v1/me/praise-songs/{id}` | USER | 내 찬양 삭제 |
+| 61 | POST | `/api/v1/admin/ai/assets/{assetId}/hide` | REVIEWER | AI 산출물 숨김 |
+| 62 | POST | `/api/v1/admin/ai/assets/{assetId}/regenerate` | REVIEWER | AI 산출물 재생성 요청 |
+| 63 | POST | `/api/v1/admin/ai/assets/{assetId}/evaluation-candidates` | REVIEWER | 평가 케이스 후보 등록 |
+| 64 | POST | `/api/v1/admin/members/{memberId}/suspend` | OPERATOR | 회원 제재 |
+| 65 | POST | `/api/v1/admin/members/{memberId}/activate` | OPERATOR | 회원 제재 해제 |
+| 66 | GET | `/api/v1/admin/ai/monitoring` | ADMIN | AI 운영 모니터링 |
+| 67 | GET | `/api/v1/admin/ai/validation-checklists` | REVIEWER | 검증 체크리스트 목록 |
+| 68 | POST | `/api/v1/admin/ai/validation-checklists` | REVIEWER | 검증 체크리스트 생성 |
+| 69 | POST | `/api/v1/admin/ai/validation-checklists/{id}/activate` | REVIEWER | 검증 체크리스트 활성화 |
+| 70 | POST | `/api/v1/admin/ai/validation-checklists/{id}/retire` | REVIEWER | 검증 체크리스트 폐기 |
+| 71 | GET | `/api/v1/admin/ai/evaluation-sets` | REVIEWER/CONTENT_CREATOR | 평가 셋 목록 |
+| 72 | POST | `/api/v1/admin/ai/evaluation-sets` | REVIEWER/CONTENT_CREATOR | 평가 셋 생성 |
+| 73 | GET | `/api/v1/admin/ai/evaluation-sets/{setId}/cases` | REVIEWER/CONTENT_CREATOR | 평가 케이스 목록 |
+| 74 | POST | `/api/v1/admin/ai/evaluation-sets/{setId}/cases` | REVIEWER/CONTENT_CREATOR | 평가 케이스 생성 |
+| 75 | POST | `/api/v1/admin/ai/evaluation-cases/{caseId}/approve` | REVIEWER | 평가 케이스 승인 |
+| 76 | POST | `/api/v1/admin/ai/evaluation-cases/{caseId}/reject` | REVIEWER | 평가 케이스 반려 |
+| 77 | POST | `/api/v1/system/validation-reference-jobs` | SYSTEM_BATCH | 검증용 참조 작업 생성 |
+| 78 | GET | `/api/v1/system/validation-reference-jobs/{jobId}` | SYSTEM_BATCH | 검증용 참조 작업 조회 |
+| 79 | POST | `/api/v1/system/validation-reference-jobs/{jobId}/expire` | SYSTEM_BATCH | 검증용 참조 작업 만료 |
+| 80 | GET | `/api/v1/admin/praise-songs` | OPERATOR | 관리자 찬양 목록 |
+| 81 | POST | `/api/v1/admin/praise-songs` | OPERATOR | 관리자 찬양 등록 |
+| 82 | PATCH | `/api/v1/admin/praise-songs/{id}` | OPERATOR | 관리자 찬양 수정 |
+| 83 | POST | `/api/v1/admin/praise-songs/{id}/hide` | OPERATOR | 관리자 찬양 숨김 |
+| 84 | GET | `/api/v1/admin/notices` | OPERATOR | 관리자 공지 목록 |
+| 85 | POST | `/api/v1/admin/notices` | OPERATOR | 공지 생성 |
+| 86 | PATCH | `/api/v1/admin/notices/{id}` | OPERATOR | 공지 수정 |
+| 87 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
+| 88 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
 
 ---
 
@@ -2210,3 +2258,4 @@
 | v1.4 | 2026-05-19 | T (강태오) | `07_요구사항_정의서.md` v3.2 §6.4.1(F-03/F-16 `@`멘션 본문 자동 삽입) 반영 — §4.2.2 성경 절 조회에 `verseFrom`/`verseTo` 쿼리 파라미터 추가(범위 조회 지원), 쿼리 파라미터 표·`@`멘션 호출 예시·실패 코드(`400 VALIDATION_ERROR`, `404 NOT_FOUND`, `429 RATE_LIMIT_EXCEEDED`) 추가. §4.3.6 노트 수정에 `@`멘션 본문 자동 삽입 정책 추가 — 클라이언트는 입력을 파싱해 §4.2.2 호출 후 본문에 인용 블록으로 직접 삽입하고 `verseIds`로 `note_verses` 메타데이터 동기화, 서버는 `body`를 자유 형식으로 보존. 트리거 기호는 `@`만 사용(2026-05-19 확정). 코드 변경 없음. |
 | v1.5 | 2026-05-19 | T (강태오) | `07_요구사항_정의서.md` v3.3 §F-04/F-10 닉네임 7일 변경 잠금 정책 반영 — §4.1.5 `PATCH /api/v1/me/profile`에 7일 잠금 처리 규칙·잠금 면제 조건(가입 첫 설정, 형식·중복 재설정)·성공/실패 응답 예시·실패 코드 목록 추가, `nicknameLastChangedAt`/`nicknameUnlockAt` 응답 필드 도입. §4.1.2 `GET /api/v1/me` 응답에 `nicknameLastChangedAt`/`nicknameUnlockAt` 필드 추가(클라이언트가 잠금 해제 시각을 안내 텍스트로 활용). §6.2 ErrorCode 표에 `NICKNAME_CHANGE_LOCKED`(409) 추가. ERD 영향: `members.nickname_last_changed_at` 컬럼 신규(`02_ERD_문서.md`에서 정의). 출처: 2026-05-18 바이블서버 회의록 §5. 코드 변경 없음. |
 | v1.6 | 2026-05-19 | T (강태오) | `07_요구사항_정의서.md` v3.4 §F-01 한글 성경 클라이언트 로컬 저장 정책 반영 — §4.2.2 성경 절 조회에 "언어 정책" 명시(이 API는 영어 본문 조회 또는 한글 로컬 미적재 시 백업 조회 용도), §4.2.2.1 한글 성경 번들 다운로드 API 신설(`GET /api/v1/bible/bundle?language=ko&version=`). 쿼리 파라미터·응답 예시·`304 Not Modified` 분기·실패 코드 정의. 영어 번들은 v1에서 제공하지 않고 §4.2.2로 온라인 조회. 출처: 2026-05-18 바이블서버 회의록 §1·§3·§4. 코드 변경 없음. |
+| v1.7 | 2026-05-21 | T (강태오) | Notion 역할분담 회의록(재작성) 반영 — §4.1.6~4.1.7 `GET/PATCH /api/v1/me/settings`(사용자 설정 조회/수정) 신설, 기존 §4.1.6~4.1.7(튜토리얼 완료·회원 탈퇴)을 §4.1.8~4.1.9로 재번호. §9 전체 API 요약 표에 `GET /api/v1/me/settings`(#7), `PATCH /api/v1/me/settings`(#8) 행 추가 및 이후 번호 순차 재정렬(총 88개). **[Breaking Change]** `GET /api/v1/qt/today` 응답 `entryPoints` 객체 내 `simulator` 필드 타입 변경: `boolean(false)` → `string enum("READY"/"MISSING"/"FAILED"/"DISABLED")`로 변경 후 필드명을 `simulatorStatus`로 교체. **Deprecation 윈도우:** v1.7 배포 후 v1.8 출시 전까지 `simulator`(boolean) · `simulatorStatus`(string) 두 필드를 동시 반환한다. v1.8 시점에 `simulator` 필드를 제거한다. **Flutter 호환 정책:** 클라이언트는 응답에 `simulatorStatus`가 존재하면 이를 우선 파싱한다(`"READY"`일 때만 시뮬레이터 버튼 활성화). `simulatorStatus`가 없으면 구 `simulator: false` → `"MISSING"` 으로 매핑하여 비활성 처리한다. **4상태 enum 일관성 점검 결과:** `simulatorStatus` enum(`READY`/`MISSING`/`FAILED`/`DISABLED`)은 `GET /api/v1/qt/today` 응답의 `entryPoints` 객체에만 사용된다(이 명세서 §4.4.1). `simulator_clips.status`(`APPROVED`/`PENDING`/`REJECTED` 등)는 DB 레벨 검수 상태 필드로 API 응답에 직접 노출되지 않는 별도 필드이며, 두 필드는 의미 및 위치가 다르다. **소비자(Flutter) 코드 변경 필요, 본 명세서 자체 코드 변경 없음.** |

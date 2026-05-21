@@ -237,21 +237,25 @@ jobs:
 
             const lines = reviewText.trim().split('\n');
             const lastLine = lines[lines.length - 1].trim();
-            const decision = lastLine === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES';
+            const isApproved = lastLine === 'APPROVE';
+            // REQUEST_CHANGES 는 사용하지 않는다.
+            // 봇이 머지를 차단하지 않도록 COMMENT 전용으로 고정하고,
+            // APPROVE 판정일 때만 자동 squash merge 를 진행한다.
+            const reviewEvent = isApproved ? 'APPROVE' : 'COMMENT';
 
             console.log('=== Claude 리뷰 결과 ===');
             console.log(reviewText);
-            console.log('결정:', decision);
+            console.log('판정:', isApproved ? 'APPROVE → 자동 머지 대기' : 'REQUEST_CHANGES → COMMENT 로 전환 (머지 차단 안 함)');
 
             await github.rest.pulls.createReview({
               ...repoInfo,
               pull_number: prNumber,
               body: `## 🤖 Claude 자동 코드 리뷰 (v3.1 기준 9개 항목)\n\n${reviewText}`,
-              event: decision
+              event: reviewEvent
             });
 
-            if (decision !== 'APPROVE') {
-              console.log('REQUEST_CHANGES — 자동 머지 건너뜀');
+            if (!isApproved) {
+              console.log('개선 권장 사항 있음 — 코멘트만 남기고 머지 차단하지 않음');
               return;
             }
 
