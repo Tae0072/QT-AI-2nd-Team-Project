@@ -43,56 +43,6 @@
 
 ---
 
-## 🔴 팀원 합의·확인 (5/22 금까지 — 가장 시급)
-
-> W2 시작(5/25 월) 전에 아래 5개 중 하나라도 미완성이면 → 그 부분은 **더미 데이터·임시 객체로 먼저 만들고** 나중에 연결. 일정 조율 필요시 팀장(이승욱)에게 공유.
-
-### 이지윤에게 물어볼 것 2가지
-
-- [ ] **① Note 테이블 구조 합의**
-  - 질문: "Note 테이블에 category 필드 있어? PRAYER, REPENTANCE, GRATITUDE 다 들어가?"
-  - 왜: 자유 노트도 같은 테이블 사용. 구조 확정 안 되면 나중에 뜯어고쳐야 함.
-  - 답 받으면: Repository → DTO → Service → Controller 진행 가능
-- [ ] **② 두 API 완성 시점 확인**
-  - 질문: "노트 목록 조회(`GET /api/v1/notes`)랑 달력 API(`GET /api/v1/me/meditation-calendar`) 언제 완성돼?"
-  - 왜: 내 Flutter N-01 화면이 이걸 호출. 없으면 화면 연결 못 함.
-  - 추가 요청: "달력 응답에 PRAYER·REPENTANCE·GRATITUDE 카테고리도 포함시켜줘"
-
-### 이승욱에게 물어볼 것 3가지
-
-- [ ] **③ 공통 응답 형식 완성 시점**
-  - 질문: "ApiResponse 공통 포맷 완성됐어? 내 API 응답 다 이걸로 감싸야 해서."
-  - 추가 확인: 이미 `common/dto/ApiResponse.java` 존재. 다만 `{ success, data, error }` 3개 필드만 — CLAUDE.md 명시된 `timestamp`, `traceId` 빠짐. 추가할지 결정 필요.
-- [ ] **④ 나눔 Entity 4개 완성 시점**
-  - 질문: "SharingPost, Comment, PostLike, Report Entity 언제 완성돼?"
-  - 왜: W2 나눔 목록·상세 조회 API 만들려면 필요.
-- [ ] **⑤ Flutter 초기 세팅 머지 시점**
-  - 질문: "Flutter 프로젝트 기본 세팅 (상태관리·HTTP·라우팅·공통 위젯·에러 인터셉터) 언제 dev에 올라와?"
-  - 왜: 김지민 Flutter 화면 작업은 이 위에서 시작.
-
-### 💬 슬랙 메시지 템플릿 (이지윤 — 가장 까다로운 합의)
-
-```
-지윤아, 내가 N-01 화면에서 5개 카테고리 통합으로 보여줘야 하는데,
-GET /api/v1/notes 응답에 PRAYER·REPENTANCE·GRATITUDE 카테고리도
-포함돼야 해. 회의록에는 네 담당으로 돼 있는데, 혹시 W2 안에 가능해?
-응답 형식만 먼저 알려줘도 내가 Flutter 더미 데이터로 먼저 만들어놓을게.
-```
-
-> 이지윤이 "일이 너무 많아" 하면 → 팀 전체 회의에서 공유. 김지민 혼자 떠안지 말 것.
-
-### 의존성 매트릭스 — 한 줄 요약
-
-| 팀원 | 확인 내용 | 기다려야 하나? |
-| --- | --- | --- |
-| 이지윤 | Note 테이블 구조 확정 | ✅ Repository·DTO·Service 시작 전 |
-| 이지윤 | 노트 목록 + 달력 API 완성 시점 | ✅ Flutter 연결 전 |
-| 이승욱 | 공통 응답 형식 | ✅ Controller 응답 형식 결정 전 |
-| 이승욱 | 나눔 Entity 4개 | ✅ W2 나눔 API 만들기 전 |
-| 이승욱 | Flutter 초기 세팅 | ✅ Flutter 화면 작업 시작 전 |
-
----
-
 ## 막힌 부분
 
 ### 1. Note Entity 이지윤 작업 대기 (가장 시급)
