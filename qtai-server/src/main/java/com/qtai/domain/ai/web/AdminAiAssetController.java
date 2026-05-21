@@ -128,16 +128,12 @@ public class AdminAiAssetController {
     }
 
     private static boolean hasAuthority(Set<String> authorities, String role) {
-        return authorities.contains(role)
-                || authorities.contains("ROLE_" + role)
-                || authorities.contains("MEMBER_ROLE_" + role);
+        return authorities.contains("ROLE_" + role);
     }
 
     private static String resolveAdminRole(Set<String> authorities) {
         for (String adminRole : Set.of("REVIEWER", "SUPER_ADMIN")) {
-            if (authorities.contains(adminRole)
-                    || authorities.contains("ROLE_" + adminRole)
-                    || authorities.contains("ADMIN_ROLE_" + adminRole)) {
+            if (authorities.contains("ADMIN_ROLE_" + adminRole)) {
                 return adminRole;
             }
         }

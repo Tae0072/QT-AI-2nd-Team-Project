@@ -18,6 +18,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
@@ -28,6 +29,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.slf4j.MDC;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
@@ -53,6 +55,11 @@ class AdminAiAssetControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setMessageConverters(jsonConverter)
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        MDC.clear();
     }
 
     @Test
@@ -132,6 +139,29 @@ class AdminAiAssetControllerTest {
                 .andExpect(jsonPath("$.error.code").value("C0003"))
                 .andExpect(jsonPath("$.timestamp").exists())
                 .andExpect(jsonPath("$.traceId").exists());
+    }
+
+    @Test
+    void responseEnvelopeUsesMdcTraceIdWhenPresent() throws Exception {
+        MDC.put("traceId", "trace-ai-regenerate-001");
+        when(regenerateAiAssetUseCase.regenerateAiAsset(any(RegenerateAiAssetCommand.class)))
+                .thenReturn(new RegenerateAiAssetResult(
+                        101L,
+                        "QUEUED",
+                        OffsetDateTime.parse("2026-05-21T10:30:00+09:00")
+                ));
+
+        mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/regenerate", 500L)
+                        .principal(adminPrincipal(7L, "ADMIN_ROLE_REVIEWER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "출처 표기가 부족합니다.",
+                                  "promptVersionId": 3
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.traceId").value("trace-ai-regenerate-001"));
     }
 
     @Test

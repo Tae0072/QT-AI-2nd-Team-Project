@@ -73,6 +73,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
     @Transactional
     public RegenerateAiAssetResult regenerateAiAsset(RegenerateAiAssetCommand command) {
         requireValidCommand(command);
+        // Controller 인증 우회나 내부 호출 오용을 막기 위한 도메인 경계의 2차 권한 검증이다.
         requireAuthorizedReviewer(command.memberRole(), command.adminRole());
 
         AiGeneratedAsset asset = generatedAssetRepository.findById(command.assetId())
@@ -194,9 +195,12 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
     }
 
     private static AiGenerationJobType jobTypeOf(AiGeneratedAssetType assetType) {
-        if (assetType == AiGeneratedAssetType.QA_RESPONSE) {
-            return AiGenerationJobType.QA;
-        }
-        return AiGenerationJobType.valueOf(assetType.name());
+        return switch (assetType) {
+            case EXPLANATION -> AiGenerationJobType.EXPLANATION;
+            case SUMMARY -> AiGenerationJobType.SUMMARY;
+            case GLOSSARY -> AiGenerationJobType.GLOSSARY;
+            case SIMULATOR -> AiGenerationJobType.SIMULATOR;
+            case QA_RESPONSE -> AiGenerationJobType.QA;
+        };
     }
 }
