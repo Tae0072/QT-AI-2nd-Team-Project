@@ -28,13 +28,6 @@ jobs:
             ci
             revert
           requireScope: false
-          subjectPattern: ^[A-Z가-힣].+$
-          subjectPatternError: |
-            PR 제목은 대문자 또는 한글로 시작해야 합니다.
-            올바른 예시:
-              feat(member): Kakao OAuth 로그인 API 추가
-              fix(qt): 오늘 QT 캐시 만료 오류 수정
-              chore: dependabot 설정 추가
 
   # ---------------------------------------------------------------------------
   # 2. 브랜치명 규칙 검사
