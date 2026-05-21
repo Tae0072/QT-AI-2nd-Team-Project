@@ -1,7 +1,5 @@
 package com.qtai.common.dto;
 
-import com.qtai.common.exception.ErrorCode;
-
 /**
  * 모든 REST 응답의 표준 envelope.
  *
