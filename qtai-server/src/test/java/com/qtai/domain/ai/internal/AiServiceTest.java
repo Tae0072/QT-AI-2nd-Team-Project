@@ -15,6 +15,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
@@ -53,7 +54,7 @@ class AiServiceTest {
                 "2026.05.1",
                 List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
         )).thenReturn(false);
-        when(generationJobRepository.save(any(AiGenerationJob.class))).thenAnswer(invocation -> {
+        when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class))).thenAnswer(invocation -> {
             AiGenerationJob job = invocation.getArgument(0);
             setId(job, 201L);
             return job;
@@ -65,7 +66,7 @@ class AiServiceTest {
         assertThat(result.status()).isEqualTo("QUEUED");
 
         ArgumentCaptor<AiGenerationJob> jobCaptor = ArgumentCaptor.forClass(AiGenerationJob.class);
-        verify(generationJobRepository).save(jobCaptor.capture());
+        verify(generationJobRepository).saveAndFlush(jobCaptor.capture());
         assertThat(jobCaptor.getValue().getJobType()).isEqualTo(AiGenerationJobType.EXPLANATION);
         assertThat(jobCaptor.getValue().getTargetType()).isEqualTo(AiTargetType.QT_PASSAGE);
         assertThat(jobCaptor.getValue().getTargetId()).isEqualTo(35L);
@@ -87,7 +88,24 @@ class AiServiceTest {
         assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand()))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
-        verify(generationJobRepository, never()).save(any(AiGenerationJob.class));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
+    }
+
+    @Test
+    void createAiGenerationJobMapsUniqueConstraintRaceToStatusTransitionError() {
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.QT_PASSAGE,
+                35L,
+                "2026.05.1",
+                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
+        )).thenReturn(false);
+        when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate active generation job"));
+
+        assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand()))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
     }
 
     @Test
@@ -95,7 +113,7 @@ class AiServiceTest {
         assertThatThrownBy(() -> aiService.createAiGenerationJob(null))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
-        verify(generationJobRepository, never()).save(any(AiGenerationJob.class));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
     }
 
     @Test
@@ -107,7 +125,7 @@ class AiServiceTest {
         assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand("EXPLANATION", "UNKNOWN_TARGET")))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
-        verify(generationJobRepository, never()).save(any(AiGenerationJob.class));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
     }
 
     @Test
@@ -151,7 +169,7 @@ class AiServiceTest {
                 null
         ))).isInstanceOfSatisfying(BusinessException.class, exception ->
                 assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
-        verify(generationJobRepository, never()).save(any(AiGenerationJob.class));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
     }
 
     @Test
@@ -162,10 +180,10 @@ class AiServiceTest {
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                "3",
+                "2026.05.1",
                 List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
         )).thenReturn(false);
-        when(generationJobRepository.save(any(AiGenerationJob.class))).thenAnswer(invocation -> {
+        when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class))).thenAnswer(invocation -> {
             AiGenerationJob job = invocation.getArgument(0);
             setId(job, 101L);
             return job;
@@ -178,19 +196,19 @@ class AiServiceTest {
         assertThat(result.createdAt()).isEqualTo(CREATED_AT);
 
         ArgumentCaptor<AiGenerationJob> jobCaptor = ArgumentCaptor.forClass(AiGenerationJob.class);
-        verify(generationJobRepository).save(jobCaptor.capture());
+        verify(generationJobRepository).saveAndFlush(jobCaptor.capture());
         assertThat(jobCaptor.getValue().getStatus()).isEqualTo(AiGenerationJobStatus.QUEUED);
         assertThat(jobCaptor.getValue().getJobType()).isEqualTo(AiGenerationJobType.EXPLANATION);
         assertThat(jobCaptor.getValue().getTargetType()).isEqualTo(AiTargetType.BIBLE_VERSE);
         assertThat(jobCaptor.getValue().getTargetId()).isEqualTo(1001L);
-        assertThat(jobCaptor.getValue().getPromptVersion()).isEqualTo("3");
+        assertThat(jobCaptor.getValue().getPromptVersion()).isEqualTo("2026.05.1");
     }
 
     @Test
     void hiddenAssetCanBeRegeneratedBySuperAdmin() {
         AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.HIDDEN);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        when(generationJobRepository.save(any(AiGenerationJob.class))).thenAnswer(invocation -> {
+        when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class))).thenAnswer(invocation -> {
             AiGenerationJob job = invocation.getArgument(0);
             setId(job, 102L);
             return job;
@@ -210,7 +228,7 @@ class AiServiceTest {
         assertThatThrownBy(() -> aiService.regenerateAiAsset(adminCommand("REVIEWER")))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
-        verify(generationJobRepository, never()).save(any(AiGenerationJob.class));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
     }
 
     @Test
@@ -221,7 +239,7 @@ class AiServiceTest {
         assertThatThrownBy(() -> aiService.regenerateAiAsset(adminCommand("REVIEWER")))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
-        verify(generationJobRepository, never()).save(any(AiGenerationJob.class));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
     }
 
     @Test
@@ -232,14 +250,14 @@ class AiServiceTest {
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                "3",
+                "2026.05.1",
                 List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
         )).thenReturn(true);
 
         assertThatThrownBy(() -> aiService.regenerateAiAsset(adminCommand("REVIEWER")))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
-        verify(generationJobRepository, never()).save(any(AiGenerationJob.class));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
     }
 
     @Test

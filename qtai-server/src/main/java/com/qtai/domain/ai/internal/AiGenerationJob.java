@@ -11,15 +11,23 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 
 @Entity
-@Table(name = "ai_generation_jobs")
+@Table(
+        name = "ai_generation_jobs",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_ai_generation_jobs_active_target_prompt",
+                columnNames = {"job_type", "target_type", "target_id", "prompt_version", "active_unique_key"}
+        )
+)
 public class AiGenerationJob {
 
     private static final int ERROR_MESSAGE_MAX_LENGTH = 1_000;
+    private static final String ACTIVE_UNIQUE_KEY = "ACTIVE";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,6 +50,9 @@ public class AiGenerationJob {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private AiGenerationJobStatus status;
+
+    @Column(name = "active_unique_key", length = 20)
+    private String activeUniqueKey;
 
     @Column(name = "error_message", length = ERROR_MESSAGE_MAX_LENGTH)
     private String errorMessage;
@@ -71,6 +82,7 @@ public class AiGenerationJob {
         this.promptVersion = requireText(promptVersion, "promptVersion");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         this.status = AiGenerationJobStatus.QUEUED;
+        this.activeUniqueKey = ACTIVE_UNIQUE_KEY;
     }
 
     public static AiGenerationJob queue(
@@ -93,6 +105,7 @@ public class AiGenerationJob {
         requireTransition(AiGenerationJobStatus.SUCCEEDED, AiGenerationJobStatus.RUNNING);
         this.finishedAt = Objects.requireNonNull(finishedAt, "finishedAt must not be null");
         this.status = AiGenerationJobStatus.SUCCEEDED;
+        this.activeUniqueKey = null;
         this.errorMessage = null;
     }
 
@@ -100,6 +113,7 @@ public class AiGenerationJob {
         requireTransition(AiGenerationJobStatus.FAILED, AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING);
         this.finishedAt = Objects.requireNonNull(finishedAt, "finishedAt must not be null");
         this.status = AiGenerationJobStatus.FAILED;
+        this.activeUniqueKey = null;
         this.errorMessage = truncate(requireText(errorMessage, "errorMessage"), ERROR_MESSAGE_MAX_LENGTH);
     }
 
@@ -125,6 +139,10 @@ public class AiGenerationJob {
 
     public AiGenerationJobStatus getStatus() {
         return status;
+    }
+
+    public String getActiveUniqueKey() {
+        return activeUniqueKey;
     }
 
     public String getErrorMessage() {

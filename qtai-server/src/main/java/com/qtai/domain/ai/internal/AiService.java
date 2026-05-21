@@ -2,6 +2,7 @@ package com.qtai.domain.ai.internal;
 
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,7 +61,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
                 command.promptVersion(),
                 command.requestedAt()
         );
-        AiGenerationJob savedJob = generationJobRepository.save(job);
+        AiGenerationJob savedJob = saveQueuedJob(job);
 
         return new CreateAiGenerationJobResult(
                 savedJob.getId(),
@@ -79,7 +80,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         requireRegeneratableStatus(asset);
 
         AiGenerationJobType jobType = jobTypeOf(asset.getAssetType());
-        String promptVersion = String.valueOf(command.promptVersionId());
+        String promptVersion = asset.getPromptVersion();
         if (generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
                 jobType,
                 asset.getTargetType(),
@@ -100,7 +101,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
                 promptVersion,
                 command.requestedAt()
         );
-        AiGenerationJob savedJob = generationJobRepository.save(job);
+        AiGenerationJob savedJob = saveQueuedJob(job);
         // TODO: audit 도메인 소유자가 WriteAuditLogUseCase 계약을 확정하면 AI_REGENERATE_REQUEST 기록을 연결한다.
 
         return new RegenerateAiAssetResult(
@@ -108,6 +109,17 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
                 savedJob.getStatus().name(),
                 savedJob.getCreatedAt()
         );
+    }
+
+    private AiGenerationJob saveQueuedJob(AiGenerationJob job) {
+        try {
+            return generationJobRepository.saveAndFlush(job);
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_STATUS_TRANSITION,
+                    "같은 대상의 진행 중 AI 생성 작업이 있어 새 작업을 생성할 수 없습니다."
+            );
+        }
     }
 
     private static void requireAuthorizedReviewer(String memberRole, String adminRole) {

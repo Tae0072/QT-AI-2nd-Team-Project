@@ -77,7 +77,9 @@ class AdminAiAssetControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.generationJobId").value(101))
                 .andExpect(jsonPath("$.data.status").value("QUEUED"))
-                .andExpect(jsonPath("$.data.createdAt").value("2026-05-21T10:30:00+09:00"));
+                .andExpect(jsonPath("$.data.createdAt").value("2026-05-21T10:30:00+09:00"))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.traceId").exists());
 
         ArgumentCaptor<RegenerateAiAssetCommand> commandCaptor =
                 ArgumentCaptor.forClass(RegenerateAiAssetCommand.class);
@@ -105,7 +107,9 @@ class AdminAiAssetControllerTest {
                                 """))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("M0003"));
+                .andExpect(jsonPath("$.error.code").value("M0003"))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.traceId").exists());
         verify(regenerateAiAssetUseCase, never()).regenerateAiAsset(any(RegenerateAiAssetCommand.class));
     }
 
@@ -125,7 +129,9 @@ class AdminAiAssetControllerTest {
                                 """))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("C0003"));
+                .andExpect(jsonPath("$.error.code").value("C0003"))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.traceId").exists());
     }
 
     @Test

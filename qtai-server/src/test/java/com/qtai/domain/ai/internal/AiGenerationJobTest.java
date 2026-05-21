@@ -63,6 +63,30 @@ class AiGenerationJobTest {
         assertThat(job.getFinishedAt()).isEqualTo(FINISHED_AT);
     }
 
+    @Test
+    void queuedAndRunningJobsKeepActiveUniqueKeyUntilTerminalState() {
+        AiGenerationJob job = newJob();
+
+        assertThat(job.getActiveUniqueKey()).isEqualTo("ACTIVE");
+
+        job.markRunning(STARTED_AT);
+
+        assertThat(job.getActiveUniqueKey()).isEqualTo("ACTIVE");
+
+        job.markSucceeded(FINISHED_AT);
+
+        assertThat(job.getActiveUniqueKey()).isNull();
+    }
+
+    @Test
+    void failedJobClearsActiveUniqueKeyForRetry() {
+        AiGenerationJob job = newJob();
+
+        job.markFailed("INPUT_BLOCKED", FINISHED_AT);
+
+        assertThat(job.getActiveUniqueKey()).isNull();
+    }
+
     private static AiGenerationJob newJob() {
         return AiGenerationJob.queue(
                 AiGenerationJobType.EXPLANATION,
