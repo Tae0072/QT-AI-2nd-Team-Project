@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 로딩 위젯
+/// 로딩 화면
 class LoadingView extends StatelessWidget {
   final String? message;
   const LoadingView({super.key, this.message});
@@ -23,7 +23,7 @@ class LoadingView extends StatelessWidget {
   }
 }
 
-/// 에러 위젯
+/// 에러 화면
 class ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
@@ -39,11 +39,13 @@ class ErrorView extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text(message, textAlign: TextAlign.center,
+            Text(message,
+                textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge),
             if (onRetry != null) ...[
               const SizedBox(height: 16),
-              ElevatedButton(onPressed: onRetry, child: const Text('다시 시도')),
+              ElevatedButton(
+                  onPressed: onRetry, child: const Text('다시 시도')),
             ],
           ],
         ),
@@ -52,7 +54,7 @@ class ErrorView extends StatelessWidget {
   }
 }
 
-/// 빈 화면 위젯
+/// 빈 화면 표시
 class EmptyView extends StatelessWidget {
   final String message;
   final IconData icon;
@@ -70,14 +72,18 @@ class EmptyView extends StatelessWidget {
         children: [
           Icon(icon, size: 48, color: Colors.grey),
           const SizedBox(height: 16),
-          Text(message, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey)),
+          Text(message,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(color: Colors.grey)),
         ],
       ),
     );
   }
 }
 
-/// AsyncValue 확장 — when 패턴 간소화
+/// AsyncValue 확장 — when 편의 감소자
 extension AsyncValueUI<T> on AsyncValue<T> {
   Widget when2({
     required Widget Function(T data) data,

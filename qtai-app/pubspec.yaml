@@ -1,7 +1,7 @@
 name: qtai_app
-description: "QT AI 보조 앱"
+description: "큐티 AI 앱"
 publish_to: 'none'
-version: 1.0.0+1
+version: 0.1.0+1
 
 environment:
   sdk: ^3.11.5

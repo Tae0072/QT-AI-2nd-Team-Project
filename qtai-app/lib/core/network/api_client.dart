@@ -15,7 +15,12 @@ final dioProvider = Provider<Dio>((ref) {
   dio.interceptors.addAll([
     AuthInterceptor(dio),
     ErrorInterceptor(),
-    if (AppConfig.instance.isDev) LogInterceptor(requestBody: true, responseBody: true),
+    if (AppConfig.instance.isDev)
+      LogInterceptor(
+        requestBody: true,
+        responseBody: true,
+        requestHeader: false, // Authorization 헤더 노출 방지
+      ),
   ]);
 
   return dio;
