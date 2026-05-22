@@ -41,6 +41,11 @@ jobs:
         run: |
           BRANCH="${{ github.head_ref }}"
           echo "브랜치명: $BRANCH"
+          # dev, master 브랜치는 통합 PR용이므로 규칙 예외
+          if [[ "$BRANCH" == "dev" || "$BRANCH" == "master" || "$BRANCH" == "main" ]]; then
+            echo "✅ 기본 브랜치($BRANCH)는 브랜치명 규칙 예외"
+            exit 0
+          fi
           if [[ ! "$BRANCH" =~ ^(feature|bugfix|hotfix|chore|release|docs)/[a-z0-9]+([a-z0-9-]*[a-z0-9])?$ ]]; then
             echo "❌ 브랜치명 규칙 위반: $BRANCH"
             echo ""
