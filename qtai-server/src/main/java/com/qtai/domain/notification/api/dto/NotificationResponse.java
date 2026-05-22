@@ -1,13 +1,34 @@
 package com.qtai.domain.notification.api.dto;
 
-/** 알림 응답 DTO. */
+import com.qtai.domain.notification.internal.Notification;
+
+import java.time.LocalDateTime;
+
+/**
+ * 알림 응답 DTO.
+ *
+ * API 명세서 §4.6.3 기준.
+ */
 public record NotificationResponse(
-        // TODO: Long id
-        // TODO: Long recipientId
-        // TODO: String type        — PRAISE / COMMENT / MISSION_DONE / SYSTEM ...
-        // TODO: String title
-        // TODO: String body
-        // TODO: String linkUrl     — 클릭 시 이동할 deep link (선택)
-        // TODO: boolean read
-        // TODO: LocalDateTime createdAt
-) {}
+        Long id,
+        String type,
+        String title,
+        String body,
+        String linkType,
+        Long linkId,
+        LocalDateTime readAt,
+        LocalDateTime createdAt
+) {
+    public static NotificationResponse from(Notification notification) {
+        return new NotificationResponse(
+                notification.getId(),
+                notification.getType(),
+                notification.getTitle(),
+                notification.getBody(),
+                notification.getLinkType(),
+                notification.getLinkId(),
+                notification.getReadAt(),
+                notification.getCreatedAt()
+        );
+    }
+}

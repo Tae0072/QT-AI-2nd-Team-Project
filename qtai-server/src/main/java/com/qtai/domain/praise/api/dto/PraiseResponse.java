@@ -1,11 +1,28 @@
 package com.qtai.domain.praise.api.dto;
 
-/** 찬양 응답 DTO. */
+import com.qtai.domain.praise.internal.PraiseSong;
+
+import java.time.LocalDateTime;
+
+/**
+ * 찬양 큐레이션 곡 응답 DTO.
+ */
 public record PraiseResponse(
-        // TODO: Long id
-        // TODO: String title
-        // TODO: String artist
-        // TODO: String externalLink
-        // TODO: String category
-        // TODO: LocalDateTime createdAt
-) {}
+        Long id,
+        String title,
+        String artist,
+        String sourceType,
+        String status,
+        LocalDateTime createdAt
+) {
+    public static PraiseResponse from(PraiseSong song) {
+        return new PraiseResponse(
+                song.getId(),
+                song.getTitle(),
+                song.getArtist(),
+                song.getSourceType(),
+                song.getStatus(),
+                song.getCreatedAt()
+        );
+    }
+}

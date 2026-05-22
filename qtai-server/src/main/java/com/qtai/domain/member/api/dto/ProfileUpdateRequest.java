@@ -1,7 +1,12 @@
 package com.qtai.domain.member.api.dto;
 
-/** 프로필 수정 요청 DTO. */
+import jakarta.validation.constraints.Size;
+
+/**
+ * 프로필 수정 요청 DTO.
+ * Partial Update — null 필드는 변경하지 않는다.
+ */
 public record ProfileUpdateRequest(
-        // TODO: String nickname        — 변경할 닉네임 (필수, 2~20자, @Size)
-        // TODO: String profileImageUrl — 변경할 프로필 이미지 URL (null이면 유지)
+        @Size(min = 2, max = 20) String nickname,
+        @Size(max = 500) String profileImageUrl
 ) {}

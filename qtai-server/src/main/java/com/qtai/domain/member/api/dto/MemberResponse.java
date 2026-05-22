@@ -1,11 +1,32 @@
 package com.qtai.domain.member.api.dto;
 
-/** 회원 정보 응답 DTO. */
+import com.qtai.domain.member.internal.Member;
+
+import java.time.LocalDateTime;
+
+/**
+ * 회원 정보 응답 DTO.
+ */
 public record MemberResponse(
-        // TODO: Long id
-        // TODO: String nickname
-        // TODO: String email           — 정책에 따라 마스킹 또는 본인만 노출
-        // TODO: String profileImageUrl
-        // TODO: MemberStatus status    — ACTIVE / WITHDRAWN / SUSPENDED
-        // TODO: LocalDateTime joinedAt
-) {}
+        Long id,
+        String nickname,
+        String email,
+        String profileImageUrl,
+        String status,
+        String role,
+        LocalDateTime nicknameUnlockAt,
+        LocalDateTime createdAt
+) {
+    public static MemberResponse from(Member member) {
+        return new MemberResponse(
+                member.getId(),
+                member.getNickname(),
+                member.getEmail(),
+                member.getProfileImageUrl(),
+                member.getStatus().name(),
+                member.getRole(),
+                member.getNicknameUnlockAt(),
+                member.getCreatedAt()
+        );
+    }
+}

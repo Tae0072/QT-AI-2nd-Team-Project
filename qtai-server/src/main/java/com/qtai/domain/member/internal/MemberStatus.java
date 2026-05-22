@@ -8,5 +8,7 @@ package com.qtai.domain.member.internal;
  * - WITHDRAWN  : 탈퇴 — 익명화된 상태로 보존
  */
 public enum MemberStatus {
-    // TODO: ACTIVE, SUSPENDED, WITHDRAWN
+    ACTIVE,
+    SUSPENDED,
+    WITHDRAWN
 }

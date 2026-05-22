@@ -17,6 +17,18 @@ public enum ErrorCode {
     MEMBER_NOT_FOUND("M0001", "회원을 찾을 수 없습니다."),
     UNAUTHORIZED("M0002", "인증이 필요합니다."),
     FORBIDDEN("M0003", "권한이 없습니다."),
+    NICKNAME_DUPLICATE("M0004", "이미 사용 중인 닉네임입니다."),
+    NICKNAME_CHANGE_LOCKED("M0005", "닉네임은 변경 후 7일 동안 다시 변경할 수 없습니다."),
+    MEMBER_ALREADY_WITHDRAWN("M0006", "이미 탈퇴한 회원입니다."),
+
+    // 알림
+    NOTIFICATION_NOT_FOUND("N0001", "알림을 찾을 수 없습니다."),
+    NOTIFICATION_ACCESS_DENIED("N0002", "본인의 알림만 접근할 수 있습니다."),
+
+    // 찬양
+    PRAISE_SONG_NOT_FOUND("P0001", "찬양 곡을 찾을 수 없습니다."),
+    PRAISE_SONG_ALREADY_SAVED("P0002", "이미 저장된 찬양입니다."),
+    PRAISE_SONG_SAVE_NOT_FOUND("P0003", "저장된 찬양을 찾을 수 없습니다."),
 
     // AI
     AI_GENERATION_JOB_NOT_FOUND("A0001", "AI 생성 작업을 찾을 수 없습니다."),
