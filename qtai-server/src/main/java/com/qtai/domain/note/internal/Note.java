@@ -1,17 +1,48 @@
 package com.qtai.domain.note.internal;
 
-/**
- * 노트 엔티티.
- *
- * QT에 종속(qtId FK). qt 삭제 시 노트도 함께 삭제될지(cascade) 또는 보존할지 정책 결정 필요.
- */
-// TODO: @Entity, @Table(name = "note")
-public class Note {
+import com.qtai.common.entity.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-    // TODO: @Id @GeneratedValue Long id;
-    // TODO: Long qtId;                — 종속 QT FK
-    // TODO: Long memberId;            — 작성자 FK
-    // TODO: @Column(columnDefinition="TEXT") String content;
-    // TODO: LocalDateTime createdAt;  — @CreationTimestamp
-    // TODO: LocalDateTime updatedAt;  — @UpdateTimestamp
+@Entity
+@Table(name = "notes", uniqueConstraints = {
+        @UniqueConstraint(
+                name = "uk_notes_meditation_active",
+                columnNames = {"member_id", "qt_passage_id", "active_unique_key"}
+        )
+})
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Note extends BaseEntity {
+
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
+
+    @Column(name = "qt_passage_id")
+    private Long qtPassageId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private NoteCategory category;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private NoteStatus status;
+
+    @Column(nullable = false, length = 200)
+    private String title;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String body;
+
+    /** ACTIVE=현재 활성 묵상, NULL=삭제/교체됨. (member_id, qt_passage_id, active_unique_key) UK로 1일 1건 멱등 보장 */
+    @Column(name = "active_unique_key", length = 10)
+    private String activeUniqueKey;
 }
