@@ -1,11 +1,14 @@
 package com.qtai.security;
 
+import java.util.Arrays;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -17,13 +20,14 @@ import org.springframework.security.web.SecurityFilterChain;
  * 목적: 정식 JWT 인증 필터(SecurityConfig — 이승욱 작업)가 완성되기 전까지
  *      자유 노트 도메인 개발·테스트를 위한 임시 인증 우회.
  *
- * 운영 사고 방지를 위한 2중 가드:
+ * 운영 사고 방지를 위한 3중 가드:
  *   1. @Profile("dev")                                  — prod·default 프로파일에서는 빈 자체가 생성되지 않음
- *   2. @ConditionalOnProperty("qtai.security.dev-bypass") — 명시적 토글. 기본값 false
+ *   2. @ConditionalOnProperty("qtai.security.dev-bypass") — 명시적 토글. application-prod.yml에서 false 강제
+ *   3. 빈 초기화 시 Active Profiles에 "prod"가 있으면 즉시 IllegalStateException으로 부트 실패
  *
  * 사용:
  *   - application-dev.yml: qtai.security.dev-bypass: true
- *   - application-prod.yml: qtai.security.dev-bypass: false (강제, 이승욱 인프라 영역에서 보강 예정)
+ *   - application-prod.yml: qtai.security.dev-bypass: false (강제)
  *
  * 정책:
  * - dev 프로파일 + 토글 ON 일 때만 활성화
@@ -43,7 +47,14 @@ public class DevSecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(DevSecurityConfig.class);
 
     @Bean
-    SecurityFilterChain devFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain devFilterChain(HttpSecurity http, Environment env) throws Exception {
+        // 3중 가드 — prod 프로파일이 활성 상태라면 즉시 부트 실패
+        if (Arrays.asList(env.getActiveProfiles()).contains("prod")) {
+            throw new IllegalStateException(
+                    "DevSecurityConfig must NOT activate in 'prod' profile. " +
+                    "Check spring.profiles.active and qtai.security.dev-bypass setting."
+            );
+        }
         log.warn("⚠️ DEV SECURITY BYPASS ENABLED — 모든 엔드포인트가 무인증 노출됩니다. 절대 운영 환경에서 활성화하지 마세요.");
         return http
                 // CSRF: REST API는 토큰 기반 인증이라 폼 위조 방지 불필요

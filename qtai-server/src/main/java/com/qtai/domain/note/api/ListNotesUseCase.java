@@ -1,9 +1,9 @@
 package com.qtai.domain.note.api;
 
 import com.qtai.domain.note.api.dto.NoteListResponse;
-import com.qtai.domain.note.internal.NoteCategory;
-import com.qtai.domain.note.internal.NoteStatus;
 import org.springframework.data.domain.Pageable;
+
+// NoteCategory, NoteStatus는 같은 패키지(api)라 import 불필요
 
 /**
  * 노트 목록 조회 UseCase 포트.
