@@ -1,11 +1,12 @@
 package com.qtai.common.exception;
 
+import lombok.Getter;
+
 /**
- * 비즈니스 규칙 위반을 표현하는 도메인 공통 예외.
- *
- * GlobalExceptionHandler가 이 예외를 잡아 ErrorCode 기반으로
- * ApiResponse.error(...)로 변환한다 — 도메인 코드는 HTTP를 알 필요 없다.
+ * 비즈니스 규칙 위반 시 던지는 런타임 예외. {@link GlobalExceptionHandler}가 잡아
+ * {@link ErrorCode} 기반으로 HTTP 응답을 변환한다.
  */
+@Getter
 public class BusinessException extends RuntimeException {
 
     private final ErrorCode errorCode;
@@ -15,13 +16,8 @@ public class BusinessException extends RuntimeException {
         this.errorCode = errorCode;
     }
 
-    /** 상황별 컨텍스트 메시지가 필요할 때 (예: "memberId=3 not found"). */
-    public BusinessException(ErrorCode errorCode, String message) {
-        super(message);
+    public BusinessException(ErrorCode errorCode, String detailMessage) {
+        super(detailMessage);
         this.errorCode = errorCode;
-    }
-
-    public ErrorCode getErrorCode() {
-        return errorCode;
     }
 }

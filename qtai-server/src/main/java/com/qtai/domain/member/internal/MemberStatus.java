@@ -1,12 +1,12 @@
 package com.qtai.domain.member.internal;
 
 /**
- * 회원 상태 enum.
- *
- * - ACTIVE     : 정상 활동 회원
- * - SUSPENDED  : 관리자가 일시 정지 (로그인 차단)
- * - WITHDRAWN  : 탈퇴 — 익명화된 상태로 보존
+ * 회원 상태. Member.MemberRole과 함께 member 도메인 내부에서만 사용.
+ * MemberRole은 Member inner enum, MemberStatus는 별도 파일 — 상태값이 3종 이상이고
+ * 도메인 서비스에서 독립적으로 참조하므로 별도 파일로 유지한다.
  */
 public enum MemberStatus {
-    // TODO: ACTIVE, SUSPENDED, WITHDRAWN
+    ACTIVE,
+    SUSPENDED,
+    WITHDRAWN
 }

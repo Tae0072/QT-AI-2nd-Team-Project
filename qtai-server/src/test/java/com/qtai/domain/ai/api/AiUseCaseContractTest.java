@@ -17,6 +17,8 @@ import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetCommand;
 import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetResult;
 import com.qtai.domain.ai.api.dto.RegisterAiValidationLogCommand;
 import com.qtai.domain.ai.api.dto.RegisterAiValidationLogResult;
+import com.qtai.domain.ai.api.dto.RegenerateAiAssetCommand;
+import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
 import com.qtai.domain.ai.api.dto.RequestAiQaCommand;
 import com.qtai.domain.ai.api.dto.RequestAiQaResult;
 import com.qtai.domain.ai.api.dto.ReviewAiAssetCommand;
@@ -30,7 +32,8 @@ class AiUseCaseContractTest {
             CreateAiGenerationJobUseCase.class,
             RegisterAiGeneratedAssetUseCase.class,
             RegisterAiValidationLogUseCase.class,
-            ReviewAiAssetUseCase.class
+            ReviewAiAssetUseCase.class,
+            RegenerateAiAssetUseCase.class
     );
 
     private static final List<Class<?>> USE_CASE_DTOS = List.of(
@@ -45,7 +48,9 @@ class AiUseCaseContractTest {
             RegisterAiValidationLogCommand.class,
             RegisterAiValidationLogResult.class,
             ReviewAiAssetCommand.class,
-            ReviewAiAssetResult.class
+            ReviewAiAssetResult.class,
+            RegenerateAiAssetCommand.class,
+            RegenerateAiAssetResult.class
     );
 
     @Test
