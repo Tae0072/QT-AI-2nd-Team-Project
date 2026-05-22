@@ -1,74 +1,62 @@
 package com.qtai.domain.sharing.internal;
 
-/**
- * 나눔 게시글 엔티티 (ERD §2.15 sharing_posts).
- *
- * 노트 공개 시 원본 내용을 스냅샷 컬럼에 복사해 저장 (원자성 보장).
- * 공개 후 원본 노트가 수정·삭제되어도 게시글 내용은 자동 변경되지 않는다.
- * 닉네임은 공개 시점 값을 confirmNicknamePublic=true 확인 후 nickname_snapshot 에 저장.
- *
- * 원본 노트가 삭제·비공개 전환되면 source_note_deleted_at / source_note_unshared_at 기록 후
- * status 를 DELETED 또는 HIDDEN 으로 전환한다.
- */
-// TODO: @Entity, @Table(name = "sharing_posts")
-public class SharingPost {
+import com.qtai.common.entity.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-    // TODO: @Id @GeneratedValue(strategy = GenerationType.IDENTITY) Long id;
+import java.time.LocalDateTime;
 
-    // TODO: @Column(name = "note_id", nullable = false, unique = true)
-    //        Long noteId;                    — 원본 노트 FK/UK (1:1)
+@Entity
+@Table(name = "sharing_posts")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class SharingPost extends BaseEntity {
 
-    // TODO: @Column(name = "member_id", nullable = false)
-    //        Long memberId;                  — 작성자 FK
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
 
-    // TODO: @Column(name = "nickname_snapshot", nullable = false, length = 30)
-    //        String nicknameSnapshot;        — 공개 시점 닉네임
+    /** ERD §2.15 — 노트 1:1 공개 정책. 동일 노트의 중복 공유를 방지한다. */
+    @Column(name = "note_id", nullable = false, unique = true)
+    private Long noteId;
 
-    // TODO: @Column(name = "note_category_snapshot", nullable = false, length = 30)
-    //        String noteCategorySnapshot;    — 공유 시점 노트 카테고리
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private SharingPostStatus status;
 
-    // TODO: @Column(name = "title_snapshot", length = 100)
-    //        String titleSnapshot;           — 제목 스냅샷 (nullable)
+    // ── 스냅샷 (공유 시점의 노트 사본, 원본 변경에 영향받지 않음) ──
+    @Column(name = "snapshot_title", nullable = false, length = 200)
+    private String snapshotTitle;
 
-    // TODO: @Column(name = "feeling_snapshot", columnDefinition = "TEXT")
-    //        String feelingSnapshot;         — QT 노트 '느낀 점' 스냅샷
+    @Column(name = "snapshot_body", nullable = false, columnDefinition = "TEXT")
+    private String snapshotBody;
 
-    // TODO: @Column(name = "memory_verse_snapshot", columnDefinition = "TEXT")
-    //        String memoryVerseSnapshot;
+    @Column(name = "snapshot_category", nullable = false, length = 20)
+    private String snapshotCategory;
 
-    // TODO: @Column(name = "application_snapshot", columnDefinition = "TEXT")
-    //        String applicationSnapshot;
+    @Column(name = "snapshot_qt_date")
+    private java.time.LocalDate snapshotQtDate;
 
-    // TODO: @Column(name = "prayer_snapshot", columnDefinition = "TEXT")
-    //        String prayerSnapshot;
+    // ── 댓글 허용 토글 ──
+    @Column(name = "comments_enabled", nullable = false)
+    private boolean commentsEnabled = true;
 
-    // TODO: @Column(name = "body_snapshot", columnDefinition = "TEXT")
-    //        String bodySnapshot;            — 자유 노트 본문 스냅샷
+    // ── 집계 ──
+    @Column(name = "like_count", nullable = false)
+    private int likeCount;
 
-    // TODO: @Column(name = "verse_snapshot_json", columnDefinition = "JSON")
-    //        String verseSnapshotJson;       — 공유 시점 선택 구절 목록 JSON
+    @Column(name = "comment_count", nullable = false)
+    private int commentCount;
 
-    // TODO: @Column(name = "comments_enabled", nullable = false)
-    //        boolean commentsEnabled;        — 기본 true
+    // ── 상태 변경 시각 ──
+    @Column(name = "hidden_at")
+    private LocalDateTime hiddenAt;
 
-    // TODO: @Enumerated(EnumType.STRING)
-    //        @Column(nullable = false, length = 20)
-    //        SharingPostStatus status;       — PUBLISHED, HIDDEN, DELETED
-
-    // TODO: @Column(name = "source_note_deleted_at")
-    //        LocalDateTime sourceNoteDeletedAt;   — 원본 노트 삭제 감지 시각
-
-    // TODO: @Column(name = "source_note_unshared_at")
-    //        LocalDateTime sourceNoteUnsharedAt;  — 원본 노트 비공개/공유취소 감지 시각
-
-    // TODO: @Column(name = "published_at", nullable = false)
-    //        @CreationTimestamp LocalDateTime publishedAt;
-
-    // TODO: LocalDateTime hiddenAt;
-    // TODO: @CreationTimestamp LocalDateTime createdAt;
-    // TODO: @UpdateTimestamp  LocalDateTime updatedAt;
-
-    // 연관
-    // TODO: @OneToMany(mappedBy = "sharingPost", cascade = CascadeType.ALL) List<Comment> comments;
-    // TODO: @OneToMany(mappedBy = "sharingPost", cascade = CascadeType.ALL) List<PostLike> likes;
+    @Column(name = "source_note_unshared_at")
+    private LocalDateTime sourceNoteUnsharedAt;
 }
