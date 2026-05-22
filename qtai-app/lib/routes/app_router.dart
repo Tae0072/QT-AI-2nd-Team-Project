@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// 앱 라우팅 설정.
 class AppRouter {
   static const String splash = '/';
   static const String login = '/login';

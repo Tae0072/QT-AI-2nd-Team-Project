@@ -1,3 +1,5 @@
+# ⚠️ 로컬 개발 전용 — 평문 비밀번호는 dev 환경에서만 사용합니다.
+# 운영(dev/prod)에서는 환경변수 또는 .env 파일로 분리하세요.
 services:
   qtai-server:
     build: .
