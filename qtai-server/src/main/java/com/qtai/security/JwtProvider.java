@@ -35,6 +35,7 @@ import java.util.Date;
 public class JwtProvider {
 
     private static final String CLAIM_ROLE = "role";
+    private static final String TOKEN_TYPE_ACCESS = "access";
     private static final String TOKEN_TYPE_REFRESH = "refresh";
     private static final String CLAIM_TOKEN_TYPE = "type";
 
@@ -74,6 +75,7 @@ public class JwtProvider {
         return Jwts.builder()
                 .subject(String.valueOf(memberId))
                 .claim(CLAIM_ROLE, role)
+                .claim(CLAIM_TOKEN_TYPE, TOKEN_TYPE_ACCESS)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + accessExpiryMs))
                 .signWith(privateKey, Jwts.SIG.RS256)
@@ -108,7 +110,15 @@ public class JwtProvider {
      */
     public Long validateAndGetMemberId(String token) {
         Claims claims = parseClaims(token);
-        return Long.parseLong(claims.getSubject());
+        // Refresh Token을 Access Token 경로에 사용하는 권한 우회 차단
+        if (TOKEN_TYPE_REFRESH.equals(claims.get(CLAIM_TOKEN_TYPE, String.class))) {
+            throw new JwtException("Refresh Token은 인증에 사용할 수 없습니다.");
+        }
+        try {
+            return Long.parseLong(claims.getSubject());
+        } catch (NumberFormatException e) {
+            throw new JwtException("토큰 subject가 유효한 회원 ID가 아닙니다.");
+        }
     }
 
     /**
@@ -118,7 +128,11 @@ public class JwtProvider {
      * @return role 문자열 (예: "USER", "ADMIN")
      */
     public String extractRole(String token) {
-        return parseClaims(token).get(CLAIM_ROLE, String.class);
+        String role = parseClaims(token).get(CLAIM_ROLE, String.class);
+        if (role == null) {
+            throw new JwtException("토큰에 role claim이 없습니다.");
+        }
+        return role;
     }
 
     /**
