@@ -13,3 +13,9 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
   flyway:
     enabled: true
+
+# dev 전용 보안 우회 토글 (DevSecurityConfig 활성화 조건)
+# - 운영(prod)에서는 절대 true로 두지 않는다 (application-prod.yml에서 false 강제)
+qtai:
+  security:
+    dev-bypass: true

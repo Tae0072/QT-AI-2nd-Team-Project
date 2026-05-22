@@ -20,3 +20,8 @@ security:
     public-key: ${JWT_PUBLIC_KEY}
     access-expiry-ms: ${JWT_ACCESS_EXPIRY_MS:1800000}
     refresh-expiry-ms: ${JWT_REFRESH_EXPIRY_MS:1209600000}
+
+# 운영 환경 — DevSecurityConfig 활성화 절대 금지
+qtai:
+  security:
+    dev-bypass: false

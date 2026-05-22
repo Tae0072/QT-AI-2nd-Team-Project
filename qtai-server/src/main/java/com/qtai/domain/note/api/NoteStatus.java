@@ -1,4 +1,4 @@
-package com.qtai.domain.note.internal;
+package com.qtai.domain.note.api;
 
 /**
  * 노트 저장 상태.
