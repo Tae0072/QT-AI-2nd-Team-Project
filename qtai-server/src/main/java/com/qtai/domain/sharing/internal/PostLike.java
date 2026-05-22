@@ -14,6 +14,10 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * 좋아요 엔티티. updatedAt이 불필요하므로 BaseEntity를 상속하지 않고
+ * createdAt만 {@code @PrePersist}로 직접 관리한다.
+ */
 @Entity
 @Table(name = "post_likes", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"sharing_post_id", "member_id"})

@@ -6,13 +6,20 @@ import com.qtai.common.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
@@ -51,6 +58,17 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.traceId").exists());
     }
 
+    @Test
+    @DisplayName("MethodArgumentNotValidException → 400 + C0002 에러 코드")
+    void validationException_returns_400() throws Exception {
+        mockMvc.perform(post("/test/validation-error")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("C0002"));
+    }
+
     // ── 테스트용 더미 컨트롤러 ──
 
     @RestController
@@ -65,5 +83,16 @@ class GlobalExceptionHandlerTest {
         public void throwUnexpected() {
             throw new RuntimeException("테스트용 예상치 못한 예외");
         }
+
+        @PostMapping("/test/validation-error")
+        public void throwValidation(@Valid @RequestBody ValidationDto dto) {
+            // @Valid가 MethodArgumentNotValidException을 발생시킴
+        }
+    }
+
+    @Getter @Setter
+    static class ValidationDto {
+        @NotBlank
+        private String name;
     }
 }

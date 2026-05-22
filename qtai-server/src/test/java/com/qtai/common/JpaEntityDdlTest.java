@@ -4,6 +4,8 @@ import com.qtai.config.JpaAuditingConfig;
 import com.qtai.domain.bible.internal.BibleBook;
 import com.qtai.domain.member.internal.Member;
 import com.qtai.domain.note.internal.Note;
+import com.qtai.domain.note.internal.NoteCategory;
+import com.qtai.domain.sharing.internal.PostLike;
 import com.qtai.domain.sharing.internal.SharingPost;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
@@ -13,6 +15,9 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -86,5 +91,57 @@ class JpaEntityDdlTest {
         assertThrows(Exception.class, () ->
                 testEm.persistAndFlush(
                         Member.builder().kakaoId(22222L).nickname("동일닉네임").build()));
+    }
+
+    @Test
+    @DisplayName("Note MEDITATION UK — 동일 member+qtPassage+ACTIVE 중복 삽입 시 예외")
+    void note_meditation_active_unique_constraint() {
+        Note first = Note.builder()
+                .memberId(1L)
+                .qtPassageId(100L)
+                .category(NoteCategory.MEDITATION)
+                .title("묵상1")
+                .body("본문1")
+                .build();
+        testEm.persistAndFlush(first);
+        assertEquals("ACTIVE", first.getActiveUniqueKey());
+
+        Note duplicate = Note.builder()
+                .memberId(1L)
+                .qtPassageId(100L)
+                .category(NoteCategory.MEDITATION)
+                .title("묵상2")
+                .body("본문2")
+                .build();
+
+        assertThrows(Exception.class, () -> testEm.persistAndFlush(duplicate));
+    }
+
+    @Test
+    @DisplayName("PostLike UK — 동일 sharingPostId+memberId 중복 삽입 시 예외")
+    void postLike_unique_constraint() throws Exception {
+        PostLike like1 = createPostLike(500L, 1L);
+        testEm.persistAndFlush(like1);
+        assertNotNull(like1.getId());
+
+        PostLike like2 = createPostLike(500L, 1L);
+        assertThrows(Exception.class, () -> testEm.persistAndFlush(like2));
+    }
+
+    /** PostLike는 protected 생성자만 존재 — 리플렉션으로 필드 세팅 */
+    private PostLike createPostLike(Long sharingPostId, Long memberId) throws Exception {
+        Constructor<PostLike> ctor = PostLike.class.getDeclaredConstructor();
+        ctor.setAccessible(true);
+        PostLike like = ctor.newInstance();
+
+        Field postIdField = PostLike.class.getDeclaredField("sharingPostId");
+        postIdField.setAccessible(true);
+        postIdField.set(like, sharingPostId);
+
+        Field memberIdField = PostLike.class.getDeclaredField("memberId");
+        memberIdField.setAccessible(true);
+        memberIdField.set(like, memberId);
+
+        return like;
     }
 }

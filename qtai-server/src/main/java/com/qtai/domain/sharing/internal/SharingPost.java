@@ -21,7 +21,8 @@ public class SharingPost extends BaseEntity {
     @Column(name = "member_id", nullable = false)
     private Long memberId;
 
-    @Column(name = "note_id", nullable = false)
+    /** ERD §2.15 — 노트 1:1 공개 정책. 동일 노트의 중복 공유를 방지한다. */
+    @Column(name = "note_id", nullable = false, unique = true)
     private Long noteId;
 
     @Enumerated(EnumType.STRING)
@@ -43,14 +44,14 @@ public class SharingPost extends BaseEntity {
 
     // ── 댓글 허용 토글 ──
     @Column(name = "comments_enabled", nullable = false)
-    private Boolean commentsEnabled = true;
+    private boolean commentsEnabled = true;
 
     // ── 집계 ──
     @Column(name = "like_count", nullable = false)
-    private Integer likeCount = 0;
+    private int likeCount;
 
     @Column(name = "comment_count", nullable = false)
-    private Integer commentCount = 0;
+    private int commentCount;
 
     // ── 상태 변경 시각 ──
     @Column(name = "hidden_at")

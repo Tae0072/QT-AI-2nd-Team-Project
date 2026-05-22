@@ -2,7 +2,7 @@
 CREATE TABLE sharing_posts (
     id              BIGINT          AUTO_INCREMENT PRIMARY KEY,
     member_id       BIGINT          NOT NULL,
-    note_id         BIGINT          NOT NULL,
+    note_id         BIGINT          NOT NULL UNIQUE,  -- ERD §2.15: 노트 1:1 공개
     status              VARCHAR(20)     NOT NULL DEFAULT 'PUBLISHED',
     snapshot_title      VARCHAR(200)    NOT NULL,
     snapshot_body       TEXT            NOT NULL,

@@ -8,9 +8,16 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/**
+ * 노트 엔티티 — ERD §notes.
+ *
+ * <p>MEDITATION 카테고리는 (member_id, qt_passage_id, active_unique_key='ACTIVE') UK로
+ * 하루 1건 멱등 보장. 노트 삭제/교체 시 active_unique_key=null로 전환한다.
+ */
 @Entity
 @Table(name = "notes", uniqueConstraints = {
         @UniqueConstraint(
@@ -21,6 +28,9 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Note extends BaseEntity {
+
+    /** active_unique_key 상수 — partial unique index 패턴 */
+    public static final String ACTIVE_KEY = "ACTIVE";
 
     @Column(name = "member_id", nullable = false)
     private Long memberId;
@@ -42,7 +52,30 @@ public class Note extends BaseEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String body;
 
-    /** ACTIVE=현재 활성 묵상, NULL=삭제/교체됨. (member_id, qt_passage_id, active_unique_key) UK로 1일 1건 멱등 보장 */
+    /**
+     * ACTIVE=현재 활성 묵상, NULL=삭제/교체됨.
+     * (member_id, qt_passage_id, active_unique_key) UK로 1일 1건 멱등 보장.
+     * CHAR(6) 수준이나 도메인 서비스에서 추가 상태값 확장 가능성을 고려해 VARCHAR(10) 유지.
+     */
     @Column(name = "active_unique_key", length = 10)
     private String activeUniqueKey;
+
+    @Builder
+    private Note(Long memberId, Long qtPassageId, NoteCategory category,
+                 String title, String body) {
+        this.memberId = memberId;
+        this.qtPassageId = qtPassageId;
+        this.category = category;
+        this.status = NoteStatus.DRAFT;
+        this.title = title;
+        this.body = body;
+        // MEDITATION 카테고리는 반드시 active_unique_key='ACTIVE'로 생성
+        this.activeUniqueKey = (category == NoteCategory.MEDITATION) ? ACTIVE_KEY : null;
+    }
+
+    /** 노트 비활성화 — 삭제/교체 시 UK를 해제하여 새 묵상 노트 생성을 허용한다. */
+    public void deactivate() {
+        this.activeUniqueKey = null;
+    }
 }
+

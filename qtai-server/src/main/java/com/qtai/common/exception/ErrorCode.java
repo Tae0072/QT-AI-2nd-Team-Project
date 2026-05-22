@@ -4,6 +4,13 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
+/**
+ * 에러 코드 상수.
+ *
+ * <p>도메인별 NOT_FOUND 코드(M0001, B0001, N0001 등)와 공통 RESOURCE_NOT_FOUND(C0004)가
+ * 공존한다. 도메인 코드가 존재하면 도메인 코드를 우선 사용하고,
+ * 공통 코드는 도메인을 특정할 수 없는 범용 상황에서만 사용한다.
+ */
 @Getter
 @RequiredArgsConstructor
 public enum ErrorCode {

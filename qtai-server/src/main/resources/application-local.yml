@@ -4,6 +4,7 @@ spring:
     username: sa
     password:
     driver-class-name: org.h2.Driver
+  # H2 Console — local 프로파일 전용. SecurityConfig에서 /h2-console/** permitAll 필요.
   h2:
     console:
       enabled: true

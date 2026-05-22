@@ -10,6 +10,7 @@ spring:
     show-sql: true
   flyway:
     enabled: false
+  # Redis — @DataJpaTest에서는 미사용. 전체 컨텍스트 로드 테스트(@SpringBootTest) 시 필요.
   data:
     redis:
       host: localhost
