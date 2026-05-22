@@ -1,0 +1,12 @@
+# Gitleaks 설정 — 테스트 전용 키 경로 allowlist
+# 운영 키는 환경 변수로만 주입 (application.yml에 default 없음)
+
+title = "QT-AI Gitleaks Config"
+
+[[allowlists]]
+  description = "테스트 전용 RSA 키 — 운영 키와 별개로 생성된 키, 실제 시스템에 사용되지 않음"
+  paths = [
+    '''qtai-server/src/test/resources/.*\.yml''',
+    '''qtai-server/src/test/resources/.*\.yaml''',
+    '''qtai-server/src/test/resources/.*\.properties'''
+  ]
