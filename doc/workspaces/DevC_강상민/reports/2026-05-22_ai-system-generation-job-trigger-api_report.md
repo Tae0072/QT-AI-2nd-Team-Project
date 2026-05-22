@@ -117,6 +117,10 @@
 | `gitleaks detect --source . --redact --exit-code 1` | 현재 환경에서 `gitleaks` 실행 파일이 발견되지 않음 |
 | `jacocoTestReport`, `jacocoTestCoverageVerification` | 현재 `qtai-server` Gradle 프로젝트에 Jacoco 관련 task가 등록되어 있지 않음 |
 
+## push 전 추가 검증 계획
+
+dev merge 이후 push 전 검증에는 통합 테스트 성격의 전체 테스트도 포함한다. 우선 변경 범위 테스트를 실행하고, 최종적으로 merged 상태에서 `.\gradlew.bat test` 또는 `.\gradlew.bat build`를 실행해 전체 테스트까지 확인한다. 별도 `integrationTest` 태스크가 확인되면 해당 태스크도 추가로 실행한다.
+
 ## 남은 후속 작업
 
 1. `service_accounts` 기반 서버 간 인증과 전역 `/api/v1/system/**` 보안 설정 구현
