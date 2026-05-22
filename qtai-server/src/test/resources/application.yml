@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+    show-sql: false
+
+security:
+  jwt:
+    # 테스트용 RSA 키 — 운영 키와 동일한 키를 사용 (dev default 값)
+    private-key: MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDNrK/5fyH1pQzPKqdwHBuG2jPHnRwYQ23OLHx/7pqGoK6q9a9I6dwt9qiioEAxqPIDKDWzh9zhPL9JThb/4dn3KFxEeECpSEUsfCNZ73P46FV3hmuEZxVU5VdFS05Hw2NHr0xGiAWM17HRvvMEOQd4J6YpWKVdGqQeSpBE5Yu9bRJ/l20qqtVfPiWa9UTIFUvSEkpzybSz6Jej5xUBSWQUHsuCcgYYfhvUX2P5VCrEI90g7V2/g6KIlu/Z6Bi9EPU+fPGLnSyhMpCDmRU20OxS0addGpEzTb7+XMyp31uBM2e73EIaXRsnNYD21BpcCo2KGJ3n31x6kz4oHKQ71fUPAgMBAAECggEAHmQqDJ/wkK+22NXgr/w3RRHxHMnmYN911kVUkELdqo8LwE9Ve1yzIEeWW5F6atwgBr9mUAT/anjjex2C4ISrBI5+M8/hHiKDtjMRtjRf2qPaHTNLp+DjkgvhfWfHRWtlvC33A2UODOXCbM/ecP1MUUDqmKl0pfFN1vwFnWid4Xt8f8ljw++E9/0Md+jDyJDG8zGC7IWMOX5Mqwl1Xv/cpoZ6mOjabHhxHQAaDx4x7Tl0/EYHH12XcsjJpTQ9kHYOqvdc4OTm1q3/zIRegcjs1T2WU2LiRCv88OqV+X5khaatOIQ1M4FeaeQNWPdEd7oZfGaEkPcVBhWdsIGG7wku4QKBgQDUVR6RmGvFibJEcUgesehCENq2bycFiKWrgvIejqWYVmi+Lz7za2L7bBr8QvGq/bK/n5BonD4pTk3isSHa/DZhKiRA0pHevi8pxLFQSFylKUl68U6FuQzPZ8uS9vfCHyuAUmMGLZRyLT1rrNcD3N4rzNuWoj4fS3RE0fk8ZdXsnQKBgQD3+Qp5ubTwjDbZ8nJdWq56edRWNhwpU2Bd+hfzysurbUPSVmLivYafro2aYhok9WhHwZMB5Um8C9vPJGOd9aD47gOtpkfmsbcztjroZ1ToyJvaVwotVvtvMbPVB+k826eadB2d2V1+RsclH5HvFPDsTNXMmWLnm8DevUHEqXramwKBgQCY9VSXF9ETNXV5Po3wpsKkzRVxdLMMlnqaCjO29ZWvHxhHYSudGU/txNvPu73yKt5Ykm7qHRvej60lz+qOoT/fUQdatxYj+qdpFGuTZP1wcUSgzzJ8vGjRBHmvPkAO1Ht27mKtcapNce+cIJ+oBbT6opHResD7tFRmu0grTUUFNQKBgDCUOmgkaH0jiu9hnuQJCtt1mJKXISc7bUqb3ytklEfuLPY89DxlUsVfpeATzflllltQYeNiLvLHA/XttBJS94ks382aIMXiFPjtf1beP3UnL9kzagv92V4sR4W5egjxI0GP8+ljlvxRE1yDdcx3tsckOlJNzmF/UuaP/x1u8mF3AoGAN2AHjuybvlf0BlmE2UYx9WDmRRa29zcGVRh8AbLFZZmShhU/W9YpjcYVTxo+6o4mzBo6Rsjo+rK9sIS1fBsIG3YamYrVeXN1MMGDE4xlpm7RFnmBTNKojeub+uY6j5rjse2vggdyUYXLlzqrywWKF/AaLed+w16ADgGiDKIOw/w=
+    public-key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzayv+X8h9aUMzyqncBwbhtozx50cGENtzix8f+6ahqCuqvWvSOncLfaooqBAMajyAyg1s4fc4Ty/SU4W/+HZ9yhcRHhAqUhFLHwjWe9z+OhVd4ZrhGcVVOVXRUtOR8NjR69MRogFjNex0b7zBDkHeCemKVilXRqkHkqQROWLvW0Sf5dtKqrVXz4lmvVEyBVL0hJKc8m0s+iXo+cVAUlkFB7LgnIGGH4b1F9j+VQqxCPdIO1dv4OiiJbv2egYvRD1Pnzxi50soTKQg5kVNtDsUtGnXRqRM02+/lzMqd9bgTNnu9xCGl0bJzWA9tQaXAqNihid599cepM+KBykO9X1DwIDAQAB
+    access-expiry-ms: 1800000
+    refresh-expiry-ms: 2592000000
+
+kakao:
+  api:
+    user-info-url: https://kapi.kakao.com/v2/user/me

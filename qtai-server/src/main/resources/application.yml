@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: qtai-server
+  profiles:
+    active: dev
+  datasource:
+    url: jdbc:mysql://localhost:3306/qtai?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME:qtai}
+    password: ${DB_PASSWORD:qtai}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+    show-sql: false
+
+security:
+  jwt:
+    # RSA 2048 키 쌍 — 개인키(서명), 공개키(검증)
+    # MSA 전환 시 공개키만 각 서비스에 배포하면 검증 가능
+    # 운영 환경에서는 반드시 환경 변수로 주입 (JWT_PRIVATE_KEY, JWT_PUBLIC_KEY)
+    private-key: ${JWT_PRIVATE_KEY:MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDNrK/5fyH1pQzPKqdwHBuG2jPHnRwYQ23OLHx/7pqGoK6q9a9I6dwt9qiioEAxqPIDKDWzh9zhPL9JThb/4dn3KFxEeECpSEUsfCNZ73P46FV3hmuEZxVU5VdFS05Hw2NHr0xGiAWM17HRvvMEOQd4J6YpWKVdGqQeSpBE5Yu9bRJ/l20qqtVfPiWa9UTIFUvSEkpzybSz6Jej5xUBSWQUHsuCcgYYfhvUX2P5VCrEI90g7V2/g6KIlu/Z6Bi9EPU+fPGLnSyhMpCDmRU20OxS0addGpEzTb7+XMyp31uBM2e73EIaXRsnNYD21BpcCo2KGJ3n31x6kz4oHKQ71fUPAgMBAAECggEAHmQqDJ/wkK+22NXgr/w3RRHxHMnmYN911kVUkELdqo8LwE9Ve1yzIEeWW5F6atwgBr9mUAT/anjjex2C4ISrBI5+M8/hHiKDtjMRtjRf2qPaHTNLp+DjkgvhfWfHRWtlvC33A2UODOXCbM/ecP1MUUDqmKl0pfFN1vwFnWid4Xt8f8ljw++E9/0Md+jDyJDG8zGC7IWMOX5Mqwl1Xv/cpoZ6mOjabHhxHQAaDx4x7Tl0/EYHH12XcsjJpTQ9kHYOqvdc4OTm1q3/zIRegcjs1T2WU2LiRCv88OqV+X5khaatOIQ1M4FeaeQNWPdEd7oZfGaEkPcVBhWdsIGG7wku4QKBgQDUVR6RmGvFibJEcUgesehCENq2bycFiKWrgvIejqWYVmi+Lz7za2L7bBr8QvGq/bK/n5BonD4pTk3isSHa/DZhKiRA0pHevi8pxLFQSFylKUl68U6FuQzPZ8uS9vfCHyuAUmMGLZRyLT1rrNcD3N4rzNuWoj4fS3RE0fk8ZdXsnQKBgQD3+Qp5ubTwjDbZ8nJdWq56edRWNhwpU2Bd+hfzysurbUPSVmLivYafro2aYhok9WhHwZMB5Um8C9vPJGOd9aD47gOtpkfmsbcztjroZ1ToyJvaVwotVvtvMbPVB+k826eadB2d2V1+RsclH5HvFPDsTNXMmWLnm8DevUHEqXramwKBgQCY9VSXF9ETNXV5Po3wpsKkzRVxdLMMlnqaCjO29ZWvHxhHYSudGU/txNvPu73yKt5Ykm7qHRvej60lz+qOoT/fUQdatxYj+qdpFGuTZP1wcUSgzzJ8vGjRBHmvPkAO1Ht27mKtcapNce+cIJ+oBbT6opHResD7tFRmu0grTUUFNQKBgDCUOmgkaH0jiu9hnuQJCtt1mJKXISc7bUqb3ytklEfuLPY89DxlUsVfpeATzflllltQYeNiLvLHA/XttBJS94ks382aIMXiFPjtf1beP3UnL9kzagv92V4sR4W5egjxI0GP8+ljlvxRE1yDdcx3tsckOlJNzmF/UuaP/x1u8mF3AoGAN2AHjuybvlf0BlmE2UYx9WDmRRa29zcGVRh8AbLFZZmShhU/W9YpjcYVTxo+6o4mzBo6Rsjo+rK9sIS1fBsIG3YamYrVeXN1MMGDE4xlpm7RFnmBTNKojeub+uY6j5rjse2vggdyUYXLlzqrywWKF/AaLed+w16ADgGiDKIOw/w=}
+    public-key: ${JWT_PUBLIC_KEY:MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzayv+X8h9aUMzyqncBwbhtozx50cGENtzix8f+6ahqCuqvWvSOncLfaooqBAMajyAyg1s4fc4Ty/SU4W/+HZ9yhcRHhAqUhFLHwjWe9z+OhVd4ZrhGcVVOVXRUtOR8NjR69MRogFjNex0b7zBDkHeCemKVilXRqkHkqQROWLvW0Sf5dtKqrVXz4lmvVEyBVL0hJKc8m0s+iXo+cVAUlkFB7LgnIGGH4b1F9j+VQqxCPdIO1dv4OiiJbv2egYvRD1Pnzxi50soTKQg5kVNtDsUtGnXRqRM02+/lzMqd9bgTNnu9xCGl0bJzWA9tQaXAqNihid599cepM+KBykO9X1DwIDAQAB}
+    access-expiry-ms: 1800000   # 30분
+    refresh-expiry-ms: 2592000000  # 30일
+
+kakao:
+  api:
+    user-info-url: https://kapi.kakao.com/v2/user/me

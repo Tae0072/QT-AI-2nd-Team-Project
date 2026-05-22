@@ -1,30 +1,93 @@
 package com.qtai.security;
 
+import io.jsonwebtoken.JwtException;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
 /**
  * JWT 인증 필터.
  *
- * 모든 요청에서 Authorization: Bearer {token} 헤더를 읽어
- * JwtProvider 로 검증하고 SecurityContext 에 인증 정보를 설정한다.
+ * <p>모든 요청에서 {@code Authorization: Bearer {token}} 헤더를 추출해
+ * {@link JwtProvider}로 검증하고 {@link org.springframework.security.core.context.SecurityContext}에
+ * 인증 정보를 설정한다.
  *
- * 허용 경로 (인증 불필요):
- *   POST /api/v1/auth/kakao   — 카카오 로그인 (CLAUDE.md §5: 서버사이드 /oauth2/** 경로 사용 안 함)
- *   POST /api/v1/auth/refresh — Access Token 재발급
+ * <p>허용 경로는 {@link SecurityConfig}의 permitAll에서 관리하며,
+ * 이 필터는 토큰이 없으면 인증을 설정하지 않고 그냥 통과시킨다.
+ * permitAll 경로가 아닌데 인증이 없으면 Spring Security가 401을 반환한다.
  *
- * 토큰 만료 시 → 401 응답, 로그인 화면으로 이동 (Flutter 인터셉터 처리).
+ * <p>로그에 token 값 절대 남기지 않는다 (CLAUDE.md §9).
  */
-// TODO: @Component @RequiredArgsConstructor
-// TODO: extends OncePerRequestFilter
-public class JwtAuthenticationFilter {
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    // TODO: final JwtProvider jwtProvider;
+    private static final String BEARER_PREFIX = "Bearer ";
 
-    // TODO: @Override
-    //        protected void doFilterInternal(HttpServletRequest request,
-    //                                        HttpServletResponse response,
-    //                                        FilterChain filterChain) {
-    //            1) Authorization 헤더에서 Bearer 토큰 추출
-    //            2) jwtProvider.validateAndGetMemberId(token) 호출
-    //            3) UsernamePasswordAuthenticationToken 생성 → SecurityContext 에 설정
-    //            4) 예외 시 401 응답 (로그에 token 값 남기지 않음)
-    //        }
+    private final JwtProvider jwtProvider;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+        String token = extractToken(request);
+
+        if (StringUtils.hasText(token)) {
+            try {
+                Long memberId = jwtProvider.validateAndGetMemberId(token);
+                String role = jwtProvider.extractRole(token);
+
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                memberId,
+                                null,
+                                List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                        );
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            } catch (JwtException e) {
+                // 토큰 값은 로그에 남기지 않음 (CLAUDE.md §9)
+                log.warn("JWT 검증 실패 — uri={}, error={}", request.getRequestURI(), e.getMessage());
+                SecurityContextHolder.clearContext();
+                sendUnauthorized(response);
+                return;
+            }
+        }
+
+        filterChain.doFilter(request, response);
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (StringUtils.hasText(header) && header.startsWith(BEARER_PREFIX)) {
+            return header.substring(BEARER_PREFIX.length());
+        }
+        return null;
+    }
+
+    private void sendUnauthorized(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write("""
+                {"code":"UNAUTHORIZED","message":"유효하지 않은 인증 토큰입니다."}
+                """.strip());
+    }
 }
