@@ -3,6 +3,8 @@ package com.qtai.domain.praise.internal;
 import com.qtai.common.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -27,33 +29,33 @@ public class PraiseSong extends BaseEntity {
     @Column(name = "artist", length = 100)
     private String artist;
 
-    /** CURATED (관리자 등록) 또는 DEVICE (디바이스 음원). */
+    @Enumerated(EnumType.STRING)
     @Column(name = "source_type", nullable = false, length = 20)
-    private String sourceType;
+    private PraiseSourceType sourceType;
 
     /** 저작권 확인 메모 (관리자용). */
     @Column(name = "license_note", length = 300)
     private String licenseNote;
 
-    /** ACTIVE, HIDDEN. */
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private String status;
+    private PraiseSongStatus status;
 
     @Builder
-    public PraiseSong(String title, String artist, String sourceType,
-                      String licenseNote, String status) {
+    public PraiseSong(String title, String artist, PraiseSourceType sourceType,
+                      String licenseNote, PraiseSongStatus status) {
         this.title = title;
         this.artist = artist;
-        this.sourceType = (sourceType != null) ? sourceType : "CURATED";
+        this.sourceType = (sourceType != null) ? sourceType : PraiseSourceType.CURATED;
         this.licenseNote = licenseNote;
-        this.status = (status != null) ? status : "ACTIVE";
+        this.status = (status != null) ? status : PraiseSongStatus.ACTIVE;
     }
 
     public void hide() {
-        this.status = "HIDDEN";
+        this.status = PraiseSongStatus.HIDDEN;
     }
 
     public boolean isActive() {
-        return "ACTIVE".equals(this.status);
+        return PraiseSongStatus.ACTIVE == this.status;
     }
 }

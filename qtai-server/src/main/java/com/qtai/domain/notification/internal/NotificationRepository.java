@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+
 /**
  * 알림 영속성 포트. Spring Data JPA로 구현.
  */
@@ -21,9 +23,12 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     /** 미읽음 알림 수. */
     long countByMemberIdAndReadAtIsNull(Long memberId);
 
+    /** 동일 이벤트 알림 중복 확인 (멱등성 보장). */
+    boolean existsByMemberIdAndEventKey(Long memberId, String eventKey);
+
     /** 전체 일괄 읽음 처리 — 영향받은 행 수 반환. */
-    @Modifying
-    @Query("UPDATE Notification n SET n.readAt = CURRENT_TIMESTAMP " +
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Notification n SET n.readAt = :readAt " +
             "WHERE n.memberId = :memberId AND n.readAt IS NULL")
-    int markAllAsRead(@Param("memberId") Long memberId);
+    int markAllAsRead(@Param("memberId") Long memberId, @Param("readAt") LocalDateTime readAt);
 }

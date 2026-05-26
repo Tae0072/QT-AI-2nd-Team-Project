@@ -10,5 +10,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PraiseSongRepository extends JpaRepository<PraiseSong, Long> {
 
     /** 상태별 목록 조회. */
-    Page<PraiseSong> findByStatus(String status, Pageable pageable);
+    Page<PraiseSong> findByStatus(PraiseSongStatus status, Pageable pageable);
 }

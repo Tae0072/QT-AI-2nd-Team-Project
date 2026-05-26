@@ -1,6 +1,8 @@
 package com.qtai.domain.member.web;
 
 import com.qtai.common.dto.ApiResponse;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.member.api.dto.DashboardResponse;
 import com.qtai.domain.member.api.dto.DashboardResponse.PraiseSummary;
@@ -23,8 +25,8 @@ import java.util.List;
 /**
  * 마이페이지 REST 엔드포인트.
  *
- * API 명세서 §4.6.1~§4.6.2 기준.
- * 위젯별 부분 실패: 한 위젯 조회 실패가 전체 응답을 실패시키지 않는다.
+ * <p>API 명세서 §4.6.1~§4.6.2 기준.
+ * <p>위젯별 부분 실패: 한 위젯 조회 실패가 전체 응답을 실패시키지 않는다.
  */
 @Slf4j
 @RestController
@@ -69,8 +71,8 @@ public class MyPageController {
     @GetMapping("/api/v1/me/meditation-calendar")
     public ResponseEntity<ApiResponse<Object>> meditationCalendar(
             @AuthenticationPrincipal Long memberId) {
-        // notes 도메인 미구현 — 빈 응답
-        throw new UnsupportedOperationException("묵상 달력은 notes 도메인 구현 후 연동 예정");
+        // notes 도메인 미구현 — 공통 에러 응답 구조로 반환
+        throw new BusinessException(ErrorCode.NOT_IMPLEMENTED, "묵상 달력은 notes 도메인 구현 후 연동 예정");
     }
 
     // ── private widget loaders (부분 실패 허용) ──
@@ -86,6 +88,8 @@ public class MyPageController {
         }
     }
 
+    // TODO: notes 도메인 연동 시 memberId 파라미터 사용 + errors 기록 로직 추가
+    @SuppressWarnings("unused")
     private StatsWidget loadStats(Long memberId, List<String> errors) {
         // notes 도메인 미구현 — 기본값 반환
         return new StatsWidget(

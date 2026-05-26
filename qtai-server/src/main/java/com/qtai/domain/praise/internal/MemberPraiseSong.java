@@ -18,17 +18,19 @@ import java.time.LocalDateTime;
 /**
  * 내 찬양 목록 엔티티.
  *
- * ERD: member_praise_songs 테이블 (V8).
- * 큐레이션 곡 저장 또는 디바이스 로컬 음원 등록.
- * praise_song_id가 null이면 디바이스 전용 항목.
+ * <p>ERD: member_praise_songs 테이블 (V8).
+ * <p>큐레이션 곡 또는 디바이스 로컬 회원 등록.
+ * <p>praise_song_id 가 null 이면 디바이스 전용 곡.
  */
 @Entity
 @Table(name = "member_praise_songs",
         indexes = @Index(name = "idx_member_praise_member",
                 columnList = "member_id, created_at"),
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_member_praise_curated",
-                columnNames = {"member_id", "praise_song_id"}))
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_member_praise_curated",
+                        columnNames = {"member_id", "praise_song_id"}),
+                @UniqueConstraint(name = "uk_member_praise_device",
+                        columnNames = {"member_id", "device_song_key"})})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class MemberPraiseSong {
@@ -45,7 +47,7 @@ public class MemberPraiseSong {
     @Column(name = "praise_song_id")
     private Long praiseSongId;
 
-    /** 디바이스 음원 식별자 (nullable). */
+    /** 디바이스 회원 식별키 (nullable). */
     @Column(name = "device_song_key", length = 200)
     private String deviceSongKey;
 
@@ -58,11 +60,12 @@ public class MemberPraiseSong {
 
     @Builder
     public MemberPraiseSong(Long memberId, Long praiseSongId,
-                            String deviceSongKey, String displayTitle) {
+                            String deviceSongKey, String displayTitle,
+                            LocalDateTime createdAt) {
         this.memberId = memberId;
         this.praiseSongId = praiseSongId;
         this.deviceSongKey = deviceSongKey;
         this.displayTitle = displayTitle;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = createdAt;
     }
 }

@@ -20,6 +20,9 @@ public interface MemberPraiseSongRepository extends JpaRepository<MemberPraiseSo
     /** 특정 회원의 특정 저장 곡 조회 (삭제 시 본인 검증용). */
     Optional<MemberPraiseSong> findByIdAndMemberId(Long id, Long memberId);
 
+    /** 특정 회원 + 디바이스 곡 중복 확인. */
+    boolean existsByMemberIdAndDeviceSongKey(Long memberId, String deviceSongKey);
+
     /** 특정 회원의 저장 곡 수. */
     long countByMemberId(Long memberId);
 }
