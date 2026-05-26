@@ -83,6 +83,8 @@ class AiLogServiceTest {
     @Test
     void 산출물등록은_VALIDATING_상태와_출처표기를_기록한다() {
         OffsetDateTime now = OffsetDateTime.parse("2026-05-20T04:03:00+09:00");
+        when(generationJobRepository.findById(1L))
+                .thenReturn(Optional.of(org.mockito.Mockito.mock(AiGenerationJob.class)));
         when(generatedAssetRepository.save(any(AiGeneratedAsset.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -101,6 +103,23 @@ class AiLogServiceTest {
         assertThat(asset.getAssetType()).isEqualTo(AiGeneratedAssetType.EXPLANATION);
         assertThat(asset.getSourceLabel()).isEqualTo("QT-AI verified content");
         assertThat(asset.getCreatedAt()).isEqualTo(now);
+    }
+
+    @Test
+    void registerGeneratedAssetThrowsWhenGenerationJobNotFound() {
+        when(generationJobRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> aiLogService.registerGeneratedAsset(
+                404L,
+                AiGeneratedAssetType.EXPLANATION,
+                AiTargetType.QT_PASSAGE,
+                35L,
+                "{\"summary\":\"검증 대기 해설\"}",
+                "QT-AI verified content",
+                OffsetDateTime.parse("2026-05-20T04:03:00+09:00")
+        )).isInstanceOfSatisfying(BusinessException.class, exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.AI_GENERATION_JOB_NOT_FOUND));
+        verify(generatedAssetRepository, never()).save(any(AiGeneratedAsset.class));
     }
 
     @Test
@@ -124,6 +143,7 @@ class AiLogServiceTest {
 
         AiValidationLog log = aiLogService.registerValidationLog(
                 2L,
+                33L,
                 2,
                 AiValidationResult.REJECTED,
                 AiValidationReviewerType.AUTO,
@@ -135,6 +155,7 @@ class AiLogServiceTest {
 
         assertThat(log.getResult()).isEqualTo(AiValidationResult.REJECTED);
         assertThat(log.getReviewerType()).isEqualTo(AiValidationReviewerType.AUTO);
+        assertThat(log.getValidationReferenceJobId()).isEqualTo(33L);
         assertThat(log.getChecklistVersionId()).isEqualTo(4L);
         assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.REJECTED);
         assertThat(asset.getStatus()).isNotEqualTo(AiGeneratedAssetStatus.APPROVED);
@@ -229,6 +250,7 @@ class AiLogServiceTest {
 
         assertThatThrownBy(() -> aiLogService.registerValidationLog(
                 404L,
+                null,
                 1,
                 AiValidationResult.PASSED,
                 AiValidationReviewerType.AUTO,
@@ -259,6 +281,7 @@ class AiLogServiceTest {
 
         AiValidationLog log = aiLogService.registerValidationLog(
                 2L,
+                null,
                 2,
                 AiValidationResult.PASSED,
                 AiValidationReviewerType.AUTO,
@@ -269,6 +292,7 @@ class AiLogServiceTest {
         );
 
         assertThat(log.getResult()).isEqualTo(AiValidationResult.PASSED);
+        assertThat(log.getValidationReferenceJobId()).isNull();
         assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
         verify(generatedAssetRepository, never()).save(any(AiGeneratedAsset.class));
     }
@@ -292,6 +316,7 @@ class AiLogServiceTest {
 
         AiValidationLog log = aiLogService.registerValidationLog(
                 2L,
+                null,
                 2,
                 AiValidationResult.NEEDS_REVIEW,
                 AiValidationReviewerType.AUTO,
@@ -325,6 +350,7 @@ class AiLogServiceTest {
 
         assertThatThrownBy(() -> aiLogService.registerValidationLog(
                 2L,
+                null,
                 2,
                 AiValidationResult.REJECTED,
                 AiValidationReviewerType.AUTO,

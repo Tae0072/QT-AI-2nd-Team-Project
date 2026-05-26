@@ -28,6 +28,25 @@ class AiValidationLogTest {
     }
 
     @Test
+    void validationReferenceJobIdMayBeStoredOrNull() {
+        AiValidationLog logWithReferenceJob = newLog(
+                1,
+                33L,
+                "{\"result\":\"passed\"}",
+                null
+        );
+        AiValidationLog logWithoutReferenceJob = newLog(
+                1,
+                null,
+                "{\"result\":\"passed\"}",
+                null
+        );
+
+        assertThat(logWithReferenceJob.getValidationReferenceJobId()).isEqualTo(33L);
+        assertThat(logWithoutReferenceJob.getValidationReferenceJobId()).isNull();
+    }
+
+    @Test
     void checklistJsonCannotStoreValidationReferenceText() {
         assertThatThrownBy(() -> newLog(
                 2,
@@ -48,8 +67,18 @@ class AiValidationLogTest {
     }
 
     private static AiValidationLog newLog(int layer, String checklistJson, String errorMessage) {
+        return newLog(layer, 33L, checklistJson, errorMessage);
+    }
+
+    private static AiValidationLog newLog(
+            int layer,
+            Long validationReferenceJobId,
+            String checklistJson,
+            String errorMessage
+    ) {
         return AiValidationLog.create(
                 2L,
+                validationReferenceJobId,
                 layer,
                 AiValidationResult.PASSED,
                 AiValidationReviewerType.AUTO,

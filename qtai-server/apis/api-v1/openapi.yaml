@@ -6,21 +6,459 @@ info:
 servers:
   - url: http://localhost:8080
     description: Local
-paths: {}
+tags:
+  - name: System AI
+    description: 시스템 배치가 AI 생성 작업, 산출물, 검증 로그를 접수하는 내부 운영 API
+paths:
+  /api/v1/system/ai/generation-jobs:
+    post:
+      tags:
+        - System AI
+      operationId: createSystemAiGenerationJob
+      summary: 시스템 AI 생성 작업 접수
+      description: >
+        SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH authority를 가진 시스템 배치만 호출할 수 있다.
+        현재 계약은 구현된 컨트롤러 기준이며, service account 기반 검증 필터는 후속 작업 범위다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemAiGenerationJobRequest"
+      responses:
+        "202":
+          description: AI 생성 작업 접수 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemAiGenerationJobAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/system/ai/assets:
+    post:
+      tags:
+        - System AI
+      operationId: registerSystemAiAsset
+      summary: 시스템 AI 산출물 등록
+      description: >
+        SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH authority를 가진 시스템 배치만 호출할 수 있다.
+        산출물 상태는 요청자가 승인/반려 상태로 만들 수 없으며, status를 제공하는 경우 VALIDATING만 허용한다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemAiAssetRequest"
+      responses:
+        "202":
+          description: AI 산출물 등록 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemAiAssetAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/system/ai/validation-logs:
+    post:
+      tags:
+        - System AI
+      operationId: registerSystemAiValidationLog
+      summary: 시스템 AI 검증 로그 등록
+      description: >
+        SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH authority를 가진 시스템 배치만 호출할 수 있다.
+        validationReferenceJobId는 optional nullable 필드이며, 참조 검증 작업 API 자체는 후속 작업 범위다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemAiValidationLogRequest"
+      responses:
+        "202":
+          description: AI 검증 로그 등록 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemAiValidationLogAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        시스템 AI API는 bearer credential로 인증된 주체가 SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH
+        authority를 가져야 한다. service account 기반 검증 필터는 아직 구현 범위 밖이다.
+  responses:
+    BadRequest:
+      description: 요청 값이 올바르지 않음
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorApiResponse"
+    Unauthorized:
+      description: 인증이 필요함
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorApiResponse"
+    Forbidden:
+      description: SYSTEM_BATCH 권한 부족
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorApiResponse"
+    NotFound:
+      description: 요청한 리소스를 찾을 수 없음
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorApiResponse"
+    Conflict:
+      description: 상태 전이 또는 중복 처리 충돌
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorApiResponse"
+    InternalServerError:
+      description: 서버 내부 오류
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorApiResponse"
   schemas:
     ApiResponse:
       type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
       properties:
         success:
           type: boolean
         data:
-          nullable: true
-        error:
           type: object
           nullable: true
-          properties:
-            code:
-              type: string
-            message:
-              type: string
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    ErrorBody:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    ErrorApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+        data:
+          type: object
+          nullable: true
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    SystemAiGenerationJobRequest:
+      type: object
+      required:
+        - promptVersionId
+        - jobType
+        - targetType
+        - targetId
+      properties:
+        promptVersionId:
+          type: integer
+          format: int64
+          minimum: 1
+        jobType:
+          type: string
+          enum:
+            - DAILY_QT_EXPLANATION
+            - DAILY_QT_SIMULATOR
+        targetType:
+          type: string
+          enum:
+            - QT_PASSAGE
+        targetId:
+          type: integer
+          format: int64
+          minimum: 1
+    SystemAiGenerationJobResponse:
+      type: object
+      required:
+        - generationJobId
+        - status
+        - createdAt
+      properties:
+        generationJobId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+            - QUEUED
+            - RUNNING
+            - SUCCEEDED
+            - FAILED
+        createdAt:
+          type: string
+          format: date-time
+    SystemAiGenerationJobAcceptedResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/SystemAiGenerationJobResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    SystemAiAssetRequest:
+      type: object
+      required:
+        - generationJobId
+        - assetType
+        - targetType
+        - targetId
+        - payloadJson
+      properties:
+        generationJobId:
+          type: integer
+          format: int64
+          minimum: 1
+        assetType:
+          type: string
+          enum:
+            - EXPLANATION
+            - SUMMARY
+            - GLOSSARY
+            - SIMULATOR
+            - QA_RESPONSE
+        targetType:
+          type: string
+          enum:
+            - BIBLE_VERSE
+            - QT_PASSAGE
+            - QA_REQUEST
+        targetId:
+          type: integer
+          format: int64
+          minimum: 1
+        payloadJson:
+          type: object
+          additionalProperties: true
+        sourceLabel:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+            - VALIDATING
+          nullable: true
+    SystemAiAssetResponse:
+      type: object
+      required:
+        - assetId
+        - status
+      properties:
+        assetId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+            - VALIDATING
+            - APPROVED
+            - REJECTED
+            - HIDDEN
+    SystemAiAssetAcceptedResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/SystemAiAssetResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    SystemAiValidationLogRequest:
+      type: object
+      required:
+        - aiAssetId
+        - checklistVersionId
+        - layer
+        - result
+        - checklistJson
+        - reviewerType
+      properties:
+        aiAssetId:
+          type: integer
+          format: int64
+          minimum: 1
+        validationReferenceJobId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        checklistVersionId:
+          type: integer
+          format: int64
+          minimum: 1
+        layer:
+          type: integer
+          format: int32
+          minimum: 1
+        result:
+          type: string
+          enum:
+            - PASSED
+            - REJECTED
+            - NEEDS_REVIEW
+        checklistJson:
+          type: object
+          additionalProperties: true
+        reviewerType:
+          type: string
+          enum:
+            - AUTO
+            - ADMIN
+            - ADVISOR
+        errorMessage:
+          type: string
+          nullable: true
+    SystemAiValidationLogResponse:
+      type: object
+      required:
+        - validationLogId
+        - result
+        - assetStatus
+      properties:
+        validationLogId:
+          type: integer
+          format: int64
+        result:
+          type: string
+          enum:
+            - PASSED
+            - REJECTED
+            - NEEDS_REVIEW
+        assetStatus:
+          type: string
+          enum:
+            - VALIDATING
+            - APPROVED
+            - REJECTED
+            - HIDDEN
+    SystemAiValidationLogAcceptedResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/SystemAiValidationLogResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string

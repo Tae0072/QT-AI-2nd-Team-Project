@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Positive;
 
 public record RegisterAiValidationLogCommand(
         @NotNull @Positive Long assetId,
+        @Positive Long validationReferenceJobId,
         @Min(1) int layer,
         @NotBlank String result,
         @NotBlank String reviewerType,
