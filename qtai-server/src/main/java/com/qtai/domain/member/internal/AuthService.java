@@ -8,6 +8,7 @@ import com.qtai.domain.member.api.RefreshTokenUseCase;
 import com.qtai.domain.member.api.dto.LoginRequest;
 import com.qtai.domain.member.api.dto.LoginResponse;
 import com.qtai.domain.member.api.dto.RefreshTokenRequest;
+import com.qtai.domain.member.client.kakao.KakaoApiException;
 import com.qtai.domain.member.client.kakao.KakaoOAuthClient;
 import com.qtai.domain.member.client.kakao.dto.KakaoUserInfo;
 import com.qtai.security.JwtProvider;
@@ -45,17 +46,28 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
     private long refreshExpiryMs;
 
     @Override
-    @Transactional
     public LoginResponse login(LoginRequest request) {
-        // 1. 카카오 사용자 정보 조회
-        KakaoUserInfo kakaoUser = kakaoOAuthClient.getUserInfo(request.kakaoAccessToken());
+        // 1. 카카오 사용자 정보 조회 — 트랜잭션 밖에서 외부 HTTP 호출 (DB 커넥션 점유 방지)
+        KakaoUserInfo kakaoUser;
+        try {
+            kakaoUser = kakaoOAuthClient.getUserInfo(request.kakaoAccessToken());
+        } catch (KakaoApiException e) {
+            throw new BusinessException(ErrorCode.KAKAO_AUTH_FAILED);
+        }
+
+        // 2. DB 작업 + 토큰 발급 (트랜잭션 내부)
+        return loginInternal(kakaoUser);
+    }
+
+    @Transactional
+    protected LoginResponse loginInternal(KakaoUserInfo kakaoUser) {
         Long kakaoId = kakaoUser.id();
 
-        // 2. 기존 회원 조회 또는 신규 가입
+        // 기존 회원 조회 또는 신규 가입
         Member member = memberRepository.findByKakaoId(kakaoId)
                 .orElseGet(() -> registerNewMember(kakaoUser));
 
-        // 3. 탈퇴/정지 회원 검증
+        // 탈퇴/정지 회원 검증
         if (member.getStatus() == MemberStatus.WITHDRAWN) {
             throw new BusinessException(ErrorCode.MEMBER_ALREADY_WITHDRAWN);
         }
@@ -63,17 +75,17 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
             throw new BusinessException(ErrorCode.MEMBER_SUSPENDED);
         }
 
-        // 4. JWT 발급
+        // JWT 발급
         String accessToken = jwtProvider.issueAccessToken(member.getId(), member.getRole().name());
         String refreshToken = jwtProvider.issueRefreshToken(member.getId());
 
-        // 5. Refresh token Redis 저장
+        // Refresh token Redis 저장
         refreshTokenStore.save(member.getId(), refreshToken, Duration.ofMillis(refreshExpiryMs));
 
         log.info("로그인 성공: memberId={}, kakaoId={}, isNew={}", member.getId(), kakaoId,
                 member.getNicknameChangedAt() == null);
 
-        // 6. 응답 생성
+        // 응답 생성
         boolean onboardingRequired = member.getNicknameChangedAt() == null
                 && member.getNickname().startsWith("user_");
         return new LoginResponse(

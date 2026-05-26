@@ -148,7 +148,11 @@ public class JwtProvider {
         if (!TOKEN_TYPE_REFRESH.equals(claims.get(CLAIM_TOKEN_TYPE, String.class))) {
             throw new JwtException("Refresh Token이 아닙니다.");
         }
-        return Long.parseLong(claims.getSubject());
+        try {
+            return Long.parseLong(claims.getSubject());
+        } catch (NumberFormatException e) {
+            throw new JwtException("Refresh Token subject가 유효한 회원 ID가 아닙니다.");
+        }
     }
 
     // -------------------------------------------------------------------------
