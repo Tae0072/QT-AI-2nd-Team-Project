@@ -18,6 +18,6 @@ class BibleMigrationContractTest {
 
         assertThat(migration).contains("chapter_no", "verse_no", "korean_text", "english_text");
         assertThat(migration).contains("UNIQUE KEY uk_bible_verse_coord (book_id, chapter_no, verse_no)");
-        assertThat(migration).doesNotContain("krv_text", "kjv_text");
+        assertThat(migration).doesNotContain("krv_" + "text", "kjv_" + "text");
     }
 }

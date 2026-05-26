@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-//이지윤윤
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -46,13 +46,13 @@ public class BibleService implements ListBibleBooksUseCase, GetBibleVerseUseCase
 
     @Override
     public BibleVerseRangeResponse getVerses(String bookCode, int chapter, Integer verseFrom, Integer verseTo) {
-        validateChapter(chapter);
+        short chapterNo = validateChapter(chapter);
         validateVerseRange(verseFrom, verseTo);
 
         BibleBook book = bibleBookRepository.findByCode(bookCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BIBLE_BOOK_NOT_FOUND));
 
-        List<BibleVerse> verses = findVerses(book, (short) chapter, verseFrom, verseTo);
+        List<BibleVerse> verses = findVerses(book, chapterNo, verseFrom, verseTo);
         if (verses.isEmpty()) {
             throw new BusinessException(ErrorCode.BIBLE_VERSE_NOT_FOUND);
         }
@@ -90,28 +90,29 @@ public class BibleService implements ListBibleBooksUseCase, GetBibleVerseUseCase
         );
     }
 
-    private void validateChapter(int chapter) {
+    private short validateChapter(int chapter) {
         if (chapter < 1 || chapter > Short.MAX_VALUE) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "chapter must be between 1 and " + Short.MAX_VALUE);
         }
+        return (short) chapter;
     }
 
     private void validateVerseRange(Integer verseFrom, Integer verseTo) {
         if (verseFrom == null && verseTo != null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "verseFrom is required when verseTo is provided");
         }
         if (verseFrom != null && (verseFrom < 1 || verseFrom > Short.MAX_VALUE)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "verseFrom must be between 1 and " + Short.MAX_VALUE);
         }
         if (verseTo != null && (verseTo < 1 || verseTo > Short.MAX_VALUE)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "verseTo must be between 1 and " + Short.MAX_VALUE);
         }
         if (verseFrom != null && verseTo != null && verseFrom > verseTo) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "verseFrom must be less than or equal to verseTo");
         }
         if (verseFrom != null && verseTo != null
                 && verseTo - verseFrom + 1 > MAX_EXPLICIT_RANGE_SIZE) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "verse range must not exceed 50 verses");
         }
     }
 

@@ -2,14 +2,94 @@ openapi: 3.0.3
 info:
   title: QT-AI API
   version: "1.0.0"
-  description: QT-AI server v1 OpenAPI specification.
+  description: QT-AI 서버 v1 OpenAPI 명세
 servers:
   - url: http://localhost:8080
     description: Local
 tags:
+  - name: Bible
+    description: 성경 권 목록과 절 범위 조회 API
   - name: System AI
     description: 시스템 배치가 AI 생성 작업, 산출물, 검증 로그를 접수하는 내부 운영 API
 paths:
+  /api/v1/bible/books:
+    get:
+      tags:
+        - Bible
+      operationId: listBibleBooks
+      summary: 성경 권 목록 조회
+      description: 인증된 사용자가 성경 권 목록을 displayOrder 순서로 조회한다.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 성경 권 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BibleBookListApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/bible/verses:
+    get:
+      tags:
+        - Bible
+      operationId: getBibleVerses
+      summary: 성경 절 범위 조회
+      description: 인증된 사용자가 책 코드, 장, 선택 절 범위로 성경 절을 조회한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookCode
+          in: query
+          required: true
+          schema:
+            type: string
+            example: GEN
+        - name: chapter
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+        - name: verseFrom
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+        - name: verseTo
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            example: 4
+      responses:
+        "200":
+          description: 성경 절 범위 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BibleVerseRangeApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          description: 요청 한도 초과
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorApiResponse"
   /api/v1/system/ai/generation-jobs:
     post:
       tags:
@@ -219,6 +299,149 @@ components:
           format: date-time
         traceId:
           type: string
+    BibleBookListApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/BibleBookResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    BibleVerseRangeApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/BibleVerseRangeResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    BibleBookResponse:
+      type: object
+      required:
+        - id
+        - testament
+        - code
+        - koreanName
+        - englishName
+        - displayOrder
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 1
+        testament:
+          type: string
+          enum:
+            - OLD
+            - NEW
+        code:
+          type: string
+          example: GEN
+        koreanName:
+          type: string
+          example: 창세기
+        englishName:
+          type: string
+          example: Genesis
+        displayOrder:
+          type: integer
+          format: int32
+          example: 1
+    BibleVerseRangeResponse:
+      type: object
+      required:
+        - book
+        - verses
+      properties:
+        book:
+          $ref: "#/components/schemas/BibleVerseBookResponse"
+        verses:
+          type: array
+          items:
+            $ref: "#/components/schemas/BibleVerseResponse"
+    BibleVerseBookResponse:
+      type: object
+      required:
+        - code
+        - koreanName
+        - englishName
+        - chapter
+      properties:
+        code:
+          type: string
+          example: GEN
+        koreanName:
+          type: string
+          example: 창세기
+        englishName:
+          type: string
+          example: Genesis
+        chapter:
+          type: integer
+          example: 1
+    BibleVerseResponse:
+      type: object
+      required:
+        - id
+        - bookCode
+        - chapterNo
+        - verseNo
+        - koreanText
+        - englishText
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10
+        bookCode:
+          type: string
+          example: GEN
+        chapterNo:
+          type: integer
+          example: 1
+        verseNo:
+          type: integer
+          example: 2
+        koreanText:
+          type: string
+          example: 검증용 한국어 본문
+        englishText:
+          type: string
+          example: Test English body
     SystemAiGenerationJobRequest:
       type: object
       required:

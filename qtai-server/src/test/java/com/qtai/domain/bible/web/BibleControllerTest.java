@@ -1,8 +1,8 @@
 package com.qtai.domain.bible.web;
 
 import com.qtai.common.exception.BusinessException;
-import com.qtai.common.exception.GlobalExceptionHandler;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.common.exception.GlobalExceptionHandler;
 import com.qtai.domain.bible.api.GetBibleVerseUseCase;
 import com.qtai.domain.bible.api.ListBibleBooksUseCase;
 import com.qtai.domain.bible.api.dto.BibleBookResponse;
@@ -62,7 +62,7 @@ class BibleControllerTest {
     void getVerses_delegatesQueryParameters() throws Exception {
         when(getBibleVerseUseCase.getVerses("GEN", 1, 2, null)).thenReturn(new BibleVerseRangeResponse(
                 new BibleVerseBookResponse("GEN", "창세기", "Genesis", 1),
-                List.of(new BibleVerseResponse(10L, "GEN", 1, 2, "테스트 본문", "Test text"))
+                List.of(new BibleVerseResponse(10L, "GEN", 1, 2, "test korean body", "test english body"))
         ));
 
         mockMvc.perform(get("/api/v1/bible/verses")
@@ -73,6 +73,26 @@ class BibleControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.book.code").value("GEN"))
                 .andExpect(jsonPath("$.data.verses[0].verseNo").value(2));
+    }
+
+    @Test
+    @DisplayName("verseFrom이 verseTo보다 크면 공통 400 에러 envelope로 반환한다")
+    void getVerses_whenVerseFromGreaterThanVerseTo_returnsBadRequest() throws Exception {
+        when(getBibleVerseUseCase.getVerses("GEN", 1, 5, 4))
+                .thenThrow(new BusinessException(
+                        ErrorCode.INVALID_INPUT,
+                        "verseFrom must be less than or equal to verseTo"
+                ));
+
+        mockMvc.perform(get("/api/v1/bible/verses")
+                        .param("bookCode", "GEN")
+                        .param("chapter", "1")
+                        .param("verseFrom", "5")
+                        .param("verseTo", "4"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("C0002"))
+                .andExpect(jsonPath("$.error.message").value("verseFrom must be less than or equal to verseTo"));
     }
 
     @Test
