@@ -8,6 +8,6 @@ public record SystemAiGenerationJobRequest(
         @NotBlank String jobType,
         @NotBlank String targetType,
         @NotNull @Positive Long targetId,
-        @NotBlank String promptVersion
+        @NotNull @Positive Long promptVersionId
 ) {
 }

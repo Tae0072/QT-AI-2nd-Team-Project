@@ -95,7 +95,8 @@ class AiUseCaseContractTest {
                                 "rawResponse",
                                 "validationReferenceText",
                                 "referenceText",
-                                "promptRaw"
+                                "promptRaw",
+                                "promptVersion"
                         ));
     }
 

@@ -6,11 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AiGenerationJobRepository extends JpaRepository<AiGenerationJob, Long> {
 
-    boolean existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+    boolean existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
             AiGenerationJobType jobType,
             AiTargetType targetType,
             Long targetId,
-            String promptVersion,
+            Long promptVersionId,
             Collection<AiGenerationJobStatus> statuses
     );
 }
