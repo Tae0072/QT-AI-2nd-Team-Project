@@ -4,7 +4,7 @@ import com.qtai.config.JpaAuditingConfig;
 import com.qtai.domain.bible.internal.BibleBook;
 import com.qtai.domain.member.internal.Member;
 import com.qtai.domain.note.internal.Note;
-import com.qtai.domain.note.internal.NoteCategory;
+import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.sharing.internal.PostLike;
 import com.qtai.domain.sharing.internal.SharingPost;
 import jakarta.persistence.EntityManager;
