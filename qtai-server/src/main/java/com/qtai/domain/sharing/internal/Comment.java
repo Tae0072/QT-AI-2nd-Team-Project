@@ -1,36 +1,32 @@
 package com.qtai.domain.sharing.internal;
 
-/**
- * 나눔 게시글 댓글 엔티티.
- *
- * 작성자 본인만 삭제 가능하다 (DELETE /api/v1/comments/{commentId}).
- * SharingPost.commentsEnabled=false 이면 댓글 작성 불가.
- *
- * DDL 예시:
- *   CREATE TABLE comments (
- *       id              BIGINT AUTO_INCREMENT PRIMARY KEY,
- *       sharing_post_id BIGINT      NOT NULL,
- *       member_id       BIGINT      NOT NULL,
- *       content         TEXT        NOT NULL,
- *       created_at      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
- *       deleted_at      DATETIME    NULL,
- *       FOREIGN KEY (sharing_post_id) REFERENCES sharing_posts(id)
- *   );
- */
-// TODO: @Entity, @Table(name = "comments")
-public class Comment {
+import com.qtai.common.entity.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-    // TODO: @Id @GeneratedValue(strategy = GenerationType.IDENTITY) Long id;
+@Entity
+@Table(name = "comments")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Comment extends BaseEntity {
 
-    // TODO: @ManyToOne(fetch = FetchType.LAZY)
-    //        @JoinColumn(name = "sharing_post_id", nullable = false)
-    //        SharingPost sharingPost;
+    @Column(name = "sharing_post_id", nullable = false)
+    private Long sharingPostId;
 
-    // TODO: @Column(nullable = false) Long memberId;    — 댓글 작성자 FK
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
 
-    // TODO: @Column(columnDefinition = "TEXT", nullable = false)
-    //        String content;
+    @Column(name = "parent_id")
+    private Long parentId;
 
-    // TODO: @CreationTimestamp LocalDateTime createdAt;
-    // TODO: LocalDateTime deletedAt;    — 소프트 삭제
+    @Column(nullable = false, length = 1000)
+    private String body;
+
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted;
 }
+
