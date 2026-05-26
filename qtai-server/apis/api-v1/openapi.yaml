@@ -2,25 +2,301 @@ openapi: 3.0.3
 info:
   title: QT-AI API
   version: "1.0.0"
-  description: QT-AI 서버 v1 OpenAPI 명세 (각 도메인 PR에서 점진적으로 채워나감)
+  description: QT-AI server v1 OpenAPI specification.
 servers:
   - url: http://localhost:8080
     description: Local
-paths: {}
+paths:
+  /api/v1/bible/books:
+    get:
+      tags:
+        - Bible
+      summary: 성경 권 목록 조회
+      operationId: listBibleBooks
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 성경 권 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/BibleBookResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/bible/verses:
+    get:
+      tags:
+        - Bible
+      summary: 성경 절 범위 조회
+      operationId: getBibleVerses
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookCode
+          in: query
+          required: true
+          schema:
+            type: string
+            example: GEN
+        - name: chapter
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+        - name: verseFrom
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+        - name: verseTo
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            example: 4
+      responses:
+        "200":
+          description: 성경 절 범위 조회 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/BibleVerseRangeResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: 성경 권 또는 절을 찾을 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+              examples:
+                bookNotFound:
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: B0001
+                      message: 성경 책을 찾을 수 없습니다.
+                    timestamp: "2026-05-26T12:00:00+09:00"
+                    traceId: "00000000-0000-0000-0000-000000000000"
+                verseNotFound:
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: B0002
+                      message: 성경 구절을 찾을 수 없습니다.
+                    timestamp: "2026-05-26T12:00:00+09:00"
+                    traceId: "00000000-0000-0000-0000-000000000000"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    ValidationError:
+      description: 요청 값 검증 실패
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+          example:
+            success: false
+            data: null
+            error:
+              code: C0002
+              message: 올바르지 않은 요청입니다.
+            timestamp: "2026-05-26T12:00:00+09:00"
+            traceId: "00000000-0000-0000-0000-000000000000"
+    Unauthorized:
+      description: 인증 필요
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+          example:
+            success: false
+            data: null
+            error:
+              code: M0002
+              message: 인증이 필요합니다.
+            timestamp: "2026-05-26T12:00:00+09:00"
+            traceId: "00000000-0000-0000-0000-000000000000"
+    Forbidden:
+      description: 권한 없음
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+          example:
+            success: false
+            data: null
+            error:
+              code: M0003
+              message: 권한이 없습니다.
+            timestamp: "2026-05-26T12:00:00+09:00"
+            traceId: "00000000-0000-0000-0000-000000000000"
+    RateLimitExceeded:
+      description: 요청 한도 초과
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+          example:
+            success: false
+            data: null
+            error:
+              code: C0002
+              message: 요청 한도를 초과했습니다.
+            timestamp: "2026-05-26T12:00:00+09:00"
+            traceId: "00000000-0000-0000-0000-000000000000"
   schemas:
     ApiResponse:
       type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
       properties:
         success:
           type: boolean
         data:
           nullable: true
         error:
-          type: object
           nullable: true
-          properties:
-            code:
-              type: string
-            message:
-              type: string
+          $ref: "#/components/schemas/ErrorBody"
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    ErrorBody:
+      type: object
+      nullable: true
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    BibleBookResponse:
+      type: object
+      required:
+        - id
+        - testament
+        - code
+        - koreanName
+        - englishName
+        - displayOrder
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 1
+        testament:
+          type: string
+          enum:
+            - OLD
+            - NEW
+        code:
+          type: string
+          example: GEN
+        koreanName:
+          type: string
+          example: 창세기
+        englishName:
+          type: string
+          example: Genesis
+        displayOrder:
+          type: integer
+          format: int32
+          example: 1
+    BibleVerseRangeResponse:
+      type: object
+      required:
+        - book
+        - verses
+      properties:
+        book:
+          $ref: "#/components/schemas/BibleVerseBookResponse"
+        verses:
+          type: array
+          items:
+            $ref: "#/components/schemas/BibleVerseResponse"
+    BibleVerseBookResponse:
+      type: object
+      required:
+        - code
+        - koreanName
+        - englishName
+        - chapter
+      properties:
+        code:
+          type: string
+          example: GEN
+        koreanName:
+          type: string
+          example: 창세기
+        englishName:
+          type: string
+          example: Genesis
+        chapter:
+          type: integer
+          example: 1
+    BibleVerseResponse:
+      type: object
+      required:
+        - id
+        - bookCode
+        - chapterNo
+        - verseNo
+        - koreanText
+        - englishText
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10
+        bookCode:
+          type: string
+          example: GEN
+        chapterNo:
+          type: integer
+          example: 1
+        verseNo:
+          type: integer
+          example: 2
+        koreanText:
+          type: string
+          example: 검증용 한국어 본문
+        englishText:
+          type: string
+          example: Test English body

@@ -1,13 +1,17 @@
 package com.qtai.domain.bible.internal;
 
-/**
- * 성경 영속성 포트. Spring Data JPA로 구현.
- */
-public interface BibleRepository {
+import org.springframework.data.jpa.repository.JpaRepository;
 
-    // TODO: extends JpaRepository<BibleVerse, Long>
-    // TODO: Optional<BibleVerse> findByBookAndChapterAndVerseAndTranslation(String book, int chapter, int verse, String translation);
-    // TODO: List<BibleVerse> findByBookAndChapterAndVerseBetweenAndTranslation(String book, int chapter, int start, int end, String translation);
-    // TODO: @Query(nativeQuery=true) FULLTEXT MATCH로 키워드 검색 — Page<BibleVerse> 반환
-    // TODO: List<String> findDistinctBookBy...(...) / List<Integer> findDistinctChapter...
+import java.util.List;
+
+public interface BibleRepository extends JpaRepository<BibleVerse, Long> {
+
+    List<BibleVerse> findByBookAndChapterNoOrderByVerseNoAsc(BibleBook book, Short chapterNo);
+
+    List<BibleVerse> findByBookAndChapterNoAndVerseNoBetweenOrderByVerseNoAsc(
+            BibleBook book,
+            Short chapterNo,
+            Short verseFrom,
+            Short verseTo
+    );
 }
