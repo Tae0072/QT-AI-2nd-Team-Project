@@ -15,20 +15,27 @@ class ArchitectureBoundaryTest {
     @Test
     @DisplayName("다른 도메인은 bible internal/web 패키지를 직접 import하지 않는다")
     void otherDomains_doNotImportBibleInternalOrWeb() throws IOException {
+        assertThat(violationsFor("bible")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("다른 도메인은 study internal/web 패키지를 직접 import하지 않는다")
+    void otherDomains_doNotImportStudyInternalOrWeb() throws IOException {
+        assertThat(violationsFor("study")).isEmpty();
+    }
+
+    private static List<String> violationsFor(String domainName) throws IOException {
         Path domainRoot = Path.of("src/main/java/com/qtai/domain");
 
-        List<String> violations;
         try (var stream = Files.walk(domainRoot)) {
-            violations = stream
+            return stream
                     .filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> !path.startsWith(domainRoot.resolve("bible")))
+                    .filter(path -> !path.startsWith(domainRoot.resolve(domainName)))
                     .flatMap(path -> importsOf(path).stream())
-                    .filter(line -> line.contains("com.qtai.domain.bible.internal")
-                            || line.contains("com.qtai.domain.bible.web"))
+                    .filter(line -> line.contains("com.qtai.domain." + domainName + ".internal")
+                            || line.contains("com.qtai.domain." + domainName + ".web"))
                     .toList();
         }
-
-        assertThat(violations).isEmpty();
     }
 
     private static List<String> importsOf(Path path) {

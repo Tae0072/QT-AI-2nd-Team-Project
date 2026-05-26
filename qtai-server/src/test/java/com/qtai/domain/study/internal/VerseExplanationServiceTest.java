@@ -42,4 +42,16 @@ class VerseExplanationServiceTest {
                 100L
         ));
     }
+
+    @Test
+    @DisplayName("verseIds가 null이면 빈 목록을 반환한다")
+    void listApprovedByVerseIds_whenNull_returnsEmptyList() {
+        assertThat(verseExplanationService.listApprovedByVerseIds(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("verseIds가 비어 있으면 빈 목록을 반환한다")
+    void listApprovedByVerseIds_whenEmpty_returnsEmptyList() {
+        assertThat(verseExplanationService.listApprovedByVerseIds(List.of())).isEmpty();
+    }
 }

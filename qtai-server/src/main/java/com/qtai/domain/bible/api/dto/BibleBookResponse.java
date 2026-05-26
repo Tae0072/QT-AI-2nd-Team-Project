@@ -1,11 +1,11 @@
 package com.qtai.domain.bible.api.dto;
 
 public record BibleBookResponse(
-        Short id,
+        Integer id,
         String testament,
         String code,
         String koreanName,
         String englishName,
-        Short displayOrder
+        Integer displayOrder
 ) {
 }

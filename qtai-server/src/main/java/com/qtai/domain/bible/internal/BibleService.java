@@ -9,7 +9,6 @@ import com.qtai.domain.bible.api.dto.BibleVerseBookResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +25,6 @@ public class BibleService implements ListBibleBooksUseCase, GetBibleVerseUseCase
     private final BibleRepository bibleRepository;
 
     @Override
-    @Cacheable("bible-books")
     public List<BibleBookResponse> listBibleBooks() {
         return bibleBookRepository.findAllByOrderByDisplayOrderAsc().stream()
                 .map(this::toBookResponse)
@@ -118,12 +116,12 @@ public class BibleService implements ListBibleBooksUseCase, GetBibleVerseUseCase
 
     private BibleBookResponse toBookResponse(BibleBook book) {
         return new BibleBookResponse(
-                book.getId(),
+                Integer.valueOf(book.getId()),
                 book.getTestament().name(),
                 book.getCode(),
                 book.getKoreanName(),
                 book.getEnglishName(),
-                book.getDisplayOrder()
+                Integer.valueOf(book.getDisplayOrder())
         );
     }
 
