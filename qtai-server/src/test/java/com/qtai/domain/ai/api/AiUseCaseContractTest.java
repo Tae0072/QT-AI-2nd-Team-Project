@@ -101,6 +101,13 @@ class AiUseCaseContractTest {
     }
 
     @Test
+    void registerAiValidationLogCommandIncludesNullableValidationReferenceJobId() {
+        assertThat(List.of(RegisterAiValidationLogCommand.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("validationReferenceJobId");
+    }
+
+    @Test
     void legacyFreeFormAiResponseContractIsRemoved() {
         assertThatThrownBy(() -> Class.forName("com.qtai.domain.ai.api.GenerateAiResponseUseCase"))
                 .isInstanceOf(ClassNotFoundException.class);

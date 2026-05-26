@@ -26,6 +26,9 @@ public class AiValidationLog {
     @Column(name = "ai_asset_id", nullable = false)
     private Long aiAssetId;
 
+    @Column(name = "validation_reference_job_id")
+    private Long validationReferenceJobId;
+
     @Column(nullable = false)
     private int layer;
 
@@ -55,6 +58,7 @@ public class AiValidationLog {
 
     private AiValidationLog(
             Long aiAssetId,
+            Long validationReferenceJobId,
             int layer,
             AiValidationResult result,
             AiValidationReviewerType reviewerType,
@@ -67,6 +71,10 @@ public class AiValidationLog {
             throw new IllegalArgumentException("layer must be greater than zero");
         }
         this.aiAssetId = Objects.requireNonNull(aiAssetId, "aiAssetId must not be null");
+        this.validationReferenceJobId = requirePositiveWhenPresent(
+                validationReferenceJobId,
+                "validationReferenceJobId"
+        );
         this.layer = layer;
         this.result = Objects.requireNonNull(result, "result must not be null");
         this.reviewerType = Objects.requireNonNull(reviewerType, "reviewerType must not be null");
@@ -78,6 +86,7 @@ public class AiValidationLog {
 
     public static AiValidationLog create(
             Long aiAssetId,
+            Long validationReferenceJobId,
             int layer,
             AiValidationResult result,
             AiValidationReviewerType reviewerType,
@@ -88,6 +97,7 @@ public class AiValidationLog {
     ) {
         return new AiValidationLog(
                 aiAssetId,
+                validationReferenceJobId,
                 layer,
                 result,
                 reviewerType,
@@ -104,6 +114,10 @@ public class AiValidationLog {
 
     public Long getAiAssetId() {
         return aiAssetId;
+    }
+
+    public Long getValidationReferenceJobId() {
+        return validationReferenceJobId;
     }
 
     public int getLayer() {
@@ -142,5 +156,12 @@ public class AiValidationLog {
             return errorMessage;
         }
         return errorMessage.substring(0, ERROR_MESSAGE_MAX_LENGTH);
+    }
+
+    private static Long requirePositiveWhenPresent(Long value, String fieldName) {
+        if (value != null && value <= 0) {
+            throw new IllegalArgumentException(fieldName + " must be positive");
+        }
+        return value;
     }
 }
