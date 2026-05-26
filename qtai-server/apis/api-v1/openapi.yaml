@@ -494,7 +494,7 @@ components:
       properties:
         id:
           type: integer
-          format: int64a
+          format: int64
         assetType:
           $ref: "#/components/schemas/AiAssetType"
         targetType:
