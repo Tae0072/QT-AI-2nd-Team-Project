@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 회원 REST 엔드포인트.
  *
  * <p>Phase 3(mypage-api) 에서 구현.
- * <p>인증(로그인/로그아웃) 은 auth-jwt 브랜치에서 구현.
+ * <p>인증(로그인/로그아웃) 은 AuthController 로 분리.
  */
 @RestController
 @RequiredArgsConstructor
