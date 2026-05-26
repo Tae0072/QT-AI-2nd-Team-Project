@@ -20,7 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
+import java.util.Objects;
 import java.util.UUID;
+
+import org.springframework.dao.DataIntegrityViolationException;
 
 /**
  * 인증 서비스 — 로그인, 로그아웃, 토큰 갱신.
@@ -73,21 +76,24 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
         }
 
         // 2. DB 작업 — TransactionTemplate으로 프로그래매틱 트랜잭션 (self-invocation 방지)
-        Member member = transactionTemplate.execute(status -> {
-            Long kakaoId = kakaoUser.id();
+        Member member = Objects.requireNonNull(
+                transactionTemplate.execute(status -> {
+                    Long kakaoId = kakaoUser.id();
 
-            Member found = memberRepository.findByKakaoId(kakaoId)
-                    .orElseGet(() -> registerNewMember(kakaoUser));
+                    Member found = memberRepository.findByKakaoId(kakaoId)
+                            .orElseGet(() -> registerNewMember(kakaoUser));
 
-            // 탈퇴/정지 회원 검증
-            if (found.getStatus() == MemberStatus.WITHDRAWN) {
-                throw new BusinessException(ErrorCode.MEMBER_ALREADY_WITHDRAWN);
-            }
-            if (found.getStatus() == MemberStatus.SUSPENDED) {
-                throw new BusinessException(ErrorCode.MEMBER_SUSPENDED);
-            }
-            return found;
-        });
+                    // 탈퇴/정지 회원 검증
+                    if (found.getStatus() == MemberStatus.WITHDRAWN) {
+                        throw new BusinessException(ErrorCode.MEMBER_ALREADY_WITHDRAWN);
+                    }
+                    if (found.getStatus() == MemberStatus.SUSPENDED) {
+                        throw new BusinessException(ErrorCode.MEMBER_SUSPENDED);
+                    }
+                    return found;
+                }),
+                "트랜잭션에서 Member 조회/생성 실패"
+        );
 
         // 3. JWT 발급 + Redis 저장 (트랜잭션 밖)
         String accessToken = jwtProvider.issueAccessToken(member.getId(), member.getRole().name());
@@ -107,7 +113,7 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponse refresh(RefreshTokenRequest request) {
         // 1. Refresh token 검증 (서명 + 만료 + type)
         Long memberId;
@@ -185,7 +191,20 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
                 .nickname(tempNickname)
                 .profileImageUrl(kakaoUser.getProfileImageUrl())
                 .build();
-        member = memberRepository.save(member);
+        try {
+            member = memberRepository.save(member);
+        } catch (DataIntegrityViolationException e) {
+            // TOCTOU 경합: existsByNickname 확인 후 동시 가입으로 닉네임 충돌
+            String retryNickname = "user_" + kakaoUser.id() + "_"
+                    + UUID.randomUUID().toString().substring(0, 8);
+            member = Member.builder()
+                    .kakaoId(kakaoUser.id())
+                    .email(kakaoUser.getEmail())
+                    .nickname(retryNickname)
+                    .profileImageUrl(kakaoUser.getProfileImageUrl())
+                    .build();
+            member = memberRepository.save(member);
+        }
 
         // auth_provider 연동 정보 저장
         MemberAuthProvider authProvider = MemberAuthProvider.builder()

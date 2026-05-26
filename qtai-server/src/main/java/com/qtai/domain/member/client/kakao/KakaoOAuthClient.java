@@ -37,6 +37,14 @@ public class KakaoOAuthClient {
     }
 
     /**
+     * 테스트용 생성자 — RestTemplate을 외부에서 주입받는다.
+     */
+    KakaoOAuthClient(RestTemplate restTemplate, String userInfoUrl) {
+        this.restTemplate = restTemplate;
+        this.userInfoUrl = userInfoUrl;
+    }
+
+    /**
      * 카카오 access token으로 사용자 정보를 조회한다.
      *
      * @param kakaoAccessToken 카카오 SDK에서 발급받은 access token
