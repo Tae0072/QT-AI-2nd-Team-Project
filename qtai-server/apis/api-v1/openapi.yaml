@@ -2,94 +2,140 @@ openapi: 3.0.3
 info:
   title: QT-AI API
   version: "1.0.0"
-  description: QT-AI 서버 v1 OpenAPI 명세
+  description: QT-AI 서버 v1 OpenAPI 명세 (각 도메인 PR에서 점진적으로 채워나감)
 servers:
   - url: http://localhost:8080
     description: Local
 tags:
-  - name: Bible
-    description: 성경 권 목록과 절 범위 조회 API
+  - name: Admin AI
+    description: 관리자 웹이 AI 산출물과 검증 로그를 검토하는 운영 API
   - name: System AI
     description: 시스템 배치가 AI 생성 작업, 산출물, 검증 로그를 접수하는 내부 운영 API
 paths:
-  /api/v1/bible/books:
+  /api/v1/admin/ai/assets:
     get:
       tags:
-        - Bible
-      operationId: listBibleBooks
-      summary: 성경 권 목록 조회
-      description: 인증된 사용자가 성경 권 목록을 displayOrder 순서로 조회한다.
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: 성경 권 목록 조회 성공
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BibleBookListApiResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-  /api/v1/bible/verses:
-    get:
-      tags:
-        - Bible
-      operationId: getBibleVerses
-      summary: 성경 절 범위 조회
-      description: 인증된 사용자가 책 코드, 장, 선택 절 범위로 성경 절을 조회한다.
+        - Admin AI
+      operationId: listAdminAiAssets
+      summary: 관리자 AI 산출물 목록 조회
+      description: >
+        관리자 웹의 AI 산출물 검토 목록이다. ROLE_ADMIN과 ADMIN_ROLE_REVIEWER 또는
+        ADMIN_ROLE_SUPER_ADMIN authority가 필요하다.
       security:
         - bearerAuth: []
       parameters:
-        - name: bookCode
+        - name: assetType
           in: query
-          required: true
+          required: false
           schema:
             type: string
-            example: GEN
-        - name: chapter
+            enum:
+              - EXPLANATION
+              - SUMMARY
+              - GLOSSARY
+              - SIMULATOR
+              - QA_RESPONSE
+        - name: targetType
           in: query
-          required: true
+          required: false
           schema:
-            type: integer
-            minimum: 1
-            example: 1
-        - name: verseFrom
+            type: string
+            enum:
+              - BIBLE_VERSE
+              - QT_PASSAGE
+              - QA_REQUEST
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - VALIDATING
+              - APPROVED
+              - REJECTED
+              - HIDDEN
+        - name: promptVersionId
           in: query
           required: false
           schema:
             type: integer
+            format: int64
             minimum: 1
-            example: 2
-        - name: verseTo
+        - name: checklistVersionId
           in: query
           required: false
           schema:
             type: integer
+            format: int64
             minimum: 1
-            example: 4
+          description: 최신 검증 로그의 checklistVersionId 기준으로 필터링한다.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         "200":
-          description: 성경 절 범위 조회 성공
+          description: 관리자 AI 산출물 목록 조회 성공
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BibleVerseRangeApiResponse"
+                $ref: "#/components/schemas/AdminAiAssetListApiResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          description: 요청 한도 초과
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/assets/{assetId}:
+    get:
+      tags:
+        - Admin AI
+      operationId: getAdminAiAsset
+      summary: 관리자 AI 산출물 상세 조회
+      description: >
+        관리자 웹의 AI 산출물 상세 검토 화면에 필요한 산출물, 생성 작업, 프롬프트 버전,
+        검증 로그 이력을 조회한다. ROLE_ADMIN과 ADMIN_ROLE_REVIEWER 또는 ADMIN_ROLE_SUPER_ADMIN
+        authority가 필요하다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 관리자 AI 산출물 상세 조회 성공
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorApiResponse"
+                $ref: "#/components/schemas/AdminAiAssetDetailApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/system/ai/generation-jobs:
     post:
       tags:
@@ -203,8 +249,9 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >
-        시스템 AI API는 bearer credential로 인증된 주체가 SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH
-        authority를 가져야 한다. service account 기반 검증 필터는 아직 구현 범위 밖이다.
+        관리자 AI API는 ROLE_ADMIN과 세부 ADMIN_ROLE authority를 확인한다. 시스템 AI API는
+        SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH authority를 확인하며, service account 기반 검증
+        필터는 아직 구현 범위 밖이다.
   responses:
     BadRequest:
       description: 요청 값이 올바르지 않음
@@ -219,7 +266,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorApiResponse"
     Forbidden:
-      description: SYSTEM_BATCH 권한 부족
+      description: 권한 부족
       content:
         application/json:
           schema:
@@ -299,7 +346,7 @@ components:
           format: date-time
         traceId:
           type: string
-    BibleBookListApiResponse:
+    AdminAiAssetListApiResponse:
       type: object
       required:
         - success
@@ -313,9 +360,7 @@ components:
           enum:
             - true
         data:
-          type: array
-          items:
-            $ref: "#/components/schemas/BibleBookResponse"
+          $ref: "#/components/schemas/AdminAiAssetListResponse"
         error:
           allOf:
             - $ref: "#/components/schemas/ErrorBody"
@@ -325,7 +370,7 @@ components:
           format: date-time
         traceId:
           type: string
-    BibleVerseRangeApiResponse:
+    AdminAiAssetDetailApiResponse:
       type: object
       required:
         - success
@@ -339,7 +384,7 @@ components:
           enum:
             - true
         data:
-          $ref: "#/components/schemas/BibleVerseRangeResponse"
+          $ref: "#/components/schemas/AdminAiAssetDetailResponse"
         error:
           allOf:
             - $ref: "#/components/schemas/ErrorBody"
@@ -349,99 +394,284 @@ components:
           format: date-time
         traceId:
           type: string
-    BibleBookResponse:
+    AdminAiAssetListResponse:
       type: object
       required:
-        - id
-        - testament
-        - code
-        - koreanName
-        - englishName
-        - displayOrder
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
       properties:
-        id:
-          type: integer
-          format: int32
-          example: 1
-        testament:
-          type: string
-          enum:
-            - OLD
-            - NEW
-        code:
-          type: string
-          example: GEN
-        koreanName:
-          type: string
-          example: 창세기
-        englishName:
-          type: string
-          example: Genesis
-        displayOrder:
-          type: integer
-          format: int32
-          example: 1
-    BibleVerseRangeResponse:
-      type: object
-      required:
-        - book
-        - verses
-      properties:
-        book:
-          $ref: "#/components/schemas/BibleVerseBookResponse"
-        verses:
+        content:
           type: array
           items:
-            $ref: "#/components/schemas/BibleVerseResponse"
-    BibleVerseBookResponse:
-      type: object
-      required:
-        - code
-        - koreanName
-        - englishName
-        - chapter
-      properties:
-        code:
-          type: string
-          example: GEN
-        koreanName:
-          type: string
-          example: 창세기
-        englishName:
-          type: string
-          example: Genesis
-        chapter:
+            $ref: "#/components/schemas/AdminAiAssetListItem"
+        page:
           type: integer
-          example: 1
-    BibleVerseResponse:
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          enum:
+            - createdAt,desc
+    AdminAiAssetListItem:
       type: object
       required:
         - id
-        - bookCode
-        - chapterNo
-        - verseNo
-        - koreanText
-        - englishText
+        - assetType
+        - targetType
+        - targetId
+        - status
+        - promptVersion
+        - checklistVersionId
+        - latestValidationResult
+        - sourceLabelPresent
+        - createdAt
       properties:
         id:
           type: integer
           format: int64
-          example: 10
-        bookCode:
-          type: string
-          example: GEN
-        chapterNo:
+        assetType:
+          $ref: "#/components/schemas/AiAssetType"
+        targetType:
+          $ref: "#/components/schemas/AiTargetType"
+        targetId:
           type: integer
-          example: 1
-        verseNo:
+          format: int64
+        status:
+          $ref: "#/components/schemas/AiAssetStatus"
+        promptVersion:
+          $ref: "#/components/schemas/AdminAiPromptVersionSummary"
+        checklistVersionId:
           type: integer
-          example: 2
-        koreanText:
+          format: int64
+          nullable: true
+        latestValidationResult:
+          allOf:
+            - $ref: "#/components/schemas/AiValidationResult"
+          nullable: true
+        sourceLabelPresent:
+          type: boolean
+        createdAt:
           type: string
-          example: 검증용 한국어 본문
-        englishText:
+          format: date-time
+    AdminAiAssetDetailResponse:
+      type: object
+      required:
+        - id
+        - assetType
+        - targetType
+        - targetId
+        - status
+        - payloadJson
+        - sourceLabel
+        - createdAt
+        - reviewedAt
+        - generationJob
+        - promptVersion
+        - validationLogs
+      properties:
+        id:
+          type: integer
+          format: int64a
+        assetType:
+          $ref: "#/components/schemas/AiAssetType"
+        targetType:
+          $ref: "#/components/schemas/AiTargetType"
+        targetId:
+          type: integer
+          format: int64
+        status:
+          $ref: "#/components/schemas/AiAssetStatus"
+        payloadJson:
+          type: object
+          additionalProperties: true
+          description: 저장된 payload_json을 파싱한 관리자 검토용 JSON
+        sourceLabel:
           type: string
-          example: Test English body
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        generationJob:
+          $ref: "#/components/schemas/AdminAiGenerationJobSummary"
+        promptVersion:
+          $ref: "#/components/schemas/AdminAiPromptVersionSummary"
+        validationLogs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiValidationLogItem"
+    AdminAiGenerationJobSummary:
+      type: object
+      required:
+        - id
+        - jobType
+        - targetType
+        - targetId
+        - promptVersionId
+        - status
+        - createdAt
+        - startedAt
+        - finishedAt
+        - errorMessage
+      properties:
+        id:
+          type: integer
+          format: int64
+        jobType:
+          type: string
+          enum:
+            - EXPLANATION
+            - SUMMARY
+            - GLOSSARY
+            - SIMULATOR
+            - QA
+        targetType:
+          $ref: "#/components/schemas/AiTargetType"
+        targetId:
+          type: integer
+          format: int64
+        promptVersionId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+            - QUEUED
+            - RUNNING
+            - SUCCEEDED
+            - FAILED
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+    AdminAiPromptVersionSummary:
+      type: object
+      required:
+        - id
+        - promptType
+        - version
+        - status
+      properties:
+        id:
+          type: integer
+          format: int64
+        promptType:
+          type: string
+          enum:
+            - EXPLANATION
+            - SIMULATOR
+            - QA
+        version:
+          type: string
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - RETIRED
+    AdminAiValidationLogItem:
+      type: object
+      required:
+        - validationLogId
+        - validationReferenceJobId
+        - checklistVersionId
+        - layer
+        - result
+        - reviewerType
+        - errorMessage
+        - createdAt
+      properties:
+        validationLogId:
+          type: integer
+          format: int64
+        validationReferenceJobId:
+          type: integer
+          format: int64
+          nullable: true
+        checklistVersionId:
+          type: integer
+          format: int64
+          nullable: true
+        layer:
+          type: integer
+          format: int32
+          minimum: 1
+        result:
+          $ref: "#/components/schemas/AiValidationResult"
+        reviewerType:
+          type: string
+          enum:
+            - AUTO
+            - ADMIN
+            - ADVISOR
+        errorMessage:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    AiAssetType:
+      type: string
+      enum:
+        - EXPLANATION
+        - SUMMARY
+        - GLOSSARY
+        - SIMULATOR
+        - QA_RESPONSE
+    AiTargetType:
+      type: string
+      enum:
+        - BIBLE_VERSE
+        - QT_PASSAGE
+        - QA_REQUEST
+    AiAssetStatus:
+      type: string
+      enum:
+        - VALIDATING
+        - APPROVED
+        - REJECTED
+        - HIDDEN
+    AiValidationResult:
+      type: string
+      enum:
+        - PASSED
+        - REJECTED
+        - NEEDS_REVIEW
     SystemAiGenerationJobRequest:
       type: object
       required:
