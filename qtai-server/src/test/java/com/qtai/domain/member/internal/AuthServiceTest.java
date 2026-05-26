@@ -11,11 +11,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -106,6 +109,40 @@ class AuthServiceTest {
         verify(authProviderRepository).save(any(MemberAuthProvider.class));
     }
 
+    @Test
+    void login_동시가입_경합시_재조회_성공() {
+        // 첫 transactionTemplate.execute()에서 DataIntegrityViolationException 발생
+        // 두 번째 호출에서 이미 생성된 회원 재조회 성공
+        LoginRequest request = new LoginRequest("kakao-token");
+        KakaoUserInfo kakaoUser = createKakaoUserInfo(55555L);
+        Member existingMember = createMember(20L, 55555L, MemberStatus.ACTIVE);
+
+        when(kakaoOAuthClient.getUserInfo("kakao-token")).thenReturn(kakaoUser);
+
+        // transactionTemplate.execute()를 호출 순서에 따라 다르게 동작시킴
+        // doAnswer 스타일로 작성 — when() 스타일은 기존 stub이 호출되어 NPE 발생
+        AtomicInteger callCount = new AtomicInteger(0);
+        Mockito.doAnswer(inv -> {
+            int count = callCount.incrementAndGet();
+            if (count == 1) {
+                // 첫 호출: 콜백 실행 중 DataIntegrityViolationException 발생 시뮬레이션
+                throw new DataIntegrityViolationException("Duplicate entry");
+            }
+            // 두 번째 호출: 재조회 콜백 정상 실행
+            TransactionCallback<?> callback = inv.getArgument(0);
+            return callback.doInTransaction(null);
+        }).when(transactionTemplate).execute(any());
+
+        // 재조회 시 이미 생성된 회원 반환
+        when(memberRepository.findByKakaoId(55555L)).thenReturn(Optional.of(existingMember));
+        when(jwtProvider.issueAccessToken(20L, "USER")).thenReturn("access-jwt");
+        when(jwtProvider.issueRefreshToken(20L)).thenReturn("refresh-jwt");
+
+        LoginResponse response = authService.login(request);
+
+        assertThat(response.member().id()).isEqualTo(20L);
+    }
+
     // ── login 실패 ──
 
     @Test
@@ -148,6 +185,42 @@ class AuthServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.KAKAO_AUTH_FAILED);
         verify(memberRepository, never()).findByKakaoId(anyLong());
+    }
+
+    // ── onboarding 판별 ──
+
+    @Test
+    void login_닉네임_미변경_회원_onboardingRequired_true() {
+        LoginRequest request = new LoginRequest("kakao-token");
+        KakaoUserInfo kakaoUser = createKakaoUserInfo(12345L);
+        // nicknameChangedAt == null → 온보딩 미완료
+        Member member = createMember(1L, 12345L, MemberStatus.ACTIVE);
+
+        when(kakaoOAuthClient.getUserInfo("kakao-token")).thenReturn(kakaoUser);
+        when(memberRepository.findByKakaoId(12345L)).thenReturn(Optional.of(member));
+        when(jwtProvider.issueAccessToken(1L, "USER")).thenReturn("access-jwt");
+        when(jwtProvider.issueRefreshToken(1L)).thenReturn("refresh-jwt");
+
+        LoginResponse response = authService.login(request);
+
+        assertThat(response.member().onboardingRequired()).isTrue();
+    }
+
+    @Test
+    void login_닉네임_변경완료_회원_onboardingRequired_false() {
+        LoginRequest request = new LoginRequest("kakao-token");
+        KakaoUserInfo kakaoUser = createKakaoUserInfo(12345L);
+        // nicknameChangedAt != null → 온보딩 완료 (닉네임이 user_ prefix여도 false)
+        Member member = createMemberWithNicknameChanged(1L, 12345L, "user_custom_name");
+
+        when(kakaoOAuthClient.getUserInfo("kakao-token")).thenReturn(kakaoUser);
+        when(memberRepository.findByKakaoId(12345L)).thenReturn(Optional.of(member));
+        when(jwtProvider.issueAccessToken(1L, "USER")).thenReturn("access-jwt");
+        when(jwtProvider.issueRefreshToken(1L)).thenReturn("refresh-jwt");
+
+        LoginResponse response = authService.login(request);
+
+        assertThat(response.member().onboardingRequired()).isFalse();
     }
 
     // ── logout ──
@@ -218,7 +291,7 @@ class AuthServiceTest {
     }
 
     @Test
-    void refresh_비활성_회원_MEMBER_NOT_FOUND() {
+    void refresh_정지회원_MEMBER_SUSPENDED() {
         RefreshTokenRequest request = new RefreshTokenRequest("valid-refresh");
         Member suspended = createMember(1L, 12345L, MemberStatus.SUSPENDED);
 
@@ -228,7 +301,22 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.refresh(request))
                 .isInstanceOf(BusinessException.class)
-                .extracting("errorCode").isEqualTo(ErrorCode.MEMBER_NOT_FOUND);
+                .extracting("errorCode").isEqualTo(ErrorCode.MEMBER_SUSPENDED);
+        verify(refreshTokenStore).delete(1L);
+    }
+
+    @Test
+    void refresh_탈퇴회원_MEMBER_ALREADY_WITHDRAWN() {
+        RefreshTokenRequest request = new RefreshTokenRequest("valid-refresh");
+        Member withdrawn = createMember(1L, 12345L, MemberStatus.WITHDRAWN);
+
+        when(jwtProvider.validateRefreshToken("valid-refresh")).thenReturn(1L);
+        when(refreshTokenStore.find(1L)).thenReturn("valid-refresh");
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(withdrawn));
+
+        assertThatThrownBy(() -> authService.refresh(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.MEMBER_ALREADY_WITHDRAWN);
         verify(refreshTokenStore).delete(1L);
     }
 
@@ -243,6 +331,24 @@ class AuthServiceTest {
                 .kakaoId(kakaoId)
                 .nickname("user_" + kakaoId)
                 .build();
+        setMemberFields(member, id, status, null);
+        return member;
+    }
+
+    /**
+     * nicknameChangedAt이 설정된 회원 생성 (온보딩 완료 상태).
+     */
+    private Member createMemberWithNicknameChanged(Long id, Long kakaoId, String nickname) {
+        Member member = Member.builder()
+                .kakaoId(kakaoId)
+                .nickname(nickname)
+                .build();
+        setMemberFields(member, id, MemberStatus.ACTIVE, LocalDateTime.now());
+        return member;
+    }
+
+    private void setMemberFields(Member member, Long id, MemberStatus status,
+                                  LocalDateTime nicknameChangedAt) {
         try {
             // id는 BaseEntity(부모)에 선언
             var idField = member.getClass().getSuperclass().getDeclaredField("id");
@@ -251,9 +357,13 @@ class AuthServiceTest {
             var statusField = member.getClass().getDeclaredField("status");
             statusField.setAccessible(true);
             statusField.set(member, status);
+            if (nicknameChangedAt != null) {
+                var nField = member.getClass().getDeclaredField("nicknameChangedAt");
+                nField.setAccessible(true);
+                nField.set(member, nicknameChangedAt);
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        return member;
     }
 }
