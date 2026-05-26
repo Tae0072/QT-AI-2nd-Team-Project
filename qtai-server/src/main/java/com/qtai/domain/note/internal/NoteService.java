@@ -1,43 +1,80 @@
 package com.qtai.domain.note.internal;
 
-import com.qtai.common.exception.BusinessException;
-import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.note.api.ListNotesUseCase;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
+import com.qtai.domain.note.api.dto.NoteListItem;
 import com.qtai.domain.note.api.dto.NoteListResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 /**
- * 노트 도메인 진입점. 4개 UseCase 구현 + 트랜잭션 경계.
+ * 노트 도메인 진입점. UseCase 구현 + 트랜잭션 경계.
  *
  * 권한 정책:
- * - 조회: 본인 노트만 (memberId 강제 필터) + deletedAt IS NULL
- * - 작성/수정/삭제: 작성자 본인만 (FORBIDDEN)
+ * - 조회: 본인 노트만 (memberId 강제 필터) + deletedAt IS NULL (Repository에서 적용)
+ * - 작성/수정/삭제: 작성자 본인만 (FORBIDDEN) — 다음 PR
  *
- * 타 도메인 접근:
- * - member.GetMemberUseCase → client/member 어댑터
- * - qt.GetQtUseCase         → client/qt 어댑터 (qt 존재/권한 검증용)
- *
- * 현재 상태:
- * - ListNotesUseCase: 시그니처만 구현 (본문은 NOT_IMPLEMENTED 반환)
- * - 이승욱 notes Entity·Repository 머지 후 본문 구현 + 단위/통합 테스트 추가 예정
+ * 매핑 정책 (이번 PR):
+ * - visibility = "PRIVATE" 고정 (B2 노트 생성 PR에서 Entity 필드 추가 후 진짜 값으로 교체)
+ * - qtDate, rangeLabel = null (다음 PR에서 qt 도메인 batch 조회로 보강)
+ * - shared = false (W3 나눔 공개 PR에서 진짜 값으로 교체)
  */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class NoteService implements ListNotesUseCase {
 
+    private static final String DEFAULT_VISIBILITY = "PRIVATE";
+    private static final String DEFAULT_SORT = "updatedAt,desc";
+
+    private final NoteRepository noteRepository;
+
     @Override
     public NoteListResponse list(Long memberId, NoteCategory category, NoteStatus status, String q, Pageable pageable) {
-        // 다음 PR에서 구현 예정 (이승욱 notes Entity·Repository 머지 후):
-        //   1. noteRepository.findByMemberIdAndDeletedAtIsNull...(memberId, category, status, q, pageable)
-        //   2. Page<Note> → List<NoteListItem> 매핑
-        //   3. new NoteListResponse(content, page, size, totalElements, totalPages, first, last, sort)
-        throw new BusinessException(ErrorCode.NOT_IMPLEMENTED,
-                "GET /api/v1/notes 본문은 다음 PR(이승욱 notes Entity 머지 후)에서 구현 예정입니다.");
+        Page<Note> page = noteRepository.search(memberId, category, status, q, pageable);
+
+        List<NoteListItem> content = page.getContent().stream()
+                .map(note -> toListItem(note))
+                .toList();
+
+        return new NoteListResponse(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.isFirst(),
+                page.isLast(),
+                formatSort(pageable.getSort())
+        );
+    }
+
+    private NoteListItem toListItem(Note note) {
+        return new NoteListItem(
+                note.getId(),
+                note.getCategory(),
+                note.getTitle(),
+                note.getStatus(),
+                DEFAULT_VISIBILITY,
+                null,
+                null,
+                false,
+                note.getCreatedAt(),
+                note.getUpdatedAt()
+        );
+    }
+
+    private String formatSort(Sort sort) {
+        return sort.stream()
+                .findFirst()
+                .map(o -> o.getProperty() + "," + o.getDirection().name().toLowerCase())
+                .orElse(DEFAULT_SORT);
     }
 }
