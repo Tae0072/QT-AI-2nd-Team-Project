@@ -15,16 +15,10 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
-/**
- * 모든 엔티티의 공통 기반 — PK + 생성/수정 시각.
- *
- * @MappedSuperclass 이므로 자체 테이블이 생기지 않고
- * 하위 엔티티가 id, createdAt, updatedAt 컬럼을 상속한다.
- */
-@MappedSuperclass
-@EntityListeners(AuditingEntityListener.class)
 @Getter
+@MappedSuperclass
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EntityListeners(AuditingEntityListener.class)
 public abstract class BaseEntity {
 
     @Id
@@ -36,6 +30,6 @@ public abstract class BaseEntity {
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 }

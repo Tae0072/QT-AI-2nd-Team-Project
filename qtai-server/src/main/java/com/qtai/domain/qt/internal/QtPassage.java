@@ -1,43 +1,39 @@
 package com.qtai.domain.qt.internal;
 
-/**
- * QT 본문 단위 엔티티 (오늘의 QT 컨텐츠 묶음).
- *
- * 성서유니온 QT 본문 텍스트 자체는 저장하지 않는다 (CLAUDE.md §8 저작권 규칙).
- * 대신 본문 범위(책·장·절 범위), 날짜, 제목만 보관한다.
- * 실제 성경 절 텍스트는 bible 도메인(bible_verses)에서 조회한다.
- *
- * QT 범위 공개 시각: 00:00 KST, 수집 배치: 04:00 KST.
- * 00:00~04:00 사이에는 이전에 준비된 캐시를 제공한다 (CLAUDE.md §6).
- *
- * DDL 예시:
- *   CREATE TABLE qt_passages (
- *       id           BIGINT AUTO_INCREMENT PRIMARY KEY,
- *       passage_date DATE         NOT NULL UNIQUE,   -- 해당 QT 날짜
- *       title        VARCHAR(200) NOT NULL,
- *       description  TEXT         NULL,              -- 간단한 도입 설명 (저작권 무관 범위)
- *       created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
- *       updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
- *   );
- */
-// TODO: @Entity, @Table(name = "qt_passages")
-public class QtPassage {
+import com.qtai.common.entity.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-    // TODO: @Id @GeneratedValue(strategy = GenerationType.IDENTITY) Long id;
+import java.time.LocalDate;
 
-    // TODO: @Column(nullable = false, unique = true)
-    //        LocalDate passageDate;      — 해당 QT 날짜
+@Entity
+@Table(name = "qt_passages")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class QtPassage extends BaseEntity {
 
-    // TODO: @Column(nullable = false, length = 200)
-    //        String title;               — QT 제목
+    @Column(name = "qt_date", nullable = false, unique = true)
+    private LocalDate qtDate;
 
-    // TODO: @Column(columnDefinition = "TEXT")
-    //        String description;         — 도입 설명 (nullable)
+    @Column(name = "book_id", nullable = false)
+    private Short bookId;
 
-    // TODO: @CreationTimestamp LocalDateTime createdAt;
-    // TODO: @UpdateTimestamp  LocalDateTime updatedAt;
+    @Column(name = "chapter", nullable = false)
+    private Short chapter;
 
-    // 연관: QtPassageVerse (본문에 딸린 절 목록)
-    // TODO: @OneToMany(mappedBy = "qtPassage", cascade = CascadeType.ALL, orphanRemoval = true)
-    //        List<QtPassageVerse> verses;
+    @Column(name = "start_verse", nullable = false)
+    private Short startVerse;
+
+    @Column(name = "end_verse", nullable = false)
+    private Short endVerse;
+
+    @Column(nullable = false, length = 200)
+    private String title;
+
+    @Column(name = "main_verse_ref", length = 100)
+    private String mainVerseRef;
 }

@@ -11,7 +11,6 @@ public record RegisterAiGeneratedAssetCommand(
         @NotBlank String assetType,
         @NotBlank String targetType,
         @NotNull @Positive Long targetId,
-        @NotBlank String promptVersion,
         @NotBlank String payloadJson,
         String sourceLabel,
         @NotNull OffsetDateTime createdAt

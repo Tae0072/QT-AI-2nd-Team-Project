@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/qtai?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME:qtai}
+    password: ${DB_PASSWORD:qtai}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  flyway:
+    enabled: true
+
+# dev 전용 보안 우회 토글 (DevSecurityConfig 활성화 조건)
+# - 운영(prod)에서는 절대 true로 두지 않는다 (application-prod.yml에서 false 강제)
+qtai:
+  security:
+    dev-bypass: true

@@ -1,35 +1,48 @@
 package com.qtai.domain.sharing.internal;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
 /**
- * 나눔 게시글 좋아요 엔티티 (ERD §2.17 likes).
- *
- * ERD 테이블명: likes (not post_likes).
- * (sharing_post_id, member_id) UNIQUE 제약으로 중복 좋아요 방지.
- * 좋아요 취소는 DELETE /api/v1/sharing-posts/{postId}/like.
- *
- * DDL 예시:
- *   CREATE TABLE likes (
- *       id              BIGINT   AUTO_INCREMENT PRIMARY KEY,
- *       sharing_post_id BIGINT   NOT NULL,
- *       member_id       BIGINT   NOT NULL,
- *       created_at      DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
- *       UNIQUE KEY uk_likes_post_member (sharing_post_id, member_id),
- *       INDEX idx_likes_member (member_id),
- *       FOREIGN KEY (sharing_post_id) REFERENCES sharing_posts(id)
- *   );
+ * 좋아요 엔티티. updatedAt이 불필요하므로 BaseEntity를 상속하지 않고
+ * createdAt만 {@code @PrePersist}로 직접 관리한다.
  */
-// TODO: @Entity, @Table(name = "likes",
-//        uniqueConstraints = @UniqueConstraint(
-//            name = "uk_likes_post_member", columnNames = {"sharing_post_id", "member_id"}))
+@Entity
+@Table(name = "post_likes", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"sharing_post_id", "member_id"})
+})
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PostLike {
 
-    // TODO: @Id @GeneratedValue(strategy = GenerationType.IDENTITY) Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    // TODO: @ManyToOne(fetch = FetchType.LAZY)
-    //        @JoinColumn(name = "sharing_post_id", nullable = false)
-    //        SharingPost sharingPost;
+    @Column(name = "sharing_post_id", nullable = false)
+    private Long sharingPostId;
 
-    // TODO: @Column(nullable = false) Long memberId;
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
 
-    // TODO: @CreationTimestamp LocalDateTime createdAt;
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    void prePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+    }
 }

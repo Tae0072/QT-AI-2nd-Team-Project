@@ -21,7 +21,7 @@ import com.qtai.common.exception.ErrorCode;
         name = "ai_generation_jobs",
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_ai_generation_jobs_active_target_prompt",
-                columnNames = {"job_type", "target_type", "target_id", "prompt_version", "active_unique_key"}
+                columnNames = {"job_type", "target_type", "target_id", "prompt_version_id", "active_unique_key"}
         )
 )
 public class AiGenerationJob {
@@ -44,8 +44,8 @@ public class AiGenerationJob {
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
-    @Column(name = "prompt_version", nullable = false, length = 80)
-    private String promptVersion;
+    @Column(name = "prompt_version_id", nullable = false)
+    private Long promptVersionId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -73,13 +73,13 @@ public class AiGenerationJob {
             AiGenerationJobType jobType,
             AiTargetType targetType,
             Long targetId,
-            String promptVersion,
+            Long promptVersionId,
             OffsetDateTime createdAt
     ) {
         this.jobType = Objects.requireNonNull(jobType, "jobType must not be null");
         this.targetType = Objects.requireNonNull(targetType, "targetType must not be null");
-        this.targetId = Objects.requireNonNull(targetId, "targetId must not be null");
-        this.promptVersion = requireText(promptVersion, "promptVersion");
+        this.targetId = requirePositive(targetId, "targetId");
+        this.promptVersionId = requirePositive(promptVersionId, "promptVersionId");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         this.status = AiGenerationJobStatus.QUEUED;
         this.activeUniqueKey = ACTIVE_UNIQUE_KEY;
@@ -89,10 +89,10 @@ public class AiGenerationJob {
             AiGenerationJobType jobType,
             AiTargetType targetType,
             Long targetId,
-            String promptVersion,
+            Long promptVersionId,
             OffsetDateTime createdAt
     ) {
-        return new AiGenerationJob(jobType, targetType, targetId, promptVersion, createdAt);
+        return new AiGenerationJob(jobType, targetType, targetId, promptVersionId, createdAt);
     }
 
     public void markRunning(OffsetDateTime startedAt) {
@@ -133,8 +133,8 @@ public class AiGenerationJob {
         return targetId;
     }
 
-    public String getPromptVersion() {
-        return promptVersion;
+    public Long getPromptVersionId() {
+        return promptVersionId;
     }
 
     public AiGenerationJobStatus getStatus() {
@@ -159,6 +159,13 @@ public class AiGenerationJob {
 
     public OffsetDateTime getFinishedAt() {
         return finishedAt;
+    }
+
+    private static Long requirePositive(Long value, String fieldName) {
+        if (value == null || value <= 0) {
+            throw new IllegalArgumentException(fieldName + " must be positive");
+        }
+        return value;
     }
 
     private static String requireText(String value, String fieldName) {

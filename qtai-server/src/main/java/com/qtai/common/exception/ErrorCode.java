@@ -1,52 +1,56 @@
 package com.qtai.common.exception;
 
-/**
- * 서비스 전역 에러 카탈로그.
- *
- * 코드 규칙: 도메인 약자(1자) + 4자리 번호. C=Common, M=Member, Q=Qt, ...
- * 클라이언트는 code로 분기하고, message는 기본 사용자 안내 문구.
- */
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+
+@Getter
+@RequiredArgsConstructor
 public enum ErrorCode {
 
     // 공통
-    INTERNAL_ERROR("C0001", "서버 내부 오류가 발생했습니다."),
-    INVALID_INPUT("C0002", "잘못된 요청입니다."),
-    INVALID_STATUS_TRANSITION("C0003", "상태 전이를 수행할 수 없습니다."),
+    INTERNAL_ERROR("C0001", "서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_INPUT("C0002", "올바르지 않은 요청입니다.", HttpStatus.BAD_REQUEST),
+    INVALID_STATUS_TRANSITION("C0003", "상태 전이를 수행할 수 없습니다.", HttpStatus.CONFLICT),
+    RESOURCE_NOT_FOUND("C0004", "요청한 리소스를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    NOT_IMPLEMENTED("C0005", "아직 구현되지 않은 기능입니다.", HttpStatus.NOT_IMPLEMENTED),
 
     // 회원
-    MEMBER_NOT_FOUND("M0001", "회원을 찾을 수 없습니다."),
-    UNAUTHORIZED("M0002", "인증이 필요합니다."),
-    FORBIDDEN("M0003", "권한이 없습니다."),
-    NICKNAME_DUPLICATE("M0004", "이미 사용 중인 닉네임입니다."),
-    NICKNAME_CHANGE_LOCKED("M0005", "닉네임은 변경 후 7일 동안 다시 변경할 수 없습니다."),
-    MEMBER_ALREADY_WITHDRAWN("M0006", "이미 탈퇴한 회원입니다."),
+    MEMBER_NOT_FOUND("M0001", "회원을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    UNAUTHORIZED("M0002", "인증이 필요합니다.", HttpStatus.UNAUTHORIZED),
+    FORBIDDEN("M0003", "권한이 없습니다.", HttpStatus.FORBIDDEN),
+    DUPLICATE_NICKNAME("M0004", "이미 사용 중인 닉네임입니다.", HttpStatus.CONFLICT),
+    NICKNAME_LOCKED("M0005", "닉네임 변경 후 7일이 지나야 다시 변경할 수 있습니다.", HttpStatus.CONFLICT),
+    MEMBER_ALREADY_WITHDRAWN("M0006", "이미 탈퇴한 회원입니다.", HttpStatus.CONFLICT),
 
     // 알림
-    NOTIFICATION_NOT_FOUND("N0001", "알림을 찾을 수 없습니다."),
-    NOTIFICATION_ACCESS_DENIED("N0002", "본인의 알림만 접근할 수 있습니다."),
+    NOTIFICATION_NOT_FOUND("NT0001", "알림을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    NOTIFICATION_ACCESS_DENIED("NT0002", "본인의 알림만 확인할 수 있습니다.", HttpStatus.FORBIDDEN),
 
     // 찬양
-    PRAISE_SONG_NOT_FOUND("P0001", "찬양 곡을 찾을 수 없습니다."),
-    PRAISE_SONG_ALREADY_SAVED("P0002", "이미 저장된 찬양입니다."),
-    PRAISE_SONG_SAVE_NOT_FOUND("P0003", "저장된 찬양을 찾을 수 없습니다."),
+    PRAISE_SONG_NOT_FOUND("P0001", "찬양 곡을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    PRAISE_SONG_ALREADY_SAVED("P0002", "이미 저장된 찬양입니다.", HttpStatus.CONFLICT),
+    PRAISE_SONG_SAVE_NOT_FOUND("P0003", "저장된 찬양을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
     // AI
-    AI_GENERATION_JOB_NOT_FOUND("A0001", "AI 생성 작업을 찾을 수 없습니다."),
-    AI_ASSET_NOT_FOUND("A0002", "AI 산출물을 찾을 수 없습니다.");
+    AI_GENERATION_JOB_NOT_FOUND("A0001", "AI 생성 작업을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    AI_ASSET_NOT_FOUND("A0002", "AI 산출물을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    // 성경
+    BIBLE_BOOK_NOT_FOUND("B0001", "성경 책을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    BIBLE_VERSE_NOT_FOUND("B0002", "성경 구절을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    // QT
+    QT_PASSAGE_NOT_FOUND("Q0001", "QT 본문을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    // 노트
+    NOTE_NOT_FOUND("N0001", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    // 나눔
+    SHARING_POST_NOT_FOUND("S0001", "나눔 게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    COMMENT_NOT_FOUND("S0002", "댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
 
     private final String code;
     private final String message;
-
-    ErrorCode(String code, String message) {
-        this.code = code;
-        this.message = message;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getMessage() {
-        return message;
-    }
+    private final HttpStatus httpStatus;
 }
