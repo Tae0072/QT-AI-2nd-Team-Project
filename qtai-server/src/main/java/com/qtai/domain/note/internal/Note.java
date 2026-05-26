@@ -1,6 +1,8 @@
 package com.qtai.domain.note.internal;
 
 import com.qtai.common.entity.BaseEntity;
+import com.qtai.domain.note.api.NoteCategory;
+import com.qtai.domain.note.api.NoteStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

@@ -19,13 +19,16 @@ class AuthInterceptor extends Interceptor {
   Completer<String>? _refreshCompleter;
 
   /// refresh 실패 시 호출되는 콜백.
-  /// 앱 라우터에서 로그인 화면 이동 등을 등록한다.
+  /// 실제 라우터에서 로그인 화면 이동 등을 등록한다.
   /// Phase 3 Auth PR에서 구현 예정.
   void Function()? onAuthFailure;
 
-  /// 재시도 표시용 extra 키. 이 플래그가 true인 요청은 401을 받아도
+  /// 재시도 표시용 extra key. 이 플래그가 true인 요청이 401을 받으면
   /// refresh를 시도하지 않고 즉시 에러를 전달한다.
   static const _retriedKey = '_authRetried';
+
+  /// refresh 호출 횟수 추적 (테스트에서 single-flight 검증용).
+  int refreshCallCount = 0;
 
   AuthInterceptor(this._dio) {
     _refreshDio = Dio(BaseOptions(
@@ -61,30 +64,37 @@ class AuthInterceptor extends Interceptor {
 
     try {
       final newAccessToken = await _refreshTokenSingleFlight();
-      // 원래 요청 재시도 — _retried 플래그 추가
-      final opts = err.requestOptions;
-      opts.headers['Authorization'] = 'Bearer $newAccessToken';
-      opts.extra[_retriedKey] = true;
-      final retryResponse = await _dio.fetch(opts);
+      // 원래 요청 재시도 — copyWith로 불변성 보장, _retried 플래그 추가
+      final retryOptions = err.requestOptions.copyWith(
+        headers: {
+          ...err.requestOptions.headers,
+          'Authorization': 'Bearer $newAccessToken',
+        },
+        extra: {
+          ...err.requestOptions.extra,
+          _retriedKey: true,
+        },
+      );
+      final retryResponse = await _dio.fetch(retryOptions);
       return handler.resolve(retryResponse);
+    } on AuthRefreshException {
+      await SecureStorage.clearTokens();
+      onAuthFailure?.call();
+      return handler.next(err);
     } on DioException catch (refreshErr) {
       await SecureStorage.clearTokens();
       onAuthFailure?.call();
       return handler.next(refreshErr);
-    } catch (_) {
-      await SecureStorage.clearTokens();
-      onAuthFailure?.call();
-      return handler.next(err);
     }
   }
 
   /// Single-flight 패턴: 첫 번째 401이 refresh를 실행하고,
-  /// 동시에 도착하는 다른 401은 같은 [Completer]를 await한다.
+  /// 동시에 진입하는 다른 401은 같은 [Completer]를 await한다.
   ///
-  /// 락 해제: `finally` 블록에서 `_refreshCompleter = null`로 초기화한다.
-  /// `complete()`/`completeError()` 호출 시점에 대기 중인 `await`들이
-  /// 깨어나지만, Dart의 이벤트 루프 특성상 `finally`는 같은 마이크로태스크
-  /// 내에서 실행되므로 대기자들이 결과를 받기 전에 null이 될 수 있다.
+  /// 설계 의도: `finally` 블록에서 `_refreshCompleter = null`로 초기화한다.
+  /// `complete()`/`completeError()` 호출 시점과 이 사이에 끼어드는 `await`이
+  /// 없지만, Dart의 이벤트 루프 특성상 `finally`와 같은 마이크로태스크
+  /// 내에서 실행되므로 이 사이에 결과를 받기 전에 null이 될 수 있다.
   /// 이를 방지하기 위해 대기자는 로컬 변수에 캡처한 completer.future를
   /// await하므로, `_refreshCompleter`가 null이 되어도 안전하다.
   Future<String> _refreshTokenSingleFlight() async {
@@ -110,6 +120,8 @@ class AuthInterceptor extends Interceptor {
   }
 
   Future<String> _executeRefresh() async {
+    refreshCallCount++;
+
     final refreshToken = await SecureStorage.getRefreshToken();
     if (refreshToken == null) {
       throw AuthRefreshException(
@@ -118,10 +130,22 @@ class AuthInterceptor extends Interceptor {
       );
     }
 
-    final response = await _refreshDio.post(
-      '/auth/refresh',
-      data: {'refreshToken': refreshToken},
-    );
+    late final Response response;
+    try {
+      response = await _refreshDio.post(
+        '/auth/token/refresh',
+        data: {'refreshToken': refreshToken},
+      );
+    } on DioException catch (e) {
+      // 401 응답 = refresh token 만료 → 명시적 분기
+      if (e.response?.statusCode == 401) {
+        throw AuthRefreshException(
+          message: 'Refresh token이 만료되었습니다.',
+          reason: AuthRefreshFailureReason.noRefreshToken,
+        );
+      }
+      rethrow;
+    }
 
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -139,6 +163,7 @@ class AuthInterceptor extends Interceptor {
       );
     }
 
+    // 04_API_명세서 기준 camelCase: accessToken, refreshToken (명세서 §2.3 응답 예시)
     final newAccess = data['accessToken'];
     final newRefresh = data['refreshToken'];
     if (newAccess is! String || newRefresh is! String) {

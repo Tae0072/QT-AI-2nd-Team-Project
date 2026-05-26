@@ -2,8 +2,13 @@
 .idea/
 *.iml
 .vscode/
-!.vscode/settings.json
 !.vscode/extensions.json
+# .vscode/settings.json — Java 확장이 자동 변경하므로 개인 IDE 설정으로 처리 (commit 제외)
+
+# 개인 설정·캐시 (commit 제외, 본인 working directory에만 보관)
+CLAUDE.local.md
+doc/standards/
+doc/workspaces/DevE_김지민/skills/
 
 # OS
 .DS_Store

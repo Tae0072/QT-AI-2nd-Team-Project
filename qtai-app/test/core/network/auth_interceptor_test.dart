@@ -6,16 +6,15 @@ import 'package:qtai_app/core/network/auth_refresh_exception.dart';
 
 void main() {
   group('AuthInterceptor', () {
-    test('인스턴스 생성 시 refreshDio가 분리된다', () {
+    test('instance creation separates refreshDio', () {
       final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'));
       final interceptor = AuthInterceptor(dio);
       expect(interceptor, isNotNull);
     });
 
-    test('non-401 에러는 그대로 전달', () {
+    test('non-401 error passes through', () {
       final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'));
       final interceptor = AuthInterceptor(dio);
-
       final err = DioException(
         requestOptions: RequestOptions(path: '/test'),
         response: Response(
@@ -24,32 +23,28 @@ void main() {
         ),
         type: DioExceptionType.badResponse,
       );
-
       expect(
         () => interceptor.onError(err, ErrorInterceptorHandler()),
         returnsNormally,
       );
     });
 
-    test('response 없는 에러는 그대로 전달', () {
+    test('error without response passes through', () {
       final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'));
       final interceptor = AuthInterceptor(dio);
-
       final err = DioException(
         requestOptions: RequestOptions(path: '/test'),
         type: DioExceptionType.connectionTimeout,
       );
-
       expect(
         () => interceptor.onError(err, ErrorInterceptorHandler()),
         returnsNormally,
       );
     });
 
-    test('onAuthFailure 콜백 등록 및 호출', () {
+    test('onAuthFailure callback registration and invocation', () {
       final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'));
       final interceptor = AuthInterceptor(dio);
-
       var callCount = 0;
       interceptor.onAuthFailure = () => callCount++;
       expect(interceptor.onAuthFailure, isNotNull);
@@ -57,7 +52,7 @@ void main() {
       expect(callCount, equals(1));
     });
 
-    group('401 refresh 흐름', () {
+    group('401 refresh flow', () {
       late Dio dio;
       late DioAdapter dioAdapter;
       late AuthInterceptor interceptor;
@@ -69,40 +64,35 @@ void main() {
         dio.interceptors.add(interceptor);
       });
 
-      test('401 응답 시 refresh token null이면 AuthRefreshException 발생', () async {
+      test('401 with null refresh token triggers failure', () async {
         dioAdapter.onGet(
           '/test',
           (server) => server.reply(401, {'error': 'Unauthorized'}),
         );
-
         try {
           await dio.get('/test');
           fail('Should have thrown');
-        } on DioException catch (e) {
-          // AuthRefreshException이 catch로 잡혀서 handler.next로 전달됨
-          expect(e, isA<DioException>());
+        } on DioException catch (_) {
+          // AuthRefreshException caught internally
         }
       });
 
-      test('refresh 실패 시 onAuthFailure 콜백 호출', () async {
+      test('refresh failure invokes onAuthFailure callback', () async {
         var callbackCalled = false;
         interceptor.onAuthFailure = () => callbackCalled = true;
-
         dioAdapter.onGet(
           '/test',
           (server) => server.reply(401, {'error': 'Unauthorized'}),
         );
-
         try {
           await dio.get('/test');
         } on DioException {
-          // 예상된 실패
+          // Expected failure
         }
-
         expect(callbackCalled, isTrue);
       });
 
-      test('재시도 요청(_retried=true)이 401이면 즉시 실패 (무한 루프 방지)', () {
+      test('retried request with 401 fails immediately (loop prevention)', () {
         final err = DioException(
           requestOptions: RequestOptions(
             path: '/test',
@@ -114,8 +104,6 @@ void main() {
           ),
           type: DioExceptionType.badResponse,
         );
-
-        // _retried=true이면 refresh 시도 없이 즉시 handler.next
         expect(
           () => interceptor.onError(err, ErrorInterceptorHandler()),
           returnsNormally,
@@ -124,7 +112,7 @@ void main() {
     });
 
     group('AuthRefreshException', () {
-      test('noRefreshToken reason 포맷', () {
+      test('noRefreshToken reason message', () {
         const ex = AuthRefreshException(
           message: 'test',
           reason: AuthRefreshFailureReason.noRefreshToken,
@@ -133,7 +121,7 @@ void main() {
         expect(ex.toString(), contains('test'));
       });
 
-      test('invalidResponse reason 포맷', () {
+      test('invalidResponse reason message', () {
         const ex = AuthRefreshException(
           message: 'bad format',
           reason: AuthRefreshFailureReason.invalidResponse,
@@ -141,7 +129,7 @@ void main() {
         expect(ex.reason, equals(AuthRefreshFailureReason.invalidResponse));
       });
 
-      test('missingTokens reason 포맷', () {
+      test('missingTokens reason message', () {
         const ex = AuthRefreshException(
           message: 'no tokens',
           reason: AuthRefreshFailureReason.missingTokens,
@@ -150,11 +138,10 @@ void main() {
       });
     });
 
-    group('single-flight 동시성', () {
-      test('동시 401 에러가 handler에 정상 전달된다', () async {
+    group('single-flight concurrency', () {
+      test('concurrent 401 errors are handled normally', () async {
         final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'));
         final interceptor = AuthInterceptor(dio);
-
         final err1 = DioException(
           requestOptions: RequestOptions(path: '/test1'),
           response: Response(
@@ -163,7 +150,6 @@ void main() {
           ),
           type: DioExceptionType.badResponse,
         );
-
         final err2 = DioException(
           requestOptions: RequestOptions(path: '/test2'),
           response: Response(
@@ -172,15 +158,40 @@ void main() {
           ),
           type: DioExceptionType.badResponse,
         );
-
         final handler1 = ErrorInterceptorHandler();
         final handler2 = ErrorInterceptorHandler();
-
         final future1 = Future(() => interceptor.onError(err1, handler1));
         final future2 = Future(() => interceptor.onError(err2, handler2));
-
-        // single-flight 패턴이 동작하면 둘 다 정상 완료
         await Future.wait([future1, future2]);
+      });
+
+      test('concurrent 401 triggers refresh exactly once', () async {
+        final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'));
+        final interceptor = AuthInterceptor(dio);
+        final err1 = DioException(
+          requestOptions: RequestOptions(path: '/a'),
+          response: Response(
+            requestOptions: RequestOptions(path: '/a'),
+            statusCode: 401,
+          ),
+          type: DioExceptionType.badResponse,
+        );
+        final err2 = DioException(
+          requestOptions: RequestOptions(path: '/b'),
+          response: Response(
+            requestOptions: RequestOptions(path: '/b'),
+            statusCode: 401,
+          ),
+          type: DioExceptionType.badResponse,
+        );
+        final handler1 = ErrorInterceptorHandler();
+        final handler2 = ErrorInterceptorHandler();
+        await Future.wait([
+          Future(() => interceptor.onError(err1, handler1)),
+          Future(() => interceptor.onError(err2, handler2)),
+        ]);
+        // single-flight guarantee: refresh is called exactly once
+        expect(interceptor.refreshCallCount, equals(1));
       });
     });
   });
