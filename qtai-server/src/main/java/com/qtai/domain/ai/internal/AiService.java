@@ -28,13 +28,16 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
 
     private final AiGenerationJobRepository generationJobRepository;
     private final AiGeneratedAssetRepository generatedAssetRepository;
+    private final AiPromptVersionRepository promptVersionRepository;
 
     public AiService(
             AiGenerationJobRepository generationJobRepository,
-            AiGeneratedAssetRepository generatedAssetRepository
+            AiGeneratedAssetRepository generatedAssetRepository,
+            AiPromptVersionRepository promptVersionRepository
     ) {
         this.generationJobRepository = generationJobRepository;
         this.generatedAssetRepository = generatedAssetRepository;
+        this.promptVersionRepository = promptVersionRepository;
     }
 
     @Override
@@ -44,11 +47,12 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
 
         AiGenerationJobType jobType = parseJobType(command.jobType());
         AiTargetType targetType = parseTargetType(command.targetType());
-        if (generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+        AiPromptVersion promptVersionEntity = requireUsablePromptVersion(command.promptVersionId(), jobType);
+        if (generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
                 jobType,
                 targetType,
                 command.targetId(),
-                command.promptVersion(),
+                promptVersionEntity.getId(),
                 ACTIVE_GENERATION_STATUSES
         )) {
             throw new BusinessException(
@@ -61,7 +65,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
                 jobType,
                 targetType,
                 command.targetId(),
-                command.promptVersion(),
+                promptVersionEntity.getId(),
                 command.requestedAt()
         );
         AiGenerationJob savedJob = saveQueuedJob(job);
@@ -84,12 +88,12 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         requireRegeneratableStatus(asset);
 
         AiGenerationJobType jobType = jobTypeOf(asset.getAssetType());
-        String promptVersion = asset.getPromptVersion();
-        if (generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+        AiPromptVersion promptVersionEntity = requireUsablePromptVersion(command.promptVersionId(), jobType);
+        if (generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
                 jobType,
                 asset.getTargetType(),
                 asset.getTargetId(),
-                promptVersion,
+                promptVersionEntity.getId(),
                 ACTIVE_GENERATION_STATUSES
         )) {
             throw new BusinessException(
@@ -102,7 +106,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
                 jobType,
                 asset.getTargetType(),
                 asset.getTargetId(),
-                promptVersion,
+                promptVersionEntity.getId(),
                 command.requestedAt()
         );
         AiGenerationJob savedJob = saveQueuedJob(job);
@@ -142,7 +146,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         requireText(command.jobType(), "jobType");
         requireText(command.targetType(), "targetType");
         requirePositive(command.targetId(), "targetId");
-        requireText(command.promptVersion(), "promptVersion");
+        requirePositive(command.promptVersionId(), "promptVersionId");
         requireText(command.requestedBy(), "requestedBy");
         if (command.requestedAt() == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "requestedAt must not be null");
@@ -204,6 +208,31 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "targetType is not supported");
         }
+    }
+
+    private AiPromptVersion requireUsablePromptVersion(Long promptVersionId, AiGenerationJobType jobType) {
+        AiPromptVersion promptVersionEntity = promptVersionRepository.findById(promptVersionId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "promptVersionId is not found"));
+        if (promptVersionEntity.getStatus() != AiPromptVersionStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "promptVersionId is not active");
+        }
+        AiPromptType expectedPromptType = promptTypeOf(jobType);
+        if (promptVersionEntity.getPromptType() != expectedPromptType) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "promptVersionId does not match jobType");
+        }
+        return promptVersionEntity;
+    }
+
+    private static AiPromptType promptTypeOf(AiGenerationJobType jobType) {
+        return switch (jobType) {
+            case EXPLANATION -> AiPromptType.EXPLANATION;
+            case SIMULATOR -> AiPromptType.SIMULATOR;
+            case QA -> AiPromptType.QA;
+            case SUMMARY, GLOSSARY -> throw new BusinessException(
+                    ErrorCode.INVALID_INPUT,
+                    "jobType is not supported by ai_prompt_versions.prompt_type"
+            );
+        };
     }
 
     private static void requireRegeneratableStatus(AiGeneratedAsset asset) {

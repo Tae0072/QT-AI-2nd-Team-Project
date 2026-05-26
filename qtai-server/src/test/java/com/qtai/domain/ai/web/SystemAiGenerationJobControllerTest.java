@@ -87,7 +87,7 @@ class SystemAiGenerationJobControllerTest {
                                   "jobType": "DAILY_QT_EXPLANATION",
                                   "targetType": "QT_PASSAGE",
                                   "targetId": 35,
-                                  "promptVersion": "2026.05.1"
+                                  "promptVersionId": 3
                                 }
                                 """))
                 .andExpect(status().isAccepted())
@@ -105,7 +105,7 @@ class SystemAiGenerationJobControllerTest {
         assertThat(command.jobType()).isEqualTo("EXPLANATION");
         assertThat(command.targetType()).isEqualTo("QT_PASSAGE");
         assertThat(command.targetId()).isEqualTo(35L);
-        assertThat(command.promptVersion()).isEqualTo("2026.05.1");
+        assertThat(command.promptVersionId()).isEqualTo(3L);
         assertThat(command.requestedBy()).isEqualTo("SYSTEM_BATCH");
         assertThat(command.requestedAt()).isEqualTo(OffsetDateTime.parse("2026-05-22T10:30:00+09:00"));
     }
@@ -123,7 +123,7 @@ class SystemAiGenerationJobControllerTest {
                                   "jobType": "DAILY_QT_SIMULATOR",
                                   "targetType": "QT_PASSAGE",
                                   "targetId": 35,
-                                  "promptVersion": "2026.05.1"
+                                  "promptVersionId": 3
                                 }
                                 """))
                 .andExpect(status().isAccepted())
@@ -147,7 +147,7 @@ class SystemAiGenerationJobControllerTest {
                                   "jobType": "%s",
                                   "targetType": "QT_PASSAGE",
                                   "targetId": 35,
-                                  "promptVersion": "2026.05.1"
+                                  "promptVersionId": 3
                                 }
                                 """.formatted(jobType)))
                 .andExpect(status().isBadRequest())
@@ -167,7 +167,7 @@ class SystemAiGenerationJobControllerTest {
                                   "jobType": "DAILY_QT_EXPLANATION",
                                   "targetType": "BIBLE_VERSE",
                                   "targetId": 35,
-                                  "promptVersion": "2026.05.1"
+                                  "promptVersionId": 3
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -184,7 +184,7 @@ class SystemAiGenerationJobControllerTest {
               "jobType": "DAILY_QT_EXPLANATION",
               "targetType": "QT_PASSAGE",
               "targetId": 0,
-              "promptVersion": "2026.05.1"
+              "promptVersionId": 3
             }
             """,
             """
@@ -192,7 +192,7 @@ class SystemAiGenerationJobControllerTest {
               "jobType": "DAILY_QT_EXPLANATION",
               "targetType": "QT_PASSAGE",
               "targetId": 35,
-              "promptVersion": " "
+              "promptVersionId": 0
             }
             """
     })
@@ -253,7 +253,7 @@ class SystemAiGenerationJobControllerTest {
                   "jobType": "DAILY_QT_EXPLANATION",
                   "targetType": "QT_PASSAGE",
                   "targetId": 35,
-                  "promptVersion": "2026.05.1"
+                  "promptVersionId": 3
                 }
                 """;
     }
