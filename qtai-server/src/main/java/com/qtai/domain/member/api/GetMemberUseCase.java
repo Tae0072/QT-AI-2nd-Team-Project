@@ -1,14 +1,19 @@
 package com.qtai.domain.member.api;
 
+import com.qtai.domain.member.api.dto.MemberPublicResponse;
+import com.qtai.domain.member.api.dto.MemberResponse;
+
 /**
  * 회원 조회 UseCase 포트.
  *
- * 거의 모든 도메인이 이 포트로 회원 정보를 조회한다 (qt/study/note/sharing/report/
- * notification/praise/mission/ai/admin). 도메인 간 결합도를 낮추기 위해 Member
- * 엔티티를 직접 노출하지 않고 MemberResponse DTO로 전달한다.
+ * <p>거의 모든 도메인이 이 포트로 회원 정보를 조회한다.
+ * <p>도메인 간 결합도를 낮추기 위해 DTO 로 전달.
  */
 public interface GetMemberUseCase {
 
-    // TODO: MemberResponse getMember(Long memberId);
-    //       없으면 throw BusinessException(MEMBER_NOT_FOUND)
+    /** 내 정보 조회 (비공개 필드 포함). */
+    MemberResponse getMember(Long memberId);
+
+    /** 타 회원 공개 프로필 조회 (비공개 필드 제외). */
+    MemberPublicResponse getMemberPublic(Long memberId);
 }

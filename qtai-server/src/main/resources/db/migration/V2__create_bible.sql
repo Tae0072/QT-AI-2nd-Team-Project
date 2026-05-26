@@ -6,16 +6,16 @@ CREATE TABLE bible_books (
     korean_name     VARCHAR(30)     NOT NULL,
     english_name    VARCHAR(50)     NOT NULL,
     display_order   SMALLINT        NOT NULL UNIQUE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 CREATE TABLE bible_verses (
-    id              BIGINT          AUTO_INCREMENT PRIMARY KEY,
-    book_id         SMALLINT        NOT NULL,
-    chapter_no      SMALLINT        NOT NULL,
-    verse_no        SMALLINT        NOT NULL,
-    korean_text     TEXT            NOT NULL,
-    english_text    TEXT,
-    UNIQUE KEY uk_bible_verse_coord (book_id, chapter_no, verse_no),
-    INDEX idx_bible_verses_book_chapter (book_id, chapter_no),
+    id          BIGINT          AUTO_INCREMENT PRIMARY KEY,
+    book_id     SMALLINT        NOT NULL,
+    chapter     SMALLINT        NOT NULL,
+    verse       SMALLINT        NOT NULL,
+    krv_text    TEXT            NOT NULL,
+    kjv_text    TEXT,
     CONSTRAINT fk_bible_verses_book FOREIGN KEY (book_id) REFERENCES bible_books(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+
+CREATE INDEX idx_bible_verses_book_chapter ON bible_verses (book_id, chapter);

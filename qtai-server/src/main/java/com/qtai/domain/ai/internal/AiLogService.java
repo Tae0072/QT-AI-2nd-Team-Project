@@ -68,6 +68,7 @@ class AiLogService {
             String sourceLabel,
             OffsetDateTime createdAt
     ) {
+        findGenerationJob(generationJobId);
         AiGeneratedAsset asset = AiGeneratedAsset.create(
                 generationJobId,
                 assetType,
@@ -83,6 +84,7 @@ class AiLogService {
     @Transactional
     public AiValidationLog registerValidationLog(
             Long assetId,
+            Long validationReferenceJobId,
             int layer,
             AiValidationResult result,
             AiValidationReviewerType reviewerType,
@@ -94,6 +96,7 @@ class AiLogService {
         AiGeneratedAsset asset = findGeneratedAsset(assetId);
         AiValidationLog log = AiValidationLog.create(
                 assetId,
+                validationReferenceJobId,
                 layer,
                 result,
                 reviewerType,
