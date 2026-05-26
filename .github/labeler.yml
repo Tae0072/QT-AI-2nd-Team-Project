@@ -1,0 +1,35 @@
+backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'qtai-server/**'
+
+flutter:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'flutter-app/**'
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Dockerfile'
+          - 'docker-compose*.yml'
+          - 'compose*.yml'
+          - '.github/**'
+          - 'infra/**'
+
+api-spec:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'apis/**'
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**'
+          - 'workspaces/**/*.md'
+
+data:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'data/**'

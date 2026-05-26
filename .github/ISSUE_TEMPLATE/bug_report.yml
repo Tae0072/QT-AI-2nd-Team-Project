@@ -1,0 +1,79 @@
+name: 🐛 버그 신고
+description: 버그를 발견했다면 여기에 신고해 주세요.
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        버그 신고 감사합니다. 아래 항목을 최대한 상세히 작성해 주세요.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 어떤 문제가 발생했나요?
+      description: 기대한 동작과 실제로 일어난 동작을 설명해 주세요.
+      placeholder: "예: /api/v1/qt/today 호출 시 200이 아닌 500이 반환됩니다."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현 단계
+      description: 버그를 재현하는 최소한의 단계를 작성해 주세요.
+      placeholder: |
+        1. 엔드포인트 호출: POST /api/v1/auth/kakao
+        2. 요청 바디: { "kakaoToken": "..." }
+        3. 응답 확인
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 동작
+      placeholder: "200 OK와 함께 회원 토큰이 반환되어야 합니다."
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 관련 로그 / 스택 트레이스
+      description: 관련 로그가 있다면 붙여넣어 주세요. (민감 정보 제거 후)
+      render: shell
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 심각도
+      options:
+        - Critical (서비스 불가)
+        - Major (주요 기능 장애)
+        - Minor (부분 오작동)
+        - Trivial (경미한 문제)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 영역
+      options:
+        - Backend (qtai-server)
+        - Flutter App
+        - CI/CD
+        - Docs
+        - 기타
+    validations:
+      required: true
+
+  - type: input
+    id: related-fid
+    attributes:
+      label: 관련 F-ID (있을 경우)
+      placeholder: "예: F-03, F-08"
+    validations:
+      required: false

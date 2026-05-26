@@ -1,0 +1,86 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. PR 제목 Conventional Commits 형식 검사
+  # ---------------------------------------------------------------------------
+  semantic-pr:
+    name: Semantic PR Title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            refactor
+            chore
+            docs
+            test
+            perf
+            build
+            ci
+            revert
+          requireScope: false
+
+  # ---------------------------------------------------------------------------
+  # 2. 브랜치명 규칙 검사
+  #    허용: feature/* bugfix/* hotfix/* chore/* release/* docs/*
+  # ---------------------------------------------------------------------------
+  branch-name:
+    name: Branch Name Convention
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "브랜치명: $BRANCH"
+          # dev, master 브랜치는 통합 PR용이므로 규칙 예외
+          if [[ "$BRANCH" == "dev" || "$BRANCH" == "master" || "$BRANCH" == "main" ]]; then
+            echo "✅ 기본 브랜치($BRANCH)는 브랜치명 규칙 예외"
+            exit 0
+          fi
+          if [[ ! "$BRANCH" =~ ^(feature|bugfix|hotfix|chore|release|docs)/[a-z0-9]+([a-z0-9-]*[a-z0-9])?$ ]]; then
+            echo "❌ 브랜치명 규칙 위반: $BRANCH"
+            echo ""
+            echo "올바른 형식: {type}/{kebab-case-summary}"
+            echo "허용 타입: feature / bugfix / hotfix / chore / release / docs"
+            echo ""
+            echo "예시:"
+            echo "  feature/member-kakao-oauth"
+            echo "  bugfix/qt-cache-expiry"
+            echo "  chore/add-dependabot"
+            echo "  docs/requirements-v34-sync"
+            exit 1
+          fi
+          echo "✅ 브랜치명 규칙 통과: $BRANCH"
+
+  # ---------------------------------------------------------------------------
+  # 3. PR 크기 라벨링 (XS ~ XL)
+  #    XL(1000줄 초과) 시 경고 코멘트 — 실패는 아님
+  # ---------------------------------------------------------------------------
+  pr-size:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: CodelyTV/pr-size-labeler@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          xs_max_size: 50
+          s_max_size: 200
+          m_max_size: 500
+          l_max_size: 1000
+          fail_if_xl: false
+          message_if_xl: |
+            ⚠️ **PR이 너무 큽니다 (1000줄 초과).**
+
+            리뷰 품질 유지를 위해 작은 단위로 분리해 주세요.
+            불가피한 경우 PR 본문에 사유를 명시해 주세요.
+
+            기준: `09_Git_규칙.md` — PR은 가능하면 10 files 이하, 500 changed lines 이하

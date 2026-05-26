@@ -3,17 +3,17 @@ name: Claude PR Auto Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [ dev ]
+    branches: [dev]
 
 # =============================================================================
 # 환경변수 — 변경 가능 (한 곳만 수정하면 전체 반영)
 # =============================================================================
+# 정책: PR diff 크기 절단(truncation) 없음.
+#   - 큰 PR이라도 전체 diff를 Claude에 전달하여 검증 누락을 방지한다.
+#   - 파일 기반 stdin 파이프로 호출하여 OS ARG_MAX / GITHUB_OUTPUT 1MB 한도를 우회.
+#   - Claude API 컨텍스트(200K 토큰)를 초과할 정도의 거대 PR은 API 단에서 명시적으로
+#     실패하므로 silent truncation 보다 안전. 그런 PR은 도메인별로 쪼개야 한다.
 env:
-  # PR diff 크기 한도 (bytes). 1MB 기본.
-  # 이미지 시뮬레이션 도입 시(예상 300MB) 이 값만 늘리거나 별도 워크플로우로 분리.
-  # 주의: Claude 컨텍스트 한도 ≈ 200K 토큰 (약 600KB~1MB). 1MB 초과 시 컨텍스트 잘릴 수 있음.
-  DIFF_MAX_BYTES: 1000000
-
   # Claude 모델 — 코드 리뷰는 Opus(추론력 우선) 권장.
   # 변경 시 이 env 변수만 수정 (예: claude-sonnet-4-6 로 다운그레이드 가능).
   ANTHROPIC_MODEL_NAME: claude-opus-4-7
@@ -33,19 +33,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get PR diff
-        id: get_diff
-        run: |
-          {
-            echo 'diff_content<<__DIFF_EOF__'
-            git diff origin/${{ github.base_ref }}...HEAD | head -c ${{ env.DIFF_MAX_BYTES }}
-            echo '__DIFF_EOF__'
-          } >> $GITHUB_OUTPUT
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
@@ -55,11 +46,26 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_MODEL: ${{ env.ANTHROPIC_MODEL_NAME }}
-          # bash 특수문자 escape: PR diff의 $(...), `...`, "..." 을 bash가 재해석하지 않도록 env로 export
-          PR_DIFF: ${{ steps.get_diff.outputs.diff_content }}
-          DIFF_MAX_BYTES_INT: ${{ env.DIFF_MAX_BYTES }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          PROMPT="당신은 QT-AI 프로젝트의 시니어 백엔드 개발자입니다. 아래 PR diff를 분석하여 한국어로 코드 리뷰를 작성하세요.
+          # ---------------------------------------------------------------
+          # 1) PR 전체 diff를 파일로 추출 (truncation 없음)
+          #    - GITHUB_OUTPUT(1MB) / ARG_MAX 한도를 모두 우회하기 위해 파일 기반.
+          # ---------------------------------------------------------------
+          DIFF_FILE=$(mktemp)
+          PROMPT_FILE=$(mktemp)
+          trap 'rm -f "$DIFF_FILE" "$PROMPT_FILE"' EXIT
+
+          git diff "origin/${BASE_REF}...HEAD" > "$DIFF_FILE"
+          DIFF_SIZE=$(wc -c < "$DIFF_FILE")
+          echo "=== PR diff 크기: ${DIFF_SIZE} bytes ==="
+
+          # ---------------------------------------------------------------
+          # 2) 프롬프트 헤더를 파일에 작성 (heredoc 사용 → bash 재해석 차단)
+          #    인용된 <<'EOF' 형태라 ${...}, $(...), `...` 모두 리터럴.
+          # ---------------------------------------------------------------
+          cat > "$PROMPT_FILE" << 'PROMPT_HEADER_EOF'
+          당신은 QT-AI 프로젝트의 시니어 백엔드 개발자입니다. 아래 PR diff를 분석하여 한국어로 코드 리뷰를 작성하세요.
 
           ## QT-AI 프로젝트 컨텍스트
           - 거버닝 SSoT: 07_요구사항_정의서.md v3.1 (충돌 우선순위: 07 > 03 > 04 > 18 > 23 > 09)
@@ -147,16 +153,30 @@ jobs:
           APPROVE
           REQUEST_CHANGES
 
-          ## PR Diff (최대 ${DIFF_MAX_BYTES_INT} bytes)
-          ${PR_DIFF}"
+          ## PR Diff
+          PROMPT_HEADER_EOF
 
+          # ---------------------------------------------------------------
+          # 3) diff 본문을 프롬프트 파일에 append (절단 없음)
+          # ---------------------------------------------------------------
+          cat "$DIFF_FILE" >> "$PROMPT_FILE"
+          PROMPT_SIZE=$(wc -c < "$PROMPT_FILE")
+          echo "=== 최종 프롬프트 크기: ${PROMPT_SIZE} bytes ==="
+
+          # ---------------------------------------------------------------
+          # 4) Claude CLI 호출 — stdin 파이프로 ARG_MAX 우회
+          # ---------------------------------------------------------------
           echo "=== Claude Code CLI 실행 중 ==="
-          REVIEW=$(claude --print "$PROMPT" 2>&1)
+          REVIEW=$(claude --print < "$PROMPT_FILE" 2>&1)
           EXIT_CODE=$?
           echo "=== exit code: $EXIT_CODE ==="
           echo "=== review output ==="
           echo "$REVIEW"
 
+          # ---------------------------------------------------------------
+          # 5) 리뷰 결과를 다음 step으로 전달
+          #    리뷰 출력은 통상 수 KB 수준이므로 GITHUB_OUTPUT(1MB) 한도 내.
+          # ---------------------------------------------------------------
           {
             echo 'output<<__OUTPUT_EOF__'
             echo "$REVIEW"
@@ -171,41 +191,77 @@ jobs:
         uses: actions/github-script@v7
         env:
           REVIEW_OUTPUT: ${{ steps.claude_review.outputs.output }}
+          CLAUDE_STEP_OUTCOME: ${{ steps.claude_review.outcome }}
         with:
           script: |
             const reviewText = process.env.REVIEW_OUTPUT || '';
+            const stepOutcome = process.env.CLAUDE_STEP_OUTCOME || '';
+            const repoInfo = { owner: context.repo.owner, repo: context.repo.repo };
+            const prNumber = context.payload.pull_request.number;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
-            if (!reviewText) {
-              console.log('Claude 리뷰 출력 없음 — CLI 로그를 확인하세요.');
+            // -----------------------------------------------------------------
+            // 실패 케이스: Claude CLI가 크래시했거나 빈 출력을 반환한 경우.
+            // 조용히 return하지 않고 PR에 진단 코멘트를 남겨야 작성자가 인지 가능.
+            // (예: ARG_MAX/E2BIG, OAuth 토큰 누락, 컨텍스트 초과, API 장애 등)
+            // -----------------------------------------------------------------
+            if (stepOutcome === 'failure' || !reviewText) {
+              console.log(`Claude 리뷰 실패 — outcome=${stepOutcome}, output 길이=${reviewText.length}`);
+
+              await github.rest.issues.createComment({
+                ...repoInfo,
+                issue_number: prNumber,
+                body: [
+                  '## ⚠️ Claude 자동 리뷰 실행 실패',
+                  '',
+                  '워크플로우는 트리거됐으나 Claude CLI가 리뷰를 생성하지 못했습니다.',
+                  '**자동 머지가 진행되지 않으며, 수동 리뷰가 필요합니다.**',
+                  '',
+                  `🔗 워크플로우 실행 로그: ${runUrl}`,
+                  '',
+                  '### 일반적인 원인',
+                  '- PR diff가 Claude 컨텍스트 한도(약 200K 토큰)를 초과 → PR을 도메인별로 분할',
+                  '- `CLAUDE_CODE_OAUTH_TOKEN` 시크릿 미설정/만료 → 저장소 Settings → Secrets 확인',
+                  '- Anthropic API 일시 장애 → status.anthropic.com 확인 후 Re-run jobs',
+                  '- Claude CLI 설치 실패 또는 모델명 오류 → 워크플로우 로그의 "Install Claude Code CLI" 단계 확인',
+                  '',
+                  '### 다음 액션',
+                  '1. 위 로그 링크에서 실패 step의 상세 메시지를 확인하세요.',
+                  '2. 원인 해결 후 Actions 탭에서 **Re-run jobs** 버튼으로 재시도하거나, 빈 커밋을 push해 워크플로우를 재트리거하세요.',
+                  '',
+                  '> 이 코멘트는 봇이 자동 생성했습니다.',
+                ].join('\n')
+              });
               return;
             }
 
             const lines = reviewText.trim().split('\n');
             const lastLine = lines[lines.length - 1].trim();
-            const decision = lastLine === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES';
+            const isApproved = lastLine === 'APPROVE';
+            // REQUEST_CHANGES 는 사용하지 않는다.
+            // 봇이 머지를 차단하지 않도록 COMMENT 전용으로 고정하고,
+            // APPROVE 판정일 때만 자동 squash merge 를 진행한다.
+            const reviewEvent = isApproved ? 'APPROVE' : 'COMMENT';
 
             console.log('=== Claude 리뷰 결과 ===');
             console.log(reviewText);
-            console.log('결정:', decision);
-
-            const repoInfo = { owner: context.repo.owner, repo: context.repo.repo };
-            const prNumber = context.payload.pull_request.number;
+            console.log('판정:', isApproved ? 'APPROVE → 자동 머지 대기' : 'REQUEST_CHANGES → COMMENT 로 전환 (머지 차단 안 함)');
 
             await github.rest.pulls.createReview({
               ...repoInfo,
               pull_number: prNumber,
               body: `## 🤖 Claude 자동 코드 리뷰 (v3.1 기준 9개 항목)\n\n${reviewText}`,
-              event: decision
+              event: reviewEvent
             });
 
-            if (decision !== 'APPROVE') {
-              console.log('REQUEST_CHANGES — 자동 머지 건너뜀');
+            if (!isApproved) {
+              console.log('개선 권장 사항 있음 — 코멘트만 남기고 머지 차단하지 않음');
               return;
             }
 
             const MAX_WAIT_MS   = 10 * 60 * 1000;
             const POLL_INTERVAL = 15 * 1000;
-            const THIS_JOB_NAME = 'claude-review';  // GitHub API는 workflow name이 아닌 job name 반환
+            const THIS_JOB_NAME = 'claude-review';
             const sha = context.payload.pull_request.head.sha;
             const startTime = Date.now();
 
