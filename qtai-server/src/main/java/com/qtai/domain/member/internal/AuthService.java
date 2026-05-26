@@ -13,13 +13,14 @@ import com.qtai.domain.member.client.kakao.KakaoOAuthClient;
 import com.qtai.domain.member.client.kakao.dto.KakaoUserInfo;
 import com.qtai.security.JwtProvider;
 import io.jsonwebtoken.JwtException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
+import java.util.UUID;
 
 /**
  * 인증 서비스 — 로그인, 로그아웃, 토큰 갱신.
@@ -27,13 +28,12 @@ import java.time.Duration;
  * 로그인 흐름:
  * 1. Flutter SDK가 카카오 access token 발급
  * 2. POST /api/v1/auth/kakao로 전달
- * 3. KakaoOAuthClient로 사용자 정보 조회
- * 4. Member 조회 또는 자동 가입 (첫 로그인)
+ * 3. KakaoOAuthClient로 사용자 정보 조회 (트랜잭션 밖)
+ * 4. Member 조회 또는 자동 가입 — TransactionTemplate으로 프로그래매틱 트랜잭션 관리
  * 5. JWT access/refresh token 발급 + Redis 저장
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUseCase {
 
     private final KakaoOAuthClient kakaoOAuthClient;
@@ -41,9 +41,26 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
     private final MemberAuthProviderRepository authProviderRepository;
     private final RefreshTokenStore refreshTokenStore;
     private final JwtProvider jwtProvider;
+    private final TransactionTemplate transactionTemplate;
+    private final long refreshExpiryMs;
 
-    @Value("${security.jwt.refresh-expiry-ms}")
-    private long refreshExpiryMs;
+    public AuthService(
+            KakaoOAuthClient kakaoOAuthClient,
+            MemberRepository memberRepository,
+            MemberAuthProviderRepository authProviderRepository,
+            RefreshTokenStore refreshTokenStore,
+            JwtProvider jwtProvider,
+            TransactionTemplate transactionTemplate,
+            @Value("${security.jwt.refresh-expiry-ms}") long refreshExpiryMs
+    ) {
+        this.kakaoOAuthClient = kakaoOAuthClient;
+        this.memberRepository = memberRepository;
+        this.authProviderRepository = authProviderRepository;
+        this.refreshTokenStore = refreshTokenStore;
+        this.jwtProvider = jwtProvider;
+        this.transactionTemplate = transactionTemplate;
+        this.refreshExpiryMs = refreshExpiryMs;
+    }
 
     @Override
     public LoginResponse login(LoginRequest request) {
@@ -55,61 +72,42 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
             throw new BusinessException(ErrorCode.KAKAO_AUTH_FAILED);
         }
 
-        // 2. DB 작업 + 토큰 발급 (트랜잭션 내부)
-        return loginInternal(kakaoUser);
-    }
+        // 2. DB 작업 — TransactionTemplate으로 프로그래매틱 트랜잭션 (self-invocation 방지)
+        Member member = transactionTemplate.execute(status -> {
+            Long kakaoId = kakaoUser.id();
 
-    @Transactional
-    protected LoginResponse loginInternal(KakaoUserInfo kakaoUser) {
-        Long kakaoId = kakaoUser.id();
+            Member found = memberRepository.findByKakaoId(kakaoId)
+                    .orElseGet(() -> registerNewMember(kakaoUser));
 
-        // 기존 회원 조회 또는 신규 가입
-        Member member = memberRepository.findByKakaoId(kakaoId)
-                .orElseGet(() -> registerNewMember(kakaoUser));
+            // 탈퇴/정지 회원 검증
+            if (found.getStatus() == MemberStatus.WITHDRAWN) {
+                throw new BusinessException(ErrorCode.MEMBER_ALREADY_WITHDRAWN);
+            }
+            if (found.getStatus() == MemberStatus.SUSPENDED) {
+                throw new BusinessException(ErrorCode.MEMBER_SUSPENDED);
+            }
+            return found;
+        });
 
-        // 탈퇴/정지 회원 검증
-        if (member.getStatus() == MemberStatus.WITHDRAWN) {
-            throw new BusinessException(ErrorCode.MEMBER_ALREADY_WITHDRAWN);
-        }
-        if (member.getStatus() == MemberStatus.SUSPENDED) {
-            throw new BusinessException(ErrorCode.MEMBER_SUSPENDED);
-        }
-
-        // JWT 발급
+        // 3. JWT 발급 + Redis 저장 (트랜잭션 밖)
         String accessToken = jwtProvider.issueAccessToken(member.getId(), member.getRole().name());
         String refreshToken = jwtProvider.issueRefreshToken(member.getId());
-
-        // Refresh token Redis 저장
         refreshTokenStore.save(member.getId(), refreshToken, Duration.ofMillis(refreshExpiryMs));
 
-        log.info("로그인 성공: memberId={}, kakaoId={}, isNew={}", member.getId(), kakaoId,
+        log.info("로그인 성공: memberId={}, kakaoId={}, isNew={}", member.getId(), kakaoUser.id(),
                 member.getNicknameChangedAt() == null);
 
-        // 응답 생성
-        boolean onboardingRequired = member.getNicknameChangedAt() == null
-                && member.getNickname().startsWith("user_");
-        return new LoginResponse(
-                accessToken,
-                refreshToken,
-                new LoginResponse.MemberSummary(
-                        member.getId(),
-                        member.getNickname(),
-                        member.getRole().name(),
-                        member.getStatus().name(),
-                        onboardingRequired
-                )
-        );
+        return buildLoginResponse(member, accessToken, refreshToken);
     }
 
     @Override
-    @Transactional
     public void logout(Long memberId) {
         refreshTokenStore.delete(memberId);
         log.info("로그아웃 완료: memberId={}", memberId);
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public LoginResponse refresh(RefreshTokenRequest request) {
         // 1. Refresh token 검증 (서명 + 만료 + type)
         Long memberId;
@@ -131,6 +129,7 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
         if (member.getStatus() != MemberStatus.ACTIVE) {
+            log.warn("비활성 회원 토큰 갱신 시도: memberId={}, status={}", memberId, member.getStatus());
             refreshTokenStore.delete(memberId);
             throw new BusinessException(ErrorCode.MEMBER_NOT_FOUND);
         }
@@ -142,11 +141,22 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
 
         log.info("토큰 갱신 완료: memberId={}", memberId);
 
+        return buildLoginResponse(member, newAccessToken, newRefreshToken);
+    }
+
+    // -------------------------------------------------------------------------
+    // private
+    // -------------------------------------------------------------------------
+
+    /**
+     * LoginResponse 생성 헬퍼.
+     */
+    private LoginResponse buildLoginResponse(Member member, String accessToken, String refreshToken) {
         boolean onboardingRequired = member.getNicknameChangedAt() == null
                 && member.getNickname().startsWith("user_");
         return new LoginResponse(
-                newAccessToken,
-                newRefreshToken,
+                accessToken,
+                refreshToken,
                 new LoginResponse.MemberSummary(
                         member.getId(),
                         member.getNickname(),
@@ -157,19 +167,16 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
         );
     }
 
-    // -------------------------------------------------------------------------
-    // private
-    // -------------------------------------------------------------------------
-
     /**
      * 첫 로그인 시 자동 회원 가입.
      * nickname은 임시값("user_{kakaoId}")으로 설정하며, 온보딩 화면에서 변경한다.
      */
     private Member registerNewMember(KakaoUserInfo kakaoUser) {
         String tempNickname = "user_" + kakaoUser.id();
-        // 혹시 닉네임 충돌 시 suffix 추가
+        // 닉네임 충돌 시 UUID suffix 추가 (동시 가입 안전)
         if (memberRepository.existsByNickname(tempNickname)) {
-            tempNickname = "user_" + kakaoUser.id() + "_" + System.currentTimeMillis() % 10000;
+            tempNickname = "user_" + kakaoUser.id() + "_"
+                    + UUID.randomUUID().toString().substring(0, 8);
         }
 
         Member member = Member.builder()

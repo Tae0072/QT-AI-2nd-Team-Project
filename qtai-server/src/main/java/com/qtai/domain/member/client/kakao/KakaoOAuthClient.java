@@ -1,22 +1,24 @@
 package com.qtai.domain.member.client.kakao;
 
 import com.qtai.domain.member.client.kakao.dto.KakaoUserInfo;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+
+import java.time.Duration;
 
 /**
  * 카카오 OAuth2 사용자 정보 조회 클라이언트.
  *
  * Flutter SDK가 발급한 카카오 access token을 받아 사용자 정보를 조회한다.
- * 로그에 토큰 값을 남기지 않는다 (CLAUDE.md 9).
+ * 로그에 토큰 값을 남기지 않는다 (CLAUDE.md §9).
  */
 @Slf4j
 @Component
@@ -27,7 +29,10 @@ public class KakaoOAuthClient {
 
     public KakaoOAuthClient(
             @Value("${kakao.api.user-info-url}") String userInfoUrl) {
-        this.restTemplate = new RestTemplate();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(3));
+        factory.setReadTimeout(Duration.ofSeconds(5));
+        this.restTemplate = new RestTemplate(factory);
         this.userInfoUrl = userInfoUrl;
     }
 

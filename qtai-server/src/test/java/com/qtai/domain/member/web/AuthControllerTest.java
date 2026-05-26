@@ -2,6 +2,8 @@ package com.qtai.domain.member.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -98,6 +100,16 @@ class AuthControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void kakaoLogin_400_빈_토큰_Validation_실패() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/kakao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest(""))))
+                .andExpect(status().isBadRequest());
+
+        verify(loginUseCase, never()).login(any());
+    }
+
     // ── 토큰 갱신 ──
 
     @Test
@@ -124,6 +136,16 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new RefreshTokenRequest("bad"))))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refresh_400_빈_토큰_Validation_실패() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new RefreshTokenRequest(""))))
+                .andExpect(status().isBadRequest());
+
+        verify(refreshTokenUseCase, never()).refresh(any());
     }
 
     // ── 로그아웃 ──

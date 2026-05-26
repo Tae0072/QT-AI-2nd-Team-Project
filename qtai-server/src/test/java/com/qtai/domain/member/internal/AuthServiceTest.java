@@ -16,7 +16,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
@@ -39,6 +40,7 @@ class AuthServiceTest {
     private MemberAuthProviderRepository authProviderRepository;
     private RefreshTokenStore refreshTokenStore;
     private JwtProvider jwtProvider;
+    private TransactionTemplate transactionTemplate;
     private AuthService authService;
 
     @BeforeEach
@@ -49,10 +51,16 @@ class AuthServiceTest {
         refreshTokenStore = Mockito.mock(RefreshTokenStore.class);
         jwtProvider = Mockito.mock(JwtProvider.class);
 
+        // TransactionTemplate — 콜백을 즉시 실행하는 스텁
+        transactionTemplate = Mockito.mock(TransactionTemplate.class);
+        when(transactionTemplate.execute(any())).thenAnswer(inv -> {
+            TransactionCallback<?> callback = inv.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+
         authService = new AuthService(
                 kakaoOAuthClient, memberRepository, authProviderRepository,
-                refreshTokenStore, jwtProvider);
-        ReflectionTestUtils.setField(authService, "refreshExpiryMs", 1209600000L);
+                refreshTokenStore, jwtProvider, transactionTemplate, 1209600000L);
     }
 
     // ── login 정상 ──
