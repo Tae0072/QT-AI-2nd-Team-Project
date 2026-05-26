@@ -38,7 +38,9 @@ public class NoteService implements ListNotesUseCase {
 
     @Override
     public NoteListResponse list(Long memberId, NoteCategory category, NoteStatus status, String q, Pageable pageable) {
-        Page<Note> page = noteRepository.search(memberId, category, status, q, pageable);
+        // 사용자 입력에 %, _ 같은 LIKE 와일드카드가 포함돼도 의도와 다른 결과가 나오지 않도록 이스케이프.
+        // Repository JPQL은 ESCAPE '\\' 절을 명시한다.
+        Page<Note> page = noteRepository.search(memberId, category, status, escapeLikeWildcards(q), pageable);
 
         List<NoteListItem> content = page.getContent().stream()
                 .map(note -> toListItem(note))
@@ -76,5 +78,18 @@ public class NoteService implements ListNotesUseCase {
                 .findFirst()
                 .map(o -> o.getProperty() + "," + o.getDirection().name().toLowerCase())
                 .orElse(DEFAULT_SORT);
+    }
+
+    /**
+     * LIKE 와일드카드(%, _) 이스케이프. 백슬래시를 먼저 처리해야 중복 이스케이프 방지.
+     * Repository JPQL은 ESCAPE '\\' 절을 명시해 이스케이프된 문자를 리터럴로 해석한다.
+     */
+    private static String escapeLikeWildcards(String q) {
+        if (q == null) {
+            return null;
+        }
+        return q.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 }

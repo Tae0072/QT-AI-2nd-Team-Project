@@ -15,6 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.test.context.ActiveProfiles;
 
 import com.qtai.config.JpaAuditingConfig;
 import com.qtai.domain.note.api.NoteCategory;
@@ -27,12 +28,16 @@ import com.qtai.domain.note.api.NoteStatus;
  * 이 테스트는 진짜 H2 DB에서 JPQL을 실행해
  * {@link NoteRepository#search} 의 동적 필터·페이지네이션·정렬이 실제 SQL로 잘 동작하는지 검증한다.
  *
- * @DataJpaTest 는 JPA 슬라이스만 띄우고 일반 @Configuration 은 안 띄우므로,
- *              createdAt/updatedAt 자동 채움(JpaAuditing)을
- *              위해 @Import(JpaAuditingConfig.class) 명시.
+ * <p>@DataJpaTest 는 JPA 슬라이스만 띄우고 일반 @Configuration 은 안 띄우므로,
+ * createdAt/updatedAt 자동 채움(JpaAuditing)을 위해 @Import(JpaAuditingConfig.class) 명시.
+ *
+ * <p>@ActiveProfiles("test")로 test 프로파일을 활성화해
+ * application-test.yml의 flyway.enabled=false를 적용한다. JPA 슬라이스 테스트는
+ * Hibernate ddl-auto=create-drop으로 충분하며, Flyway 마이그레이션은 격리할 대상이다.
  */
 @DataJpaTest
 @Import(JpaAuditingConfig.class)
+@ActiveProfiles("test")
 class NoteRepositoryIntegrationTest {
 
     private static final Pageable DEFAULT_PAGE = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "updatedAt"));
