@@ -188,7 +188,7 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Post Review & Auto Merge
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           REVIEW_OUTPUT: ${{ steps.claude_review.outputs.output }}
           CLAUDE_STEP_OUTCOME: ${{ steps.claude_review.outcome }}
