@@ -1,14 +1,14 @@
 # Report - 2026-05-26 ai-system-openapi-contract
 
-| 항목 | 내용 |
-| --- | --- |
-| 담당자 | 강상민 |
-| 브랜치 | `docs/ai-system-openapi-contract` |
-| PR 대상 | `dev` |
-| 실행 경로 | 직접 실행 |
-| 관련 workflow | `doc/workspaces/DevC_강상민/workflows/2026-05-26_ai-system-openapi-contract.md` |
-| 관련 F-ID | 해당 없음 |
-| 작성 위치 | `doc/workspaces/DevC_강상민/reports/2026-05-26_ai-system-openapi-contract_report.md` |
+| 항목          | 내용                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------ |
+| 담당자        | 강상민                                                                               |
+| 브랜치        | `docs/ai-system-openapi-contract`                                                    |
+| PR 대상       | `dev`                                                                                |
+| 실행 경로     | 직접 실행                                                                            |
+| 관련 workflow | `doc/workspaces/DevC_강상민/workflows/2026-05-26_ai-system-openapi-contract.md`      |
+| 관련 F-ID     | 해당 없음                                                                            |
+| 작성 위치     | `doc/workspaces/DevC_강상민/reports/2026-05-26_ai-system-openapi-contract_report.md` |
 
 ## 작업 결과
 
@@ -40,66 +40,66 @@
 
 ## 변경 파일
 
-| 파일 | 내용 |
-| --- | --- |
-| `qtai-server/apis/api-v1/openapi.yaml` | 시스템 AI API 3종 path, 요청/응답 schema, 공통 오류 응답, bearer security, review-fix enum/traceId/404 계약 반영 |
-| `doc/workspaces/DevC_강상민/reports/2026-05-26_ai-system-openapi-contract_report.md` | 작업 내용, review-fix 결과, 검증 결과, 제외 범위, 후속 작업 기록 |
+| 파일                                                                                 | 내용                                                                                                             |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `qtai-server/apis/api-v1/openapi.yaml`                                               | 시스템 AI API 3종 path, 요청/응답 schema, 공통 오류 응답, bearer security, review-fix enum/traceId/404 계약 반영 |
+| `doc/workspaces/DevC_강상민/reports/2026-05-26_ai-system-openapi-contract_report.md` | 작업 내용, review-fix 결과, 검증 결과, 제외 범위, 후속 작업 기록                                                 |
 
 ## 수용 기준 평가
 
-| 수용 기준 | 상태 | 근거 |
-| --- | --- | --- |
-| `POST /api/v1/system/ai/generation-jobs`가 OpenAPI에 추가된다 | 충족 | path와 `createSystemAiGenerationJob` operation 추가 |
-| `POST /api/v1/system/ai/assets`가 OpenAPI에 추가된다 | 충족 | path와 `registerSystemAiAsset` operation 추가 |
-| `POST /api/v1/system/ai/validation-logs`가 OpenAPI에 추가된다 | 충족 | path와 `registerSystemAiValidationLog` operation 추가 |
-| 세 API 모두 `SYSTEM_BATCH` 권한 요구가 명시된다 | 충족 | operation description과 `bearerAuth` security에 반영 |
-| `generation-jobs.jobType`은 `DAILY_QT_EXPLANATION`, `DAILY_QT_SIMULATOR`만 문서화된다 | 충족 | request schema enum 확인 |
-| `validationReferenceJobId`는 nullable optional로 문서화된다 | 충족 | required 목록에서 제외, `nullable: true` 지정 |
-| `inputHash` 요청/응답 필드는 추가하지 않는다 | 충족 | 금지어 검색에서 매치 없음 |
-| `SUMMARY`/`GLOSSARY`는 generation job type으로 문서화하지 않는다 | 충족 | `SystemAiGenerationJobRequest.jobType`은 `DAILY_QT_EXPLANATION`, `DAILY_QT_SIMULATOR`만 유지. `SUMMARY`/`GLOSSARY`는 구현 enum에 맞춰 `assetType`에만 문서화 |
-| prompt 원문, provider raw response, secret, token, password 예시는 추가하지 않는다 | 충족 | example을 추가하지 않았고 금지어 검색에서 매치 없음 |
-| Gradle 테스트 미실행 사유를 report에 남긴다 | 충족 | 문서 계약 변경만 수행해 서버 테스트는 생략 |
-| `POST /api/v1/system/ai/generation-jobs` operation에 `404` response가 없다 | 충족 | 해당 operation은 `202/400/401/403/409/500` 응답만 유지 |
-| `traceId` schema는 `type: string`이며 `format: uuid`를 사용하지 않는다 | 충족 | `format: uuid` 검색 매치 없음 |
-| `SystemAiAssetRequest.assetType`은 구현 enum 값을 문서화한다 | 충족 | `EXPLANATION`, `SUMMARY`, `GLOSSARY`, `SIMULATOR`, `QA_RESPONSE` 반영 |
-| `SystemAiAssetRequest.targetType`은 구현 enum 값을 문서화한다 | 충족 | `BIBLE_VERSE`, `QT_PASSAGE`, `QA_REQUEST` 반영 |
-| `SystemAiGenerationJobResponse.status`는 생성 job 상태 enum 값을 문서화한다 | 충족 | `QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED` 반영 |
-| `SystemAiAssetResponse.status`와 `SystemAiValidationLogResponse.assetStatus`는 산출물 상태 enum 값을 문서화한다 | 충족 | `VALIDATING`, `APPROVED`, `REJECTED`, `HIDDEN` 반영 |
-| `SystemAiValidationLogResponse.result`는 검증 결과 enum 값을 문서화한다 | 충족 | `PASSED`, `REJECTED`, `NEEDS_REVIEW` 반영 |
-| `ErrorBody.fields`는 이번 OpenAPI에 추가하지 않고 report 후속 작업에 명시한다 | 충족 | 현재 구현과 맞지 않는 `fields`를 추가하지 않았고 후속 작업에 공통 API 결정 항목으로 기록 |
+| 수용 기준                                                                                                       | 상태 | 근거                                                                                                                                                         |
+| --------------------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /api/v1/system/ai/generation-jobs`가 OpenAPI에 추가된다                                                   | 충족 | path와 `createSystemAiGenerationJob` operation 추가                                                                                                          |
+| `POST /api/v1/system/ai/assets`가 OpenAPI에 추가된다                                                            | 충족 | path와 `registerSystemAiAsset` operation 추가                                                                                                                |
+| `POST /api/v1/system/ai/validation-logs`가 OpenAPI에 추가된다                                                   | 충족 | path와 `registerSystemAiValidationLog` operation 추가                                                                                                        |
+| 세 API 모두 `SYSTEM_BATCH` 권한 요구가 명시된다                                                                 | 충족 | operation description과 `bearerAuth` security에 반영                                                                                                         |
+| `generation-jobs.jobType`은 `DAILY_QT_EXPLANATION`, `DAILY_QT_SIMULATOR`만 문서화된다                           | 충족 | request schema enum 확인                                                                                                                                     |
+| `validationReferenceJobId`는 nullable optional로 문서화된다                                                     | 충족 | required 목록에서 제외, `nullable: true` 지정                                                                                                                |
+| `inputHash` 요청/응답 필드는 추가하지 않는다                                                                    | 충족 | 금지어 검색에서 매치 없음                                                                                                                                    |
+| `SUMMARY`/`GLOSSARY`는 generation job type으로 문서화하지 않는다                                                | 충족 | `SystemAiGenerationJobRequest.jobType`은 `DAILY_QT_EXPLANATION`, `DAILY_QT_SIMULATOR`만 유지. `SUMMARY`/`GLOSSARY`는 구현 enum에 맞춰 `assetType`에만 문서화 |
+| prompt 원문, provider raw response, secret, token, password 예시는 추가하지 않는다                              | 충족 | example을 추가하지 않았고 금지어 검색에서 매치 없음                                                                                                          |
+| Gradle 테스트 미실행 사유를 report에 남긴다                                                                     | 충족 | 문서 계약 변경만 수행해 서버 테스트는 생략                                                                                                                   |
+| `POST /api/v1/system/ai/generation-jobs` operation에 `404` response가 없다                                      | 충족 | 해당 operation은 `202/400/401/403/409/500` 응답만 유지                                                                                                       |
+| `traceId` schema는 `type: string`이며 `format: uuid`를 사용하지 않는다                                          | 충족 | `format: uuid` 검색 매치 없음                                                                                                                                |
+| `SystemAiAssetRequest.assetType`은 구현 enum 값을 문서화한다                                                    | 충족 | `EXPLANATION`, `SUMMARY`, `GLOSSARY`, `SIMULATOR`, `QA_RESPONSE` 반영                                                                                        |
+| `SystemAiAssetRequest.targetType`은 구현 enum 값을 문서화한다                                                   | 충족 | `BIBLE_VERSE`, `QT_PASSAGE`, `QA_REQUEST` 반영                                                                                                               |
+| `SystemAiGenerationJobResponse.status`는 생성 job 상태 enum 값을 문서화한다                                     | 충족 | `QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED` 반영                                                                                                              |
+| `SystemAiAssetResponse.status`와 `SystemAiValidationLogResponse.assetStatus`는 산출물 상태 enum 값을 문서화한다 | 충족 | `VALIDATING`, `APPROVED`, `REJECTED`, `HIDDEN` 반영                                                                                                          |
+| `SystemAiValidationLogResponse.result`는 검증 결과 enum 값을 문서화한다                                         | 충족 | `PASSED`, `REJECTED`, `NEEDS_REVIEW` 반영                                                                                                                    |
+| `ErrorBody.fields`는 이번 OpenAPI에 추가하지 않고 report 후속 작업에 명시한다                                   | 충족 | 현재 구현과 맞지 않는 `fields`를 추가하지 않았고 후속 작업에 공통 API 결정 항목으로 기록                                                                     |
 
 ## 검증 결과
 
-| 명령 | 결과 |
-| --- | --- |
-| `npx.cmd @apidevtools/swagger-cli validate qtai-server/apis/api-v1/openapi.yaml` | 성공. `qtai-server/apis/api-v1/openapi.yaml is valid` |
-| `npx.cmd @stoplight/spectral-cli lint qtai-server/apis/api-v1/openapi.yaml --ruleset .spectral.yaml` | 실패. 저장소 루트에 `.spectral.yaml`이 없어 ruleset 파일을 열 수 없음 |
+| 명령                                                                                                                                             | 결과                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `npx.cmd @apidevtools/swagger-cli validate qtai-server/apis/api-v1/openapi.yaml`                                                                 | 성공. `qtai-server/apis/api-v1/openapi.yaml is valid`                                                                           |
+| `npx.cmd @stoplight/spectral-cli lint qtai-server/apis/api-v1/openapi.yaml --ruleset .spectral.yaml`                                             | 실패. 저장소 루트에 `.spectral.yaml`이 없어 ruleset 파일을 열 수 없음                                                           |
 | `rg -n "format: uuid\|/api/v1/system/ai/generation-jobs\|404\|assetType\|targetType\|assetStatus\|traceId" qtai-server/apis/api-v1/openapi.yaml` | 성공. `format: uuid` 매치 없음, `generation-jobs` path와 enum 대상 필드 확인. `404`는 `assets`, `validation-logs` 응답에만 남음 |
-| `rg -n "inputHash\|provider raw\|raw response\|password\|private key\|secret\|example.*token" qtai-server/apis/api-v1/openapi.yaml` | 매치 없음. 금지 필드/원문/민감 예시 미포함 확인 |
-| `git diff --check -- qtai-server/apis/api-v1/openapi.yaml doc/workspaces/DevC_강상민/reports/2026-05-26_ai-system-openapi-contract_report.md` | 성공. 공백 오류 없음. LF가 CRLF로 바뀔 수 있다는 Git 경고만 출력 |
+| `rg -n "inputHash\|provider raw\|raw response\|password\|private key\|secret\|example.*token" qtai-server/apis/api-v1/openapi.yaml`              | 매치 없음. 금지 필드/원문/민감 예시 미포함 확인                                                                                 |
+| `git diff --check -- qtai-server/apis/api-v1/openapi.yaml doc/workspaces/DevC_강상민/reports/2026-05-26_ai-system-openapi-contract_report.md`    | 성공. 공백 오류 없음. LF가 CRLF로 바뀔 수 있다는 Git 경고만 출력                                                                |
 
 ## 실행하지 않은 검증
 
-| 명령 | 사유 |
-| --- | --- |
-| `./gradlew -p qtai-server build` | Java 서버 코드 변경 없이 OpenAPI 문서만 변경했으므로 생략 |
-| `./gradlew -p qtai-server test jacocoTestReport` | Java 서버 코드 변경 없이 OpenAPI 문서만 변경했으므로 생략 |
-| `./gradlew -p qtai-server jacocoTestCoverageVerification` | Java 서버 코드 변경 없이 OpenAPI 문서만 변경했으므로 생략 |
-| `gitleaks detect --source . --redact --exit-code 1` | 이번 workflow 검증 계획에 포함되지 않았고, OpenAPI 예시에는 민감 값을 추가하지 않음 |
+| 명령                                                      | 사유                                                                                |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `./gradlew -p qtai-server build`                          | Java 서버 코드 변경 없이 OpenAPI 문서만 변경했으므로 생략                           |
+| `./gradlew -p qtai-server test jacocoTestReport`          | Java 서버 코드 변경 없이 OpenAPI 문서만 변경했으므로 생략                           |
+| `./gradlew -p qtai-server jacocoTestCoverageVerification` | Java 서버 코드 변경 없이 OpenAPI 문서만 변경했으므로 생략                           |
+| `gitleaks detect --source . --redact --exit-code 1`       | 이번 workflow 검증 계획에 포함되지 않았고, OpenAPI 예시에는 민감 값을 추가하지 않음 |
 
 ## 제외 범위 준수
 
-| 제외 항목 | 처리 |
-| --- | --- |
-| service account 기반 검증 필터 구현 | 미수정, description에 후속 범위로 명시 |
-| `/api/v1/system/**` 전역 Spring Security 설정 | 미수정 |
-| `validation_reference_jobs` 생성/조회/만료 API | 미문서화 |
-| `ai_validation_checklist_versions` 관리 API | 미문서화 |
-| 관리자 AI 로그 조회 API | 미문서화 |
-| `inputHash` 요청/응답 필드와 저장 컬럼 | 미문서화 |
-| `SUMMARY`/`GLOSSARY` generation job type | 미문서화 |
-| DeepSeek 호출, batch worker, 산출물 생성 로직 | 미수정 |
-| prompt 원문, provider raw response, 검증 참조 원문 전체, secret, token, password 예시 | 미포함 |
+| 제외 항목                                                                             | 처리                                   |
+| ------------------------------------------------------------------------------------- | -------------------------------------- |
+| service account 기반 검증 필터 구현                                                   | 미수정, description에 후속 범위로 명시 |
+| `/api/v1/system/**` 전역 Spring Security 설정                                         | 미수정                                 |
+| `validation_reference_jobs` 생성/조회/만료 API                                        | 미문서화                               |
+| `ai_validation_checklist_versions` 관리 API                                           | 미문서화                               |
+| 관리자 AI 로그 조회 API                                                               | 미문서화                               |
+| `inputHash` 요청/응답 필드와 저장 컬럼                                                | 미문서화                               |
+| `SUMMARY`/`GLOSSARY` generation job type                                              | 미문서화                               |
+| DeepSeek 호출, batch worker, 산출물 생성 로직                                         | 미수정                                 |
+| prompt 원문, provider raw response, 검증 참조 원문 전체, secret, token, password 예시 | 미포함                                 |
 
 ## 후속 작업
 
