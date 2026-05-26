@@ -28,6 +28,10 @@ public enum ErrorCode {
     FORBIDDEN("M0003", "권한이 없습니다.", HttpStatus.FORBIDDEN),
     DUPLICATE_NICKNAME("M0004", "이미 사용 중인 닉네임입니다.", HttpStatus.CONFLICT),
     NICKNAME_LOCKED("M0005", "닉네임 변경 후 7일이 지나야 다시 변경할 수 있습니다.", HttpStatus.CONFLICT),
+    MEMBER_ALREADY_WITHDRAWN("M0006", "이미 탈퇴한 회원입니다.", HttpStatus.BAD_REQUEST),
+    MEMBER_SUSPENDED("M0007", "정지된 회원입니다.", HttpStatus.FORBIDDEN),
+    INVALID_REFRESH_TOKEN("M0008", "유효하지 않은 refresh token입니다.", HttpStatus.UNAUTHORIZED),
+    KAKAO_AUTH_FAILED("M0009", "카카오 인증에 실패했습니다.", HttpStatus.UNAUTHORIZED),
 
     // AI
     AI_GENERATION_JOB_NOT_FOUND("A0001", "AI 생성 작업을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

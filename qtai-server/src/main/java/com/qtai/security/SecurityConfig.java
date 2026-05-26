@@ -48,6 +48,7 @@ public class SecurityConfig {
                         // 인증 없이 허용 (CLAUDE.md §5)
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/kakao").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/token/refresh").permitAll()
 
                         // 관리자 API — ADMIN role 필요 (admin_role 세부 권한은 서비스 레이어에서 추가 검증)
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
