@@ -4,13 +4,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
-/**
- * 에러 코드 상수.
- *
- * <p>도메인별 NOT_FOUND 코드(M0001, B0001, N0001 등)와 공통 RESOURCE_NOT_FOUND(C0004)가
- * 공존한다. 도메인 코드가 존재하면 도메인 코드를 우선 사용하고,
- * 공통 코드는 도메인을 특정할 수 없는 범용 상황에서만 사용한다.
- */
 @Getter
 @RequiredArgsConstructor
 public enum ErrorCode {
@@ -28,6 +21,16 @@ public enum ErrorCode {
     FORBIDDEN("M0003", "권한이 없습니다.", HttpStatus.FORBIDDEN),
     DUPLICATE_NICKNAME("M0004", "이미 사용 중인 닉네임입니다.", HttpStatus.CONFLICT),
     NICKNAME_LOCKED("M0005", "닉네임 변경 후 7일이 지나야 다시 변경할 수 있습니다.", HttpStatus.CONFLICT),
+    MEMBER_ALREADY_WITHDRAWN("M0006", "이미 탈퇴한 회원입니다.", HttpStatus.CONFLICT),
+
+    // 알림
+    NOTIFICATION_NOT_FOUND("NT0001", "알림을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    NOTIFICATION_ACCESS_DENIED("NT0002", "본인의 알림만 확인할 수 있습니다.", HttpStatus.FORBIDDEN),
+
+    // 찬양
+    PRAISE_SONG_NOT_FOUND("P0001", "찬양 곡을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    PRAISE_SONG_ALREADY_SAVED("P0002", "이미 저장된 찬양입니다.", HttpStatus.CONFLICT),
+    PRAISE_SONG_SAVE_NOT_FOUND("P0003", "저장된 찬양을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
     // AI
     AI_GENERATION_JOB_NOT_FOUND("A0001", "AI 생성 작업을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

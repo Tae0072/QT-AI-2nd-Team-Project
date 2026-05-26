@@ -1,5 +1,9 @@
 package com.qtai.domain.notification.api;
 
+import com.qtai.domain.notification.api.dto.NotificationResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 /**
  * 알림 목록 조회 UseCase 포트.
  *
@@ -7,5 +11,7 @@ package com.qtai.domain.notification.api;
  */
 public interface ListNotificationUseCase {
 
-    // TODO: Page<NotificationResponse> listMy(Long memberId, Boolean unreadOnly, Pageable pageable);
+    Page<NotificationResponse> listMy(Long memberId, Boolean unreadOnly, Pageable pageable);
+
+    long countUnread(Long memberId);
 }

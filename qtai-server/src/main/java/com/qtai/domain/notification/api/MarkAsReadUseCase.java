@@ -7,6 +7,7 @@ package com.qtai.domain.notification.api;
  */
 public interface MarkAsReadUseCase {
 
-    // TODO: void markAsRead(Long memberId, Long notificationId);
-    // TODO: int markAllAsRead(Long memberId);    — 일괄 읽음, 영향받은 행 수 반환
+    void markAsRead(Long memberId, Long notificationId);
+
+    int markAllAsRead(Long memberId);
 }
