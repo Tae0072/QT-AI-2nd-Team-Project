@@ -15,6 +15,11 @@ public record DashboardResponse(
         PraiseSummary praiseSummary,
         List<String> widgetErrors
 ) {
+    /** 방어적 복사 — widgetErrors 외부 변경 방지. */
+    public DashboardResponse {
+        widgetErrors = widgetErrors == null ? List.of() : List.copyOf(widgetErrors);
+    }
+
     public record ProfileSummary(
             Long memberId,
             String nickname

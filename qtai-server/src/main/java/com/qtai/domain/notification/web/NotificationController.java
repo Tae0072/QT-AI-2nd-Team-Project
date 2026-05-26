@@ -20,8 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 알림 REST 엔드포인트.
  *
- * API 명세서 §4.6.3 기준.
- * SendNotificationUseCase는 외부에 노출하지 않음 — 타 도메인이 직접 호출.
+ * <p>API 명세서 §4.6.3 기준.
+ * <p>SendNotificationUseCase 는 컨트롤러에서 호출하지 않음 — 도메인이 직접 호출.
  */
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -32,29 +32,38 @@ public class NotificationController {
     private final MarkAsReadUseCase markAsReadUseCase;
 
     /**
-     * GET /api/v1/notifications?read=false&page=0&size=20
-     * 내 알림 목록 조회.
+     * GET /api/v1/notifications?unreadOnly=true&amp;page=0&amp;size=20
+     *
+     * <p>내 알림 목록 조회. unreadOnly=true 이면 미읽음만 반환.
      */
     @GetMapping
     public ResponseEntity<ApiResponse<Page<NotificationResponse>>> listMy(
             @AuthenticationPrincipal Long memberId,
-            @RequestParam(value = "read", required = false) Boolean read,
+            @RequestParam(value = "unreadOnly", required = false, defaultValue = "false")
+            Boolean unreadOnly,
             @PageableDefault(size = 20) Pageable pageable) {
-        // read=false 이면 unreadOnly=true
-        Boolean unreadOnly = (read != null && !read) ? true : null;
         Page<NotificationResponse> page = listNotificationUseCase.listMy(memberId, unreadOnly, pageable);
         return ResponseEntity.ok(ApiResponse.success(page));
     }
 
     /**
      * PATCH /api/v1/notifications/{notificationId}/read
-     * 단건 읽음 처리 — 204 No Content.
+     *
+     * <p>개별 읽음 처리 → 204 No Content.
      */
     @PatchMapping("/{notificationId}/read")
     public ResponseEntity<Void> markAsRead(
             @AuthenticationPrincipal Long memberId,
             @PathVariable Long notificationId) {
         markAsReadUseCase.markAsRead(memberId, notificationId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** PATCH /api/v1/notifications/read-all — 전체 읽음 처리. */
+    @PatchMapping("/read-all")
+    public ResponseEntity<Void> markAllAsRead(
+            @AuthenticationPrincipal Long memberId) {
+        markAsReadUseCase.markAllAsRead(memberId);
         return ResponseEntity.noContent().build();
     }
 }

@@ -10,5 +10,5 @@ import com.qtai.domain.praise.api.dto.PraiseResponse;
  */
 public interface CreatePraiseUseCase {
 
-    PraiseResponse create(PraiseCreateRequest request);
+    PraiseResponse create(Long adminId, PraiseCreateRequest request);
 }

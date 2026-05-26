@@ -1,11 +1,12 @@
 package com.qtai.domain.member.api.dto;
 
-import com.qtai.domain.member.internal.Member;
-
 import java.time.LocalDateTime;
 
 /**
  * 회원 정보 응답 DTO.
+ *
+ * <p>도메인 경계 정책: api/dto 는 internal 패키지를 import 하지 않는다.
+ * Entity → DTO 변환은 Service 레이어에서 수행한다.
  */
 public record MemberResponse(
         Long id,
@@ -17,16 +18,4 @@ public record MemberResponse(
         LocalDateTime nicknameUnlockAt,
         LocalDateTime createdAt
 ) {
-    public static MemberResponse from(Member member) {
-        return new MemberResponse(
-                member.getId(),
-                member.getNickname(),
-                member.getEmail(),
-                member.getProfileImageUrl(),
-                member.getStatus().name(),
-                member.getRole(),
-                member.getNicknameUnlockAt(),
-                member.getCreatedAt()
-        );
-    }
 }

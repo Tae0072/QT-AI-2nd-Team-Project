@@ -1,6 +1,8 @@
 package com.qtai.domain.member.web;
 
 import com.qtai.common.dto.ApiResponse;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.member.api.dto.DashboardResponse;
 import com.qtai.domain.member.api.dto.DashboardResponse.PraiseSummary;
@@ -12,6 +14,7 @@ import com.qtai.domain.notification.api.ListNotificationUseCase;
 import com.qtai.domain.praise.api.ListMemberPraiseSongUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,8 +26,8 @@ import java.util.List;
 /**
  * 마이페이지 REST 엔드포인트.
  *
- * API 명세서 §4.6.1~§4.6.2 기준.
- * 위젯별 부분 실패: 한 위젯 조회 실패가 전체 응답을 실패시키지 않는다.
+ * <p>API 명세서 §4.6.1~§4.6.2 기준.
+ * <p>위젯별 부분 실패: 한 위젯 조회 실패가 전체 응답을 실패시키지 않는다.
  */
 @Slf4j
 @RestController
@@ -69,8 +72,8 @@ public class MyPageController {
     @GetMapping("/api/v1/me/meditation-calendar")
     public ResponseEntity<ApiResponse<Object>> meditationCalendar(
             @AuthenticationPrincipal Long memberId) {
-        // notes 도메인 미구현 — 빈 응답
-        throw new UnsupportedOperationException("묵상 달력은 notes 도메인 구현 후 연동 예정");
+        // notes 도메인 미구현 — 공통 에러 응답 구조로 반환
+        throw new BusinessException(ErrorCode.NOT_IMPLEMENTED, "묵상 달력은 notes 도메인 구현 후 연동 예정");
     }
 
     // ── private widget loaders (부분 실패 허용) ──
@@ -79,13 +82,19 @@ public class MyPageController {
         try {
             MemberResponse member = getMemberUseCase.getMember(memberId);
             return new ProfileSummary(member.id(), member.nickname());
-        } catch (Exception e) {
+        } catch (BusinessException e) {
             log.warn("대시보드 프로필 위젯 실패: memberId={}", memberId, e);
+            errors.add("profile");
+            return new ProfileSummary(memberId, "");
+        } catch (DataAccessException e) {
+            log.warn("대시보드 프로필 위젯 DB 오류: memberId={}", memberId, e);
             errors.add("profile");
             return new ProfileSummary(memberId, "");
         }
     }
 
+    // TODO: notes 도메인 연동 시 memberId 파라미터 사용 + errors 기록 로직 추가
+    @SuppressWarnings("unused")
     private StatsWidget loadStats(Long memberId, List<String> errors) {
         // notes 도메인 미구현 — 기본값 반환
         return new StatsWidget(
@@ -98,8 +107,12 @@ public class MyPageController {
     private long loadUnreadNotificationCount(Long memberId, List<String> errors) {
         try {
             return listNotificationUseCase.countUnread(memberId);
-        } catch (Exception e) {
+        } catch (BusinessException e) {
             log.warn("대시보드 알림 위젯 실패: memberId={}", memberId, e);
+            errors.add("unreadNotificationCount");
+            return 0;
+        } catch (DataAccessException e) {
+            log.warn("대시보드 알림 위젯 DB 오류: memberId={}", memberId, e);
             errors.add("unreadNotificationCount");
             return 0;
         }
@@ -109,8 +122,12 @@ public class MyPageController {
         try {
             long count = listMemberPraiseSongUseCase.countMy(memberId);
             return new PraiseSummary(count);
-        } catch (Exception e) {
+        } catch (BusinessException e) {
             log.warn("대시보드 찬양 위젯 실패: memberId={}", memberId, e);
+            errors.add("praiseSummary");
+            return new PraiseSummary(0);
+        } catch (DataAccessException e) {
+            log.warn("대시보드 찬양 위젯 DB 오류: memberId={}", memberId, e);
             errors.add("praiseSummary");
             return new PraiseSummary(0);
         }

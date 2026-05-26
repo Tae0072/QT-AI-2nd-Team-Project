@@ -8,6 +8,7 @@ CREATE TABLE member_praise_songs (
     created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_member_praise_member (member_id, created_at DESC),
     UNIQUE KEY uk_member_praise_curated (member_id, praise_song_id),
+    UNIQUE KEY uk_member_praise_device (member_id, device_song_key),
     CONSTRAINT fk_mps_member FOREIGN KEY (member_id) REFERENCES members(id),
     CONSTRAINT fk_mps_praise_song FOREIGN KEY (praise_song_id) REFERENCES praise_songs(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
