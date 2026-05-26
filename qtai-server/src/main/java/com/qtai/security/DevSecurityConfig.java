@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
  * 개발(dev) 프로파일 전용 Spring Security 설정.
@@ -47,7 +48,9 @@ public class DevSecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(DevSecurityConfig.class);
 
     @Bean
-    SecurityFilterChain devFilterChain(HttpSecurity http, Environment env) throws Exception {
+    SecurityFilterChain devFilterChain(HttpSecurity http,
+                                       Environment env,
+                                       DevUserIdHeaderFilter devUserIdHeaderFilter) throws Exception {
         // 3중 가드 — prod 프로파일이 활성 상태라면 즉시 부트 실패
         if (Arrays.asList(env.getActiveProfiles()).contains("prod")) {
             throw new IllegalStateException(
@@ -64,6 +67,9 @@ public class DevSecurityConfig {
                 // dev 환경 핵심: 모든 요청 인증 없이 통과
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().permitAll())
+                // X-Dev-User-Id 헤더 → SecurityContext memberId 주입. permitAll만으로는
+                // @AuthenticationPrincipal에 null이 들어와 NoteController가 401을 던지므로 필수.
+                .addFilterBefore(devUserIdHeaderFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 }

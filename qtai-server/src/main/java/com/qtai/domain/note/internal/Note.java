@@ -13,12 +13,16 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLRestriction;
 
 /**
  * 노트 엔티티 — ERD §notes.
  *
  * <p>MEDITATION 카테고리는 (member_id, qt_passage_id, active_unique_key='ACTIVE') UK로
  * 하루 1건 멱등 보장. 노트 삭제/교체 시 active_unique_key=null로 전환한다.
+ *
+ * <p>{@link SQLRestriction} 으로 모든 조회(findById/findAll 포함)에 deleted_at IS NULL
+ * 필터를 자동 적용한다. JpaRepository 기본 메서드를 통해 삭제된 노트가 노출되는 사고 차단.
  */
 @Entity
 @Table(name = "notes", uniqueConstraints = {
@@ -27,6 +31,7 @@ import lombok.NoArgsConstructor;
                 columnNames = {"member_id", "qt_passage_id", "active_unique_key"}
         )
 })
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Note extends BaseEntity {
