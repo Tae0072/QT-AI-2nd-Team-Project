@@ -42,7 +42,7 @@ class AiLogServiceTest {
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "2026.05.1",
+                3L,
                 now
         );
 
@@ -50,7 +50,7 @@ class AiLogServiceTest {
         assertThat(job.getJobType()).isEqualTo(AiGenerationJobType.EXPLANATION);
         assertThat(job.getTargetType()).isEqualTo(AiTargetType.QT_PASSAGE);
         assertThat(job.getTargetId()).isEqualTo(35L);
-        assertThat(job.getPromptVersion()).isEqualTo("2026.05.1");
+        assertThat(job.getPromptVersionId()).isEqualTo(3L);
         assertThat(job.getCreatedAt()).isEqualTo(now);
     }
 
@@ -63,7 +63,7 @@ class AiLogServiceTest {
                 AiGenerationJobType.SIMULATOR,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "2026.05.1",
+                3L,
                 createdAt
         );
         job.markRunning(startedAt);
@@ -91,7 +91,6 @@ class AiLogServiceTest {
                 AiGeneratedAssetType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                "2026.05.1",
                 "{\"summary\":\"검증 대기 해설\"}",
                 "QT-AI verified content",
                 now
@@ -113,7 +112,6 @@ class AiLogServiceTest {
                 AiGeneratedAssetType.QA_RESPONSE,
                 AiTargetType.QA_REQUEST,
                 700L,
-                "2026.05.1",
                 "{\"answer\":\"검증 대기 답변\"}",
                 "QT-AI verified content",
                 createdAt
@@ -155,7 +153,7 @@ class AiLogServiceTest {
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "2026.05.1",
+                3L,
                 createdAt
         );
         when(generationJobRepository.findById(1L)).thenReturn(Optional.of(job));
@@ -177,7 +175,7 @@ class AiLogServiceTest {
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "2026.05.1",
+                3L,
                 createdAt
         );
         job.markRunning(startedAt);
@@ -251,7 +249,6 @@ class AiLogServiceTest {
                 AiGeneratedAssetType.QA_RESPONSE,
                 AiTargetType.QA_REQUEST,
                 700L,
-                "2026.05.1",
                 "{\"answer\":\"validated answer\"}",
                 "QT-AI verified content",
                 createdAt
@@ -285,7 +282,6 @@ class AiLogServiceTest {
                 AiGeneratedAssetType.QA_RESPONSE,
                 AiTargetType.QA_REQUEST,
                 700L,
-                "2026.05.1",
                 "{\"answer\":\"needs review answer\"}",
                 "QT-AI verified content",
                 createdAt
@@ -320,7 +316,6 @@ class AiLogServiceTest {
                 AiGeneratedAssetType.QA_RESPONSE,
                 AiTargetType.QA_REQUEST,
                 700L,
-                "2026.05.1",
                 "{\"answer\":\"already approved answer\"}",
                 "QT-AI verified content",
                 createdAt

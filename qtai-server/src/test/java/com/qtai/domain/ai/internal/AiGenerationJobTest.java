@@ -87,12 +87,24 @@ class AiGenerationJobTest {
         assertThat(job.getActiveUniqueKey()).isNull();
     }
 
+    @Test
+    void promptVersionIdMustBePositive() {
+        assertThatThrownBy(() -> AiGenerationJob.queue(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.QT_PASSAGE,
+                35L,
+                0L,
+                CREATED_AT
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promptVersionId must be positive");
+    }
+
     private static AiGenerationJob newJob() {
         return AiGenerationJob.queue(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "2026.05.1",
+                3L,
                 CREATED_AT
         );
     }
