@@ -9,10 +9,16 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.qtai.domain.ai.api.dto.AdminAiAssetDetailResponse;
+import com.qtai.domain.ai.api.dto.AdminAiAssetListItem;
+import com.qtai.domain.ai.api.dto.AdminAiAssetListResponse;
+import com.qtai.domain.ai.api.dto.AdminAiValidationLogItem;
 import com.qtai.domain.ai.api.dto.CreateAiGenerationJobCommand;
 import com.qtai.domain.ai.api.dto.CreateAiGenerationJobResult;
+import com.qtai.domain.ai.api.dto.GetAdminAiAssetQuery;
 import com.qtai.domain.ai.api.dto.GetAiQaResultCommand;
 import com.qtai.domain.ai.api.dto.GetAiQaResultResult;
+import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
 import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetCommand;
 import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetResult;
 import com.qtai.domain.ai.api.dto.RegisterAiValidationLogCommand;
@@ -33,7 +39,9 @@ class AiUseCaseContractTest {
             RegisterAiGeneratedAssetUseCase.class,
             RegisterAiValidationLogUseCase.class,
             ReviewAiAssetUseCase.class,
-            RegenerateAiAssetUseCase.class
+            RegenerateAiAssetUseCase.class,
+            ListAdminAiAssetsUseCase.class,
+            GetAdminAiAssetUseCase.class
     );
 
     private static final List<Class<?>> USE_CASE_DTOS = List.of(
@@ -50,7 +58,13 @@ class AiUseCaseContractTest {
             ReviewAiAssetCommand.class,
             ReviewAiAssetResult.class,
             RegenerateAiAssetCommand.class,
-            RegenerateAiAssetResult.class
+            RegenerateAiAssetResult.class,
+            ListAdminAiAssetsQuery.class,
+            GetAdminAiAssetQuery.class,
+            AdminAiAssetListResponse.class,
+            AdminAiAssetListItem.class,
+            AdminAiAssetDetailResponse.class,
+            AdminAiValidationLogItem.class
     );
 
     @Test
@@ -70,8 +84,9 @@ class AiUseCaseContractTest {
             assertThat(methods).hasSize(1);
             assertThat(methods[0].getParameterTypes())
                     .hasSize(1)
-                    .allSatisfy(parameterType -> assertThat(parameterType.getSimpleName()).endsWith("Command"));
-            assertThat(methods[0].getReturnType().getSimpleName()).endsWith("Result");
+                    .allSatisfy(parameterType ->
+                            assertThat(parameterType.getSimpleName()).matches(".*(Command|Query)$"));
+            assertThat(methods[0].getReturnType().getSimpleName()).matches(".*(Result|Response)$");
         }
     }
 
@@ -81,7 +96,7 @@ class AiUseCaseContractTest {
                 .allSatisfy(dto -> {
                     assertThat(dto.isRecord()).isTrue();
                     assertThat(dto.getPackageName()).isEqualTo("com.qtai.domain.ai.api.dto");
-                    assertThat(dto.getSimpleName()).matches(".*(Command|Result)$");
+                    assertThat(dto.getSimpleName()).matches(".*(Command|Query|Result|Response|Item)$");
                 });
     }
 
@@ -95,8 +110,7 @@ class AiUseCaseContractTest {
                                 "rawResponse",
                                 "validationReferenceText",
                                 "referenceText",
-                                "promptRaw",
-                                "promptVersion"
+                                "promptRaw"
                         ));
     }
 
@@ -105,6 +119,16 @@ class AiUseCaseContractTest {
         assertThat(List.of(RegisterAiValidationLogCommand.class.getRecordComponents()))
                 .extracting(RecordComponent::getName)
                 .contains("validationReferenceJobId");
+    }
+
+    @Test
+    void adminAiAssetQueryDtosIncludeAdminAuthorizationContext() {
+        assertThat(List.of(ListAdminAiAssetsQuery.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("adminId", "memberRole", "adminRole");
+        assertThat(List.of(GetAdminAiAssetQuery.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("adminId", "memberRole", "adminRole", "assetId");
     }
 
     @Test
