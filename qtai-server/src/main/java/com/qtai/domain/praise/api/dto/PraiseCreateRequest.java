@@ -1,14 +1,15 @@
 package com.qtai.domain.praise.api.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 /**
- * 찬양 등록 요청 DTO.
+ * 찬양 큐레이션 곡 등록 요청 DTO (ADMIN only).
  *
- * v3.1 게이트: lyricsText, audioUrl 등 본문/음원 직접 저장 필드 추가 금지 —
- * 저작권 침해 리스크 회피.
+ * v3.1 게이트: lyricsText, audioUrl 등 본문/음원 직접 저장 필드 추가 금지.
  */
 public record PraiseCreateRequest(
-        // TODO: String title         — 곡명 (필수)
-        // TODO: String artist        — 아티스트/팀
-        // TODO: String externalLink  — 유튜브/멜론 등 외부 링크 (가사/음원 직접 보유 X)
-        // TODO: String category      — 찬양 / CCM / 묵상송 등 분류
+        @NotBlank @Size(max = 100) String title,
+        @Size(max = 100) String artist,
+        @Size(max = 300) String licenseNote
 ) {}

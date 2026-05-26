@@ -30,10 +30,10 @@ class AiLogService {
             AiGenerationJobType jobType,
             AiTargetType targetType,
             Long targetId,
-            String promptVersion,
+            Long promptVersionId,
             OffsetDateTime createdAt
     ) {
-        AiGenerationJob job = AiGenerationJob.queue(jobType, targetType, targetId, promptVersion, createdAt);
+        AiGenerationJob job = AiGenerationJob.queue(jobType, targetType, targetId, promptVersionId, createdAt);
         return generationJobRepository.save(job);
     }
 
@@ -64,17 +64,16 @@ class AiLogService {
             AiGeneratedAssetType assetType,
             AiTargetType targetType,
             Long targetId,
-            String promptVersion,
             String payloadJson,
             String sourceLabel,
             OffsetDateTime createdAt
     ) {
+        findGenerationJob(generationJobId);
         AiGeneratedAsset asset = AiGeneratedAsset.create(
                 generationJobId,
                 assetType,
                 targetType,
                 targetId,
-                promptVersion,
                 payloadJson,
                 sourceLabel,
                 createdAt
@@ -85,6 +84,7 @@ class AiLogService {
     @Transactional
     public AiValidationLog registerValidationLog(
             Long assetId,
+            Long validationReferenceJobId,
             int layer,
             AiValidationResult result,
             AiValidationReviewerType reviewerType,
@@ -96,6 +96,7 @@ class AiLogService {
         AiGeneratedAsset asset = findGeneratedAsset(assetId);
         AiValidationLog log = AiValidationLog.create(
                 assetId,
+                validationReferenceJobId,
                 layer,
                 result,
                 reviewerType,
