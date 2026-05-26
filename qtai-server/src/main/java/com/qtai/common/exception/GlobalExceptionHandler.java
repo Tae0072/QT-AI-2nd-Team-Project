@@ -49,6 +49,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         String paramName = e.getName();
         Object value = e.getValue();
+        // value가 null이면 "null이(가) 유효하지 않습니다"라는 어색한 메시지가 나가므로 "(누락)" 으로 치환
+        String valueStr = value == null ? "(누락)" : value.toString();
         Class<?> requiredType = e.getRequiredType();
 
         String message;
@@ -57,11 +59,11 @@ public class GlobalExceptionHandler {
                     .map(Object::toString)
                     .collect(Collectors.joining(", "));
             message = String.format("파라미터 '%s'의 값 '%s'이(가) 유효하지 않습니다. 허용 값: %s",
-                    paramName, value, allowed);
+                    paramName, valueStr, allowed);
         } else {
             String typeName = requiredType != null ? requiredType.getSimpleName() : "unknown";
             message = String.format("파라미터 '%s'의 값 '%s'이(가) %s 형식이 아닙니다.",
-                    paramName, value, typeName);
+                    paramName, valueStr, typeName);
         }
         log.warn("Type mismatch: {}", message);
         return ResponseEntity

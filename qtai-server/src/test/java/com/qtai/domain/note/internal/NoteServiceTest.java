@@ -150,6 +150,86 @@ class NoteServiceTest {
     }
 
     @Test
+    @DisplayName("q가 null이면 Repository에도 null이 그대로 전달된다")
+    void list_q가_null이면_Repository에도_null_전달() {
+        // given
+        when(noteRepository.search(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), defaultPageable, 0L));
+
+        // when
+        noteService.list(10L, null, null, null, defaultPageable);
+
+        // then
+        ArgumentCaptor<String> qCaptor = ArgumentCaptor.forClass(String.class);
+        verify(noteRepository).search(any(), any(), any(), qCaptor.capture(), any(Pageable.class));
+        assertThat(qCaptor.getValue()).isNull();
+    }
+
+    @Test
+    @DisplayName("q가 빈 문자열이면 Repository에 null이 전달된다 (LIKE '%%' 전체 매치 사고 방지)")
+    void list_q가_빈문자열이면_Repository에_null_전달() {
+        // given
+        when(noteRepository.search(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), defaultPageable, 0L));
+
+        // when
+        noteService.list(10L, null, null, "", defaultPageable);
+
+        // then
+        ArgumentCaptor<String> qCaptor = ArgumentCaptor.forClass(String.class);
+        verify(noteRepository).search(any(), any(), any(), qCaptor.capture(), any(Pageable.class));
+        assertThat(qCaptor.getValue()).isNull();
+    }
+
+    @Test
+    @DisplayName("q가 공백만 있으면 Repository에 null이 전달된다 (isBlank 가드)")
+    void list_q가_공백만이면_Repository에_null_전달() {
+        // given
+        when(noteRepository.search(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), defaultPageable, 0L));
+
+        // when
+        noteService.list(10L, null, null, "   ", defaultPageable);
+
+        // then
+        ArgumentCaptor<String> qCaptor = ArgumentCaptor.forClass(String.class);
+        verify(noteRepository).search(any(), any(), any(), qCaptor.capture(), any(Pageable.class));
+        assertThat(qCaptor.getValue()).isNull();
+    }
+
+    @Test
+    @DisplayName("q에 LIKE 와일드카드(%, _, \\)가 포함되면 이스케이프된 값으로 Repository에 전달된다")
+    void list_q_와일드카드_이스케이프() {
+        // given
+        when(noteRepository.search(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), defaultPageable, 0L));
+
+        // when — % 단일 케이스
+        noteService.list(10L, null, null, "50%할인", defaultPageable);
+
+        // then
+        ArgumentCaptor<String> qCaptor = ArgumentCaptor.forClass(String.class);
+        verify(noteRepository).search(any(), any(), any(), qCaptor.capture(), any(Pageable.class));
+        assertThat(qCaptor.getValue()).isEqualTo("50\\%할인");
+    }
+
+    @Test
+    @DisplayName("q에 언더스코어(_)가 포함되면 이스케이프된 값(\\_)으로 전달된다")
+    void list_q_언더스코어_이스케이프() {
+        // given
+        when(noteRepository.search(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), defaultPageable, 0L));
+
+        // when
+        noteService.list(10L, null, null, "이름_검색", defaultPageable);
+
+        // then
+        ArgumentCaptor<String> qCaptor = ArgumentCaptor.forClass(String.class);
+        verify(noteRepository).search(any(), any(), any(), qCaptor.capture(), any(Pageable.class));
+        assertThat(qCaptor.getValue()).isEqualTo("이름\\_검색");
+    }
+
+    @Test
     @DisplayName("Sort.unsorted()면 default 'updatedAt,desc'로 응답한다")
     void list_정렬없을때_default값() {
         // given

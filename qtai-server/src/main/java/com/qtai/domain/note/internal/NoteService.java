@@ -83,9 +83,12 @@ public class NoteService implements ListNotesUseCase {
     /**
      * LIKE 와일드카드(%, _) 이스케이프. 백슬래시를 먼저 처리해야 중복 이스케이프 방지.
      * Repository JPQL은 ESCAPE '\\' 절을 명시해 이스케이프된 문자를 리터럴로 해석한다.
+     *
+     * <p>q가 null이거나 공백만 있으면 null을 반환해 JPQL의 (:q IS NULL) 분기가
+     * 검색 조건 자체를 우회하도록 한다. (빈 문자열 → LIKE '%%' 전체 매치 사고 방지)
      */
     private static String escapeLikeWildcards(String q) {
-        if (q == null) {
+        if (q == null || q.isBlank()) {
             return null;
         }
         return q.replace("\\", "\\\\")

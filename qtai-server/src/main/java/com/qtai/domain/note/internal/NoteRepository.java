@@ -14,15 +14,17 @@ import org.springframework.data.repository.query.Param;
 public interface NoteRepository extends JpaRepository<Note, Long> {
 
     /**
-     * 본인 노트 + 삭제 제외 + 선택 필터 동적 조회. (04 API §4.3.1)
+     * 본인 노트 + 선택 필터 동적 조회. (04 API §4.3.1)
      *
-     * <p>강제 조건: {@code memberId} 일치, {@code deletedAt IS NULL}.
-     * 선택 조건은 nullable 동적 쿼리 표준 관용구 {@code (:param IS NULL OR ...)}로 처리.
+     * <p>강제 조건: {@code memberId} 일치.
+     * 소프트 삭제(deleted_at IS NULL) 필터는 Note 엔티티의 {@code @SQLRestriction}이
+     * 모든 조회에 자동 적용하므로 JPQL에 명시하지 않는다 (중복 회피).
+     *
+     * <p>선택 조건은 nullable 동적 쿼리 표준 관용구 {@code (:param IS NULL OR ...)}로 처리한다.
      */
     @Query("""
             SELECT n FROM Note n
             WHERE n.memberId = :memberId
-              AND n.deletedAt IS NULL
               AND (:category IS NULL OR n.category = :category)
               AND (:status   IS NULL OR n.status   = :status)
               AND (:q IS NULL OR n.title LIKE CONCAT('%', :q, '%') ESCAPE '\\'
