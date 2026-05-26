@@ -1,11 +1,13 @@
 package com.qtai.domain.praise.api;
 
+import com.qtai.domain.praise.api.dto.PraiseResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 /**
- * 찬양 목록 조회 UseCase 포트.
- *
- * 일반 회원 노출. 페이징 + 키워드(곡명/아티스트) 검색.
+ * 찬양 큐레이션 목록 조회 UseCase 포트.
  */
 public interface ListPraiseUseCase {
 
-    // TODO: Page<PraiseResponse> list(String keyword, Pageable pageable);
+    Page<PraiseResponse> listActive(Pageable pageable);
 }

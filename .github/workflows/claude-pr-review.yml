@@ -8,11 +8,11 @@ on:
 # =============================================================================
 # 환경변수 — 변경 가능 (한 곳만 수정하면 전체 반영)
 # =============================================================================
-# 정책: PR diff 크기 절단(truncation) 없음.
-#   - 큰 PR이라도 전체 diff를 Claude에 전달하여 검증 누락을 방지한다.
-#   - 파일 기반 stdin 파이프로 호출하여 OS ARG_MAX / GITHUB_OUTPUT 1MB 한도를 우회.
-#   - Claude API 컨텍스트(200K 토큰)를 초과할 정도의 거대 PR은 API 단에서 명시적으로
-#     실패하므로 silent truncation 보다 안전. 그런 PR은 도메인별로 쪼개야 한다.
+# 정책: 코드 파일만 diff 추출, 크기 제한 없음.
+#   - *.java *.kt *.gradle *.yml *.yaml *.properties *.xml *.md 만 추출한다.
+#   - 성경 시드 SQL/JSON 같은 대용량 비코드 데이터는 제외하여 컨텍스트 폭발 방지.
+#   - 코드 파일 자체는 절단하지 않는다. 파일 기반 stdin 파이프로 ARG_MAX 우회.
+#   - Claude CLI 실패(컨텍스트 초과, API 장애 등)는 PR 코멘트로 안내하며 step은 exit 0.
 env:
   # Claude 모델 — 코드 리뷰는 Opus(추론력 우선) 권장.
   # 변경 시 이 env 변수만 수정 (예: claude-sonnet-4-6 로 다운그레이드 가능).
@@ -29,12 +29,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
@@ -48,17 +48,26 @@ jobs:
           ANTHROPIC_MODEL: ${{ env.ANTHROPIC_MODEL_NAME }}
           BASE_REF: ${{ github.base_ref }}
         run: |
+          # Claude CLI 실패(컨텍스트 초과 등)가 step 자체를 fail로 만들지 않도록 설정.
+          # 봇 리뷰는 ci-all 게이트에 포함되지 않으므로 항상 exit 0.
+          set +e
+
           # ---------------------------------------------------------------
-          # 1) PR 전체 diff를 파일로 추출 (truncation 없음)
-          #    - GITHUB_OUTPUT(1MB) / ARG_MAX 한도를 모두 우회하기 위해 파일 기반.
+          # 1) 코드 파일만 diff 추출 — 시드 SQL/JSON/바이너리 제외
+          #    대용량 시드 데이터(성경 등)가 diff를 9MB+ 로 불리는 것을 방지.
+          #    검토 대상: Java·Kotlin·Gradle·YAML·Properties·XML·MD
           # ---------------------------------------------------------------
           DIFF_FILE=$(mktemp)
           PROMPT_FILE=$(mktemp)
           trap 'rm -f "$DIFF_FILE" "$PROMPT_FILE"' EXIT
 
-          git diff "origin/${BASE_REF}...HEAD" > "$DIFF_FILE"
+          FULL_SIZE=$(git diff "origin/${BASE_REF}...HEAD" | wc -c)
+          git diff "origin/${BASE_REF}...HEAD" -- \
+            '*.java' '*.kt' '*.gradle' '*.gradle.kts' \
+            '*.yml' '*.yaml' '*.properties' '*.xml' '*.md' \
+            > "$DIFF_FILE"
           DIFF_SIZE=$(wc -c < "$DIFF_FILE")
-          echo "=== PR diff 크기: ${DIFF_SIZE} bytes ==="
+          echo "=== 전체 diff: ${FULL_SIZE} bytes / 코드 파일 diff: ${DIFF_SIZE} bytes ==="
 
           # ---------------------------------------------------------------
           # 2) 프롬프트 헤더를 파일에 작성 (heredoc 사용 → bash 재해석 차단)
@@ -183,12 +192,18 @@ jobs:
             echo '__OUTPUT_EOF__'
           } >> $GITHUB_OUTPUT
 
+          # ---------------------------------------------------------------
+          # 6) Claude CLI 실패 여부와 무관하게 step은 항상 성공으로 종료.
+          #    봇 리뷰는 ci-all 필수 게이트에 포함되지 않음.
+          # ---------------------------------------------------------------
+          exit 0
+
       # -----------------------------------------------------------------------
       # 리뷰 결과 PR에 등록 + APPROVE 시 CI 완료 확인 후 squash merge → dev
       # -----------------------------------------------------------------------
       - name: Post Review & Auto Merge
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           REVIEW_OUTPUT: ${{ steps.claude_review.outputs.output }}
           CLAUDE_STEP_OUTCOME: ${{ steps.claude_review.outcome }}

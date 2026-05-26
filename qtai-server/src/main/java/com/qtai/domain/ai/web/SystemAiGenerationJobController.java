@@ -59,7 +59,7 @@ public class SystemAiGenerationJobController {
                         mapJobType(request.jobType()),
                         requireQtPassageTargetType(request.targetType()),
                         request.targetId(),
-                        request.promptVersion(),
+                        request.promptVersionId(),
                         REQUESTED_BY,
                         requestedAt
                 )

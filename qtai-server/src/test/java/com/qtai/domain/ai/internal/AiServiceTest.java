@@ -28,16 +28,22 @@ import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
 class AiServiceTest {
 
     private static final OffsetDateTime CREATED_AT = OffsetDateTime.parse("2026-05-21T10:30:00+09:00");
+    private static final List<AiGenerationJobStatus> ACTIVE_STATUSES = List.of(
+            AiGenerationJobStatus.QUEUED,
+            AiGenerationJobStatus.RUNNING
+    );
 
     private AiGenerationJobRepository generationJobRepository;
     private AiGeneratedAssetRepository generatedAssetRepository;
+    private AiPromptVersionRepository promptVersionRepository;
     private AiService aiService;
 
     @BeforeEach
     void setUp() {
         generationJobRepository = org.mockito.Mockito.mock(AiGenerationJobRepository.class);
         generatedAssetRepository = org.mockito.Mockito.mock(AiGeneratedAssetRepository.class);
-        aiService = new AiService(generationJobRepository, generatedAssetRepository);
+        promptVersionRepository = org.mockito.Mockito.mock(AiPromptVersionRepository.class);
+        aiService = new AiService(generationJobRepository, generatedAssetRepository, promptVersionRepository);
     }
 
     @Test
@@ -46,13 +52,14 @@ class AiServiceTest {
     }
 
     @Test
-    void createAiGenerationJobCreatesQueuedJob() {
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+    void createAiGenerationJobCreatesQueuedJobWithPromptVersionId() {
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "2026.05.1",
-                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
+                3L,
+                ACTIVE_STATUSES
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class))).thenAnswer(invocation -> {
             AiGenerationJob job = invocation.getArgument(0);
@@ -70,19 +77,20 @@ class AiServiceTest {
         assertThat(jobCaptor.getValue().getJobType()).isEqualTo(AiGenerationJobType.EXPLANATION);
         assertThat(jobCaptor.getValue().getTargetType()).isEqualTo(AiTargetType.QT_PASSAGE);
         assertThat(jobCaptor.getValue().getTargetId()).isEqualTo(35L);
-        assertThat(jobCaptor.getValue().getPromptVersion()).isEqualTo("2026.05.1");
+        assertThat(jobCaptor.getValue().getPromptVersionId()).isEqualTo(3L);
         assertThat(jobCaptor.getValue().getStatus()).isEqualTo(AiGenerationJobStatus.QUEUED);
         assertThat(jobCaptor.getValue().getCreatedAt()).isEqualTo(CREATED_AT);
     }
 
     @Test
-    void createAiGenerationJobBlocksQueuedOrRunningDuplicate() {
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+    void createAiGenerationJobBlocksQueuedOrRunningDuplicateByPromptVersionId() {
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "2026.05.1",
-                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
+                3L,
+                ACTIVE_STATUSES
         )).thenReturn(true);
 
         assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand()))
@@ -93,12 +101,13 @@ class AiServiceTest {
 
     @Test
     void createAiGenerationJobMapsUniqueConstraintRaceToStatusTransitionError() {
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "2026.05.1",
-                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
+                3L,
+                ACTIVE_STATUSES
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class)))
                 .thenThrow(new DataIntegrityViolationException(
@@ -111,18 +120,64 @@ class AiServiceTest {
 
     @Test
     void createAiGenerationJobDoesNotMapUnrelatedDataIntegrityViolation() {
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "2026.05.1",
-                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
+                3L,
+                ACTIVE_STATUSES
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class)))
                 .thenThrow(new DataIntegrityViolationException("not-null violation on created_at"));
 
         assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand()))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void missingPromptVersionIsBlocked() {
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand()))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
+    }
+
+    @Test
+    void retiredPromptVersionIsBlocked() {
+        when(promptVersionRepository.findById(3L))
+                .thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION, AiPromptVersionStatus.RETIRED)));
+
+        assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand()))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
+    }
+
+    @Test
+    void promptTypeMismatchIsBlocked() {
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.SIMULATOR)));
+
+        assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand()))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
+    }
+
+    @Test
+    void summaryAndGlossaryJobTypesAreNotSupportedByPromptVersionMapping() {
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
+
+        assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand("SUMMARY", "QT_PASSAGE")))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+
+        assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand("GLOSSARY", "QT_PASSAGE")))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
     }
 
     @Test
@@ -147,58 +202,52 @@ class AiServiceTest {
 
     @Test
     void invalidCreateAiGenerationJobRequiredFieldsAreBlocked() {
-        assertThatThrownBy(() -> aiService.createAiGenerationJob(new CreateAiGenerationJobCommand(
+        assertInvalidCreateCommand(new CreateAiGenerationJobCommand(
                 "EXPLANATION",
                 "QT_PASSAGE",
                 0L,
-                "2026.05.1",
+                3L,
                 "SYSTEM_BATCH",
                 CREATED_AT
-        ))).isInstanceOfSatisfying(BusinessException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
-
-        assertThatThrownBy(() -> aiService.createAiGenerationJob(new CreateAiGenerationJobCommand(
+        ));
+        assertInvalidCreateCommand(new CreateAiGenerationJobCommand(
                 "EXPLANATION",
                 "QT_PASSAGE",
                 35L,
-                " ",
+                0L,
                 "SYSTEM_BATCH",
                 CREATED_AT
-        ))).isInstanceOfSatisfying(BusinessException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
-
-        assertThatThrownBy(() -> aiService.createAiGenerationJob(new CreateAiGenerationJobCommand(
+        ));
+        assertInvalidCreateCommand(new CreateAiGenerationJobCommand(
                 "EXPLANATION",
                 "QT_PASSAGE",
                 35L,
-                "2026.05.1",
+                3L,
                 " ",
                 CREATED_AT
-        ))).isInstanceOfSatisfying(BusinessException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
-
-        assertThatThrownBy(() -> aiService.createAiGenerationJob(new CreateAiGenerationJobCommand(
+        ));
+        assertInvalidCreateCommand(new CreateAiGenerationJobCommand(
                 "EXPLANATION",
                 "QT_PASSAGE",
                 35L,
-                "2026.05.1",
+                3L,
                 "SYSTEM_BATCH",
                 null
-        ))).isInstanceOfSatisfying(BusinessException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        ));
         verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
     }
 
     @Test
-    void rejectedAssetCreatesQueuedRegenerationJob() {
+    void rejectedAssetCreatesQueuedRegenerationJobWithPromptVersionId() {
         AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.REJECTED);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                "2026.05.1",
-                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
+                3L,
+                ACTIVE_STATUSES
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class))).thenAnswer(invocation -> {
             AiGenerationJob job = invocation.getArgument(0);
@@ -218,13 +267,14 @@ class AiServiceTest {
         assertThat(jobCaptor.getValue().getJobType()).isEqualTo(AiGenerationJobType.EXPLANATION);
         assertThat(jobCaptor.getValue().getTargetType()).isEqualTo(AiTargetType.BIBLE_VERSE);
         assertThat(jobCaptor.getValue().getTargetId()).isEqualTo(1001L);
-        assertThat(jobCaptor.getValue().getPromptVersion()).isEqualTo("2026.05.1");
+        assertThat(jobCaptor.getValue().getPromptVersionId()).isEqualTo(3L);
     }
 
     @Test
     void hiddenAssetCanBeRegeneratedBySuperAdmin() {
         AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.HIDDEN);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class))).thenAnswer(invocation -> {
             AiGenerationJob job = invocation.getArgument(0);
             setId(job, 102L);
@@ -263,12 +313,13 @@ class AiServiceTest {
     void existingQueuedOrRunningJobBlocksDuplicateRegeneration() {
         AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.REJECTED);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                "2026.05.1",
-                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
+                3L,
+                ACTIVE_STATUSES
         )).thenReturn(true);
 
         assertThatThrownBy(() -> aiService.regenerateAiAsset(adminCommand("REVIEWER")))
@@ -281,12 +332,13 @@ class AiServiceTest {
     void regenerateAiAssetMapsUniqueConstraintRaceToStatusTransitionError() {
         AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.REJECTED);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionAndStatusIn(
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                "2026.05.1",
-                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
+                3L,
+                ACTIVE_STATUSES
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class)))
                 .thenThrow(new DataIntegrityViolationException(
@@ -295,6 +347,18 @@ class AiServiceTest {
         assertThatThrownBy(() -> aiService.regenerateAiAsset(adminCommand("REVIEWER")))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+    }
+
+    @Test
+    void regenerateAiAssetBlocksPromptVersionTypeMismatch() {
+        AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.REJECTED);
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.SIMULATOR)));
+
+        assertThatThrownBy(() -> aiService.regenerateAiAsset(adminCommand("REVIEWER")))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
     }
 
     @Test
@@ -315,7 +379,7 @@ class AiServiceTest {
                 500L,
                 " ",
                 "REVIEWER",
-                "출처 표기가 부족합니다.",
+                "regenerate reason",
                 3L,
                 CREATED_AT
         ));
@@ -324,7 +388,7 @@ class AiServiceTest {
                 500L,
                 "ADMIN",
                 "",
-                "출처 표기가 부족합니다.",
+                "regenerate reason",
                 3L,
                 CREATED_AT
         ));
@@ -333,7 +397,7 @@ class AiServiceTest {
                 500L,
                 "ADMIN",
                 "REVIEWER",
-                "출처 표기가 부족합니다.",
+                "regenerate reason",
                 0L,
                 CREATED_AT
         ));
@@ -354,7 +418,7 @@ class AiServiceTest {
                 jobType,
                 targetType,
                 35L,
-                "2026.05.1",
+                3L,
                 "SYSTEM_BATCH",
                 CREATED_AT
         );
@@ -366,10 +430,35 @@ class AiServiceTest {
                 500L,
                 memberRole,
                 adminRole,
-                "출처 표기가 부족합니다.",
+                "regenerate reason",
                 3L,
                 CREATED_AT
         );
+    }
+
+    private static AiPromptVersion promptVersion(Long id, AiPromptType promptType) {
+        return promptVersion(id, promptType, AiPromptVersionStatus.ACTIVE);
+    }
+
+    private static AiPromptVersion promptVersion(
+            Long id,
+            AiPromptType promptType,
+            AiPromptVersionStatus status
+    ) {
+        return AiPromptVersion.of(
+                id,
+                promptType,
+                "2026.05.1",
+                "hash-" + id,
+                status,
+                CREATED_AT.minusDays(1)
+        );
+    }
+
+    private void assertInvalidCreateCommand(CreateAiGenerationJobCommand command) {
+        assertThatThrownBy(() -> aiService.createAiGenerationJob(command))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
     }
 
     private void assertInvalidRegenerateCommand(RegenerateAiAssetCommand command) {
@@ -384,8 +473,7 @@ class AiServiceTest {
                 AiGeneratedAssetType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                "2026.05.1",
-                "{\"summary\":\"검증 대상\"}",
+                "{\"summary\":\"validated\"}",
                 "QT-AI verified content",
                 CREATED_AT.minusHours(1)
         );

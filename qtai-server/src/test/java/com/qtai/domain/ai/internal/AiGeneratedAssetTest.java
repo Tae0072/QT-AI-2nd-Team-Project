@@ -55,7 +55,6 @@ class AiGeneratedAssetTest {
                 AiGeneratedAssetType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                "2026.05.1",
                 " ",
                 "QT-AI verified content",
                 CREATED_AT
@@ -64,18 +63,17 @@ class AiGeneratedAssetTest {
     }
 
     @Test
-    void blankPromptVersionIsRejected() {
+    void generationJobIdMustBePositive() {
         assertThatThrownBy(() -> AiGeneratedAsset.create(
-                1L,
+                0L,
                 AiGeneratedAssetType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                " ",
                 "{\"summary\":\"validated\"}",
                 "QT-AI verified content",
                 CREATED_AT
         )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("promptVersion must not be blank");
+                .hasMessage("generationJobId must be positive");
     }
 
     @Test
@@ -85,7 +83,6 @@ class AiGeneratedAssetTest {
                 AiGeneratedAssetType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                "2026.05.1",
                 "{\"providerRawResponse\":\"full model output\"}",
                 "QT-AI verified content",
                 CREATED_AT
@@ -99,7 +96,6 @@ class AiGeneratedAssetTest {
                 AiGeneratedAssetType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                "2026.05.1",
                 "{\"summary\":\"validated\"}",
                 "QT-AI verified content",
                 CREATED_AT

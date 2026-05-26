@@ -19,7 +19,7 @@ final class AiJsonStorageGuard {
         }
         if (FORBIDDEN_FIELD_PATTERN.matcher(json).find()) {
             throw new IllegalArgumentException(
-                    fieldName + " must not store provider raw response or validation reference text"
+                    fieldName + " must not store forbidden provider or validation reference fields"
             );
         }
         return json;
