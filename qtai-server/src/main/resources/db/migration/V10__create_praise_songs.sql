@@ -7,5 +7,6 @@ CREATE TABLE praise_songs (
     license_note    VARCHAR(300),
     status          VARCHAR(20)     NOT NULL DEFAULT 'ACTIVE',
     created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME        ON UPDATE CURRENT_TIMESTAMP
+    updated_at      DATETIME        ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at      DATETIME
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -29,6 +29,7 @@ public class SystemAiValidationLogController {
     private final RegisterAiValidationLogUseCase registerAiValidationLogUseCase;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public SystemAiValidationLogController(RegisterAiValidationLogUseCase registerAiValidationLogUseCase) {
         this(registerAiValidationLogUseCase, Clock.systemDefaultZone());
     }
