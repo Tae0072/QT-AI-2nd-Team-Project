@@ -12,6 +12,7 @@ CREATE TABLE member_auth_providers (
     connected_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at        DATETIME,
     CONSTRAINT uk_auth_provider_user UNIQUE (provider, provider_user_id),
     CONSTRAINT fk_auth_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -33,6 +34,7 @@ CREATE TABLE verse_explanations (
     approved_at         DATETIME(6),
     created_at          DATETIME(6)     NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at          DATETIME(6)     NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    deleted_at          DATETIME(6),
     INDEX idx_explanations_verse_status (bible_verse_id, status),
     INDEX idx_explanations_status (status),
     UNIQUE KEY uk_explanations_active_per_verse (bible_verse_id, active_unique_key),
@@ -134,7 +136,7 @@ CREATE TABLE ai_validation_logs (
     ai_asset_id                 BIGINT       NOT NULL,
     validation_reference_job_id BIGINT,
     checklist_version_id        BIGINT       NOT NULL,
-    layer                       TINYINT      NOT NULL,
+    layer                       INT          NOT NULL,
     result                      VARCHAR(30)  NOT NULL,
     checklist_json              CLOB,
     reviewer_type               VARCHAR(30)  NOT NULL DEFAULT 'AUTO',

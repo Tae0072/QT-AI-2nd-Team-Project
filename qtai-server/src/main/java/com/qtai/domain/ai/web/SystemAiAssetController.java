@@ -31,6 +31,7 @@ public class SystemAiAssetController {
     private final RegisterAiGeneratedAssetUseCase registerAiGeneratedAssetUseCase;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public SystemAiAssetController(RegisterAiGeneratedAssetUseCase registerAiGeneratedAssetUseCase) {
         this(registerAiGeneratedAssetUseCase, Clock.systemDefaultZone());
     }

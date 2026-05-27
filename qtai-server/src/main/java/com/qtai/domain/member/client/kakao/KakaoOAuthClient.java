@@ -27,6 +27,7 @@ public class KakaoOAuthClient {
     private final RestTemplate restTemplate;
     private final String userInfoUrl;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public KakaoOAuthClient(
             @Value("${kakao.api.user-info-url}") String userInfoUrl) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
