@@ -1863,6 +1863,7 @@
 | `GET /notifications` | `read`, `type` | `createdAt,desc` |
 | `GET /admin/qt-passages` | `status`, `from`, `to`, `q` | `qtDate,desc` |
 | `GET /admin/ai/assets` | `assetType`, `targetType`, `status`, `promptVersionId`, `checklistVersionId` | `createdAt,desc` |
+| `GET /admin/ai/validation-checklists` | `checklistType`, `status` | `createdAt,desc`, 동률 `id,desc` |
 | `GET /admin/reports` | `targetType`, `status`, `reason`, `from`, `to` | `createdAt,desc` |
 | `GET /admin/audit-logs` | `actorType`, `actorId`, `actionType`, `targetType`, `from`, `to` | `createdAt,desc` |
 
@@ -1904,7 +1905,9 @@
 | `DUPLICATE_REPORT` | 409 | 동일 대상 중복 신고 |
 | `INVALID_STATUS_TRANSITION` | 409 | 상태 전이 불가 |
 | `CHECKLIST_VERSION_REQUIRED` | 409 | AI 산출물 승인에 필요한 활성 체크리스트 버전 누락 |
-| `ACTIVE_CHECKLIST_EXISTS` | 409 | 같은 유형의 활성 체크리스트가 이미 존재 |
+| `CHECKLIST_NOT_FOUND` | 404 | AI 검증 체크리스트 버전 없음 |
+| `DUPLICATE_CHECKLIST_VERSION` | 409 | 동일 `checklistType + version` 체크리스트 버전 중복 |
+| `ACTIVE_CHECKLIST_EXISTS` | 409 | 같은 유형의 활성 체크리스트가 이미 존재. MVP 구현은 이 코드를 사용하지 않고 활성화 시 기존 ACTIVE를 자동 `RETIRED` 처리한다. |
 | `AI_QUESTION_BLOCKED` | 422 | 정책상 AI 답변 차단 |
 | `AI_VALIDATION_FAILED` | 422 | AI 산출물 검증 실패 |
 | `RATE_LIMIT_EXCEEDED` | 429 | 호출 한도 초과 |
@@ -1934,7 +1937,7 @@
 | AI 산출물 | `AI_ASSET_APPROVE`, `AI_ASSET_REJECT`, `AI_ASSET_HIDE`, `AI_REGENERATE_REQUEST` | REVIEWER |
 | 신고 | `REPORT_RESOLVE`, `REPORT_REJECT`, `TARGET_HIDE` | OPERATOR |
 | 공지 | `NOTICE_CREATE`, `NOTICE_PUBLISH`, `NOTICE_HIDE` | OPERATOR |
-| 체크리스트 | `CHECKLIST_ACTIVATE`, `CHECKLIST_RETIRE` | REVIEWER |
+| 체크리스트 | `CHECKLIST_CREATE`, `CHECKLIST_ACTIVATE`, `CHECKLIST_RETIRE` | REVIEWER |
 | 평가 셋 | `EVAL_CASE_APPROVE`, `EVAL_CASE_REJECT` | REVIEWER |
 | 배치 | `AI_JOB_CREATE`, `AI_VALIDATION_FAIL`, `AI_VALIDATION_PASS` | SYSTEM_BATCH |
 
@@ -1954,18 +1957,6 @@
   "checklistType": "EXPLANATION",
   "version": "2026.05.1",
   "contentHash": "sha256:...",
-  "items": [
-    {
-      "code": "SOURCE_REQUIRED",
-      "label": "출처 표기 필수",
-      "required": true
-    },
-    {
-      "code": "NO_VALUE_JUDGMENT",
-      "label": "가치 판단 금지",
-      "required": true
-    }
-  ],
   "status": "DRAFT"
 }
 ```
@@ -1977,15 +1968,48 @@
   "id": 4,
   "checklistType": "EXPLANATION",
   "version": "2026.05.1",
-  "contentHash": "sha256:...",
+  "contentHash": "sha256:checklist-v1",
   "status": "DRAFT",
-  "createdByAdminId": 2,
-  "createdAt": "2026-05-17T10:00:00+09:00"
+  "createdByAdminId": null,
+  "createdAt": "2026-05-27T09:00:00+09:00",
+  "activatedAt": null,
+  "retiredAt": null
 }
 ```
 
+- 목록 응답은 공통 페이징 구조를 사용한다.
+
+```json
+{
+  "content": [
+    {
+      "id": 4,
+      "checklistType": "EXPLANATION",
+      "version": "2026.05.1",
+      "contentHash": "sha256:checklist-v1",
+      "status": "ACTIVE",
+      "createdByAdminId": null,
+      "createdAt": "2026-05-27T09:00:00+09:00",
+      "activatedAt": "2026-05-27T10:00:00+09:00",
+      "retiredAt": null
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "sort": "createdAt,desc,id,desc"
+}
+```
+
+- 서버는 `checklistType`, `version`, `contentHash`, `status`만 저장한다. 실제 체크리스트 원문은 외부 문서/파일을 SSoT로 두며, 서버는 `contentHash`로 원문과 버전을 대조하는 registry 역할만 한다.
+- 생성 시 `status`는 생략 또는 `DRAFT`만 허용한다. `ACTIVE`, `RETIRED` 직접 생성은 `400 INVALID_INPUT`으로 차단한다.
+- `createdByAdminId`는 `admin_users.id` 매핑이 확정되기 전까지 nullable이며, 현재 principal id를 `created_by_admin_id`로 저장하지 않는다.
 - **상태 전이:** `DRAFT -> ACTIVE -> RETIRED`
-- **전이 실패:** 이미 같은 `checklistType`에 활성 버전이 있으면 activate 시 기존 활성 버전을 `RETIRED`로 전환하거나 `409 ACTIVE_CHECKLIST_EXISTS`를 반환한다. 정책은 구현 전에 하나로 확정한다. MVP 권장은 자동 retired 처리다.
+- **전이 실패:** 활성화 대상이 `DRAFT`가 아니거나 폐기 대상이 `ACTIVE`가 아니면 `409 INVALID_STATUS_TRANSITION`을 반환한다. 없는 checklist id는 `404 CHECKLIST_NOT_FOUND`, 중복 `checklistType + version`은 `409 DUPLICATE_CHECKLIST_VERSION`을 반환한다.
+- **활성화 정책:** 같은 `checklistType`의 기존 `ACTIVE` 버전은 자동 `RETIRED` 처리한다. `ACTIVE_CHECKLIST_EXISTS` 충돌 정책은 이번 MVP 구현에서 사용하지 않는다.
 - **감사 로그:** 생성/활성화/폐기 모두 `audit_logs.action_type=CHECKLIST_*`로 기록한다.
 
 ### 7.3 평가 셋 API

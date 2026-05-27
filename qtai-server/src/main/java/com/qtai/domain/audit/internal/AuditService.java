@@ -1,22 +1,51 @@
 package com.qtai.domain.audit.internal;
 
+import java.time.Clock;
+import java.time.OffsetDateTime;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.qtai.domain.audit.api.WriteAuditLogUseCase;
+import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
+
 /**
- * 감사 도메인 진입점. 2개 UseCase 구현 + 트랜잭션 경계.
+ * 감사 도메인 진입점. 체크리스트 변경 감사에 필요한 최소 write 트랜잭션을 제공한다.
  *
  * 횡단 관심사 정책: audit은 client/ 어댑터 없이 다른 도메인 Service가 직접 의존한다.
- * write()는 @Async로 비동기 처리해 호출자 응답 속도에 영향이 가지 않도록 한다.
  */
-// TODO: @Service, @RequiredArgsConstructor, @Transactional(readOnly = true)
-// TODO: implements WriteAuditLogUseCase, ListAuditUseCase
-// TODO: @EnableAsync 설정 + write 메서드에 @Async 부여
-public class AuditService {
+@Service
+public class AuditService implements WriteAuditLogUseCase {
 
-    // TODO: final AuditRepository auditRepository;
+    private final AuditRepository auditRepository;
+    private final Clock clock;
 
-    // TODO: @Async @Transactional write(request) 구현
-    //       1) request → AuditLog 엔티티 변환
-    //       2) auditRepository.save(...)
-    //       3) 예외 발생 시 호출자에게 전파 금지 (로그만 남기고 swallow)
+    public AuditService(AuditRepository auditRepository) {
+        this(auditRepository, Clock.systemDefaultZone());
+    }
 
-    // TODO: list(actorId, action, from, to, pageable) 구현 — Page<AuditLogResponse> 반환
+    AuditService(AuditRepository auditRepository, Clock clock) {
+        this.auditRepository = auditRepository;
+        this.clock = clock;
+    }
+
+    @Override
+    @Transactional
+    public void write(AuditLogWriteRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        auditRepository.save(AuditLog.create(
+                request.adminUserId(),
+                request.actorType(),
+                request.actorId(),
+                request.actorLabel(),
+                request.actionType(),
+                request.targetType(),
+                request.targetId(),
+                request.beforeJson(),
+                request.afterJson(),
+                OffsetDateTime.now(clock)
+        ));
+    }
 }
