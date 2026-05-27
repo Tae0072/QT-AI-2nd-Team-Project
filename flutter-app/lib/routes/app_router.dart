@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../features/mypage/screens/mypage_screen.dart';
 import '../features/mypage/screens/profile_edit_screen.dart';
+import '../features/onboarding/screens/onboarding_screen.dart';
 
 /// 앱 라우트 설정.
 class AppRouter {
@@ -14,6 +15,14 @@ class AppRouter {
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case onboarding:
+        // onComplete 콜백은 settings.arguments로 전달받는다.
+        final onComplete = settings.arguments as VoidCallback?;
+        return MaterialPageRoute(
+          builder: (_) => OnboardingScreen(
+            onComplete: onComplete ?? () {},
+          ),
+        );
       case home:
         return MaterialPageRoute(
           builder: (_) => const Scaffold(body: Center(child: Text('홈'))),
