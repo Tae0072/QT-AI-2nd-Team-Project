@@ -3,78 +3,59 @@ package com.qtai.domain.note.internal;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.bible.api.GetBibleVerseUseCase;
+import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.note.api.CreateNoteUseCase;
+import com.qtai.domain.note.api.DeleteNoteUseCase;
+import com.qtai.domain.note.api.GetNoteUseCase;
+import com.qtai.domain.note.api.ListNoteCategoriesUseCase;
 import com.qtai.domain.note.api.ListNotesUseCase;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
-import com.qtai.domain.note.api.dto.NoteCreateRequest;
+import com.qtai.domain.note.api.NoteVisibility;
+import com.qtai.domain.note.api.UpdateNoteUseCase;
+import com.qtai.domain.note.api.dto.CreateNoteCommand;
+import com.qtai.domain.note.api.dto.NoteCategoryItem;
+import com.qtai.domain.note.api.dto.NoteCategoryResponse;
+import com.qtai.domain.note.api.dto.NoteDetailResponse;
+import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.note.api.dto.NoteListItem;
 import com.qtai.domain.note.api.dto.NoteListResponse;
-import com.qtai.domain.note.api.dto.NoteResponse;
+import com.qtai.domain.note.api.dto.NoteSaveResponse;
+import com.qtai.domain.note.api.dto.NoteVerseItem;
+import com.qtai.domain.note.api.dto.UpdateNoteCommand;
+import com.qtai.domain.note.client.qt.NoteQtClient;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
-/**
- * 노트 도메인 진입점. UseCase 구현 + 트랜잭션 경계.
- *
- * 권한 정책:
- * - 조회: 본인 노트만 (memberId 강제 필터) + deletedAt IS NULL (Repository에서 적용)
- * - 작성/수정/삭제: 작성자 본인만 (FORBIDDEN) — 다음 PR
- *
- * 매핑 정책 (이번 PR):
- * - visibility = "PRIVATE" 고정 (B2 노트 생성 PR에서 Entity 필드 추가 후 진짜 값으로 교체)
- * - qtDate, rangeLabel = null (다음 PR에서 qt 도메인 batch 조회로 보강)
- * - shared = false (W3 나눔 공개 PR에서 진짜 값으로 교체)
- */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class NoteService implements ListNotesUseCase, CreateNoteUseCase {
+public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNoteUseCase,
+        UpdateNoteUseCase, DeleteNoteUseCase, ListNoteCategoriesUseCase {
 
     private static final String DEFAULT_SORT = "updatedAt,desc";
 
     private final NoteRepository noteRepository;
     private final NoteVerseRepository noteVerseRepository;
     private final GetBibleVerseUseCase getBibleVerseUseCase;
-
-    @Override
-    @Transactional
-    public NoteResponse create(Long memberId, NoteCreateRequest request) {
-        if (memberId == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-        if (request == null || request.category() != NoteCategory.SERMON) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "category must be SERMON");
-        }
-
-        validateTitleOrBody(request.title(), request.body());
-        List<Long> verseIds = distinctVerseIds(request.verseIds());
-        validateVersesExist(verseIds);
-
-        Note note = noteRepository.save(Note.sermon(memberId, request.title(), request.body(), request.status()));
-        List<NoteVerse> noteVerses = toNoteVerses(note.getId(), verseIds);
-        noteVerseRepository.saveAll(noteVerses);
-
-        return toResponse(note, verseIds);
-    }
+    private final NoteQtClient noteQtClient;
 
     @Override
     public NoteListResponse list(Long memberId, NoteCategory category, NoteStatus status, String q, Pageable pageable) {
-        // 사용자 입력에 %, _ 같은 LIKE 와일드카드가 포함돼도 의도와 다른 결과가 나오지 않도록 이스케이프.
-        // Repository JPQL은 ESCAPE '\\' 절을 명시한다.
         Page<Note> page = noteRepository.search(memberId, category, status, escapeLikeWildcards(q), pageable);
-
         List<NoteListItem> content = page.getContent().stream()
-                .map(note -> toListItem(note))
+                .map(this::toListItem)
                 .toList();
 
         return new NoteListResponse(
@@ -89,6 +70,188 @@ public class NoteService implements ListNotesUseCase, CreateNoteUseCase {
         );
     }
 
+    @Override
+    public NoteDetailResponse get(Long memberId, Long noteId) {
+        Note note = noteRepository.findActiveByIdAndMemberId(noteId, memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTE_NOT_FOUND));
+        return toDetailResponse(note);
+    }
+
+    @Override
+    public NoteDraftResponse getDraft(Long memberId, NoteCategory category, Long qtPassageId) {
+        if (category != NoteCategory.MEDITATION || qtPassageId == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        return noteRepository.findDraft(memberId, category, qtPassageId)
+                .map(note -> new NoteDraftResponse(true, toDetailResponse(note)))
+                .orElseGet(() -> new NoteDraftResponse(false, null));
+    }
+
+    @Override
+    @Transactional
+    public NoteSaveResponse create(Long memberId, CreateNoteCommand command) {
+        NormalizedNoteInput input = normalize(command);
+        validateForSave(memberId, null, input);
+
+        Note note = Note.create(
+                memberId,
+                input.qtPassageId(),
+                input.category(),
+                input.status(),
+                input.visibility(),
+                input.title(),
+                input.body(),
+                input.rememberSection(),
+                input.interpretSection(),
+                input.applySection(),
+                input.praySection(),
+                LocalDateTime.now()
+        );
+
+        Note saved = saveNoteForCreate(note);
+        replaceNoteVerses(saved.getId(), input.verseIds());
+        return new NoteSaveResponse(saved.getId(), saved.getStatus());
+    }
+
+    @Override
+    @Transactional
+    public NoteSaveResponse update(Long memberId, Long noteId, UpdateNoteCommand command) {
+        Note note = noteRepository.findById(noteId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTE_NOT_FOUND));
+        if (!memberId.equals(note.getMemberId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        if (note.isDeleted()) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
+        }
+
+        NormalizedNoteInput input = normalize(command);
+        validateForSave(memberId, noteId, input);
+        note.update(
+                input.category(),
+                input.qtPassageId(),
+                input.status(),
+                input.visibility(),
+                input.title(),
+                input.body(),
+                input.rememberSection(),
+                input.interpretSection(),
+                input.applySection(),
+                input.praySection(),
+                LocalDateTime.now()
+        );
+        replaceNoteVerses(note.getId(), input.verseIds());
+        return new NoteSaveResponse(note.getId(), note.getStatus());
+    }
+
+    @Override
+    @Transactional
+    public void delete(Long memberId, Long noteId) {
+        Note note = noteRepository.findById(noteId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTE_NOT_FOUND));
+        if (!memberId.equals(note.getMemberId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        if (note.isDeleted()) {
+            return;
+        }
+        note.delete(LocalDateTime.now());
+    }
+
+    @Override
+    public NoteCategoryResponse listCategories() {
+        return new NoteCategoryResponse(List.of(
+                new NoteCategoryItem(NoteCategory.MEDITATION, "묵상 노트", true, true, false),
+                new NoteCategoryItem(NoteCategory.SERMON, "설교 노트", false, true, true),
+                new NoteCategoryItem(NoteCategory.PRAYER, "기도 노트", false, true, true),
+                new NoteCategoryItem(NoteCategory.REPENTANCE, "회개 노트", false, true, true),
+                new NoteCategoryItem(NoteCategory.GRATITUDE, "감사 노트", false, true, true)
+        ));
+    }
+
+    private void validateForSave(Long memberId, Long currentNoteId, NormalizedNoteInput input) {
+        if (input.category() == NoteCategory.MEDITATION) {
+            if (input.qtPassageId() == null) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT);
+            }
+            noteQtClient.validateReadable(memberId, input.qtPassageId());
+            validateMeditationDuplicate(memberId, currentNoteId, input.qtPassageId());
+            return;
+        }
+
+        if (input.qtPassageId() != null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        if (input.category() == NoteCategory.SERMON && input.verseIds().isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+    }
+
+    private Note saveNoteForCreate(Note note) {
+        try {
+            return noteRepository.saveAndFlush(note);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.DUPLICATE_NOTE);
+        }
+    }
+
+    private void validateMeditationDuplicate(Long memberId, Long currentNoteId, Long qtPassageId) {
+        boolean exists = currentNoteId == null
+                ? noteRepository.existsByMemberIdAndQtPassageIdAndCategoryAndActiveUniqueKey(
+                memberId, qtPassageId, NoteCategory.MEDITATION, Note.ACTIVE_KEY)
+                : noteRepository.existsByMemberIdAndQtPassageIdAndCategoryAndActiveUniqueKeyAndIdNot(
+                memberId, qtPassageId, NoteCategory.MEDITATION, Note.ACTIVE_KEY, currentNoteId);
+        if (exists) {
+            throw new BusinessException(ErrorCode.DUPLICATE_NOTE);
+        }
+    }
+
+    private void replaceNoteVerses(Long noteId, List<Long> verseIds) {
+        noteVerseRepository.deleteByNoteId(noteId);
+        getBibleVersesById(verseIds);
+
+        List<NoteVerse> noteVerses = new ArrayList<>();
+        short order = 1;
+        for (Long verseId : verseIds) {
+            noteVerses.add(NoteVerse.create(noteId, verseId, order++));
+        }
+        noteVerseRepository.saveAll(noteVerses);
+    }
+
+    private NoteDetailResponse toDetailResponse(Note note) {
+        List<NoteVerse> noteVerses = noteVerseRepository.findAllByNoteIdOrderByDisplayOrderAsc(note.getId());
+        Map<Long, BibleVerseResponse> versesById = getBibleVersesById(
+                noteVerses.stream()
+                        .map(NoteVerse::getBibleVerseId)
+                        .toList()
+        );
+        List<NoteVerseItem> verseItems = noteVerses.stream()
+                .map(noteVerse -> toVerseItem(noteVerse, versesById))
+                .toList();
+        return new NoteDetailResponse(
+                note.getId(),
+                note.getMemberId(),
+                note.getCategory(),
+                note.getQtPassageId(),
+                note.getTitle(),
+                note.getBody(),
+                note.getRememberSection(),
+                note.getInterpretSection(),
+                note.getApplySection(),
+                note.getPraySection(),
+                note.getStatus(),
+                note.getVisibility(),
+                null,
+                null,
+                note.getVisibility() == NoteVisibility.SHARED,
+                note.getSavedAt(),
+                note.getCreatedAt(),
+                note.getUpdatedAt(),
+                verseItems
+        );
+    }
+
     private NoteListItem toListItem(Note note) {
         return new NoteListItem(
                 note.getId(),
@@ -98,10 +261,113 @@ public class NoteService implements ListNotesUseCase, CreateNoteUseCase {
                 note.getVisibility(),
                 null,
                 null,
-                false,
+                note.getVisibility() == NoteVisibility.SHARED,
+                note.getSavedAt(),
                 note.getCreatedAt(),
                 note.getUpdatedAt()
         );
+    }
+
+    private NoteVerseItem toVerseItem(NoteVerse noteVerse, Map<Long, BibleVerseResponse> versesById) {
+        BibleVerseResponse verse = versesById.get(noteVerse.getBibleVerseId());
+        return new NoteVerseItem(
+                noteVerse.getBibleVerseId(),
+                verse.bookCode(),
+                verse.chapterNo(),
+                verse.verseNo(),
+                Integer.valueOf(noteVerse.getDisplayOrder())
+        );
+    }
+
+    private Map<Long, BibleVerseResponse> getBibleVersesById(List<Long> verseIds) {
+        if (verseIds.isEmpty()) {
+            return Map.of();
+        }
+        List<BibleVerseResponse> verses = getBibleVerseUseCase.getVerses(verseIds);
+        Map<Long, BibleVerseResponse> versesById = new LinkedHashMap<>();
+        for (BibleVerseResponse verse : verses) {
+            versesById.put(verse.id(), verse);
+        }
+        if (versesById.size() != verseIds.size()) {
+            throw new BusinessException(ErrorCode.BIBLE_VERSE_NOT_FOUND);
+        }
+        return versesById;
+    }
+
+    private NormalizedNoteInput normalize(CreateNoteCommand command) {
+        return normalize(
+                command.category(),
+                command.qtPassageId(),
+                command.title(),
+                command.body(),
+                command.rememberSection(),
+                command.interpretSection(),
+                command.applySection(),
+                command.praySection(),
+                command.verseIds(),
+                command.status(),
+                command.visibility()
+        );
+    }
+
+    private NormalizedNoteInput normalize(UpdateNoteCommand command) {
+        return normalize(
+                command.category(),
+                command.qtPassageId(),
+                command.title(),
+                command.body(),
+                command.rememberSection(),
+                command.interpretSection(),
+                command.applySection(),
+                command.praySection(),
+                command.verseIds(),
+                command.status(),
+                command.visibility()
+        );
+    }
+
+    private NormalizedNoteInput normalize(NoteCategory category, Long qtPassageId, String title, String body,
+                                          String rememberSection, String interpretSection, String applySection,
+                                          String praySection, List<Long> verseIds, NoteStatus status,
+                                          NoteVisibility visibility) {
+        if (category == null || status == NoteStatus.DELETED) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        NoteStatus normalizedStatus = status == null ? NoteStatus.DRAFT : status;
+        NoteVisibility normalizedVisibility = visibility == null ? NoteVisibility.PRIVATE : visibility;
+        String normalizedTitle = trimToNull(title);
+        String normalizedBody = trimToNull(body);
+        if (normalizedTitle == null && normalizedBody == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        return new NormalizedNoteInput(
+                category,
+                qtPassageId,
+                normalizedTitle == null ? "" : normalizedTitle,
+                normalizedBody == null ? "" : normalizedBody,
+                trimToNull(rememberSection),
+                trimToNull(interpretSection),
+                trimToNull(applySection),
+                trimToNull(praySection),
+                normalizeVerseIds(verseIds),
+                normalizedStatus,
+                normalizedVisibility
+        );
+    }
+
+    private List<Long> normalizeVerseIds(List<Long> verseIds) {
+        if (verseIds == null || verseIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Long> deduplicated = new LinkedHashMap<>();
+        for (Long verseId : verseIds) {
+            if (verseId == null || verseId < 1) {
+                throw new BusinessException(ErrorCode.BIBLE_VERSE_NOT_FOUND);
+            }
+            deduplicated.putIfAbsent(verseId, verseId);
+        }
+        return List.copyOf(deduplicated.values());
     }
 
     private String formatSort(Sort sort) {
@@ -111,62 +377,6 @@ public class NoteService implements ListNotesUseCase, CreateNoteUseCase {
                 .orElse(DEFAULT_SORT);
     }
 
-    private static void validateTitleOrBody(String title, String body) {
-        if (isBlank(title) && isBlank(body)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "title or body is required");
-        }
-    }
-
-    private static List<Long> distinctVerseIds(List<Long> verseIds) {
-        if (verseIds == null || verseIds.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "verseIds is required");
-        }
-
-        Set<Long> distinct = new LinkedHashSet<>();
-        for (Long verseId : verseIds) {
-            if (verseId == null || verseId < 1) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT, "verseId must be positive");
-            }
-            distinct.add(verseId);
-        }
-        return new ArrayList<>(distinct);
-    }
-
-    private void validateVersesExist(List<Long> verseIds) {
-        for (Long verseId : verseIds) {
-            getBibleVerseUseCase.getVerse(verseId);
-        }
-    }
-
-    private static List<NoteVerse> toNoteVerses(Long noteId, List<Long> verseIds) {
-        List<NoteVerse> noteVerses = new ArrayList<>();
-        for (int i = 0; i < verseIds.size(); i++) {
-            noteVerses.add(NoteVerse.of(noteId, verseIds.get(i), i + 1));
-        }
-        return noteVerses;
-    }
-
-    private static NoteResponse toResponse(Note note, List<Long> verseIds) {
-        return new NoteResponse(
-                note.getId(),
-                note.getCategory(),
-                note.getStatus(),
-                note.getVisibility(),
-                note.getTitle(),
-                note.getBody(),
-                verseIds,
-                note.getCreatedAt(),
-                note.getSavedAt()
-        );
-    }
-
-    /**
-     * LIKE 와일드카드(%, _) 이스케이프. 백슬래시를 먼저 처리해야 중복 이스케이프 방지.
-     * Repository JPQL은 ESCAPE '\\' 절을 명시해 이스케이프된 문자를 리터럴로 해석한다.
-     *
-     * <p>q가 null이거나 공백만 있으면 null을 반환해 JPQL의 (:q IS NULL) 분기가
-     * 검색 조건 자체를 우회하도록 한다. (빈 문자열 → LIKE '%%' 전체 매치 사고 방지)
-     */
     private static String escapeLikeWildcards(String q) {
         if (q == null || q.isBlank()) {
             return null;
@@ -176,7 +386,25 @@ public class NoteService implements ListNotesUseCase, CreateNoteUseCase {
                 .replace("_", "\\_");
     }
 
-    private static boolean isBlank(String value) {
-        return value == null || value.isBlank();
+    private static String trimToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private record NormalizedNoteInput(
+            NoteCategory category,
+            Long qtPassageId,
+            String title,
+            String body,
+            String rememberSection,
+            String interpretSection,
+            String applySection,
+            String praySection,
+            List<Long> verseIds,
+            NoteStatus status,
+            NoteVisibility visibility
+    ) {
     }
 }

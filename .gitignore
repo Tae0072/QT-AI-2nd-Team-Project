@@ -26,6 +26,10 @@ out/
 hs_err_pid*
 replay_pid*
 
+# Flutter / Android local artifacts
+**/local.properties
+qtai-app/
+
 # Eclipse / Cursor Java LSP local metadata
 .classpath
 .project
