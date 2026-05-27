@@ -158,8 +158,8 @@ class NoteServiceTest {
     }
 
     @Test
-    @DisplayName("create stores unique verse ids in request order")
-    void create_replacesVersesWithDeduplicatedOrder() {
+    @DisplayName("create sermon note stores unique verse ids in request order")
+    void create_sermonNote_replacesVersesWithDeduplicatedOrder() {
         when(getBibleVerseUseCase.getVerses(List.of(3L, 2L)))
                 .thenReturn(List.of(
                         new BibleVerseResponse(3L, "GEN", 1, 3, "중립 예시 문구", null),
@@ -172,7 +172,7 @@ class NoteServiceTest {
         });
 
         CreateNoteCommand command = new CreateNoteCommand(
-                NoteCategory.PRAYER, null, "기도", "본문", null, null, null, null,
+                NoteCategory.SERMON, null, "설교", "본문", null, null, null, null,
                 List.of(3L, 3L, 2L), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
         NoteSaveResponse response = noteService.create(10L, command);
