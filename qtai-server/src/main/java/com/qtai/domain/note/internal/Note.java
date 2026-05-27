@@ -15,6 +15,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.time.LocalDateTime;
+
 /**
  * 노트 엔티티 — ERD §notes.
  *
@@ -38,6 +40,7 @@ public class Note extends BaseEntity {
 
     /** active_unique_key 상수 — partial unique index 패턴 */
     public static final String ACTIVE_KEY = "ACTIVE";
+    public static final String PRIVATE_VISIBILITY = "PRIVATE";
 
     @Column(name = "member_id", nullable = false)
     private Long memberId;
@@ -53,6 +56,9 @@ public class Note extends BaseEntity {
     @Column(nullable = false, length = 10)
     private NoteStatus status;
 
+    @Column(nullable = false, length = 20)
+    private String visibility;
+
     @Column(nullable = false, length = 200)
     private String title;
 
@@ -67,6 +73,9 @@ public class Note extends BaseEntity {
     @Column(name = "active_unique_key", length = 10)
     private String activeUniqueKey;
 
+    @Column(name = "saved_at")
+    private LocalDateTime savedAt;
+
     @Builder
     private Note(Long memberId, Long qtPassageId, NoteCategory category,
                  String title, String body) {
@@ -74,10 +83,26 @@ public class Note extends BaseEntity {
         this.qtPassageId = qtPassageId;
         this.category = category;
         this.status = NoteStatus.DRAFT;
+        this.visibility = PRIVATE_VISIBILITY;
         this.title = title;
         this.body = body;
         // MEDITATION 카테고리는 반드시 active_unique_key='ACTIVE'로 생성
         this.activeUniqueKey = (category == NoteCategory.MEDITATION) ? ACTIVE_KEY : null;
+    }
+
+    public static Note sermon(Long memberId, String title, String body, NoteStatus status) {
+        Note note = Note.builder()
+                .memberId(memberId)
+                .category(NoteCategory.SERMON)
+                .title(title == null ? "" : title)
+                .body(body == null ? "" : body)
+                .build();
+        note.status = status == null ? NoteStatus.SAVED : status;
+        note.visibility = PRIVATE_VISIBILITY;
+        note.qtPassageId = null;
+        note.activeUniqueKey = null;
+        note.savedAt = note.status == NoteStatus.SAVED ? LocalDateTime.now() : null;
+        return note;
     }
 
     /** 노트 비활성화 — 삭제/교체 시 UK를 해제하여 새 묵상 노트 생성을 허용한다. */

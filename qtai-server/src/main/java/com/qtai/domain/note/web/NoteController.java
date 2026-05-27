@@ -3,17 +3,25 @@ package com.qtai.domain.note.web;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.note.api.CreateNoteUseCase;
 import com.qtai.domain.note.api.ListNotesUseCase;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
+import com.qtai.domain.note.api.dto.NoteCreateRequest;
 import com.qtai.domain.note.api.dto.NoteListResponse;
+import com.qtai.domain.note.api.dto.NoteResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,6 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class NoteController {
 
     private final ListNotesUseCase listNotesUseCase;
+    private final CreateNoteUseCase createNoteUseCase;
 
     /**
      * 노트 목록 조회. (04 API §4.3.1)
@@ -57,5 +66,17 @@ public class NoteController {
         }
         NoteListResponse response = listNotesUseCase.list(memberId, category, status, q, pageable);
         return ApiResponse.success(response);
+    }
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<NoteResponse>> create(
+            @AuthenticationPrincipal Long memberId,
+            @Valid @RequestBody NoteCreateRequest request) {
+        if (memberId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        NoteResponse response = createNoteUseCase.create(memberId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(response));
     }
 }

@@ -19,14 +19,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.note.api.CreateNoteUseCase;
 import com.qtai.domain.note.api.ListNotesUseCase;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
+import com.qtai.domain.note.api.dto.NoteCreateRequest;
 import com.qtai.domain.note.api.dto.NoteListResponse;
+import com.qtai.domain.note.api.dto.NoteResponse;
 
 /**
  * NoteController 단위 테스트.
@@ -40,13 +45,15 @@ import com.qtai.domain.note.api.dto.NoteListResponse;
 class NoteControllerTest {
 
     private ListNotesUseCase listNotesUseCase;
+    private CreateNoteUseCase createNoteUseCase;
     private NoteController controller;
     private Pageable defaultPageable;
 
     @BeforeEach
     void setUp() {
         listNotesUseCase = mock(ListNotesUseCase.class);
-        controller = new NoteController(listNotesUseCase);
+        createNoteUseCase = mock(CreateNoteUseCase.class);
+        controller = new NoteController(listNotesUseCase, createNoteUseCase);
         defaultPageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "updatedAt"));
     }
 
@@ -98,5 +105,60 @@ class NoteControllerTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.INTERNAL_ERROR);
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/notes는 인증된 memberId와 요청 DTO를 CreateNoteUseCase에 위임하고 201 Created로 감싸 반환")
+    void create_정상위임_201_ApiResponse_포장() {
+        // given
+        NoteCreateRequest request = new NoteCreateRequest(
+                NoteCategory.SERMON,
+                "주일 설교",
+                "본문",
+                List.of(3L, 5L),
+                NoteStatus.SAVED
+        );
+        NoteResponse stub = new NoteResponse(
+                99L,
+                NoteCategory.SERMON,
+                NoteStatus.SAVED,
+                "PRIVATE",
+                "주일 설교",
+                "본문",
+                List.of(3L, 5L),
+                null,
+                null
+        );
+        when(createNoteUseCase.create(1L, request)).thenReturn(stub);
+
+        // when
+        ResponseEntity<ApiResponse<NoteResponse>> result = controller.create(1L, request);
+
+        // then
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(result.getBody()).isNotNull();
+        assertThat(result.getBody().success()).isTrue();
+        assertThat(result.getBody().data()).isSameAs(stub);
+        verify(createNoteUseCase).create(1L, request);
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/notes에서 memberId가 null이면 UNAUTHORIZED(M0002) 던지고 UseCase 호출 없음")
+    void create_memberId_null이면_401() {
+        // given
+        NoteCreateRequest request = new NoteCreateRequest(
+                NoteCategory.SERMON,
+                "주일 설교",
+                "본문",
+                List.of(3L),
+                NoteStatus.SAVED
+        );
+
+        // when & then
+        assertThatThrownBy(() -> controller.create(null, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+        verify(createNoteUseCase, never()).create(any(), any());
     }
 }

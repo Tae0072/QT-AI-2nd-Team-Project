@@ -31,4 +31,14 @@ public class NoteVerse {
 
     @Column(length = 500)
     private String highlight;
+
+    private NoteVerse(Long noteId, Long bibleVerseId, short displayOrder) {
+        this.noteId = noteId;
+        this.bibleVerseId = bibleVerseId;
+        this.displayOrder = displayOrder;
+    }
+
+    public static NoteVerse of(Long noteId, Long bibleVerseId, int displayOrder) {
+        return new NoteVerse(noteId, bibleVerseId, (short) displayOrder);
+    }
 }

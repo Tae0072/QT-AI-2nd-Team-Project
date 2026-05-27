@@ -1,5 +1,8 @@
 package com.qtai.domain.note.api;
 
+import com.qtai.domain.note.api.dto.NoteCreateRequest;
+import com.qtai.domain.note.api.dto.NoteResponse;
+
 /**
  * 노트 작성 UseCase 포트.
  *
@@ -8,6 +11,5 @@ package com.qtai.domain.note.api;
  */
 public interface CreateNoteUseCase {
 
-    // TODO: NoteResponse createNote(Long memberId, Long qtId, NoteCreateRequest request);
-    //       qt 존재/소유자 검증 후 INSERT
+    NoteResponse create(Long memberId, NoteCreateRequest request);
 }
