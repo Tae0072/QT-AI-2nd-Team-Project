@@ -105,6 +105,17 @@ class NoteControllerTest {
     }
 
     @Test
+    @DisplayName("draft lookup rejects missing member id")
+    void getDraft_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.getDraft(null, NoteCategory.MEDITATION, 100L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(getNoteUseCase, never()).getDraft(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("get delegates authenticated member and note id")
     void get_delegates() {
         NoteDetailResponse stub = new NoteDetailResponse(
@@ -118,6 +129,17 @@ class NoteControllerTest {
 
         assertThat(response.data()).isSameAs(stub);
         verify(getNoteUseCase).get(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("get rejects missing member id")
+    void get_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.get(null, 10L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(getNoteUseCase, never()).get(any(), any());
     }
 
     @Test
@@ -146,6 +168,31 @@ class NoteControllerTest {
     }
 
     @Test
+    @DisplayName("create rejects missing member id")
+    void create_memberIdNull_rejected() {
+        CreateNoteRequest request = new CreateNoteRequest(
+                NoteCategory.MEDITATION,
+                100L,
+                "묵상",
+                "본문",
+                null,
+                null,
+                null,
+                null,
+                List.of(),
+                NoteStatus.DRAFT,
+                null
+        );
+
+        assertThatThrownBy(() -> controller.create(null, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(createNoteUseCase, never()).create(any(), any());
+    }
+
+    @Test
     @DisplayName("update delegates note id and command")
     void update_delegates() {
         when(updateNoteUseCase.update(eq(1L), eq(10L), any()))
@@ -171,11 +218,47 @@ class NoteControllerTest {
     }
 
     @Test
+    @DisplayName("update rejects missing member id")
+    void update_memberIdNull_rejected() {
+        UpdateNoteRequest request = new UpdateNoteRequest(
+                NoteCategory.MEDITATION,
+                100L,
+                "묵상",
+                "본문",
+                null,
+                null,
+                null,
+                null,
+                List.of(),
+                NoteStatus.SAVED,
+                null
+        );
+
+        assertThatThrownBy(() -> controller.update(null, 10L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(updateNoteUseCase, never()).update(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("delete delegates authenticated member and note id")
     void delete_delegates() {
         controller.delete(1L, 10L);
 
         verify(deleteNoteUseCase).delete(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("delete rejects missing member id")
+    void delete_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.delete(null, 10L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(deleteNoteUseCase, never()).delete(any(), any());
     }
 
     @Test

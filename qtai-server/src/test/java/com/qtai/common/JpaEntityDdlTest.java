@@ -7,7 +7,9 @@ import com.qtai.domain.note.internal.Note;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.sharing.internal.PostLike;
 import com.qtai.domain.sharing.internal.SharingPost;
+import jakarta.persistence.Column;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.Table;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -118,6 +121,28 @@ class JpaEntityDdlTest {
     }
 
     @Test
+    @DisplayName("Note 생명주기 컬럼과 활성 묵상 unique 제약이 Entity DDL에 반영된다")
+    void note_lifecycle_columns_and_unique_constraint() throws Exception {
+        Column activeUniqueKey = Note.class.getDeclaredField("activeUniqueKey").getAnnotation(Column.class);
+        Column savedAt = Note.class.getDeclaredField("savedAt").getAnnotation(Column.class);
+        Column deletedAt = findField(Note.class, "deletedAt").getAnnotation(Column.class);
+        Table table = Note.class.getAnnotation(Table.class);
+
+        assertEquals("active_unique_key", activeUniqueKey.name());
+        assertTrue(activeUniqueKey.nullable());
+        assertEquals("saved_at", savedAt.name());
+        assertTrue(savedAt.nullable());
+        assertEquals("deleted_at", deletedAt.name());
+        assertTrue(deletedAt.nullable());
+        assertTrue(Arrays.stream(table.uniqueConstraints())
+                .anyMatch(uniqueConstraint -> "uk_notes_meditation_active".equals(uniqueConstraint.name())
+                        && Arrays.equals(
+                        new String[]{"member_id", "qt_passage_id", "active_unique_key"},
+                        uniqueConstraint.columnNames()
+                )));
+    }
+
+    @Test
     @DisplayName("PostLike UK — 동일 sharingPostId+memberId 중복 삽입 시 예외")
     void postLike_unique_constraint() throws Exception {
         PostLike like1 = createPostLike(500L, 1L);
@@ -143,5 +168,17 @@ class JpaEntityDdlTest {
         memberIdField.set(like, memberId);
 
         return like;
+    }
+
+    private static Field findField(Class<?> clazz, String fieldName) throws NoSuchFieldException {
+        Class<?> current = clazz;
+        while (current != null) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException e) {
+                current = current.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(fieldName);
     }
 }
