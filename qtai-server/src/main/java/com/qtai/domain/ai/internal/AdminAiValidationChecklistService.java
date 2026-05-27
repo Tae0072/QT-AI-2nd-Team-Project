@@ -3,6 +3,7 @@ package com.qtai.domain.ai.internal;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -87,7 +88,7 @@ public class AdminAiValidationChecklistService implements
                 query.size(),
                 Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))
         );
-        Page<AiValidationChecklistVersion> page = repository.findAllByFilters(checklistType, status, pageRequest);
+        Page<AiValidationChecklistVersion> page = findChecklistPage(checklistType, status, pageRequest);
 
         return new AdminAiValidationChecklistListResponse(
                 page.getContent().stream()
@@ -140,12 +141,21 @@ public class AdminAiValidationChecklistService implements
         requireValidStatusCommand(command);
         requireAuthorizedReviewer(command.memberRole(), command.adminRole());
 
-        AiValidationChecklistVersion target = findChecklist(command.checklistId());
+        AiValidationChecklistType checklistType = findChecklistType(command.checklistId());
+        List<AiValidationChecklistVersion> lockedVersions =
+                repository.findAllByChecklistTypeForUpdate(checklistType);
+        AiValidationChecklistVersion target = lockedVersions.stream()
+                .filter(version -> command.checklistId().equals(version.getId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHECKLIST_NOT_FOUND));
+        if (target.getStatus() != AiValidationChecklistStatus.DRAFT) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
+        }
         OffsetDateTime now = OffsetDateTime.now(clock);
-        for (AiValidationChecklistVersion active : repository.findByChecklistTypeAndStatus(
-                target.getChecklistType(),
-                AiValidationChecklistStatus.ACTIVE
-        )) {
+        for (AiValidationChecklistVersion active : lockedVersions) {
+            if (active.getStatus() != AiValidationChecklistStatus.ACTIVE) {
+                continue;
+            }
             String beforeJson = snapshot(active, now);
             active.retire(now);
             writeAudit(command.adminId(), "CHECKLIST_RETIRE", active.getId(), beforeJson, snapshot(active, now));
@@ -155,6 +165,23 @@ public class AdminAiValidationChecklistService implements
         target.activate(now);
         writeAudit(command.adminId(), "CHECKLIST_ACTIVATE", target.getId(), beforeJson, snapshot(target, now));
         return toResponse(target);
+    }
+
+    private Page<AiValidationChecklistVersion> findChecklistPage(
+            AiValidationChecklistType checklistType,
+            AiValidationChecklistStatus status,
+            PageRequest pageRequest
+    ) {
+        if (checklistType != null && status != null) {
+            return repository.findByChecklistTypeAndStatus(checklistType, status, pageRequest);
+        }
+        if (checklistType != null) {
+            return repository.findByChecklistType(checklistType, pageRequest);
+        }
+        if (status != null) {
+            return repository.findByStatus(status, pageRequest);
+        }
+        return repository.findAll(pageRequest);
     }
 
     @Override
@@ -175,6 +202,11 @@ public class AdminAiValidationChecklistService implements
 
     private AiValidationChecklistVersion findChecklist(Long checklistId) {
         return repository.findById(checklistId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHECKLIST_NOT_FOUND));
+    }
+
+    private AiValidationChecklistType findChecklistType(Long checklistId) {
+        return repository.findChecklistTypeById(checklistId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CHECKLIST_NOT_FOUND));
     }
 

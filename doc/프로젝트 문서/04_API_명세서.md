@@ -1907,7 +1907,6 @@
 | `CHECKLIST_VERSION_REQUIRED` | 409 | AI 산출물 승인에 필요한 활성 체크리스트 버전 누락 |
 | `CHECKLIST_NOT_FOUND` | 404 | AI 검증 체크리스트 버전 없음 |
 | `DUPLICATE_CHECKLIST_VERSION` | 409 | 동일 `checklistType + version` 체크리스트 버전 중복 |
-| `ACTIVE_CHECKLIST_EXISTS` | 409 | 같은 유형의 활성 체크리스트가 이미 존재. MVP 구현은 이 코드를 사용하지 않고 활성화 시 기존 ACTIVE를 자동 `RETIRED` 처리한다. |
 | `AI_QUESTION_BLOCKED` | 422 | 정책상 AI 답변 차단 |
 | `AI_VALIDATION_FAILED` | 422 | AI 산출물 검증 실패 |
 | `RATE_LIMIT_EXCEEDED` | 429 | 호출 한도 초과 |
@@ -2009,7 +2008,7 @@
 - `createdByAdminId`는 `admin_users.id` 매핑이 확정되기 전까지 nullable이며, 현재 principal id를 `created_by_admin_id`로 저장하지 않는다.
 - **상태 전이:** `DRAFT -> ACTIVE -> RETIRED`
 - **전이 실패:** 활성화 대상이 `DRAFT`가 아니거나 폐기 대상이 `ACTIVE`가 아니면 `409 INVALID_STATUS_TRANSITION`을 반환한다. 없는 checklist id는 `404 CHECKLIST_NOT_FOUND`, 중복 `checklistType + version`은 `409 DUPLICATE_CHECKLIST_VERSION`을 반환한다.
-- **활성화 정책:** 같은 `checklistType`의 기존 `ACTIVE` 버전은 자동 `RETIRED` 처리한다. `ACTIVE_CHECKLIST_EXISTS` 충돌 정책은 이번 MVP 구현에서 사용하지 않는다.
+- **활성화 정책:** 같은 `checklistType`의 기존 `ACTIVE` 버전은 자동 `RETIRED` 처리한다.
 - **감사 로그:** 생성/활성화/폐기 모두 `audit_logs.action_type=CHECKLIST_*`로 기록한다.
 
 ### 7.3 평가 셋 API

@@ -1,10 +1,13 @@
 package com.qtai.domain.ai.internal;
 
 import java.util.List;
+import java.util.Optional;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,15 +21,37 @@ public interface AiValidationChecklistVersionRepository
             AiValidationChecklistStatus status
     );
 
+    Page<AiValidationChecklistVersion> findByChecklistType(
+            AiValidationChecklistType checklistType,
+            Pageable pageable
+    );
+
+    Page<AiValidationChecklistVersion> findByStatus(
+            AiValidationChecklistStatus status,
+            Pageable pageable
+    );
+
+    Page<AiValidationChecklistVersion> findByChecklistTypeAndStatus(
+            AiValidationChecklistType checklistType,
+            AiValidationChecklistStatus status,
+            Pageable pageable
+    );
+
+    @Query("""
+            select checklistVersion.checklistType
+            from AiValidationChecklistVersion checklistVersion
+            where checklistVersion.id = :id
+            """)
+    Optional<AiValidationChecklistType> findChecklistTypeById(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select checklistVersion
             from AiValidationChecklistVersion checklistVersion
-            where (:checklistType is null or checklistVersion.checklistType = :checklistType)
-              and (:status is null or checklistVersion.status = :status)
+            where checklistVersion.checklistType = :checklistType
+            order by checklistVersion.id asc
             """)
-    Page<AiValidationChecklistVersion> findAllByFilters(
-            @Param("checklistType") AiValidationChecklistType checklistType,
-            @Param("status") AiValidationChecklistStatus status,
-            Pageable pageable
+    List<AiValidationChecklistVersion> findAllByChecklistTypeForUpdate(
+            @Param("checklistType") AiValidationChecklistType checklistType
     );
 }

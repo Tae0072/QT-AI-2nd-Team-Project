@@ -140,10 +140,7 @@ public class AdminAiValidationChecklistController {
         if (status == null || status.isBlank()) {
             return "DRAFT";
         }
-        if ("DRAFT".equals(status)) {
-            return status;
-        }
-        throw new BusinessException(ErrorCode.INVALID_INPUT, "status must be DRAFT when provided");
+        return status;
     }
 
 }

@@ -137,6 +137,10 @@ class AdminAiValidationChecklistControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("M0003"));
         mockMvc.perform(get("/api/v1/admin/ai/validation-checklists")
+                        .principal(adminPrincipal(7L, "ADMIN_ROLE_CONTENT_CREATOR")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("M0003"));
+        mockMvc.perform(get("/api/v1/admin/ai/validation-checklists")
                         .principal(adminPrincipal(8L, "ADMIN_ROLE_SUPER_ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
@@ -177,7 +181,7 @@ class AdminAiValidationChecklistControllerTest {
     }
 
     @Test
-    void createChecklistRejectsMissingRequiredFieldAndDirectActiveStatus() throws Exception {
+    void createChecklistRejectsMissingRequiredField() throws Exception {
         mockMvc.perform(post("/api/v1/admin/ai/validation-checklists")
                         .principal(adminPrincipal(7L, "ADMIN_ROLE_REVIEWER"))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -190,6 +194,14 @@ class AdminAiValidationChecklistControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("C0002"));
+
+        verify(createUseCase, never()).createAdminAiValidationChecklist(any(CreateAdminAiValidationChecklistCommand.class));
+    }
+
+    @Test
+    void createChecklistPassesDirectActiveStatusToServiceValidation() throws Exception {
+        when(createUseCase.createAdminAiValidationChecklist(any(CreateAdminAiValidationChecklistCommand.class)))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT));
 
         mockMvc.perform(post("/api/v1/admin/ai/validation-checklists")
                         .principal(adminPrincipal(7L, "ADMIN_ROLE_REVIEWER"))
@@ -205,7 +217,10 @@ class AdminAiValidationChecklistControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("C0002"));
 
-        verify(createUseCase, never()).createAdminAiValidationChecklist(any(CreateAdminAiValidationChecklistCommand.class));
+        ArgumentCaptor<CreateAdminAiValidationChecklistCommand> commandCaptor =
+                ArgumentCaptor.forClass(CreateAdminAiValidationChecklistCommand.class);
+        verify(createUseCase).createAdminAiValidationChecklist(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().status()).isEqualTo("ACTIVE");
     }
 
     @Test

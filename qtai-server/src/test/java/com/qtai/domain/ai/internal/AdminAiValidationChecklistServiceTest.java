@@ -3,6 +3,7 @@ package com.qtai.domain.ai.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -60,7 +61,7 @@ class AdminAiValidationChecklistServiceTest {
 
     @Test
     void listChecklistsRequiresReviewerOrSuperAdminAndReturnsPage() {
-        when(repository.findAllByFilters(any(), any(), any(Pageable.class)))
+        when(repository.findAll(any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(version(4L, AiValidationChecklistStatus.ACTIVE)), Pageable.ofSize(20), 1));
 
         AdminAiValidationChecklistListResponse response = service.listAdminAiValidationChecklists(
@@ -72,9 +73,36 @@ class AdminAiValidationChecklistServiceTest {
         assertThat(response.content().get(0).status()).isEqualTo("ACTIVE");
         assertThat(response.sort()).isEqualTo("createdAt,desc,id,desc");
         assertForbidden(() -> service.listAdminAiValidationChecklists(listQuery("OPERATOR")));
+        assertForbidden(() -> service.listAdminAiValidationChecklists(listQuery("CONTENT_CREATOR")));
         assertForbidden(() -> service.listAdminAiValidationChecklists(new ListAdminAiValidationChecklistsQuery(
                 7L, "USER", "REVIEWER", null, null, 0, 20
         )));
+    }
+
+    @Test
+    void listChecklistsUsesRepositoryMethodByFilterCombination() {
+        PageImpl<AiValidationChecklistVersion> emptyPage = new PageImpl<>(List.of(), Pageable.ofSize(20), 0);
+        when(repository.findByChecklistType(eq(AiValidationChecklistType.EXPLANATION), any(Pageable.class)))
+                .thenReturn(emptyPage);
+        when(repository.findByStatus(eq(AiValidationChecklistStatus.ACTIVE), any(Pageable.class)))
+                .thenReturn(emptyPage);
+        when(repository.findByChecklistTypeAndStatus(eq(AiValidationChecklistType.EXPLANATION),
+                eq(AiValidationChecklistStatus.ACTIVE), any(Pageable.class))).thenReturn(emptyPage);
+
+        service.listAdminAiValidationChecklists(new ListAdminAiValidationChecklistsQuery(
+                7L, "ADMIN", "REVIEWER", "EXPLANATION", null, 0, 20
+        ));
+        service.listAdminAiValidationChecklists(new ListAdminAiValidationChecklistsQuery(
+                7L, "ADMIN", "REVIEWER", null, "ACTIVE", 0, 20
+        ));
+        service.listAdminAiValidationChecklists(new ListAdminAiValidationChecklistsQuery(
+                7L, "ADMIN", "REVIEWER", "EXPLANATION", "ACTIVE", 0, 20
+        ));
+
+        verify(repository).findByChecklistType(eq(AiValidationChecklistType.EXPLANATION), any(Pageable.class));
+        verify(repository).findByStatus(eq(AiValidationChecklistStatus.ACTIVE), any(Pageable.class));
+        verify(repository).findByChecklistTypeAndStatus(eq(AiValidationChecklistType.EXPLANATION),
+                eq(AiValidationChecklistStatus.ACTIVE), any(Pageable.class));
     }
 
     @Test
@@ -126,9 +154,9 @@ class AdminAiValidationChecklistServiceTest {
     void activateChecklistRetiresExistingActiveChecklistAndWritesAuditLogs() {
         AiValidationChecklistVersion target = version(4L, AiValidationChecklistStatus.DRAFT);
         AiValidationChecklistVersion active = version(3L, AiValidationChecklistStatus.ACTIVE);
-        when(repository.findById(4L)).thenReturn(Optional.of(target));
-        when(repository.findByChecklistTypeAndStatus(AiValidationChecklistType.EXPLANATION,
-                AiValidationChecklistStatus.ACTIVE)).thenReturn(List.of(active));
+        when(repository.findChecklistTypeById(4L)).thenReturn(Optional.of(AiValidationChecklistType.EXPLANATION));
+        when(repository.findAllByChecklistTypeForUpdate(AiValidationChecklistType.EXPLANATION))
+                .thenReturn(List.of(active, target));
 
         AdminAiValidationChecklistResponse response = service.activateAdminAiValidationChecklist(statusCommand(4L));
 
@@ -162,7 +190,7 @@ class AdminAiValidationChecklistServiceTest {
 
     @Test
     void statusChangeThrowsChecklistNotFoundForMissingId() {
-        when(repository.findById(404L)).thenReturn(Optional.empty());
+        when(repository.findChecklistTypeById(404L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.activateAdminAiValidationChecklist(statusCommand(404L)))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
