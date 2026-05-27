@@ -1,4 +1,47 @@
--- V6__create_ai_generation_logging.sql
+-- V6__create_auth_ai_explanation_tables.sql
+-- 병합: member_auth_providers + verse_explanations + ai_generation_logging
+
+-- ============================================================
+-- 1. member_auth_providers (OAuth 제공자 연동)
+-- ============================================================
+CREATE TABLE member_auth_providers (
+    id                BIGINT       AUTO_INCREMENT PRIMARY KEY,
+    member_id         BIGINT       NOT NULL,
+    provider          VARCHAR(20)  NOT NULL DEFAULT 'KAKAO',
+    provider_user_id  VARCHAR(100) NOT NULL,
+    connected_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uk_auth_provider_user UNIQUE (provider, provider_user_id),
+    CONSTRAINT fk_auth_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_auth_member_id ON member_auth_providers(member_id);
+
+-- ============================================================
+-- 2. verse_explanations (절 해설)
+-- ============================================================
+CREATE TABLE verse_explanations (
+    id                  BIGINT          AUTO_INCREMENT PRIMARY KEY,
+    bible_verse_id      BIGINT          NOT NULL,
+    summary             VARCHAR(300),
+    explanation         TEXT            NOT NULL,
+    source_label        VARCHAR(200)    NOT NULL,
+    status              VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
+    active_unique_key   VARCHAR(20),
+    ai_asset_id         BIGINT,
+    approved_at         DATETIME(6),
+    created_at          DATETIME(6)     NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at          DATETIME(6)     NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    INDEX idx_explanations_verse_status (bible_verse_id, status),
+    INDEX idx_explanations_status (status),
+    UNIQUE KEY uk_explanations_active_per_verse (bible_verse_id, active_unique_key),
+    CONSTRAINT fk_verse_explanations_verse FOREIGN KEY (bible_verse_id) REFERENCES bible_verses(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 3. AI 생성·검증 로깅 (6 tables)
+-- ============================================================
 CREATE TABLE ai_prompt_versions (
     id              BIGINT       AUTO_INCREMENT PRIMARY KEY,
     prompt_type     VARCHAR(30)  NOT NULL,
