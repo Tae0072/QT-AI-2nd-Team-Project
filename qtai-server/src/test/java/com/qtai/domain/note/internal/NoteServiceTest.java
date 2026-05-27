@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -438,6 +439,21 @@ class NoteServiceTest {
     }
 
     @Test
+    @DisplayName("update rejects missing note")
+    void update_missingNote_rejected() {
+        when(noteRepository.findById(1L)).thenReturn(Optional.empty());
+
+        UpdateNoteCommand command = new UpdateNoteCommand(
+                NoteCategory.PRAYER, null, "기도", "본문", null, null, null, null,
+                List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.update(10L, 1L, command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.NOTE_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("Note entity rejects deleted note update with BusinessException")
     void note_updateDeletedNote_throwsBusinessException() {
         Note note = persistedNote(1L, 10L, NoteCategory.PRAYER, NoteStatus.SAVED, null);
@@ -472,6 +488,42 @@ class NoteServiceTest {
         assertThat(note.getStatus()).isEqualTo(NoteStatus.DELETED);
         assertThat(note.getDeletedAt()).isNotNull();
         assertThat(note.getActiveUniqueKey()).isNull();
+    }
+
+    @Test
+    @DisplayName("delete rejects missing note")
+    void delete_missingNote_rejected() {
+        when(noteRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> noteService.delete(10L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.NOTE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("delete rejects other member note")
+    void delete_otherMemberNote_rejected() {
+        Note note = persistedNote(1L, 10L, NoteCategory.PRAYER, NoteStatus.SAVED, null);
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+
+        assertThatThrownBy(() -> noteService.delete(20L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("delete is idempotent for already deleted note")
+    void delete_alreadyDeletedNote_returnsWithoutException() {
+        Note note = persistedNote(1L, 10L, NoteCategory.MEDITATION, NoteStatus.SAVED, 100L);
+        note.delete(java.time.LocalDateTime.now());
+        Object deletedAt = note.getDeletedAt();
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+
+        assertThatNoException().isThrownBy(() -> noteService.delete(10L, 1L));
+        assertThat(note.getDeletedAt()).isSameAs(deletedAt);
+        assertThat(note.getStatus()).isEqualTo(NoteStatus.DELETED);
     }
 
     private static Note persistedNote(Long id, Long memberId, NoteCategory category, NoteStatus status, Long qtPassageId) {
