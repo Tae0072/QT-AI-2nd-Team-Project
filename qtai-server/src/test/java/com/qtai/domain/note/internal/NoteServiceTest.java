@@ -18,6 +18,7 @@ import com.qtai.domain.note.client.qt.NoteQtClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -53,6 +55,11 @@ class NoteServiceTest {
         getBibleVerseUseCase = mock(GetBibleVerseUseCase.class);
         noteQtClient = mock(NoteQtClient.class);
         noteService = new NoteService(noteRepository, noteVerseRepository, getBibleVerseUseCase, noteQtClient);
+        when(noteRepository.saveAndFlush(any())).thenAnswer(invocation -> {
+            Note note = invocation.getArgument(0);
+            setField(note, "id", 99L);
+            return note;
+        });
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "updatedAt"));
     }
 
@@ -169,6 +176,23 @@ class NoteServiceTest {
         verify(noteVerseRepository).saveAll(any());
         verify(getBibleVerseUseCase).getVerses(List.of(3L, 2L));
         verify(getBibleVerseUseCase, never()).getVerse(any());
+    }
+
+    @Test
+    @DisplayName("create does not map note verse integrity errors to duplicate meditation note")
+    void create_noteVerseIntegrityError_notMappedToDuplicateNote() {
+        when(getBibleVerseUseCase.getVerses(List.of(3L)))
+                .thenReturn(List.of(new BibleVerseResponse(3L, "GEN", 1, 3, "중립 예시 문구", null)));
+        DataIntegrityViolationException integrityException =
+                new DataIntegrityViolationException("uk_note_verses_note_verse");
+        doThrow(integrityException).when(noteVerseRepository).deleteByNoteId(99L);
+
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.PRAYER, null, "기도", "본문", null, null, null, null,
+                List.of(3L), NoteStatus.SAVED, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.create(10L, command))
+                .isSameAs(integrityException);
     }
 
     @Test

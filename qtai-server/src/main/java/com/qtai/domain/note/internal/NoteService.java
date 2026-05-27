@@ -109,13 +109,9 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 LocalDateTime.now()
         );
 
-        try {
-            Note saved = noteRepository.save(note);
-            replaceNoteVerses(saved.getId(), input.verseIds());
-            return new NoteSaveResponse(saved.getId(), saved.getStatus());
-        } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(ErrorCode.DUPLICATE_NOTE);
-        }
+        Note saved = saveNoteForCreate(note);
+        replaceNoteVerses(saved.getId(), input.verseIds());
+        return new NoteSaveResponse(saved.getId(), saved.getStatus());
     }
 
     @Override
@@ -189,6 +185,14 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         }
         if (input.category() == NoteCategory.SERMON && input.verseIds().isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+    }
+
+    private Note saveNoteForCreate(Note note) {
+        try {
+            return noteRepository.saveAndFlush(note);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.DUPLICATE_NOTE);
         }
     }
 
