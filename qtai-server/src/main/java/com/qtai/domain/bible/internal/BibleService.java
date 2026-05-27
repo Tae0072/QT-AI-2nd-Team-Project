@@ -12,7 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +42,33 @@ public class BibleService implements ListBibleBooksUseCase, GetBibleVerseUseCase
         return bibleRepository.findById(verseId)
                 .map(this::toVerseResponse)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BIBLE_VERSE_NOT_FOUND));
+    }
+
+    @Override
+    public List<BibleVerseResponse> getVerses(List<Long> verseIds) {
+        if (verseIds == null || verseIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Long> requestedIds = new LinkedHashMap<>();
+        for (Long verseId : verseIds) {
+            if (verseId == null || verseId < 1) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT);
+            }
+            requestedIds.putIfAbsent(verseId, verseId);
+        }
+
+        Map<Long, BibleVerseResponse> foundVerses = new LinkedHashMap<>();
+        bibleRepository.findAllByIdIn(requestedIds.keySet()).stream()
+                .map(this::toVerseResponse)
+                .forEach(verse -> foundVerses.put(verse.id(), verse));
+        if (foundVerses.size() != requestedIds.size()) {
+            throw new BusinessException(ErrorCode.BIBLE_VERSE_NOT_FOUND);
+        }
+
+        return requestedIds.keySet().stream()
+                .map(foundVerses::get)
+                .toList();
     }
 
     @Override

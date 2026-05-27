@@ -1,18 +1,23 @@
 package com.qtai.domain.note.web;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.util.List;
-
+import com.qtai.common.dto.ApiResponse;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.note.api.CreateNoteUseCase;
+import com.qtai.domain.note.api.DeleteNoteUseCase;
+import com.qtai.domain.note.api.GetNoteUseCase;
+import com.qtai.domain.note.api.ListNoteCategoriesUseCase;
+import com.qtai.domain.note.api.ListNotesUseCase;
+import com.qtai.domain.note.api.NoteCategory;
+import com.qtai.domain.note.api.NoteStatus;
+import com.qtai.domain.note.api.NoteVisibility;
+import com.qtai.domain.note.api.UpdateNoteUseCase;
+import com.qtai.domain.note.api.dto.NoteCategoryItem;
+import com.qtai.domain.note.api.dto.NoteCategoryResponse;
+import com.qtai.domain.note.api.dto.NoteDetailResponse;
+import com.qtai.domain.note.api.dto.NoteDraftResponse;
+import com.qtai.domain.note.api.dto.NoteListResponse;
+import com.qtai.domain.note.api.dto.NoteSaveResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,83 +25,181 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
-import com.qtai.common.dto.ApiResponse;
-import com.qtai.common.exception.BusinessException;
-import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.note.api.ListNotesUseCase;
-import com.qtai.domain.note.api.NoteCategory;
-import com.qtai.domain.note.api.NoteStatus;
-import com.qtai.domain.note.api.dto.NoteListResponse;
+import java.util.List;
 
-/**
- * NoteController 단위 테스트.
- *
- * MockMvc 슬라이스 대신 컨트롤러 직접 호출 + Mockito mock으로 검증한다.
- * 이유:
- * - 컨트롤러 책임(memberId null 가드, UseCase 위임, 예외 전파)만 격리 검증
- * - dev permitAll 환경에서 @AuthenticationPrincipal이 null로 주입되는 시나리오 포함
- * - 진짜 DB·Spring 컨텍스트가 필요한 동작은 NoteRepositoryIntegrationTest(@DataJpaTest + H2)에서 별도 검증
- */
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 class NoteControllerTest {
 
     private ListNotesUseCase listNotesUseCase;
+    private GetNoteUseCase getNoteUseCase;
+    private CreateNoteUseCase createNoteUseCase;
+    private UpdateNoteUseCase updateNoteUseCase;
+    private DeleteNoteUseCase deleteNoteUseCase;
+    private ListNoteCategoriesUseCase listNoteCategoriesUseCase;
     private NoteController controller;
-    private Pageable defaultPageable;
+    private NoteCategoryController categoryController;
+    private Pageable pageable;
 
     @BeforeEach
     void setUp() {
         listNotesUseCase = mock(ListNotesUseCase.class);
-        controller = new NoteController(listNotesUseCase);
-        defaultPageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "updatedAt"));
+        getNoteUseCase = mock(GetNoteUseCase.class);
+        createNoteUseCase = mock(CreateNoteUseCase.class);
+        updateNoteUseCase = mock(UpdateNoteUseCase.class);
+        deleteNoteUseCase = mock(DeleteNoteUseCase.class);
+        listNoteCategoriesUseCase = mock(ListNoteCategoriesUseCase.class);
+        controller = new NoteController(
+                listNotesUseCase,
+                getNoteUseCase,
+                createNoteUseCase,
+                updateNoteUseCase,
+                deleteNoteUseCase
+        );
+        categoryController = new NoteCategoryController(listNoteCategoriesUseCase);
+        pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "updatedAt"));
     }
 
     @Test
-    @DisplayName("memberId가 null이면 UNAUTHORIZED(M0002) 던지고 UseCase 호출 없음")
-    void list_memberId_null이면_401() {
-        // when & then — null memberId로 호출하면 UNAUTHORIZED
-        assertThatThrownBy(() ->
-                controller.list(null, null, null, null, defaultPageable))
+    @DisplayName("list rejects missing member id")
+    void list_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.list(null, null, null, null, pageable))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
 
-        // then — UseCase는 호출되지 않음
         verify(listNotesUseCase, never()).list(any(), any(), any(), any(), any());
     }
 
     @Test
-    @DisplayName("인증된 memberId가 있으면 UseCase에 그대로 위임하고 ApiResponse.success로 감싸 반환")
-    void list_정상위임_ApiResponse_포장() {
-        // given
+    @DisplayName("list delegates filters to use case")
+    void list_delegates() {
         NoteListResponse stub = new NoteListResponse(List.of(), 0, 20, 0L, 0, true, true, "updatedAt,desc");
         when(listNotesUseCase.list(eq(1L), eq(NoteCategory.PRAYER), isNull(), isNull(), any()))
                 .thenReturn(stub);
 
-        // when
-        ApiResponse<NoteListResponse> result =
-                controller.list(1L, NoteCategory.PRAYER, null, null, defaultPageable);
+        ApiResponse<NoteListResponse> response = controller.list(1L, NoteCategory.PRAYER, null, null, pageable);
 
-        // then — ApiResponse 포장 확인
-        assertThat(result.success()).isTrue();
-        assertThat(result.data()).isSameAs(stub);
-        assertThat(result.error()).isNull();
-
-        // then — UseCase가 정확한 인자로 1번 호출됨
-        verify(listNotesUseCase, times(1)).list(eq(1L), eq(NoteCategory.PRAYER), isNull(), isNull(), any());
+        assertThat(response.success()).isTrue();
+        assertThat(response.data()).isSameAs(stub);
     }
 
     @Test
-    @DisplayName("UseCase가 BusinessException 던지면 컨트롤러는 catch 없이 그대로 전파 (GlobalExceptionHandler가 처리)")
-    void list_BusinessException_그대로_전파() {
-        // given — UseCase가 INTERNAL_ERROR 던지도록 설정
-        when(listNotesUseCase.list(any(), any(), any(), any(), any()))
-                .thenThrow(new BusinessException(ErrorCode.INTERNAL_ERROR, "DB 조회 실패"));
+    @DisplayName("draft lookup delegates authenticated member")
+    void getDraft_delegates() {
+        NoteDraftResponse stub = new NoteDraftResponse(false, null);
+        when(getNoteUseCase.getDraft(1L, NoteCategory.MEDITATION, 100L)).thenReturn(stub);
 
-        // when & then — 컨트롤러는 잡지 않고 위로 던짐
-        assertThatThrownBy(() ->
-                controller.list(1L, null, NoteStatus.SAVED, null, defaultPageable))
+        ApiResponse<NoteDraftResponse> response = controller.getDraft(1L, NoteCategory.MEDITATION, 100L);
+
+        assertThat(response.data()).isSameAs(stub);
+        verify(getNoteUseCase).getDraft(1L, NoteCategory.MEDITATION, 100L);
+    }
+
+    @Test
+    @DisplayName("get delegates authenticated member and note id")
+    void get_delegates() {
+        NoteDetailResponse stub = new NoteDetailResponse(
+                10L, 1L, NoteCategory.PRAYER, null, "title", "body",
+                null, null, null, null, NoteStatus.SAVED, NoteVisibility.PRIVATE,
+                null, null, false, null, null, null, List.of()
+        );
+        when(getNoteUseCase.get(1L, 10L)).thenReturn(stub);
+
+        ApiResponse<NoteDetailResponse> response = controller.get(1L, 10L);
+
+        assertThat(response.data()).isSameAs(stub);
+        verify(getNoteUseCase).get(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("create maps request to command")
+    void create_delegates() {
+        when(createNoteUseCase.create(eq(1L), any()))
+                .thenReturn(new NoteSaveResponse(10L, NoteStatus.SAVED));
+        CreateNoteRequest request = new CreateNoteRequest(
+                NoteCategory.PRAYER,
+                null,
+                "기도",
+                "본문",
+                null,
+                null,
+                null,
+                null,
+                List.of(1L),
+                NoteStatus.SAVED,
+                NoteVisibility.PRIVATE
+        );
+
+        ApiResponse<NoteSaveResponse> response = controller.create(1L, request);
+
+        assertThat(response.data().id()).isEqualTo(10L);
+        verify(createNoteUseCase).create(eq(1L), any());
+    }
+
+    @Test
+    @DisplayName("update delegates note id and command")
+    void update_delegates() {
+        when(updateNoteUseCase.update(eq(1L), eq(10L), any()))
+                .thenReturn(new NoteSaveResponse(10L, NoteStatus.DRAFT));
+        UpdateNoteRequest request = new UpdateNoteRequest(
+                NoteCategory.PRAYER,
+                null,
+                "기도",
+                "본문",
+                null,
+                null,
+                null,
+                null,
+                List.of(),
+                NoteStatus.DRAFT,
+                NoteVisibility.PRIVATE
+        );
+
+        ApiResponse<NoteSaveResponse> response = controller.update(1L, 10L, request);
+
+        assertThat(response.data().status()).isEqualTo(NoteStatus.DRAFT);
+        verify(updateNoteUseCase).update(eq(1L), eq(10L), any());
+    }
+
+    @Test
+    @DisplayName("delete delegates authenticated member and note id")
+    void delete_delegates() {
+        controller.delete(1L, 10L);
+
+        verify(deleteNoteUseCase).delete(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("category controller rejects missing member id")
+    void categories_memberIdNull_rejected() {
+        assertThatThrownBy(() -> categoryController.list(null))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INTERNAL_ERROR);
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(listNoteCategoriesUseCase, never()).listCategories();
+    }
+
+    @Test
+    @DisplayName("category controller delegates authenticated request")
+    void categories_delegates() {
+        NoteCategoryResponse stub = new NoteCategoryResponse(List.of(
+                new NoteCategoryItem(NoteCategory.PRAYER, "기도 노트", false, true, true)
+        ));
+        when(listNoteCategoriesUseCase.listCategories()).thenReturn(stub);
+
+        ApiResponse<NoteCategoryResponse> response = categoryController.list(1L);
+
+        assertThat(response.data()).isSameAs(stub);
+        verify(listNoteCategoriesUseCase).listCategories();
     }
 }

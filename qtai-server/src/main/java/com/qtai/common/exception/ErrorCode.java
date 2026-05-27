@@ -48,6 +48,7 @@ public enum ErrorCode {
 
     // 노트
     NOTE_NOT_FOUND("N0001", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    DUPLICATE_NOTE("N0002", "이미 저장된 노트가 있습니다.", HttpStatus.CONFLICT),
 
     // 나눔
     SHARING_POST_NOT_FOUND("S0001", "나눔 게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
