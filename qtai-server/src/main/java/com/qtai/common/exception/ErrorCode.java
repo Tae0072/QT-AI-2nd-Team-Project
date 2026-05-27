@@ -38,6 +38,8 @@ public enum ErrorCode {
     // AI
     AI_GENERATION_JOB_NOT_FOUND("A0001", "AI 생성 작업을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     AI_ASSET_NOT_FOUND("A0002", "AI 산출물을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    CHECKLIST_NOT_FOUND("A0003", "AI 검증 체크리스트 버전을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    DUPLICATE_CHECKLIST_VERSION("A0004", "이미 존재하는 AI 검증 체크리스트 버전입니다.", HttpStatus.CONFLICT),
 
     // 성경
     BIBLE_BOOK_NOT_FOUND("B0001", "성경 책을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -48,6 +50,7 @@ public enum ErrorCode {
 
     // 노트
     NOTE_NOT_FOUND("N0001", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    DUPLICATE_NOTE("N0002", "이미 저장된 노트가 있습니다.", HttpStatus.CONFLICT),
 
     // 나눔
     SHARING_POST_NOT_FOUND("S0001", "나눔 게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

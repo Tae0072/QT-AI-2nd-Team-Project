@@ -5,16 +5,18 @@ import java.time.LocalDateTime;
 
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
+import com.qtai.domain.note.api.NoteVisibility;
 
 public record NoteListItem(
         Long id,
         NoteCategory category,
         String title,
         NoteStatus status,
-        String visibility,
+        NoteVisibility visibility,
         LocalDate qtDate,
         String rangeLabel,
         boolean shared,
+        LocalDateTime savedAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 

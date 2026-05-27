@@ -4,14 +4,14 @@
 
 목적: DevC AI 생성/검증 로그 작업에서 구현 전 Lead 또는 공통 소유자 확인이 필요한 항목을 한 곳에서 추적한다.
 
-## 바로 확인 필요
+## 확정 완료
 
-| 우선순위 | 확인 항목 | 현재 판단 | 결정 필요 내용 | 관련 근거 |
+| 우선순위 | 확인 항목 | 확정 내용 | 다음 반영 | 관련 근거 |
 | ---: | --- | --- | --- | --- |
-| 1 | 관리자 AI 산출물 조회 `OPERATOR` 허용 여부 | 다음 PR은 `04_API_명세서.md` 4.7.3 기준으로 `ADMIN + REVIEWER/SUPER_ADMIN`만 허용 | `OPERATOR`가 `GET /api/v1/admin/ai/assets` 목록/상세 조회만 가능한지, 아니면 AI 산출물 조회도 `REVIEWER/SUPER_ADMIN`으로 제한할지 확정 | `04_API_명세서.md` 2.2 권한 매트릭스, 4.7.3 AI 산출물 검증 |
-| 2 | `validation_reference_jobs` API와 `ai_validation_checklist_versions` 관리 API 우선순위 | 둘 다 migration/문서에는 있으나 구현 API는 미착수 | `POST/GET/expire validation-reference-jobs`와 `admin/ai/validation-checklists` 중 다음 PR 우선순위 확정 | W2 스케줄, F-14 |
-| 3 | `inputHash` 저장 위치와 중복 방지 키 | 현재 `QUEUED`/`RUNNING` 차단은 구현됨. `inputHash` 물리 저장 위치는 없음 | `ai_generation_jobs` 컬럼으로 둘지, 별도 메타데이터/로그로 둘지, unique key까지 반영할지 확정 | `2026-05-21_ai-failure-retry-policy_report.md` |
-| 4 | `SUMMARY`/`GLOSSARY` 독립 generation job type 지원 여부 | 현재 시스템 생성 job API는 `DAILY_QT_EXPLANATION`, `DAILY_QT_SIMULATOR`만 허용 | `SUMMARY`/`GLOSSARY`를 별도 job type으로 열지, asset type으로만 유지할지 확정 | `2026-05-26_ai-prompt-version-id-mapping_report.md` |
+| 1 | 관리자 AI 산출물 조회 `OPERATOR` 허용 여부 | `OPERATOR`는 `GET /api/v1/admin/ai/assets` 목록/상세 조회도 차단한다. `ADMIN + REVIEWER/SUPER_ADMIN`만 허용한다. | 현재 구현과 OpenAPI의 `REVIEWER/SUPER_ADMIN` 제한을 유지한다. 권한 매트릭스의 `OPERATOR` 조회 가능 표현은 후속 문서 정합화 대상이다. | `04_API_명세서.md` 2.2 권한 매트릭스, 4.7.3 AI 산출물 검증 |
+| 2 | `validation_reference_jobs` API와 `ai_validation_checklist_versions` 관리 API 우선순위 | `ai_validation_checklist_versions` 관리 API를 먼저 구현한다. `validation_reference_jobs` API는 후순위로 둔다. | 다음 AI 관리 API PR은 체크리스트 버전 생성/활성화/폐기/조회 흐름을 우선 반영한다. | W2 스케줄, F-14 |
+| 3 | `inputHash` 저장 위치와 중복 방지 키 | `inputHash`는 `ai_generation_jobs.input_hash` 컬럼으로 저장한다. active job 중복 방지 unique key에도 포함한다. | 기준 키는 `job_type + target_type + target_id + prompt_version_id + input_hash + active_unique_key`로 반영한다. | `2026-05-21_ai-failure-retry-policy_report.md` |
+| 4 | `SUMMARY`/`GLOSSARY` 독립 generation job type 지원 여부 | `SUMMARY`/`GLOSSARY`는 독립 generation job type으로 열지 않는다. `AiGeneratedAssetType`으로만 유지한다. | 시스템 생성 job API는 `DAILY_QT_EXPLANATION`, `DAILY_QT_SIMULATOR`만 허용하고, `SUMMARY`/`GLOSSARY` 산출물은 필요 시 `DAILY_QT_EXPLANATION` job의 결과로 등록한다. | `2026-05-26_ai-prompt-version-id-mapping_report.md` |
 
 ## 공통 API/보안 확인
 
@@ -38,3 +38,4 @@
 - 결정된 항목은 이 파일에서 상태를 갱신하고, 해당 workflow/report 또는 스케줄 문서에 반영한다.
 - API 계약이 바뀌는 항목은 `qtai-server/apis/api-v1/openapi.yaml`과 구현 테스트를 같은 PR에서 맞춘다.
 - 보안/감사 항목은 공통 소유자와 충돌하지 않게 별도 PR로 분리한다.
+- 2026-05-27 Lead 협의로 우선순위 1~4 항목은 확정 완료했다.

@@ -7,11 +7,295 @@ servers:
   - url: http://localhost:8080
     description: Local
 tags:
+  - name: Bible
+    description: 성경 권 목록과 절 범위 조회 API
+  - name: Note
+    description: 묵상 노트와 자유 노트 CRUD API
   - name: Admin AI
     description: 관리자 웹이 AI 산출물과 검증 로그를 검토하는 운영 API
   - name: System AI
     description: 시스템 배치가 AI 생성 작업, 산출물, 검증 로그를 접수하는 내부 운영 API
 paths:
+  /api/v1/bible/books:
+    get:
+      tags:
+        - Bible
+      operationId: listBibleBooks
+      summary: 성경 권 목록 조회
+      description: 인증된 사용자가 성경 권 목록을 displayOrder 순서로 조회한다.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 성경 권 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BibleBookListApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/bible/verses:
+    get:
+      tags:
+        - Bible
+      operationId: getBibleVerses
+      summary: 성경 절 범위 조회
+      description: 인증된 사용자가 책 코드, 장, 선택 절 범위로 성경 절을 조회한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookCode
+          in: query
+          required: true
+          schema:
+            type: string
+            example: GEN
+        - name: chapter
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+        - name: verseFrom
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+        - name: verseTo
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            example: 4
+      responses:
+        "200":
+          description: 성경 절 범위 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BibleVerseRangeApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          description: 요청 한도 초과
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorApiResponse"
+  /api/v1/notes:
+    get:
+      tags:
+        - Note
+      operationId: listNotes
+      summary: 노트 목록 조회
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/NoteCategory"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/NoteStatus"
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: 노트 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteListApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags:
+        - Note
+      operationId: createNote
+      summary: 노트 생성
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteSaveRequest"
+      responses:
+        "201":
+          description: 노트 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteSaveApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/notes/draft:
+    get:
+      tags:
+        - Note
+      operationId: getDraftNote
+      summary: 임시 묵상 노트 조회
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - MEDITATION
+        - name: qtPassageId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 임시 노트 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteDraftApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/notes/{noteId}:
+    get:
+      tags:
+        - Note
+      operationId: getNote
+      summary: 노트 상세 조회
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/NoteId"
+      responses:
+        "200":
+          description: 노트 상세 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteDetailApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags:
+        - Note
+      operationId: updateNote
+      summary: 노트 수정
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/NoteId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteSaveRequest"
+      responses:
+        "200":
+          description: 노트 수정 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteSaveApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags:
+        - Note
+      operationId: deleteNote
+      summary: 노트 삭제
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/NoteId"
+      responses:
+        "204":
+          description: 노트 삭제 성공
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/note-categories:
+    get:
+      tags:
+        - Note
+      operationId: listNoteCategories
+      summary: 노트 카테고리 조회
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 노트 카테고리 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteCategoryApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/v1/admin/ai/assets:
     get:
       tags:
@@ -136,6 +420,165 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/validation-checklists:
+    get:
+      tags:
+        - Admin AI
+      operationId: listAdminAiValidationChecklists
+      summary: 관리자 AI 검증 체크리스트 버전 목록 조회
+      description: >
+        AI 검증 체크리스트 버전을 조회한다. ROLE_ADMIN과 ADMIN_ROLE_REVIEWER 또는
+        ADMIN_ROLE_SUPER_ADMIN authority가 필요하며, 실제 체크리스트 원문은 외부 SSoT로
+        관리하고 서버는 contentHash 기반 registry만 제공한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: checklistType
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiValidationChecklistType"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiValidationChecklistStatus"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: 관리자 AI 검증 체크리스트 버전 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiValidationChecklistListApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - Admin AI
+      operationId: createAdminAiValidationChecklist
+      summary: 관리자 AI 검증 체크리스트 버전 생성
+      description: >
+        DRAFT 상태의 검증 체크리스트 버전 registry row를 생성한다. ACTIVE 또는 RETIRED 직접
+        생성은 상태 전이 우회를 막기 위해 INVALID_INPUT으로 차단한다. 서버는 checklistType,
+        version, contentHash, status만 저장하고 실제 체크리스트 원문은 외부 문서/파일을 SSoT로 둔다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiValidationChecklistRequest"
+      responses:
+        "201":
+          description: 관리자 AI 검증 체크리스트 버전 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiValidationChecklistApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/validation-checklists/{id}/activate:
+    post:
+      tags:
+        - Admin AI
+      operationId: activateAdminAiValidationChecklist
+      summary: 관리자 AI 검증 체크리스트 버전 활성화
+      description: >
+        DRAFT 상태의 체크리스트 버전을 ACTIVE로 변경한다. 같은 checklistType의 기존 ACTIVE
+        버전은 자동 RETIRED 처리한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 관리자 AI 검증 체크리스트 버전 활성화 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiValidationChecklistApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/validation-checklists/{id}/retire:
+    post:
+      tags:
+        - Admin AI
+      operationId: retireAdminAiValidationChecklist
+      summary: 관리자 AI 검증 체크리스트 버전 폐기
+      description: ACTIVE 상태의 체크리스트 버전만 RETIRED로 변경한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 관리자 AI 검증 체크리스트 버전 폐기 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiValidationChecklistApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/system/ai/generation-jobs:
     post:
       tags:
@@ -252,6 +695,15 @@ components:
         관리자 AI API는 ROLE_ADMIN과 세부 ADMIN_ROLE authority를 확인한다. 시스템 AI API는
         SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH authority를 확인하며, service account 기반 검증
         필터는 아직 구현 범위 밖이다.
+  parameters:
+    NoteId:
+      name: noteId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
   responses:
     BadRequest:
       description: 요청 값이 올바르지 않음
@@ -346,6 +798,149 @@ components:
           format: date-time
         traceId:
           type: string
+    BibleBookListApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/BibleBookResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    BibleVerseRangeApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/BibleVerseRangeResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    BibleBookResponse:
+      type: object
+      required:
+        - id
+        - testament
+        - code
+        - koreanName
+        - englishName
+        - displayOrder
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 1
+        testament:
+          type: string
+          enum:
+            - OLD
+            - NEW
+        code:
+          type: string
+          example: GEN
+        koreanName:
+          type: string
+          example: 창세기
+        englishName:
+          type: string
+          example: Genesis
+        displayOrder:
+          type: integer
+          format: int32
+          example: 1
+    BibleVerseRangeResponse:
+      type: object
+      required:
+        - book
+        - verses
+      properties:
+        book:
+          $ref: "#/components/schemas/BibleVerseBookResponse"
+        verses:
+          type: array
+          items:
+            $ref: "#/components/schemas/BibleVerseResponse"
+    BibleVerseBookResponse:
+      type: object
+      required:
+        - code
+        - koreanName
+        - englishName
+        - chapter
+      properties:
+        code:
+          type: string
+          example: GEN
+        koreanName:
+          type: string
+          example: 창세기
+        englishName:
+          type: string
+          example: Genesis
+        chapter:
+          type: integer
+          example: 1
+    BibleVerseResponse:
+      type: object
+      required:
+        - id
+        - bookCode
+        - chapterNo
+        - verseNo
+        - koreanText
+        - englishText
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10
+        bookCode:
+          type: string
+          example: GEN
+        chapterNo:
+          type: integer
+          example: 1
+        verseNo:
+          type: integer
+          example: 2
+        koreanText:
+          type: string
+          example: 검증용 한국어 본문
+        englishText:
+          type: string
+          example: Test English body
     AdminAiAssetListApiResponse:
       type: object
       required:
@@ -385,6 +980,54 @@ components:
             - true
         data:
           $ref: "#/components/schemas/AdminAiAssetDetailResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiValidationChecklistListApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiValidationChecklistListResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiValidationChecklistApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiValidationChecklistResponse"
         error:
           allOf:
             - $ref: "#/components/schemas/ErrorBody"
@@ -435,6 +1078,110 @@ components:
           type: string
           enum:
             - createdAt,desc
+    AdminAiValidationChecklistListResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiValidationChecklistResponse"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          enum:
+            - createdAt,desc,id,desc
+    AdminAiValidationChecklistResponse:
+      type: object
+      required:
+        - id
+        - checklistType
+        - version
+        - contentHash
+        - status
+        - createdByAdminId
+        - createdAt
+        - activatedAt
+        - retiredAt
+      properties:
+        id:
+          type: integer
+          format: int64
+        checklistType:
+          $ref: "#/components/schemas/AiValidationChecklistType"
+        version:
+          type: string
+          example: "2026.05.1"
+        contentHash:
+          type: string
+          example: sha256:checklist-v1
+        status:
+          $ref: "#/components/schemas/AiValidationChecklistStatus"
+        createdByAdminId:
+          type: integer
+          format: int64
+          nullable: true
+          description: admin_users.id 매핑 전까지 null일 수 있다.
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+        activatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        retiredAt:
+          type: string
+          format: date-time
+          nullable: true
+    AdminAiValidationChecklistRequest:
+      type: object
+      required:
+        - checklistType
+        - version
+        - contentHash
+      properties:
+        checklistType:
+          $ref: "#/components/schemas/AiValidationChecklistType"
+        version:
+          type: string
+          example: "2026.05.1"
+        contentHash:
+          type: string
+          example: sha256:checklist-v1
+        status:
+          type: string
+          enum:
+            - DRAFT
+          nullable: true
     AdminAiAssetListItem:
       type: object
       required:
@@ -672,6 +1419,18 @@ components:
         - PASSED
         - REJECTED
         - NEEDS_REVIEW
+    AiValidationChecklistType:
+      type: string
+      enum:
+        - EXPLANATION
+        - SIMULATOR
+        - QA
+    AiValidationChecklistStatus:
+      type: string
+      enum:
+        - DRAFT
+        - ACTIVE
+        - RETIRED
     SystemAiGenerationJobRequest:
       type: object
       required:
@@ -915,3 +1674,314 @@ components:
           format: date-time
         traceId:
           type: string
+    NoteCategory:
+      type: string
+      enum:
+        - MEDITATION
+        - SERMON
+        - PRAYER
+        - REPENTANCE
+        - GRATITUDE
+    NoteStatus:
+      type: string
+      enum:
+        - DRAFT
+        - SAVED
+        - DELETED
+    NoteVisibility:
+      type: string
+      enum:
+        - PRIVATE
+        - SHARED
+    NoteSaveRequest:
+      type: object
+      required:
+        - category
+      properties:
+        category:
+          $ref: "#/components/schemas/NoteCategory"
+        qtPassageId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        title:
+          type: string
+          maxLength: 200
+          nullable: true
+          example: 중립 예시 제목
+        body:
+          type: string
+          nullable: true
+          example: 중립 예시 문구입니다.
+        rememberSection:
+          type: string
+          nullable: true
+        interpretSection:
+          type: string
+          nullable: true
+        applySection:
+          type: string
+          nullable: true
+        praySection:
+          type: string
+          nullable: true
+        verseIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+            minimum: 1
+          uniqueItems: true
+          default: []
+        status:
+          $ref: "#/components/schemas/NoteStatus"
+        visibility:
+          $ref: "#/components/schemas/NoteVisibility"
+    NoteSaveResponse:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: integer
+          format: int64
+        status:
+          $ref: "#/components/schemas/NoteStatus"
+    NoteVerseItem:
+      type: object
+      required:
+        - bibleVerseId
+        - displayOrder
+      properties:
+        bibleVerseId:
+          type: integer
+          format: int64
+        bookCode:
+          type: string
+          nullable: true
+          example: GEN
+        chapterNo:
+          type: integer
+          nullable: true
+        verseNo:
+          type: integer
+          nullable: true
+        displayOrder:
+          type: integer
+    NoteDetail:
+      type: object
+      required:
+        - id
+        - memberId
+        - category
+        - title
+        - body
+        - status
+        - visibility
+        - shared
+        - verses
+      properties:
+        id:
+          type: integer
+          format: int64
+        memberId:
+          type: integer
+          format: int64
+        category:
+          $ref: "#/components/schemas/NoteCategory"
+        qtPassageId:
+          type: integer
+          format: int64
+          nullable: true
+        title:
+          type: string
+        body:
+          type: string
+        rememberSection:
+          type: string
+          nullable: true
+        interpretSection:
+          type: string
+          nullable: true
+        applySection:
+          type: string
+          nullable: true
+        praySection:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/NoteStatus"
+        visibility:
+          $ref: "#/components/schemas/NoteVisibility"
+        qtDate:
+          type: string
+          format: date
+          nullable: true
+        rangeLabel:
+          type: string
+          nullable: true
+        shared:
+          type: boolean
+        savedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        verses:
+          type: array
+          items:
+            $ref: "#/components/schemas/NoteVerseItem"
+    NoteListItem:
+      type: object
+      required:
+        - id
+        - category
+        - title
+        - status
+        - visibility
+        - shared
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+        category:
+          $ref: "#/components/schemas/NoteCategory"
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/NoteStatus"
+        visibility:
+          $ref: "#/components/schemas/NoteVisibility"
+        qtDate:
+          type: string
+          format: date
+          nullable: true
+        rangeLabel:
+          type: string
+          nullable: true
+        shared:
+          type: boolean
+        savedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    NoteListResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/NoteListItem"
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+    NoteDraftResponse:
+      type: object
+      required:
+        - exists
+      properties:
+        exists:
+          type: boolean
+        note:
+          allOf:
+            - $ref: "#/components/schemas/NoteDetail"
+          nullable: true
+    NoteCategoryItem:
+      type: object
+      required:
+        - category
+        - label
+        - requiresQtPassage
+        - supportsVerseSelection
+        - writableFromList
+      properties:
+        category:
+          $ref: "#/components/schemas/NoteCategory"
+        label:
+          type: string
+        requiresQtPassage:
+          type: boolean
+        supportsVerseSelection:
+          type: boolean
+        writableFromList:
+          type: boolean
+    NoteCategoryResponse:
+      type: object
+      required:
+        - categories
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/NoteCategoryItem"
+    NoteListApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NoteListResponse"
+    NoteDetailApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NoteDetail"
+    NoteDraftApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NoteDraftResponse"
+    NoteSaveApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NoteSaveResponse"
+    NoteCategoryApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NoteCategoryResponse"

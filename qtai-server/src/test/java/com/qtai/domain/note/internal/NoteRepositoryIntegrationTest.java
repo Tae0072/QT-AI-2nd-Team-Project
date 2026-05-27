@@ -1,6 +1,7 @@
 package com.qtai.domain.note.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
@@ -20,6 +21,7 @@ import org.springframework.test.context.ActiveProfiles;
 import com.qtai.config.JpaAuditingConfig;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
+import com.qtai.domain.note.api.NoteVisibility;
 
 /**
  * NoteRepository 통합 테스트 (@DataJpaTest + H2 in-memory).
@@ -81,6 +83,79 @@ class NoteRepositoryIntegrationTest {
         // then
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getTitle()).isEqualTo("살아있는");
+    }
+
+    @Test
+    @DisplayName("findActiveByIdAndMemberId는 삭제된 노트를 조회하지 않는다")
+    void findActiveByIdAndMemberId_삭제된노트_제외() {
+        Note active = persistNote(10L, NoteCategory.PRAYER, NoteStatus.SAVED, "살아있는", "...");
+        Note deleted = persistNote(10L, NoteCategory.PRAYER, NoteStatus.SAVED, "삭제된", "...");
+        setField(deleted, "deletedAt", LocalDateTime.now());
+        em.flush();
+        em.clear();
+
+        assertThat(noteRepository.findActiveByIdAndMemberId(active.getId(), 10L)).isPresent();
+        assertThat(noteRepository.findActiveByIdAndMemberId(deleted.getId(), 10L)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findDraft는 같은 QT의 DRAFT 묵상 노트만 반환한다")
+    void findDraft_returnsOnlyDraftMeditation() {
+        Note draft = persistMeditationNote(10L, 100L, NoteStatus.DRAFT);
+        persistMeditationNote(10L, 200L, NoteStatus.SAVED);
+        Note deletedDraft = persistMeditationNote(10L, 300L, NoteStatus.DRAFT);
+        deletedDraft.delete(LocalDateTime.now());
+        em.flush();
+        em.clear();
+
+        assertThat(noteRepository.findDraft(10L, NoteCategory.MEDITATION, 100L))
+                .map(Note::getId)
+                .contains(draft.getId());
+        assertThat(noteRepository.findDraft(10L, NoteCategory.MEDITATION, 200L)).isEmpty();
+        assertThat(noteRepository.findDraft(10L, NoteCategory.MEDITATION, 300L)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("활성 MEDITATION은 memberId와 qtPassageId 기준으로 중복 삽입할 수 없다")
+    void meditation_activeUniqueConstraint_rejectsDuplicateDraftOrSaved() {
+        persistMeditationNote(10L, 100L, NoteStatus.DRAFT);
+        em.flush();
+
+        Note duplicateSaved = Note.create(
+                10L,
+                100L,
+                NoteCategory.MEDITATION,
+                NoteStatus.SAVED,
+                NoteVisibility.PRIVATE,
+                "묵상2",
+                "본문2",
+                null,
+                null,
+                null,
+                null,
+                LocalDateTime.now()
+        );
+
+        assertThatThrownBy(() -> {
+            em.persist(duplicateSaved);
+            em.flush();
+        }).isInstanceOf(Exception.class);
+    }
+
+    @Test
+    @DisplayName("삭제된 MEDITATION 이후 같은 QT 본문에 새 노트를 작성할 수 있다")
+    void meditation_deletedNote_allowsRecreate() {
+        Note first = persistMeditationNote(10L, 100L, NoteStatus.SAVED);
+        first.delete(LocalDateTime.now());
+        em.flush();
+        em.clear();
+
+        Note recreated = persistMeditationNote(10L, 100L, NoteStatus.DRAFT);
+        em.flush();
+        em.clear();
+
+        assertThat(recreated.getId()).isNotNull();
+        assertThat(noteRepository.findDraft(10L, NoteCategory.MEDITATION, 100L)).isPresent();
     }
 
     @Test
@@ -176,6 +251,25 @@ class NoteRepositoryIntegrationTest {
                 .body(body)
                 .build();
         setField(note, "status", status);
+        em.persist(note);
+        return note;
+    }
+
+    private Note persistMeditationNote(Long memberId, Long qtPassageId, NoteStatus status) {
+        Note note = Note.create(
+                memberId,
+                qtPassageId,
+                NoteCategory.MEDITATION,
+                status,
+                NoteVisibility.PRIVATE,
+                "묵상",
+                "본문",
+                null,
+                null,
+                null,
+                null,
+                LocalDateTime.now()
+        );
         em.persist(note);
         return note;
     }

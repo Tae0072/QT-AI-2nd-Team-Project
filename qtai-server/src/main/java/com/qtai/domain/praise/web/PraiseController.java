@@ -97,7 +97,7 @@ public class PraiseController {
     @DeleteMapping("/api/v1/me/praise-songs/{id}")
     public ResponseEntity<Void> removePraiseSong(
             @AuthenticationPrincipal Long memberId,
-            @PathVariable Long id) {
+            @PathVariable("id") Long id) {
         saveMemberPraiseSongUseCase.remove(memberId, id);
         return ResponseEntity.noContent().build();
     }

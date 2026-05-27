@@ -1,21 +1,38 @@
 package com.qtai.domain.bible.web;
 
-/**
- * 성경 REST 엔드포인트. base path: /api/v1/bible
- *
- * 인증: 일부 엔드포인트는 비로그인 접근 허용 가능 (정책 따라).
- *
- * 엔드포인트:
- *   GET /books                                   → 책 목록
- *   GET /books/{book}/chapters                   → 장 목록
- *   GET /verses/{id}                             → 절 단건 조회
- *   GET /verses?book=&chapter=&start=&end=       → 절 범위 조회
- *   POST /search                                 → 키워드 검색 (페이징)
- */
-// TODO: @RestController, @RequestMapping("/api/v1/bible"), @RequiredArgsConstructor
+import com.qtai.common.dto.ApiResponse;
+import com.qtai.domain.bible.api.GetBibleVerseUseCase;
+import com.qtai.domain.bible.api.ListBibleBooksUseCase;
+import com.qtai.domain.bible.api.dto.BibleBookResponse;
+import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/bible")
+@RequiredArgsConstructor
 public class BibleController {
 
-    // TODO: GetBibleVerseUseCase, ListChaptersUseCase, SearchBibleUseCase 주입
+    private final ListBibleBooksUseCase listBibleBooksUseCase;
+    private final GetBibleVerseUseCase getBibleVerseUseCase;
 
-    // TODO: 5개 엔드포인트 핸들러 구현 — ApiResponse.success(...)로 통일
+    @GetMapping("/books")
+    public ApiResponse<List<BibleBookResponse>> listBooks() {
+        return ApiResponse.success(listBibleBooksUseCase.listBibleBooks());
+    }
+
+    @GetMapping("/verses")
+    public ApiResponse<BibleVerseRangeResponse> getVerses(
+            @RequestParam String bookCode,
+            @RequestParam int chapter,
+            @RequestParam(required = false) Integer verseFrom,
+            @RequestParam(required = false) Integer verseTo
+    ) {
+        return ApiResponse.success(getBibleVerseUseCase.getVerses(bookCode, chapter, verseFrom, verseTo));
+    }
 }

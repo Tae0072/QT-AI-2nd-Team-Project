@@ -15,6 +15,7 @@ CREATE TABLE sharing_posts (
     hidden_at           TIMESTAMP,
     created_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at      TIMESTAMP,
     CONSTRAINT fk_sp_member FOREIGN KEY (member_id) REFERENCES members(id),
     CONSTRAINT fk_sp_note FOREIGN KEY (note_id) REFERENCES notes(id)
 );
@@ -30,6 +31,7 @@ CREATE TABLE comments (
     is_deleted          BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at          TIMESTAMP,
     CONSTRAINT fk_comments_post FOREIGN KEY (sharing_post_id) REFERENCES sharing_posts(id),
     CONSTRAINT fk_comments_member FOREIGN KEY (member_id) REFERENCES members(id),
     CONSTRAINT fk_comments_parent FOREIGN KEY (parent_id) REFERENCES comments(id)
