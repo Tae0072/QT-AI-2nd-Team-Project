@@ -34,15 +34,6 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
               AND n.deletedAt IS NULL
               AND n.status <> com.qtai.domain.note.api.NoteStatus.DELETED
             """)
-    Optional<Note> findByIdAndMemberId(@Param("id") Long id, @Param("memberId") Long memberId);
-
-    @Query("""
-            SELECT n FROM Note n
-            WHERE n.id = :id
-              AND n.memberId = :memberId
-              AND n.deletedAt IS NULL
-              AND n.status <> com.qtai.domain.note.api.NoteStatus.DELETED
-            """)
     Optional<Note> findActiveByIdAndMemberId(@Param("id") Long id, @Param("memberId") Long memberId);
 
     @Query("""

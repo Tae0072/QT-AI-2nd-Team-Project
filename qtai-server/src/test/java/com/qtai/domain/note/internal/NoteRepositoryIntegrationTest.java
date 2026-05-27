@@ -84,16 +84,16 @@ class NoteRepositoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("findByIdAndMemberId는 삭제된 노트를 조회하지 않는다")
-    void findByIdAndMemberId_삭제된노트_제외() {
+    @DisplayName("findActiveByIdAndMemberId는 삭제된 노트를 조회하지 않는다")
+    void findActiveByIdAndMemberId_삭제된노트_제외() {
         Note active = persistNote(10L, NoteCategory.PRAYER, NoteStatus.SAVED, "살아있는", "...");
         Note deleted = persistNote(10L, NoteCategory.PRAYER, NoteStatus.SAVED, "삭제된", "...");
         setField(deleted, "deletedAt", LocalDateTime.now());
         em.flush();
         em.clear();
 
-        assertThat(noteRepository.findByIdAndMemberId(active.getId(), 10L)).isPresent();
-        assertThat(noteRepository.findByIdAndMemberId(deleted.getId(), 10L)).isEmpty();
+        assertThat(noteRepository.findActiveByIdAndMemberId(active.getId(), 10L)).isPresent();
+        assertThat(noteRepository.findActiveByIdAndMemberId(deleted.getId(), 10L)).isEmpty();
     }
 
     @Test

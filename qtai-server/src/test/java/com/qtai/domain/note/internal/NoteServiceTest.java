@@ -8,6 +8,8 @@ import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.NoteVisibility;
 import com.qtai.domain.note.api.dto.CreateNoteCommand;
+import com.qtai.domain.note.api.dto.NoteCategoryResponse;
+import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.note.api.dto.NoteListResponse;
 import com.qtai.domain.note.api.dto.NoteSaveResponse;
@@ -60,14 +62,55 @@ class NoteServiceTest {
         Note note = persistedNote(1L, 10L, NoteCategory.PRAYER, NoteStatus.SAVED, null);
         when(noteRepository.search(eq(10L), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(note), pageable, 1L));
-        when(noteVerseRepository.findAllByNoteIdInOrderByNoteIdAscDisplayOrderAsc(List.of(1L)))
-                .thenReturn(List.of());
 
         NoteListResponse response = noteService.list(10L, null, null, null, pageable);
 
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).visibility()).isEqualTo(NoteVisibility.PRIVATE);
         assertThat(response.sort()).isEqualTo("updatedAt,desc");
+    }
+
+    @Test
+    @DisplayName("list returns empty page metadata when repository has no result")
+    void list_emptyResult_mapsPageMetadata() {
+        Pageable emptyPageable = PageRequest.of(1, 10);
+        when(noteRepository.search(eq(10L), isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), emptyPageable, 0L));
+
+        NoteListResponse response = noteService.list(10L, null, null, "   ", emptyPageable);
+
+        assertThat(response.content()).isEmpty();
+        assertThat(response.page()).isEqualTo(1);
+        assertThat(response.size()).isEqualTo(10);
+        assertThat(response.totalElements()).isZero();
+        assertThat(response.sort()).isEqualTo("updatedAt,desc");
+        verify(noteRepository).search(eq(10L), isNull(), isNull(), isNull(), eq(emptyPageable));
+    }
+
+    @Test
+    @DisplayName("list escapes LIKE wildcard characters in q")
+    void list_escapesLikeWildcards() {
+        when(noteRepository.search(eq(10L), isNull(), isNull(), eq("\\%\\_\\\\"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0L));
+
+        noteService.list(10L, null, null, "%_\\", pageable);
+
+        verify(noteRepository).search(eq(10L), isNull(), isNull(), eq("\\%\\_\\\\"), eq(pageable));
+    }
+
+    @Test
+    @DisplayName("list reports the first requested sort when multiple sort fields are supplied")
+    void list_multipleSort_usesFirstSortField() {
+        Pageable multiSort = PageRequest.of(0, 20, Sort.by(
+                Sort.Order.asc("title"),
+                Sort.Order.desc("updatedAt")
+        ));
+        when(noteRepository.search(eq(10L), isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), multiSort, 0L));
+
+        NoteListResponse response = noteService.list(10L, null, null, null, multiSort);
+
+        assertThat(response.sort()).isEqualTo("title,asc");
     }
 
     @Test
@@ -104,8 +147,11 @@ class NoteServiceTest {
     @Test
     @DisplayName("create stores unique verse ids in request order")
     void create_replacesVersesWithDeduplicatedOrder() {
-        when(getBibleVerseUseCase.getVerse(any()))
-                .thenReturn(new BibleVerseResponse(1L, "GEN", 1, 1, "중립 예시 문구", null));
+        when(getBibleVerseUseCase.getVerses(List.of(3L, 2L)))
+                .thenReturn(List.of(
+                        new BibleVerseResponse(3L, "GEN", 1, 3, "중립 예시 문구", null),
+                        new BibleVerseResponse(2L, "GEN", 1, 2, "중립 예시 문구", null)
+                ));
         when(noteRepository.save(any())).thenAnswer(invocation -> {
             Note note = invocation.getArgument(0);
             setField(note, "id", 99L);
@@ -121,8 +167,62 @@ class NoteServiceTest {
         assertThat(response.id()).isEqualTo(99L);
         verify(noteVerseRepository).deleteByNoteId(99L);
         verify(noteVerseRepository).saveAll(any());
-        verify(getBibleVerseUseCase).getVerse(3L);
-        verify(getBibleVerseUseCase).getVerse(2L);
+        verify(getBibleVerseUseCase).getVerses(List.of(3L, 2L));
+        verify(getBibleVerseUseCase, never()).getVerse(any());
+    }
+
+    @Test
+    @DisplayName("get returns detail with verses fetched in one batch")
+    void get_existingNote_returnsDetailWithBatchVerses() {
+        Note note = persistedNote(1L, 10L, NoteCategory.PRAYER, NoteStatus.SAVED, null);
+        when(noteRepository.findActiveByIdAndMemberId(1L, 10L)).thenReturn(Optional.of(note));
+        when(noteVerseRepository.findAllByNoteIdOrderByDisplayOrderAsc(1L))
+                .thenReturn(List.of(
+                        NoteVerse.create(1L, 3L, (short) 1),
+                        NoteVerse.create(1L, 2L, (short) 2)
+                ));
+        when(getBibleVerseUseCase.getVerses(List.of(3L, 2L)))
+                .thenReturn(List.of(
+                        new BibleVerseResponse(3L, "GEN", 1, 3, "중립 예시 문구", null),
+                        new BibleVerseResponse(2L, "EXO", 2, 1, "중립 예시 문구", null)
+                ));
+
+        NoteDetailResponse response = noteService.get(10L, 1L);
+
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.verses()).hasSize(2);
+        assertThat(response.verses().get(0).bibleVerseId()).isEqualTo(3L);
+        assertThat(response.verses().get(1).bookCode()).isEqualTo("EXO");
+        verify(getBibleVerseUseCase).getVerses(List.of(3L, 2L));
+        verify(getBibleVerseUseCase, never()).getVerse(any());
+    }
+
+    @Test
+    @DisplayName("get rejects missing, deleted, or other member note")
+    void get_notFoundOrNotOwned_rejected() {
+        when(noteRepository.findActiveByIdAndMemberId(1L, 20L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> noteService.get(20L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.NOTE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("listCategories returns category metadata")
+    void listCategories_returnsMetadata() {
+        NoteCategoryResponse response = noteService.listCategories();
+
+        assertThat(response.categories()).hasSize(5);
+        assertThat(response.categories())
+                .extracting("category")
+                .containsExactly(
+                        NoteCategory.MEDITATION,
+                        NoteCategory.SERMON,
+                        NoteCategory.PRAYER,
+                        NoteCategory.REPENTANCE,
+                        NoteCategory.GRATITUDE
+                );
     }
 
     @Test
@@ -135,6 +235,47 @@ class NoteServiceTest {
 
         assertThat(response.exists()).isFalse();
         assertThat(response.note()).isNull();
+    }
+
+    @Test
+    @DisplayName("draft lookup only allows meditation category with qtPassageId")
+    void getDraft_nonMeditationOrMissingQtPassage_rejected() {
+        assertThatThrownBy(() -> noteService.getDraft(10L, NoteCategory.PRAYER, 100L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+
+        assertThatThrownBy(() -> noteService.getDraft(10L, NoteCategory.MEDITATION, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+    }
+
+    @Test
+    @DisplayName("create meditation note requires qtPassageId")
+    void create_meditationWithoutQtPassage_rejected() {
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.MEDITATION, null, "묵상", "본문", null, null, null, null,
+                List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.create(10L, command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+        verify(noteQtClient, never()).validateReadable(any(), any());
+    }
+
+    @Test
+    @DisplayName("create free note rejects qtPassageId")
+    void create_freeNoteWithQtPassage_rejected() {
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.PRAYER, 100L, "기도", "본문", null, null, null, null,
+                List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.create(10L, command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
     }
 
     @Test
@@ -152,6 +293,22 @@ class NoteServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION);
+    }
+
+    @Test
+    @DisplayName("update rejects other member note")
+    void update_otherMemberNote_rejected() {
+        Note note = persistedNote(1L, 10L, NoteCategory.PRAYER, NoteStatus.SAVED, null);
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+
+        UpdateNoteCommand command = new UpdateNoteCommand(
+                NoteCategory.PRAYER, null, "기도", "본문", null, null, null, null,
+                List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.update(20L, 1L, command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.FORBIDDEN);
     }
 
     @Test

@@ -127,3 +127,116 @@ $env:GRADLE_USER_HOME='C:\Workspace\QT-AI-2nd-Team-Project\qtai-server\.gradle-l
 - 생성/수정 요청 DTO의 필수값 검증은 Service에서 처리하고 있으나, HTTP 레벨 validation 메시지/스키마와의 정합성 확인이 필요하다.
 - `NoteService.toListItem`에서 목록 조회용 `noteVerses`를 미리 조회하지만 현재 응답 매핑에는 사용하지 않는다. 이후 `rangeLabel` 보강용인지, 불필요 조회인지 확인이 필요하다.
 - 전체 build, coverage, Spectral, gitleaks 검증은 PR 전 재실행해야 한다.
+
+## 후속 수정 보고 - 2026-05-27 AM 11:31
+
+작성 시간: 2026-05-27 AM 11:31
+
+### 반영 배경
+
+PR 리뷰에서 `NoteService`의 verse 조회 N+1, 삭제된 테스트 커버리지, `get()`/`listCategories()`/`NoteCategoryController` 테스트 누락이 `REQUEST_CHANGES`로 지적되어 후속 수정을 진행했다.
+
+### 주요 반영 내용
+
+- `GetBibleVerseUseCase.getVerses(List<Long>)`를 추가하고 `BibleService`에서 verse id batch 조회를 구현했다.
+- `NoteService.toDetailResponse()`와 `replaceNoteVerses()`가 verse마다 `getVerse()`를 호출하지 않고, 한 번의 batch 조회 결과를 재사용하도록 변경했다.
+- `NoteRepository.findByIdAndMemberId`는 동일 JPQL의 미사용 메서드라 삭제하고, 테스트도 `findActiveByIdAndMemberId` 기준으로 정리했다.
+- `NoteService` 클래스 레벨 `@Transactional(readOnly = true)`를 복원하고 write 메서드만 `@Transactional`로 유지했다.
+- `MEDITATION` 생성/수정 시 `qtPassageId` 누락을 `INVALID_INPUT`으로 먼저 차단하도록 보강했다.
+- `CreateNoteRequest.category`에 `@NotNull`을 추가했다.
+
+### 테스트 보강 내용
+
+- `NoteServiceTest`
+  - 빈 목록 응답 메타데이터
+  - 공백 문자열 q 처리
+  - LIKE wildcard escape(`%`, `_`, `\`)
+  - 다중 sort 첫 필드 표기
+  - 상세 조회 batch verse 매핑
+  - `get()` 미존재/타 사용자/삭제 노트 차단 경로
+  - `listCategories()`
+  - draft category 검증
+  - MEDITATION `qtPassageId` 필수
+  - 자유 노트 `qtPassageId` 금지
+  - 타 사용자 수정 차단
+- `NoteControllerTest`
+  - draft/detail 조회 위임
+  - `NoteCategoryController` 인증 가드와 위임
+- `BibleServiceTest`
+  - verse id batch 조회 중복 제거
+  - 요청 순서 보존
+  - 누락 verse 차단
+- `NoteVerseRepositoryTest`
+  - note별 displayOrder 정렬 조회
+  - note별 verse 연결 일괄 삭제
+
+### 최신 검증 결과
+
+성공:
+
+```bash
+git diff --check
+```
+
+- exit code 0
+- 공백 오류 없음
+- Git CRLF 변환 안내 warning만 출력
+
+성공:
+
+```bash
+.\gradlew.bat test --tests "*Note*"
+```
+
+- BUILD SUCCESSFUL
+
+성공:
+
+```bash
+.\gradlew.bat test --tests "*BibleServiceTest"
+```
+
+- BUILD SUCCESSFUL
+
+성공:
+
+```bash
+.\gradlew.bat test --tests "*Note*" --tests "*BibleServiceTest" --tests "*ArchitectureBoundaryTest"
+```
+
+- BUILD SUCCESSFUL
+
+성공:
+
+```bash
+.\gradlew.bat build
+```
+
+- BUILD SUCCESSFUL
+
+성공:
+
+```bash
+rg -n "com\\.qtai\\.domain\\.(bible|qt|sharing)\\.(internal|web)" qtai-server/src/main/java/com/qtai/domain/note --glob "*.java"
+```
+
+- 매치 없음
+
+성공:
+
+```bash
+rg -n "개역개정|ESV|NIV|성서유니온|두란노" qtai-server/src/main qtai-server/src/test qtai-server/apis/api-v1/openapi.yaml
+```
+
+- 매치 없음
+
+### 실행하지 못한 검증 / 사유
+
+- `.\gradlew.bat test jacocoTestReport jacocoTestCoverageVerification`: 현재 `qtai-server` Gradle 프로젝트에 `jacocoTestReport`, `jacocoTestCoverageVerification` task가 없어 실패했다.
+- `npx @stoplight/spectral-cli lint qtai-server/apis/api-v1/openapi.yaml --ruleset .spectral.yaml`: `.spectral.yaml` 파일이 저장소 루트에 없어 실행 실패했다.
+- `gitleaks detect --source . --redact --exit-code 1`: 로컬에 `gitleaks` 명령이 설치되어 있지 않아 실행하지 못했다.
+
+### 후속 리스크 업데이트
+
+- 기존 보고서의 Gradle 실행 실패 리스크는 샌드박스 밖 승인 실행으로 해소되어 `*Note*`, `*BibleServiceTest`, `*ArchitectureBoundaryTest`, 전체 `build`가 통과했다.
+- coverage, Spectral, gitleaks는 도구/task 부재로 CI 또는 도구 설치 환경에서 재검증이 필요하다.

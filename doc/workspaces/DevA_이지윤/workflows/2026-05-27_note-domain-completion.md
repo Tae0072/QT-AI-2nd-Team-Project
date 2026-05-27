@@ -223,3 +223,37 @@ Subagent use is authorized for this workflow when the agent determines that para
 - v1.1 이후 노트 로컬 캐시, 오프라인 큐잉, 충돌 감지 정책
 - 공유된 원본 노트 삭제 시 `sharing_posts.source_note_deleted_at` 반영 흐름
 - 노트 검색 고도화 또는 구절 기반 내 노트 보기
+
+## PR 리뷰 후속 반영 - 2026-05-27 AM 11:31
+
+### 반영 범위
+
+- `toDetailResponse`와 `replaceNoteVerses`의 verse별 `GetBibleVerseUseCase.getVerse()` 호출을 제거하고, `GetBibleVerseUseCase.getVerses(List<Long>)` batch 조회 계약을 추가했다.
+- `BibleService`와 `BibleRepository`에 verse id 목록 조회를 추가해 중복 id 제거, 누락 verse 차단, 요청 순서 보존을 처리했다.
+- `NoteRepository.findByIdAndMemberId`는 `findActiveByIdAndMemberId`와 JPQL이 동일하고 호출처가 없어 삭제했다.
+- `NoteService`는 클래스 레벨 `@Transactional(readOnly = true)`를 복원하고 write 메서드만 `@Transactional`로 오버라이드했다.
+- `MEDITATION` 생성/수정 시 `qtPassageId == null`을 `INVALID_INPUT`으로 먼저 차단하도록 보강했다.
+- `CreateNoteRequest.category`에 `@NotNull`을 추가해 HTTP validation 레벨에서도 누락을 차단한다.
+
+### 테스트 보강
+
+- `NoteServiceTest`: 빈 목록 메타데이터, 공백 q, LIKE wildcard escape(`%`, `_`, `\`), 다중 sort 첫 필드 표기, 상세 조회 batch verse 매핑, `get()` 미존재/타 사용자/삭제 노트 차단 경로, `listCategories()`, draft category 검증, MEDITATION `qtPassageId` 필수, 자유 노트 `qtPassageId` 금지, 타 사용자 수정 차단을 보강했다.
+- `NoteControllerTest`: draft/detail 조회 위임, `NoteCategoryController` 인증 가드와 위임 테스트를 보강했다.
+- `BibleServiceTest`: verse id batch 조회의 중복 제거, 요청 순서 보존, 누락 verse 차단을 검증했다.
+- `NoteVerseRepositoryTest`: note별 displayOrder 정렬 조회와 note별 일괄 삭제를 검증하는 JPA slice 테스트를 추가했다.
+
+### 최신 검증 결과
+
+- `git diff --check`: 통과. CRLF 변환 안내 warning만 출력.
+- `.\gradlew.bat test --tests "*Note*"`: 통과.
+- `.\gradlew.bat test --tests "*BibleServiceTest"`: 통과.
+- `.\gradlew.bat test --tests "*Note*" --tests "*BibleServiceTest" --tests "*ArchitectureBoundaryTest"`: 통과.
+- `.\gradlew.bat build`: 통과.
+- note 도메인 금지 import `rg` 검사: 매치 없음.
+- 금지 번역/본문 키워드 `rg` 검사: 매치 없음.
+
+### 실행 불가 검증
+
+- `jacocoTestReport`, `jacocoTestCoverageVerification`: 현재 `qtai-server` Gradle 프로젝트에 task가 없다.
+- `spectral`: `.spectral.yaml` 파일이 저장소 루트에 없다.
+- `gitleaks`: 로컬에 `gitleaks` 명령이 설치되어 있지 않다.

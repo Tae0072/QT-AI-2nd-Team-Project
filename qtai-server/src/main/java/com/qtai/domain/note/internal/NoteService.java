@@ -40,6 +40,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNoteUseCase,
         UpdateNoteUseCase, DeleteNoteUseCase, ListNoteCategoriesUseCase {
 
@@ -51,7 +52,6 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     private final NoteQtClient noteQtClient;
 
     @Override
-    @Transactional(readOnly = true)
     public NoteListResponse list(Long memberId, NoteCategory category, NoteStatus status, String q, Pageable pageable) {
         Page<Note> page = noteRepository.search(memberId, category, status, escapeLikeWildcards(q), pageable);
         List<NoteListItem> content = page.getContent().stream()
@@ -71,7 +71,6 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     }
 
     @Override
-    @Transactional(readOnly = true)
     public NoteDetailResponse get(Long memberId, Long noteId) {
         Note note = noteRepository.findActiveByIdAndMemberId(noteId, memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTE_NOT_FOUND));
@@ -79,7 +78,6 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     }
 
     @Override
-    @Transactional(readOnly = true)
     public NoteDraftResponse getDraft(Long memberId, NoteCategory category, Long qtPassageId) {
         if (category != NoteCategory.MEDITATION || qtPassageId == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
@@ -166,7 +164,6 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     }
 
     @Override
-    @Transactional(readOnly = true)
     public NoteCategoryResponse listCategories() {
         return new NoteCategoryResponse(List.of(
                 new NoteCategoryItem(NoteCategory.MEDITATION, "묵상 노트", true, true, false),
@@ -179,6 +176,9 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
 
     private void validateForSave(Long memberId, Long currentNoteId, NormalizedNoteInput input) {
         if (input.category() == NoteCategory.MEDITATION) {
+            if (input.qtPassageId() == null) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT);
+            }
             noteQtClient.validateReadable(memberId, input.qtPassageId());
             validateMeditationDuplicate(memberId, currentNoteId, input.qtPassageId());
             return;
@@ -205,10 +205,11 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
 
     private void replaceNoteVerses(Long noteId, List<Long> verseIds) {
         noteVerseRepository.deleteByNoteId(noteId);
+        getBibleVersesById(verseIds);
+
         List<NoteVerse> noteVerses = new ArrayList<>();
         short order = 1;
         for (Long verseId : verseIds) {
-            getBibleVerseUseCase.getVerse(verseId);
             noteVerses.add(NoteVerse.create(noteId, verseId, order++));
         }
         noteVerseRepository.saveAll(noteVerses);
@@ -216,8 +217,13 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
 
     private NoteDetailResponse toDetailResponse(Note note) {
         List<NoteVerse> noteVerses = noteVerseRepository.findAllByNoteIdOrderByDisplayOrderAsc(note.getId());
+        Map<Long, BibleVerseResponse> versesById = getBibleVersesById(
+                noteVerses.stream()
+                        .map(NoteVerse::getBibleVerseId)
+                        .toList()
+        );
         List<NoteVerseItem> verseItems = noteVerses.stream()
-                .map(this::toVerseItem)
+                .map(noteVerse -> toVerseItem(noteVerse, versesById))
                 .toList();
         return new NoteDetailResponse(
                 note.getId(),
@@ -258,8 +264,8 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         );
     }
 
-    private NoteVerseItem toVerseItem(NoteVerse noteVerse) {
-        BibleVerseResponse verse = getBibleVerseUseCase.getVerse(noteVerse.getBibleVerseId());
+    private NoteVerseItem toVerseItem(NoteVerse noteVerse, Map<Long, BibleVerseResponse> versesById) {
+        BibleVerseResponse verse = versesById.get(noteVerse.getBibleVerseId());
         return new NoteVerseItem(
                 noteVerse.getBibleVerseId(),
                 verse.bookCode(),
@@ -267,6 +273,21 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 verse.verseNo(),
                 Integer.valueOf(noteVerse.getDisplayOrder())
         );
+    }
+
+    private Map<Long, BibleVerseResponse> getBibleVersesById(List<Long> verseIds) {
+        if (verseIds.isEmpty()) {
+            return Map.of();
+        }
+        List<BibleVerseResponse> verses = getBibleVerseUseCase.getVerses(verseIds);
+        Map<Long, BibleVerseResponse> versesById = new LinkedHashMap<>();
+        for (BibleVerseResponse verse : verses) {
+            versesById.put(verse.id(), verse);
+        }
+        if (versesById.size() != verseIds.size()) {
+            throw new BusinessException(ErrorCode.BIBLE_VERSE_NOT_FOUND);
+        }
+        return versesById;
     }
 
     private NormalizedNoteInput normalize(CreateNoteCommand command) {
