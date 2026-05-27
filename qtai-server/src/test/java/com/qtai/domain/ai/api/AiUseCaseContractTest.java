@@ -13,12 +13,17 @@ import com.qtai.domain.ai.api.dto.AdminAiAssetDetailResponse;
 import com.qtai.domain.ai.api.dto.AdminAiAssetListItem;
 import com.qtai.domain.ai.api.dto.AdminAiAssetListResponse;
 import com.qtai.domain.ai.api.dto.AdminAiValidationLogItem;
+import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistListResponse;
+import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistResponse;
+import com.qtai.domain.ai.api.dto.ChangeAdminAiValidationChecklistStatusCommand;
 import com.qtai.domain.ai.api.dto.CreateAiGenerationJobCommand;
 import com.qtai.domain.ai.api.dto.CreateAiGenerationJobResult;
+import com.qtai.domain.ai.api.dto.CreateAdminAiValidationChecklistCommand;
 import com.qtai.domain.ai.api.dto.GetAdminAiAssetQuery;
 import com.qtai.domain.ai.api.dto.GetAiQaResultCommand;
 import com.qtai.domain.ai.api.dto.GetAiQaResultResult;
 import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
+import com.qtai.domain.ai.api.dto.ListAdminAiValidationChecklistsQuery;
 import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetCommand;
 import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetResult;
 import com.qtai.domain.ai.api.dto.RegisterAiValidationLogCommand;
@@ -41,7 +46,11 @@ class AiUseCaseContractTest {
             ReviewAiAssetUseCase.class,
             RegenerateAiAssetUseCase.class,
             ListAdminAiAssetsUseCase.class,
-            GetAdminAiAssetUseCase.class
+            GetAdminAiAssetUseCase.class,
+            ListAdminAiValidationChecklistsUseCase.class,
+            CreateAdminAiValidationChecklistUseCase.class,
+            ActivateAdminAiValidationChecklistUseCase.class,
+            RetireAdminAiValidationChecklistUseCase.class
     );
 
     private static final List<Class<?>> USE_CASE_DTOS = List.of(
@@ -64,7 +73,12 @@ class AiUseCaseContractTest {
             AdminAiAssetListResponse.class,
             AdminAiAssetListItem.class,
             AdminAiAssetDetailResponse.class,
-            AdminAiValidationLogItem.class
+            AdminAiValidationLogItem.class,
+            ListAdminAiValidationChecklistsQuery.class,
+            CreateAdminAiValidationChecklistCommand.class,
+            ChangeAdminAiValidationChecklistStatusCommand.class,
+            AdminAiValidationChecklistResponse.class,
+            AdminAiValidationChecklistListResponse.class
     );
 
     @Test
@@ -129,6 +143,19 @@ class AiUseCaseContractTest {
         assertThat(List.of(GetAdminAiAssetQuery.class.getRecordComponents()))
                 .extracting(RecordComponent::getName)
                 .contains("adminId", "memberRole", "adminRole", "assetId");
+    }
+
+    @Test
+    void adminAiValidationChecklistDtosIncludeAdminAuthorizationContext() {
+        assertThat(List.of(ListAdminAiValidationChecklistsQuery.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("adminId", "memberRole", "adminRole", "checklistType", "status", "page", "size");
+        assertThat(List.of(CreateAdminAiValidationChecklistCommand.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("adminId", "memberRole", "adminRole", "checklistType", "version", "contentHash", "status");
+        assertThat(List.of(ChangeAdminAiValidationChecklistStatusCommand.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("adminId", "memberRole", "adminRole", "checklistId");
     }
 
     @Test
