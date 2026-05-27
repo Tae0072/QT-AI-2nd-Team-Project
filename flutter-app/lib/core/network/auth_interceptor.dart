@@ -107,6 +107,9 @@ class AuthInterceptor extends Interceptor {
 
     final completer = Completer<String>();
     _refreshCompleter = completer;
+    // 단일 요청 시 completer.future를 await하는 대기자가 없으므로
+    // completeError() 호출 시 unhandled future error 방지
+    completer.future.ignore();
     try {
       final newAccessToken = await _executeRefresh();
       completer.complete(newAccessToken);
