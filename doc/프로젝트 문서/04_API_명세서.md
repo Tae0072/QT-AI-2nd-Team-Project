@@ -1,6 +1,6 @@
 # QT-AI API 명세서 v1.7
 
-> **문서 버전:** v1.7  
+> **문서 버전:** v1.3
 > **작성일:** 2026-05-17  
 > **기준 문서:** `01.요구사항명세서_현재완성v1.md`, `02_ERD_문서_v2.md`, `04_화면정의서.md`, `03_화면설계_스토리보드.md`  
 > **작성 관점:** 백엔드 API 설계, 화면-API-ERD 연결성, 인증/권한, 예외 처리
@@ -135,10 +135,12 @@
 | 나눔 게시글 조회 | 공개 글만 | 가능 | 가능 | 불가 | 제한적 처리 |
 | 나눔/댓글/좋아요/신고 생성 | 가능 | 가능 | 가능 | 불가 | 불가 |
 | QT 본문 관리 | 불가 | 가능 | 불가 | 불가 | 가능 |
-| AI 산출물 승인/반려 | 불가 | 조회 가능 | 가능 | 불가 | 자동 검증 가능 |
+| AI 산출물 조회/승인/반려 | 불가 | 불가 | 가능 | 불가 | 자동 검증 가능 |
 | 검증용 주석 원문 | 불가 | 불가 | 제한 조회 | 가능 | 검증 경로에서만 가능 |
 | 평가 셋/평가 케이스 | 불가 | 조회 가능 | 가능 | 가능 | 가능 |
 | 감사 로그 조회 | 불가 | 가능 | 가능 | 불가 | 생성 가능 |
+
+> `SUPER_ADMIN`은 모든 관리자 기능을 수행할 수 있다. AI 산출물 목록/상세 조회와 승인/반려/숨김/재생성 요청은 `REVIEWER` 또는 `SUPER_ADMIN` 전용이며, `OPERATOR`의 후속 권한으로 열지 않는다. 대시보드와 모니터링의 `OPERATOR` 접근은 집계 지표 조회에 한정하고 산출물 원문·상세 조회를 포함하지 않는다.
 
 ### 2.3 인증 API
 
@@ -152,7 +154,7 @@
 
 ```json
 {
-  "kakaoAccessToken": "kakao_access_token_value"
+  "kakaoAccessToken": "<redacted>"
 }
 ```
 
@@ -162,7 +164,7 @@
 {
   "success": true,
   "data": {
-    "accessToken": "eyJ...",
+    "accessToken": "<redacted>",
     "refreshTokenExpiresAt": "2026-06-16T10:00:00+09:00",
     "member": {
       "id": 10,
@@ -603,8 +605,7 @@
     "studyContent": true,
     "aiQuestion": true,
     "tts": true,
-    "simulatorStatus": "MISSING",
-    "simulator": false
+    "simulatorStatus": "MISSING"
   }
 }
 ```
@@ -1454,6 +1455,7 @@
 - **Method + URL:** `POST /api/v1/admin/ai/assets/{assetId}/evaluation-candidates`
 - **인증:** ADMIN + REVIEWER/SUPER_ADMIN
 - **ERD:** `ai_generated_assets`, `ai_validation_logs`, `ai_validation_checklist_versions`, `verse_explanations`, `simulator_clips`
+- **권한 상세:** 목록/상세 조회를 포함한 AI 산출물 운영 API는 `REVIEWER` 또는 `SUPER_ADMIN`만 호출할 수 있다. `OPERATOR`는 이 API로 산출물을 조회할 수 없다.
 
 목록 응답:
 
@@ -1728,6 +1730,7 @@
 - **인증:** ADMIN + OPERATOR/REVIEWER/SUPER_ADMIN
 - **연결 화면:** AD-08
 - **ERD:** `ai_generation_jobs`, `ai_generated_assets`, `ai_validation_logs`, `ai_qa_requests`, `ai_validation_checklist_versions`
+- **권한 상세:** `OPERATOR`는 실패율, 대기 건수, 차단 건수 같은 운영 집계만 조회한다. AI 산출물 목록/상세 원문 조회는 `/api/v1/admin/ai/assets/**`에서 `REVIEWER/SUPER_ADMIN`만 수행한다.
 
 ```json
 {
@@ -1863,7 +1866,6 @@
 | `GET /notifications` | `read`, `type` | `createdAt,desc` |
 | `GET /admin/qt-passages` | `status`, `from`, `to`, `q` | `qtDate,desc` |
 | `GET /admin/ai/assets` | `assetType`, `targetType`, `status`, `promptVersionId`, `checklistVersionId` | `createdAt,desc` |
-| `GET /admin/ai/validation-checklists` | `checklistType`, `status` | `createdAt,desc`, 동률 `id,desc` |
 | `GET /admin/reports` | `targetType`, `status`, `reason`, `from`, `to` | `createdAt,desc` |
 | `GET /admin/audit-logs` | `actorType`, `actorId`, `actionType`, `targetType`, `from`, `to` | `createdAt,desc` |
 
@@ -1898,6 +1900,7 @@
 | `TOKEN_EXPIRED` | 401 | Access Token 만료 |
 | `FORBIDDEN` | 403 | 권한 없음 |
 | `NOT_FOUND` | 404 | 리소스 없음 |
+| `CHECKLIST_NOT_FOUND` | 404 | 검증 체크리스트 버전 없음 |
 | `NICKNAME_DUPLICATED` | 409 | 닉네임 중복 |
 | `NICKNAME_CHANGE_LOCKED` | 409 | 닉네임 변경 후 7일이 지나지 않음. 응답 `error.fields.nicknameUnlockAt`에 잠금 해제 시각 포함 (`07` §F-10) |
 | `DUPLICATE_NOTE` | 409 | 동일 사용자+QT 활성 노트 중복 |
@@ -1905,8 +1908,7 @@
 | `DUPLICATE_REPORT` | 409 | 동일 대상 중복 신고 |
 | `INVALID_STATUS_TRANSITION` | 409 | 상태 전이 불가 |
 | `CHECKLIST_VERSION_REQUIRED` | 409 | AI 산출물 승인에 필요한 활성 체크리스트 버전 누락 |
-| `CHECKLIST_NOT_FOUND` | 404 | AI 검증 체크리스트 버전 없음 |
-| `DUPLICATE_CHECKLIST_VERSION` | 409 | 동일 `checklistType + version` 체크리스트 버전 중복 |
+| `DUPLICATE_CHECKLIST_VERSION` | 409 | 같은 `checklistType`과 `version`의 체크리스트 버전 중복 |
 | `AI_QUESTION_BLOCKED` | 422 | 정책상 AI 답변 차단 |
 | `AI_VALIDATION_FAILED` | 422 | AI 산출물 검증 실패 |
 | `RATE_LIMIT_EXCEEDED` | 429 | 호출 한도 초과 |
@@ -1933,21 +1935,48 @@
 | 대상 | actionType 예시 | actor |
 |---|---|---|
 | QT 본문 | `QT_CREATE`, `QT_UPDATE`, `QT_PUBLISH`, `QT_HIDE` | OPERATOR |
-| AI 산출물 | `AI_ASSET_APPROVE`, `AI_ASSET_REJECT`, `AI_ASSET_HIDE`, `AI_REGENERATE_REQUEST` | REVIEWER |
+| AI 산출물 | `AI_ASSET_APPROVE`, `AI_ASSET_REJECT`, `AI_ASSET_HIDE`, `AI_REGENERATE_REQUEST` | REVIEWER/SUPER_ADMIN |
 | 신고 | `REPORT_RESOLVE`, `REPORT_REJECT`, `TARGET_HIDE` | OPERATOR |
 | 공지 | `NOTICE_CREATE`, `NOTICE_PUBLISH`, `NOTICE_HIDE` | OPERATOR |
-| 체크리스트 | `CHECKLIST_CREATE`, `CHECKLIST_ACTIVATE`, `CHECKLIST_RETIRE` | REVIEWER |
+| 체크리스트 | `CHECKLIST_CREATE`, `CHECKLIST_ACTIVATE`, `CHECKLIST_RETIRE` | REVIEWER/SUPER_ADMIN |
 | 평가 셋 | `EVAL_CASE_APPROVE`, `EVAL_CASE_REJECT` | REVIEWER |
 | 배치 | `AI_JOB_CREATE`, `AI_VALIDATION_FAIL`, `AI_VALIDATION_PASS` | SYSTEM_BATCH |
 
 ### 7.2 검증 체크리스트 버전 API
 
-- **Method + URL:** `GET /api/v1/admin/ai/validation-checklists?checklistType=EXPLANATION&status=ACTIVE`
+- **Method + URL:** `GET /api/v1/admin/ai/validation-checklists?checklistType=EXPLANATION&status=ACTIVE&page=0&size=20`
 - **Method + URL:** `POST /api/v1/admin/ai/validation-checklists`
 - **Method + URL:** `POST /api/v1/admin/ai/validation-checklists/{id}/activate`
 - **Method + URL:** `POST /api/v1/admin/ai/validation-checklists/{id}/retire`
 - **인증:** ADMIN + REVIEWER/SUPER_ADMIN
 - **ERD:** `ai_validation_checklist_versions`, `admin_users`, `audit_logs`
+
+목록 응답:
+
+```json
+{
+  "content": [
+    {
+      "id": 4,
+      "checklistType": "EXPLANATION",
+      "version": "2026.05.1",
+      "contentHash": "sha256:...",
+      "status": "ACTIVE",
+      "createdByAdminId": null,
+      "createdAt": "2026-05-17T10:00:00+09:00",
+      "activatedAt": "2026-05-17T10:05:00+09:00",
+      "retiredAt": null
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "sort": "createdAt,desc"
+}
+```
 
 생성 요청:
 
@@ -1967,48 +1996,19 @@
   "id": 4,
   "checklistType": "EXPLANATION",
   "version": "2026.05.1",
-  "contentHash": "sha256:checklist-v1",
+  "contentHash": "sha256:...",
   "status": "DRAFT",
   "createdByAdminId": null,
-  "createdAt": "2026-05-27T09:00:00+09:00",
+  "createdAt": "2026-05-17T10:00:00+09:00",
   "activatedAt": null,
   "retiredAt": null
 }
 ```
 
-- 목록 응답은 공통 페이징 구조를 사용한다.
-
-```json
-{
-  "content": [
-    {
-      "id": 4,
-      "checklistType": "EXPLANATION",
-      "version": "2026.05.1",
-      "contentHash": "sha256:checklist-v1",
-      "status": "ACTIVE",
-      "createdByAdminId": null,
-      "createdAt": "2026-05-27T09:00:00+09:00",
-      "activatedAt": "2026-05-27T10:00:00+09:00",
-      "retiredAt": null
-    }
-  ],
-  "page": 0,
-  "size": 20,
-  "totalElements": 1,
-  "totalPages": 1,
-  "first": true,
-  "last": true,
-  "sort": "createdAt,desc,id,desc"
-}
-```
-
-- 서버는 `checklistType`, `version`, `contentHash`, `status`만 저장한다. 실제 체크리스트 원문은 외부 문서/파일을 SSoT로 두며, 서버는 `contentHash`로 원문과 버전을 대조하는 registry 역할만 한다.
-- 생성 시 `status`는 생략 또는 `DRAFT`만 허용한다. `ACTIVE`, `RETIRED` 직접 생성은 `400 INVALID_INPUT`으로 차단한다.
-- `createdByAdminId`는 `admin_users.id` 매핑이 확정되기 전까지 nullable이며, 현재 principal id를 `created_by_admin_id`로 저장하지 않는다.
+- **서버 저장 정책:** 체크리스트 원문은 외부 문서/파일을 SSoT로 둔다. 서버는 원문 대신 `checklistType`, `version`, `contentHash`, `status`, `createdAt`, `activatedAt`, `retiredAt`과 등록자 참조 `createdByAdminId`만 version/hash registry로 저장하고, 원문 항목은 저장하지 않는다.
+- **등록 주체:** `createdByAdminId`는 `admin_users.id`를 의미하며 nullable이다. 관리자 계정 매핑이 확정되기 전 단계, 시스템 이관, 초기 적재처럼 관리자 주체를 연결하지 못하면 `null`일 수 있다.
 - **상태 전이:** `DRAFT -> ACTIVE -> RETIRED`
-- **전이 실패:** 활성화 대상이 `DRAFT`가 아니거나 폐기 대상이 `ACTIVE`가 아니면 `409 INVALID_STATUS_TRANSITION`을 반환한다. 없는 checklist id는 `404 CHECKLIST_NOT_FOUND`, 중복 `checklistType + version`은 `409 DUPLICATE_CHECKLIST_VERSION`을 반환한다.
-- **활성화 정책:** 같은 `checklistType`의 기존 `ACTIVE` 버전은 자동 `RETIRED` 처리한다.
+- **활성화 정책:** activate 시 같은 `checklistType`의 기존 `ACTIVE` 버전은 자동으로 `RETIRED` 처리하고 대상 버전을 `ACTIVE`로 전환한다. 동일 `checklistType`+`version` 등록은 `409 DUPLICATE_CHECKLIST_VERSION`, 존재하지 않는 버전 조회·활성화·폐기는 `404 CHECKLIST_NOT_FOUND`, 허용되지 않는 상태 전이는 `409 INVALID_STATUS_TRANSITION`을 반환한다.
 - **감사 로그:** 생성/활성화/폐기 모두 `audit_logs.action_type=CHECKLIST_*`로 기록한다.
 
 ### 7.3 평가 셋 API
@@ -2220,9 +2220,9 @@
 | 39 | GET | `/api/v1/admin/qt-passages` | OPERATOR | QT 관리 목록 |
 | 40 | POST | `/api/v1/admin/qt-passages` | OPERATOR | QT 등록 |
 | 41 | PATCH | `/api/v1/admin/qt-passages/{id}` | OPERATOR | QT 수정 |
-| 42 | GET | `/api/v1/admin/ai/assets` | REVIEWER | AI 산출물 목록 |
-| 43 | POST | `/api/v1/admin/ai/assets/{assetId}/approve` | REVIEWER | AI 산출물 승인 |
-| 44 | POST | `/api/v1/admin/ai/assets/{assetId}/reject` | REVIEWER | AI 산출물 반려 |
+| 42 | GET | `/api/v1/admin/ai/assets` | REVIEWER/SUPER_ADMIN | AI 산출물 목록 |
+| 43 | POST | `/api/v1/admin/ai/assets/{assetId}/approve` | REVIEWER/SUPER_ADMIN | AI 산출물 승인 |
+| 44 | POST | `/api/v1/admin/ai/assets/{assetId}/reject` | REVIEWER/SUPER_ADMIN | AI 산출물 반려 |
 | 45 | GET | `/api/v1/admin/reports` | OPERATOR | 신고 목록 |
 | 46 | POST | `/api/v1/admin/reports/{reportId}/resolve` | OPERATOR | 신고 처리 |
 | 47 | GET | `/api/v1/admin/audit-logs` | ADMIN | 감사 로그 조회 |
@@ -2239,16 +2239,16 @@
 | 58 | DELETE | `/api/v1/sharing-posts/{postId}` | USER/OPERATOR | 나눔 삭제 |
 | 59 | GET | `/api/v1/me/meditation-calendar` | USER | 묵상 달력 |
 | 60 | DELETE | `/api/v1/me/praise-songs/{id}` | USER | 내 찬양 삭제 |
-| 61 | POST | `/api/v1/admin/ai/assets/{assetId}/hide` | REVIEWER | AI 산출물 숨김 |
-| 62 | POST | `/api/v1/admin/ai/assets/{assetId}/regenerate` | REVIEWER | AI 산출물 재생성 요청 |
-| 63 | POST | `/api/v1/admin/ai/assets/{assetId}/evaluation-candidates` | REVIEWER | 평가 케이스 후보 등록 |
+| 61 | POST | `/api/v1/admin/ai/assets/{assetId}/hide` | REVIEWER/SUPER_ADMIN | AI 산출물 숨김 |
+| 62 | POST | `/api/v1/admin/ai/assets/{assetId}/regenerate` | REVIEWER/SUPER_ADMIN | AI 산출물 재생성 요청 |
+| 63 | POST | `/api/v1/admin/ai/assets/{assetId}/evaluation-candidates` | REVIEWER/SUPER_ADMIN | 평가 케이스 후보 등록 |
 | 64 | POST | `/api/v1/admin/members/{memberId}/suspend` | OPERATOR | 회원 제재 |
 | 65 | POST | `/api/v1/admin/members/{memberId}/activate` | OPERATOR | 회원 제재 해제 |
-| 66 | GET | `/api/v1/admin/ai/monitoring` | ADMIN | AI 운영 모니터링 |
-| 67 | GET | `/api/v1/admin/ai/validation-checklists` | REVIEWER | 검증 체크리스트 목록 |
-| 68 | POST | `/api/v1/admin/ai/validation-checklists` | REVIEWER | 검증 체크리스트 생성 |
-| 69 | POST | `/api/v1/admin/ai/validation-checklists/{id}/activate` | REVIEWER | 검증 체크리스트 활성화 |
-| 70 | POST | `/api/v1/admin/ai/validation-checklists/{id}/retire` | REVIEWER | 검증 체크리스트 폐기 |
+| 66 | GET | `/api/v1/admin/ai/monitoring` | OPERATOR/REVIEWER/SUPER_ADMIN | AI 운영 모니터링 |
+| 67 | GET | `/api/v1/admin/ai/validation-checklists` | REVIEWER/SUPER_ADMIN | 검증 체크리스트 목록 |
+| 68 | POST | `/api/v1/admin/ai/validation-checklists` | REVIEWER/SUPER_ADMIN | 검증 체크리스트 생성 |
+| 69 | POST | `/api/v1/admin/ai/validation-checklists/{id}/activate` | REVIEWER/SUPER_ADMIN | 검증 체크리스트 활성화 |
+| 70 | POST | `/api/v1/admin/ai/validation-checklists/{id}/retire` | REVIEWER/SUPER_ADMIN | 검증 체크리스트 폐기 |
 | 71 | GET | `/api/v1/admin/ai/evaluation-sets` | REVIEWER/CONTENT_CREATOR | 평가 셋 목록 |
 | 72 | POST | `/api/v1/admin/ai/evaluation-sets` | REVIEWER/CONTENT_CREATOR | 평가 셋 생성 |
 | 73 | GET | `/api/v1/admin/ai/evaluation-sets/{setId}/cases` | REVIEWER/CONTENT_CREATOR | 평가 케이스 목록 |
@@ -2281,4 +2281,4 @@
 | v1.4 | 2026-05-19 | T (강태오) | `07_요구사항_정의서.md` v3.2 §6.4.1(F-03/F-16 `@`멘션 본문 자동 삽입) 반영 — §4.2.2 성경 절 조회에 `verseFrom`/`verseTo` 쿼리 파라미터 추가(범위 조회 지원), 쿼리 파라미터 표·`@`멘션 호출 예시·실패 코드(`400 VALIDATION_ERROR`, `404 NOT_FOUND`, `429 RATE_LIMIT_EXCEEDED`) 추가. §4.3.6 노트 수정에 `@`멘션 본문 자동 삽입 정책 추가 — 클라이언트는 입력을 파싱해 §4.2.2 호출 후 본문에 인용 블록으로 직접 삽입하고 `verseIds`로 `note_verses` 메타데이터 동기화, 서버는 `body`를 자유 형식으로 보존. 트리거 기호는 `@`만 사용(2026-05-19 확정). 코드 변경 없음. |
 | v1.5 | 2026-05-19 | T (강태오) | `07_요구사항_정의서.md` v3.3 §F-04/F-10 닉네임 7일 변경 잠금 정책 반영 — §4.1.5 `PATCH /api/v1/me/profile`에 7일 잠금 처리 규칙·잠금 면제 조건(가입 첫 설정, 형식·중복 재설정)·성공/실패 응답 예시·실패 코드 목록 추가, `nicknameLastChangedAt`/`nicknameUnlockAt` 응답 필드 도입. §4.1.2 `GET /api/v1/me` 응답에 `nicknameLastChangedAt`/`nicknameUnlockAt` 필드 추가(클라이언트가 잠금 해제 시각을 안내 텍스트로 활용). §6.2 ErrorCode 표에 `NICKNAME_CHANGE_LOCKED`(409) 추가. ERD 영향: `members.nickname_last_changed_at` 컬럼 신규(`02_ERD_문서.md`에서 정의). 출처: 2026-05-18 바이블서버 회의록 §5. 코드 변경 없음. |
 | v1.6 | 2026-05-19 | T (강태오) | `07_요구사항_정의서.md` v3.4 §F-01 한글 성경 클라이언트 로컬 저장 정책 반영 — §4.2.2 성경 절 조회에 "언어 정책" 명시(이 API는 영어 본문 조회 또는 한글 로컬 미적재 시 백업 조회 용도), §4.2.2.1 한글 성경 번들 다운로드 API 신설(`GET /api/v1/bible/bundle?language=ko&version=`). 쿼리 파라미터·응답 예시·`304 Not Modified` 분기·실패 코드 정의. 영어 번들은 v1에서 제공하지 않고 §4.2.2로 온라인 조회. 출처: 2026-05-18 바이블서버 회의록 §1·§3·§4. 코드 변경 없음. |
-| v1.7 | 2026-05-21 | T (강태오) | Notion 역할분담 회의록(재작성) 반영 — §4.1.6~4.1.7 `GET/PATCH /api/v1/me/settings`(사용자 설정 조회/수정) 신설, 기존 §4.1.6~4.1.7(튜토리얼 완료·회원 탈퇴)을 §4.1.8~4.1.9로 재번호. §9 전체 API 요약 표에 `GET /api/v1/me/settings`(#7), `PATCH /api/v1/me/settings`(#8) 행 추가 및 이후 번호 순차 재정렬(총 88개). **[Breaking Change]** `GET /api/v1/qt/today` 응답 `entryPoints` 객체 내 `simulator` 필드 타입 변경: `boolean(false)` → `string enum("READY"/"MISSING"/"FAILED"/"DISABLED")`로 변경 후 필드명을 `simulatorStatus`로 교체. **Deprecation 윈도우:** v1.7 배포 후 v1.8 출시 전까지 `simulator`(boolean) · `simulatorStatus`(string) 두 필드를 동시 반환한다. v1.8 시점에 `simulator` 필드를 제거한다. **Flutter 호환 정책:** 클라이언트는 응답에 `simulatorStatus`가 존재하면 이를 우선 파싱한다(`"READY"`일 때만 시뮬레이터 버튼 활성화). `simulatorStatus`가 없으면 구 `simulator: false` → `"MISSING"` 으로 매핑하여 비활성 처리한다. **4상태 enum 일관성 점검 결과:** `simulatorStatus` enum(`READY`/`MISSING`/`FAILED`/`DISABLED`)은 `GET /api/v1/qt/today` 응답의 `entryPoints` 객체에만 사용된다(이 명세서 §4.4.1). `simulator_clips.status`(`APPROVED`/`PENDING`/`REJECTED` 등)는 DB 레벨 검수 상태 필드로 API 응답에 직접 노출되지 않는 별도 필드이며, 두 필드는 의미 및 위치가 다르다. **소비자(Flutter) 코드 변경 필요, 본 명세서 자체 코드 변경 없음.** |
+| v1.7 | 2026-05-21 | T (강태오) | Notion 역할분담 회의록(재작성) 반영 — §4.1.6~4.1.7 `GET/PATCH /api/v1/me/settings`(사용자 설정 조회/수정) 신설, 기존 §4.1.6~4.1.7(튜토리얼 완료·회원 탈퇴)을 §4.1.8~4.1.9로 재번호. §9 전체 API 요약 표에 `GET /api/v1/me/settings`(#7), `PATCH /api/v1/me/settings`(#8) 행 추가 및 이후 번호 순차 재정렬(총 88개). **[Breaking Change]** `GET /api/v1/qt/today` 응답 `entryPoints` 객체 내 `simulator` 필드 타입 변경: `boolean(false)` → `string enum("READY"/"MISSING"/"FAILED"/"DISABLED")`로 변경 후 필드명을 `simulatorStatus`로 교체. 기존 클라이언트가 `simulator: false`를 파싱하던 코드는 수정 필요. 코드 변경 없음. |
