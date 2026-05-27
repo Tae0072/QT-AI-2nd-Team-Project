@@ -173,7 +173,7 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     private void validateForSave(Long memberId, Long currentNoteId, NormalizedNoteInput input) {
         if (input.category() == NoteCategory.MEDITATION) {
             if (input.qtPassageId() == null) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT);
+                throw new BusinessException(ErrorCode.NOTE_QT_PASSAGE_REQUIRED);
             }
             noteQtClient.validateReadable(memberId, input.qtPassageId());
             validateMeditationDuplicate(memberId, currentNoteId, input.qtPassageId());
@@ -181,10 +181,10 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         }
 
         if (input.qtPassageId() != null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.NOTE_QT_PASSAGE_FORBIDDEN);
         }
         if (input.category() == NoteCategory.SERMON && input.verseIds().isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.NOTE_VERSE_REQUIRED);
         }
     }
 
@@ -349,7 +349,7 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 || normalizedBody != null
                 || (category == NoteCategory.MEDITATION && hasSectionContent);
         if (!hasRequiredContent) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.NOTE_CONTENT_REQUIRED);
         }
 
         return new NormalizedNoteInput(

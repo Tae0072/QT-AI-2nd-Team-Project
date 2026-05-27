@@ -237,7 +237,7 @@ class NoteServiceTest {
         assertThatThrownBy(() -> noteService.create(10L, command))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_INPUT);
+                .isEqualTo(ErrorCode.NOTE_VERSE_REQUIRED);
     }
 
     @Test
@@ -394,7 +394,7 @@ class NoteServiceTest {
         assertThatThrownBy(() -> noteService.create(10L, command))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_INPUT);
+                .isEqualTo(ErrorCode.NOTE_QT_PASSAGE_REQUIRED);
         verify(noteQtClient, never()).validateReadable(any(), any());
     }
 
@@ -408,7 +408,7 @@ class NoteServiceTest {
         assertThatThrownBy(() -> noteService.create(10L, command))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_INPUT);
+                .isEqualTo(ErrorCode.NOTE_QT_PASSAGE_FORBIDDEN);
     }
 
     @Test
