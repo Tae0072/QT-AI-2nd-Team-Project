@@ -6,12 +6,15 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "note_verses")
+@Table(name = "note_verses", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_note_verses_note_verse", columnNames = {"note_id", "bible_verse_id"})
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class NoteVerse {
@@ -31,4 +34,14 @@ public class NoteVerse {
 
     @Column(length = 500)
     private String highlight;
+
+    private NoteVerse(Long noteId, Long bibleVerseId, short displayOrder) {
+        this.noteId = noteId;
+        this.bibleVerseId = bibleVerseId;
+        this.displayOrder = displayOrder;
+    }
+
+    public static NoteVerse create(Long noteId, Long bibleVerseId, short displayOrder) {
+        return new NoteVerse(noteId, bibleVerseId, displayOrder);
+    }
 }

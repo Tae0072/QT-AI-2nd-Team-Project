@@ -24,6 +24,26 @@ class ArchitectureBoundaryTest {
         assertThat(violationsFor("study")).isEmpty();
     }
 
+    @Test
+    @DisplayName("note 도메인은 bible/qt/sharing internal/web 패키지를 직접 import하지 않는다")
+    void noteDomain_doesNotImportOtherInternalOrWebPackages() throws IOException {
+        Path noteRoot = Path.of("src/main/java/com/qtai/domain/note");
+
+        try (var stream = Files.walk(noteRoot)) {
+            List<String> violations = stream
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .flatMap(path -> importsOf(path).stream())
+                    .filter(line -> line.contains("com.qtai.domain.bible.internal")
+                            || line.contains("com.qtai.domain.bible.web")
+                            || line.contains("com.qtai.domain.qt.internal")
+                            || line.contains("com.qtai.domain.qt.web")
+                            || line.contains("com.qtai.domain.sharing.internal")
+                            || line.contains("com.qtai.domain.sharing.web"))
+                    .toList();
+            assertThat(violations).isEmpty();
+        }
+    }
+
     private static List<String> violationsFor(String domainName) throws IOException {
         Path domainRoot = Path.of("src/main/java/com/qtai/domain");
 

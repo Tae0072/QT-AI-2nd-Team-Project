@@ -3,7 +3,7 @@
 | 항목 | 내용 |
 | --- | --- |
 | 담당자 | 강상민 |
-| 브랜치 | `feat/admin-ai-validation-checklist-versions-api` |
+| 브랜치 | `feature/ai-validation-checklist-versions-api` |
 | PR 대상 | `dev` |
 | 관련 F-ID | F-14 |
 | 트리거 | W2 스케줄과 Lead 체크리스트에서 `validation_reference_jobs`보다 `ai_validation_checklist_versions` 관리 API를 먼저 구현하기로 확정 |
