@@ -134,7 +134,7 @@ CREATE TABLE ai_validation_logs (
     ai_asset_id                 BIGINT       NOT NULL,
     validation_reference_job_id BIGINT,
     checklist_version_id        BIGINT       NOT NULL,
-    layer                       TINYINT      NOT NULL,
+    layer                       INT          NOT NULL,
     result                      VARCHAR(30)  NOT NULL,
     checklist_json              CLOB,
     reviewer_type               VARCHAR(30)  NOT NULL DEFAULT 'AUTO',

@@ -4,7 +4,7 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("noteGetQtUseCaseMock")
 public class GetQtUseCaseMock implements NoteQtClient {
 
     @Override
