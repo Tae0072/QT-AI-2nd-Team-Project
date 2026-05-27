@@ -1,6 +1,8 @@
 package com.qtai.domain.note.internal;
 
 import com.qtai.common.entity.BaseEntity;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.NoteVisibility;
@@ -109,7 +111,7 @@ public class Note extends BaseEntity {
                        String title, String body, String rememberSection, String interpretSection,
                        String applySection, String praySection, LocalDateTime now) {
         if (this.status == NoteStatus.DELETED || getDeletedAt() != null) {
-            throw new IllegalStateException("deleted note cannot be updated");
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
 
         this.category = category;
