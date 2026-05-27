@@ -7,7 +7,9 @@ import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,7 +17,9 @@ import static com.qtai.support.TestEntityFactory.bibleBook;
 import static com.qtai.support.TestEntityFactory.bibleVerse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class BibleServiceTest {
@@ -63,6 +67,37 @@ class BibleServiceTest {
         when(bibleRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> bibleService.getVerse(999L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BIBLE_VERSE_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("verseId 목록 조회는 중복을 제거하고 요청 순서를 보존한다")
+    @SuppressWarnings("unchecked")
+    void getVersesByIds_returnsRequestedOrderWithoutDuplicates() {
+        BibleBook book = bibleBook((short) 1, "GEN", "Genesis Korean", "Genesis", (short) 1);
+        BibleVerse verse10 = bibleVerse(10L, book, (short) 1, (short) 2);
+        BibleVerse verse20 = bibleVerse(20L, book, (short) 1, (short) 3);
+        when(bibleRepository.findAllByIdIn(anyCollection())).thenReturn(List.of(verse10, verse20));
+
+        List<BibleVerseResponse> responses = bibleService.getVerses(List.of(20L, 10L, 20L));
+
+        assertThat(responses)
+                .extracting(BibleVerseResponse::id)
+                .containsExactly(20L, 10L);
+        ArgumentCaptor<Collection<Long>> idsCaptor = ArgumentCaptor.forClass(Collection.class);
+        verify(bibleRepository).findAllByIdIn(idsCaptor.capture());
+        assertThat(idsCaptor.getValue()).containsExactly(20L, 10L);
+    }
+
+    @Test
+    @DisplayName("verseId 목록 중 누락된 절이 있으면 BIBLE_VERSE_NOT_FOUND로 거절한다")
+    void getVersesByIds_whenAnyVerseMissing_throwsVerseNotFound() {
+        BibleBook book = bibleBook((short) 1, "GEN", "Genesis Korean", "Genesis", (short) 1);
+        when(bibleRepository.findAllByIdIn(anyCollection()))
+                .thenReturn(List.of(bibleVerse(10L, book, (short) 1, (short) 2)));
+
+        assertThatThrownBy(() -> bibleService.getVerses(List.of(10L, 20L)))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BIBLE_VERSE_NOT_FOUND));
     }
