@@ -18,6 +18,7 @@ import com.qtai.domain.note.client.qt.NoteQtClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -27,6 +28,7 @@ import org.springframework.data.domain.Sort;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,15 +48,18 @@ class NoteServiceTest {
     private GetBibleVerseUseCase getBibleVerseUseCase;
     private NoteQtClient noteQtClient;
     private NoteService noteService;
+    private ArgumentCaptor<Iterable<NoteVerse>> noteVersesCaptor;
     private Pageable pageable;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         noteRepository = mock(NoteRepository.class);
         noteVerseRepository = mock(NoteVerseRepository.class);
         getBibleVerseUseCase = mock(GetBibleVerseUseCase.class);
         noteQtClient = mock(NoteQtClient.class);
         noteService = new NoteService(noteRepository, noteVerseRepository, getBibleVerseUseCase, noteQtClient);
+        noteVersesCaptor = ArgumentCaptor.forClass(Iterable.class);
         when(noteRepository.saveAndFlush(any())).thenAnswer(invocation -> {
             Note note = invocation.getArgument(0);
             setField(note, "id", 99L);
@@ -262,6 +267,26 @@ class NoteServiceTest {
     }
 
     @Test
+    @DisplayName("draft lookup returns exists true with note detail when meditation draft exists")
+    void getDraft_existing_returnsDetail() {
+        Note note = persistedNote(1L, 10L, NoteCategory.MEDITATION, NoteStatus.DRAFT, 100L);
+        when(noteRepository.findDraft(10L, NoteCategory.MEDITATION, 100L))
+                .thenReturn(Optional.of(note));
+        when(noteVerseRepository.findAllByNoteIdOrderByDisplayOrderAsc(1L))
+                .thenReturn(List.of());
+
+        NoteDraftResponse response = noteService.getDraft(10L, NoteCategory.MEDITATION, 100L);
+
+        assertThat(response.exists()).isTrue();
+        assertThat(response.note()).isNotNull();
+        assertThat(response.note().id()).isEqualTo(1L);
+        assertThat(response.note().category()).isEqualTo(NoteCategory.MEDITATION);
+        assertThat(response.note().qtPassageId()).isEqualTo(100L);
+        assertThat(response.note().status()).isEqualTo(NoteStatus.DRAFT);
+        assertThat(response.note().verses()).isEmpty();
+    }
+
+    @Test
     @DisplayName("draft lookup only allows meditation category with qtPassageId")
     void getDraft_nonMeditationOrMissingQtPassage_rejected() {
         assertThatThrownBy(() -> noteService.getDraft(10L, NoteCategory.PRAYER, 100L))
@@ -300,6 +325,83 @@ class NoteServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_INPUT);
+    }
+
+    @Test
+    @DisplayName("update saved prayer note replaces fields, status, and verses")
+    void update_prayerNote_replacesFieldsStatusAndVerses() {
+        Note note = persistedNote(1L, 10L, NoteCategory.PRAYER, NoteStatus.DRAFT, null);
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+        when(getBibleVerseUseCase.getVerses(List.of(3L, 2L)))
+                .thenReturn(List.of(
+                        new BibleVerseResponse(3L, "GEN", 1, 3, "중립 예시 문구", null),
+                        new BibleVerseResponse(2L, "GEN", 1, 2, "중립 예시 문구", null)
+                ));
+
+        UpdateNoteCommand command = new UpdateNoteCommand(
+                NoteCategory.PRAYER, null, "수정 제목", "수정 본문",
+                "기억", "해석", "적용", "기도",
+                List.of(3L, 3L, 2L), NoteStatus.SAVED, NoteVisibility.PRIVATE);
+
+        NoteSaveResponse response = noteService.update(10L, 1L, command);
+
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
+        assertThat(note.getTitle()).isEqualTo("수정 제목");
+        assertThat(note.getBody()).isEqualTo("수정 본문");
+        assertThat(note.getRememberSection()).isEqualTo("기억");
+        assertThat(note.getStatus()).isEqualTo(NoteStatus.SAVED);
+        assertThat(note.getSavedAt()).isNotNull();
+        verify(noteVerseRepository).deleteByNoteId(1L);
+        verify(noteVerseRepository).saveAll(noteVersesCaptor.capture());
+        List<NoteVerse> savedVerses = StreamSupport.stream(noteVersesCaptor.getValue().spliterator(), false)
+                .toList();
+        assertThat(savedVerses)
+                .extracting(NoteVerse::getBibleVerseId)
+                .containsExactly(3L, 2L);
+        assertThat(savedVerses)
+                .extracting(NoteVerse::getDisplayOrder)
+                .containsExactly((short) 1, (short) 2);
+    }
+
+    @Test
+    @DisplayName("update saved note to draft clears savedAt")
+    void update_savedNoteToDraft_clearsSavedAt() {
+        Note note = persistedNote(1L, 10L, NoteCategory.PRAYER, NoteStatus.SAVED, null);
+        assertThat(note.getSavedAt()).isNotNull();
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+
+        UpdateNoteCommand command = new UpdateNoteCommand(
+                NoteCategory.PRAYER, null, "기도", "본문", null, null, null, null,
+                List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
+
+        NoteSaveResponse response = noteService.update(10L, 1L, command);
+
+        assertThat(response.status()).isEqualTo(NoteStatus.DRAFT);
+        assertThat(note.getStatus()).isEqualTo(NoteStatus.DRAFT);
+        assertThat(note.getSavedAt()).isNull();
+        verify(noteVerseRepository).deleteByNoteId(1L);
+        verify(noteVerseRepository).saveAll(List.of());
+    }
+
+    @Test
+    @DisplayName("update meditation note keeps active unique key")
+    void update_meditationNote_keepsActiveUniqueKey() {
+        Note note = persistedNote(1L, 10L, NoteCategory.MEDITATION, NoteStatus.DRAFT, 100L);
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+
+        UpdateNoteCommand command = new UpdateNoteCommand(
+                NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
+                List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
+
+        NoteSaveResponse response = noteService.update(10L, 1L, command);
+
+        assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
+        assertThat(note.getActiveUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
+        assertThat(note.getQtPassageId()).isEqualTo(100L);
+        verify(noteQtClient).validateReadable(10L, 100L);
+        verify(noteRepository).existsByMemberIdAndQtPassageIdAndCategoryAndActiveUniqueKeyAndIdNot(
+                10L, 100L, NoteCategory.MEDITATION, Note.ACTIVE_KEY, 1L);
     }
 
     @Test
