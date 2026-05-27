@@ -66,7 +66,7 @@ public class NoteController {
     @GetMapping("/{noteId}")
     public ApiResponse<NoteDetailResponse> get(
             @AuthenticationPrincipal Long memberId,
-            @PathVariable Long noteId) {
+            @PathVariable("noteId") Long noteId) {
         Long authenticatedMemberId = requireMemberId(memberId);
         return ApiResponse.success(getNoteUseCase.get(authenticatedMemberId, noteId));
     }
@@ -83,7 +83,7 @@ public class NoteController {
     @PatchMapping("/{noteId}")
     public ApiResponse<NoteSaveResponse> update(
             @AuthenticationPrincipal Long memberId,
-            @PathVariable Long noteId,
+            @PathVariable("noteId") Long noteId,
             @Valid @RequestBody UpdateNoteRequest request) {
         Long authenticatedMemberId = requireMemberId(memberId);
         return ApiResponse.success(updateNoteUseCase.update(authenticatedMemberId, noteId, request.toCommand()));
@@ -93,7 +93,7 @@ public class NoteController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(
             @AuthenticationPrincipal Long memberId,
-            @PathVariable Long noteId) {
+            @PathVariable("noteId") Long noteId) {
         Long authenticatedMemberId = requireMemberId(memberId);
         deleteNoteUseCase.delete(authenticatedMemberId, noteId);
     }
