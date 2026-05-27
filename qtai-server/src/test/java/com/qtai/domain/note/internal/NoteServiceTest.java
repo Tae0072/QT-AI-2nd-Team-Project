@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -49,6 +50,7 @@ class NoteServiceTest {
     private NoteVerseRepository noteVerseRepository;
     private GetBibleVerseUseCase getBibleVerseUseCase;
     private NoteQtClient noteQtClient;
+    private ApplicationEventPublisher eventPublisher;
     private NoteService noteService;
     private ArgumentCaptor<Iterable<NoteVerse>> noteVersesCaptor;
     private Pageable pageable;
@@ -60,7 +62,9 @@ class NoteServiceTest {
         noteVerseRepository = mock(NoteVerseRepository.class);
         getBibleVerseUseCase = mock(GetBibleVerseUseCase.class);
         noteQtClient = mock(NoteQtClient.class);
-        noteService = new NoteService(noteRepository, noteVerseRepository, getBibleVerseUseCase, noteQtClient);
+        eventPublisher = mock(ApplicationEventPublisher.class);
+        noteService = new NoteService(noteRepository, noteVerseRepository, getBibleVerseUseCase, noteQtClient,
+                eventPublisher);
         noteVersesCaptor = ArgumentCaptor.forClass(Iterable.class);
         when(noteRepository.saveAndFlush(any())).thenAnswer(invocation -> {
             Note note = invocation.getArgument(0);

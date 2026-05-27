@@ -11,6 +11,8 @@ tags:
     description: 성경 권 목록과 절 범위 조회 API
   - name: Note
     description: 묵상 노트와 자유 노트 CRUD API
+  - name: My Page
+    description: 마이페이지 대시보드와 묵상 달력 API
   - name: Admin AI
     description: 관리자 웹이 AI 산출물과 검증 로그를 검토하는 운영 API
   - name: System AI
@@ -294,6 +296,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NoteCategoryApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/me/meditation-calendar:
+    get:
+      tags:
+        - My Page
+      operationId: getMeditationCalendar
+      summary: 묵상 달력 조회
+      description: 인증된 사용자의 월별 묵상 완료 상태를 notes.saved_at 기준으로 조회한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^\\d{4}-\\d{2}$"
+            example: "2026-05"
+      responses:
+        "200":
+          description: 묵상 달력 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeditationCalendarApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
   /api/v1/admin/ai/assets:
@@ -2207,6 +2237,74 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/NoteCategoryItem"
+    MeditationCalendarDay:
+      type: object
+      required:
+        - date
+        - saved
+        - savedNoteCount
+        - categories
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2026-05-17"
+        saved:
+          type: boolean
+          example: true
+        savedNoteCount:
+          type: integer
+          format: int64
+          minimum: 1
+          example: 2
+        meditationNoteId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 200
+        categories:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/NoteCategory"
+    MeditationCalendarSummary:
+      type: object
+      required:
+        - savedDays
+        - savedNoteCount
+        - meditationStreakDays
+      properties:
+        savedDays:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 10
+        savedNoteCount:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 12
+        meditationStreakDays:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 3
+    MeditationCalendarResponse:
+      type: object
+      required:
+        - month
+        - days
+        - summary
+      properties:
+        month:
+          type: string
+          example: "2026-05"
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeditationCalendarDay"
+        summary:
+          $ref: "#/components/schemas/MeditationCalendarSummary"
     NoteListApiResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponse"
@@ -2249,3 +2347,10 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/NoteCategoryResponse"
+    MeditationCalendarApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/MeditationCalendarResponse"

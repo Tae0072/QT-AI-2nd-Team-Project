@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface NoteRepository extends JpaRepository<Note, Long> {
@@ -62,4 +64,17 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
             String activeUniqueKey,
             Long id
     );
+
+    @Query("""
+            SELECT n FROM Note n
+            WHERE n.memberId = :memberId
+              AND n.status = com.qtai.domain.note.api.NoteStatus.SAVED
+              AND n.deletedAt IS NULL
+              AND n.savedAt >= :startAt
+              AND n.savedAt < :endAt
+            ORDER BY n.savedAt ASC, n.id ASC
+            """)
+    List<Note> findSavedCalendarNotes(@Param("memberId") Long memberId,
+                                      @Param("startAt") LocalDateTime startAt,
+                                      @Param("endAt") LocalDateTime endAt);
 }

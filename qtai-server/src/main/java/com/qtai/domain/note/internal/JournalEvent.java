@@ -1,36 +1,78 @@
 package com.qtai.domain.note.internal;
 
-/**
- * 묵상 노트 이벤트 이력 엔티티.
- *
- * MEDITATION 카테고리 노트가 SAVED 상태로 전환될 때
- * ApplicationEventPublisher 를 통해 이벤트를 발행하고,
- * 핸들러에서 이 테이블에 이력을 남긴다.
- *
- * 이벤트 핸들러 실패 시 Kafka 없이 로그만 기록한다 (CLAUDE.md §8 금지 기술).
- * 로그에는 eventId, event type, handler name, error message 를 포함한다 (CLAUDE.md §9).
- *
- * DDL 예시:
- *   CREATE TABLE journal_events (
- *       id         BIGINT AUTO_INCREMENT PRIMARY KEY,
- *       note_id    BIGINT NOT NULL,
- *       event_type VARCHAR(50) NOT NULL,   -- 예: NOTE_SAVED, NOTE_DELETED
- *       occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- *       FOREIGN KEY (note_id) REFERENCES notes(id)
- *   );
- */
-// TODO: @Entity, @Table(name = "journal_events")
-public class JournalEvent {
+import com.qtai.common.entity.BaseEntity;
+import com.qtai.domain.note.api.NoteCategory;
+import com.qtai.domain.note.api.NoteStatus;
+import com.qtai.domain.note.internal.event.JournalChangedEvent;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-    // TODO: @Id @GeneratedValue(strategy = GenerationType.IDENTITY) Long id;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
-    // TODO: @ManyToOne(fetch = FetchType.LAZY)
-    //        @JoinColumn(name = "note_id", nullable = false)
-    //        Note note;
+@Entity
+@Table(name = "journal_events", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_journal_events_event_id", columnNames = "event_id")
+})
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class JournalEvent extends BaseEntity {
 
-    // TODO: @Column(nullable = false, length = 50)
-    //        String eventType;    — 예: "NOTE_SAVED", "NOTE_DELETED"
+    @Column(name = "event_id", nullable = false, length = 36)
+    private String eventId;
 
-    // TODO: @Column(nullable = false)
-    //        LocalDateTime occurredAt;   — @CreationTimestamp
+    @Enumerated(EnumType.STRING)
+    @Column(name = "event_type", nullable = false, length = 30)
+    private JournalEventType eventType;
+
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
+
+    @Column(name = "note_id", nullable = false)
+    private Long noteId;
+
+    @Column(name = "qt_passage_id")
+    private Long qtPassageId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private NoteCategory category;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "previous_status", length = 10)
+    private NoteStatus previousStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "next_status", nullable = false, length = 10)
+    private NoteStatus nextStatus;
+
+    @Column(name = "saved_date")
+    private LocalDate savedDate;
+
+    @Column(name = "occurred_at", nullable = false)
+    private LocalDateTime occurredAt;
+
+    private JournalEvent(JournalChangedEvent event) {
+        this.eventId = event.eventId();
+        this.eventType = event.eventType();
+        this.memberId = event.memberId();
+        this.noteId = event.noteId();
+        this.qtPassageId = event.qtPassageId();
+        this.category = event.category();
+        this.previousStatus = event.previousStatus();
+        this.nextStatus = event.nextStatus();
+        this.savedDate = event.savedDate();
+        this.occurredAt = event.occurredAt();
+    }
+
+    public static JournalEvent from(JournalChangedEvent event) {
+        return new JournalEvent(event);
+    }
 }
