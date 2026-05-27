@@ -7,11 +7,10 @@ servers:
   - url: http://localhost:8080
     description: Local
 tags:
-<<<<<<< HEAD
-=======
-<<<<<<< feature/bible-read-api
   - name: Bible
     description: 성경 권 목록과 절 범위 조회 API
+  - name: Admin AI
+    description: 관리자 웹이 AI 산출물과 검증 로그를 검토하는 운영 API
   - name: System AI
     description: 시스템 배치가 AI 생성 작업, 산출물, 검증 로그를 접수하는 내부 운영 API
 paths:
@@ -59,13 +58,40 @@ paths:
             minimum: 1
             example: 1
         - name: verseFrom
-=======
->>>>>>> 4c68dc0bedab50bcf2dfa45c7cdaa4408d3fe08a
-  - name: Admin AI
-    description: 관리자 웹이 AI 산출물과 검증 로그를 검토하는 운영 API
-  - name: System AI
-    description: 시스템 배치가 AI 생성 작업, 산출물, 검증 로그를 접수하는 내부 운영 API
-paths:
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+        - name: verseTo
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            example: 4
+      responses:
+        "200":
+          description: 성경 절 범위 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BibleVerseRangeApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          description: 요청 한도 초과
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorApiResponse"
   /api/v1/admin/ai/assets:
     get:
       tags:
@@ -116,22 +142,10 @@ paths:
             format: int64
             minimum: 1
         - name: checklistVersionId
-<<<<<<< HEAD
-=======
->>>>>>> dev
->>>>>>> 4c68dc0bedab50bcf2dfa45c7cdaa4408d3fe08a
           in: query
           required: false
           schema:
             type: integer
-<<<<<<< HEAD
-=======
-<<<<<<< feature/bible-read-api
-            minimum: 1
-            example: 2
-        - name: verseTo
-=======
->>>>>>> 4c68dc0bedab50bcf2dfa45c7cdaa4408d3fe08a
             format: int64
             minimum: 1
           description: 최신 검증 로그의 checklistVersionId 기준으로 필터링한다.
@@ -144,22 +158,10 @@ paths:
             minimum: 0
             default: 0
         - name: size
->>>>>>> dev
           in: query
           required: false
           schema:
             type: integer
-<<<<<<< feature/bible-read-api
-            minimum: 1
-            example: 4
-      responses:
-        "200":
-          description: 성경 절 범위 조회 성공
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BibleVerseRangeApiResponse"
-=======
             format: int32
             minimum: 1
             maximum: 100
@@ -171,29 +173,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminAiAssetListApiResponse"
-<<<<<<< HEAD
-=======
->>>>>>> dev
->>>>>>> 4c68dc0bedab50bcf2dfa45c7cdaa4408d3fe08a
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-<<<<<<< HEAD
-=======
-<<<<<<< feature/bible-read-api
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          description: 요청 한도 초과
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorApiResponse"
-=======
->>>>>>> 4c68dc0bedab50bcf2dfa45c7cdaa4408d3fe08a
         "500":
           $ref: "#/components/responses/InternalServerError"
   /api/v1/admin/ai/assets/{assetId}:
@@ -231,10 +216,6 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalServerError"
-<<<<<<< HEAD
-=======
->>>>>>> dev
->>>>>>> 4c68dc0bedab50bcf2dfa45c7cdaa4408d3fe08a
   /api/v1/system/ai/generation-jobs:
     post:
       tags:
@@ -445,15 +426,7 @@ components:
           format: date-time
         traceId:
           type: string
-<<<<<<< HEAD
-    AdminAiAssetListApiResponse:
-=======
-<<<<<<< feature/bible-read-api
     BibleBookListApiResponse:
-=======
-    AdminAiAssetListApiResponse:
->>>>>>> dev
->>>>>>> 4c68dc0bedab50bcf2dfa45c7cdaa4408d3fe08a
       type: object
       required:
         - success
@@ -467,17 +440,9 @@ components:
           enum:
             - true
         data:
-<<<<<<< HEAD
-          $ref: "#/components/schemas/AdminAiAssetListResponse"
-=======
-<<<<<<< feature/bible-read-api
           type: array
           items:
             $ref: "#/components/schemas/BibleBookResponse"
-=======
-          $ref: "#/components/schemas/AdminAiAssetListResponse"
->>>>>>> dev
->>>>>>> 4c68dc0bedab50bcf2dfa45c7cdaa4408d3fe08a
         error:
           allOf:
             - $ref: "#/components/schemas/ErrorBody"
@@ -487,15 +452,7 @@ components:
           format: date-time
         traceId:
           type: string
-<<<<<<< HEAD
-    AdminAiAssetDetailApiResponse:
-=======
-<<<<<<< feature/bible-read-api
     BibleVerseRangeApiResponse:
-=======
-    AdminAiAssetDetailApiResponse:
->>>>>>> dev
->>>>>>> 4c68dc0bedab50bcf2dfa45c7cdaa4408d3fe08a
       type: object
       required:
         - success
@@ -509,15 +466,7 @@ components:
           enum:
             - true
         data:
-<<<<<<< HEAD
-          $ref: "#/components/schemas/AdminAiAssetDetailResponse"
-=======
-<<<<<<< feature/bible-read-api
           $ref: "#/components/schemas/BibleVerseRangeResponse"
-=======
-          $ref: "#/components/schemas/AdminAiAssetDetailResponse"
->>>>>>> dev
->>>>>>> 4c68dc0bedab50bcf2dfa45c7cdaa4408d3fe08a
         error:
           allOf:
             - $ref: "#/components/schemas/ErrorBody"
@@ -527,9 +476,6 @@ components:
           format: date-time
         traceId:
           type: string
-<<<<<<< HEAD
-=======
-<<<<<<< feature/bible-read-api
     BibleBookResponse:
       type: object
       required:
@@ -603,8 +549,74 @@ components:
         - verseNo
         - koreanText
         - englishText
-=======
->>>>>>> 4c68dc0bedab50bcf2dfa45c7cdaa4408d3fe08a
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10
+        bookCode:
+          type: string
+          example: GEN
+        chapterNo:
+          type: integer
+          example: 1
+        verseNo:
+          type: integer
+          example: 2
+        koreanText:
+          type: string
+          example: 검증용 한국어 본문
+        englishText:
+          type: string
+          example: Test English body
+    AdminAiAssetListApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiAssetListResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiAssetDetailApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiAssetDetailResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
     AdminAiAssetListResponse:
       type: object
       required:
@@ -798,29 +810,10 @@ components:
         - promptType
         - version
         - status
->>>>>>> dev
       properties:
         id:
           type: integer
           format: int64
-<<<<<<< feature/bible-read-api
-          example: 10
-        bookCode:
-          type: string
-          example: GEN
-        chapterNo:
-          type: integer
-          example: 1
-        verseNo:
-          type: integer
-          example: 2
-        koreanText:
-          type: string
-          example: 검증용 한국어 본문
-        englishText:
-          type: string
-          example: Test English body
-=======
         promptType:
           type: string
           enum:
@@ -902,7 +895,6 @@ components:
         - PASSED
         - REJECTED
         - NEEDS_REVIEW
-
     SystemAiGenerationJobRequest:
       type: object
       required:
