@@ -60,8 +60,17 @@ public class AdminService implements VerifyAdminRoleUseCase {
         // 1) 활성 관리자 조회 (DB 1회만 조회)
         AdminUser adminUser = findActiveAdminUser(memberId);
 
-        // 2) 세부 역할 검증 — SUPER_ADMIN은 모든 역할을 포함
-        AdminRole required = AdminRole.valueOf(requiredRole);
+        // 2) 역할 문자열 → enum 변환 (잘못된 문자열은 BusinessException으로 처리)
+        AdminRole required;
+        try {
+            required = AdminRole.valueOf(requiredRole);
+        } catch (IllegalArgumentException e) {
+            log.warn("잘못된 관리자 역할 문자열 — memberId={}, requiredRole={}",
+                    memberId, requiredRole);
+            throw new BusinessException(ErrorCode.ADMIN_ROLE_INSUFFICIENT);
+        }
+
+        // 3) 세부 역할 검증 — SUPER_ADMIN은 모든 역할을 포함
         if (!adminUser.hasRole(required)) {
             log.warn("관리자 권한 부족 — memberId={}, adminRole={}, requiredRole={}",
                     memberId, adminUser.getAdminRole(), requiredRole);

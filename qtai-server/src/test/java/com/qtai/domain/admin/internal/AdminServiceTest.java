@@ -202,4 +202,19 @@ class AdminServiceTest {
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
                         .isEqualTo(ErrorCode.ADMIN_USER_NOT_FOUND));
     }
+
+    @Test
+    @DisplayName("잘못된 역할 문자열은 ADMIN_ROLE_INSUFFICIENT")
+    void 잘못된_역할_문자열은_ADMIN_ROLE_INSUFFICIENT() {
+        // given
+        Long memberId = 10L;
+        AdminUser admin = createActiveAdmin(memberId, AdminRole.OPERATOR);
+        when(adminUserRepository.findByMemberId(memberId)).thenReturn(Optional.of(admin));
+
+        // when & then: 존재하지 않는 역할 문자열
+        assertThatThrownBy(() -> adminService.verifyRole(memberId, "INVALID_ROLE"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.ADMIN_ROLE_INSUFFICIENT));
+    }
 }
