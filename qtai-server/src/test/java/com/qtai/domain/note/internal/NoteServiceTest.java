@@ -12,7 +12,8 @@ import com.qtai.domain.note.api.dto.NoteCategoryResponse;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.note.api.dto.NoteListResponse;
-import com.qtai.domain.note.api.dto.NoteSaveResponse;
+import com.qtai.domain.note.api.dto.NoteCreateResponse;
+import com.qtai.domain.note.api.dto.NoteUpdateResponse;
 import com.qtai.domain.note.api.dto.UpdateNoteCommand;
 import com.qtai.domain.note.client.qt.NoteQtClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -152,7 +153,7 @@ class NoteServiceTest {
                 NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
                 List.of(), NoteStatus.DRAFT, null);
 
-        NoteSaveResponse response = noteService.create(10L, command);
+        NoteCreateResponse response = noteService.create(10L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.DRAFT);
         verify(noteQtClient).validateReadable(10L, 100L);
@@ -171,7 +172,7 @@ class NoteServiceTest {
                 NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
                 List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.create(10L, command);
+        NoteCreateResponse response = noteService.create(10L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
         verify(noteRepository).saveAndFlush(noteCaptor.capture());
@@ -187,7 +188,7 @@ class NoteServiceTest {
                 NoteCategory.MEDITATION, 100L, " ", " ", null, "해석", null, null,
                 List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.create(10L, command);
+        NoteCreateResponse response = noteService.create(10L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.DRAFT);
         verify(noteRepository).saveAndFlush(noteCaptor.capture());
@@ -258,7 +259,7 @@ class NoteServiceTest {
                 NoteCategory.SERMON, null, "설교", "본문", null, null, null, null,
                 List.of(3L, 3L, 2L), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.create(10L, command);
+        NoteCreateResponse response = noteService.create(10L, command);
 
         assertThat(response.id()).isEqualTo(99L);
         verify(noteVerseRepository).deleteByNoteId(99L);
@@ -427,7 +428,7 @@ class NoteServiceTest {
                 "기억", "해석", "적용", "기도",
                 List.of(3L, 3L, 2L), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.update(10L, 1L, command);
+        NoteUpdateResponse response = noteService.update(10L, 1L, command);
 
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
@@ -459,7 +460,7 @@ class NoteServiceTest {
                 NoteCategory.PRAYER, null, "기도", "본문", null, null, null, null,
                 List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.update(10L, 1L, command);
+        NoteUpdateResponse response = noteService.update(10L, 1L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.DRAFT);
         assertThat(note.getStatus()).isEqualTo(NoteStatus.DRAFT);
@@ -478,7 +479,7 @@ class NoteServiceTest {
                 NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
                 List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.update(10L, 1L, command);
+        NoteUpdateResponse response = noteService.update(10L, 1L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
         assertThat(note.getActiveUniqueKey()).isEqualTo(Note.ACTIVE_KEY);

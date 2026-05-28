@@ -20,7 +20,8 @@ import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.note.api.dto.NoteListItem;
 import com.qtai.domain.note.api.dto.NoteListResponse;
-import com.qtai.domain.note.api.dto.NoteSaveResponse;
+import com.qtai.domain.note.api.dto.NoteCreateResponse;
+import com.qtai.domain.note.api.dto.NoteUpdateResponse;
 import com.qtai.domain.note.api.dto.NoteVerseItem;
 import com.qtai.domain.note.api.dto.UpdateNoteCommand;
 import com.qtai.domain.note.client.qt.NoteQtClient;
@@ -90,7 +91,7 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
 
     @Override
     @Transactional
-    public NoteSaveResponse create(Long memberId, CreateNoteCommand command) {
+    public NoteCreateResponse create(Long memberId, CreateNoteCommand command) {
         NormalizedNoteInput input = normalize(command);
         validateForSave(memberId, null, input);
 
@@ -111,12 +112,19 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
 
         Note saved = saveNoteForCreate(note);
         replaceNoteVerses(saved.getId(), input.verseIds());
-        return new NoteSaveResponse(saved.getId(), saved.getStatus());
+        return new NoteCreateResponse(
+                saved.getId(),
+                saved.getCategory(),
+                saved.getStatus(),
+                saved.getVisibility(),
+                null,
+                saved.getCreatedAt()
+        );
     }
 
     @Override
     @Transactional
-    public NoteSaveResponse update(Long memberId, Long noteId, UpdateNoteCommand command) {
+    public NoteUpdateResponse update(Long memberId, Long noteId, UpdateNoteCommand command) {
         Note note = noteRepository.findById(noteId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTE_NOT_FOUND));
         if (!memberId.equals(note.getMemberId())) {
@@ -142,7 +150,16 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 LocalDateTime.now()
         );
         replaceNoteVerses(note.getId(), input.verseIds());
-        return new NoteSaveResponse(note.getId(), note.getStatus());
+        return new NoteUpdateResponse(
+                note.getId(),
+                note.getCategory(),
+                note.getStatus(),
+                note.getVisibility(),
+                note.getActiveUniqueKey(),
+                note.getSavedAt(),
+                note.getUpdatedAt(),
+                false
+        );
     }
 
     @Override

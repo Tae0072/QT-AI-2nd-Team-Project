@@ -13,7 +13,8 @@ import com.qtai.domain.note.api.UpdateNoteUseCase;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.note.api.dto.NoteListResponse;
-import com.qtai.domain.note.api.dto.NoteSaveResponse;
+import com.qtai.domain.note.api.dto.NoteCreateResponse;
+import com.qtai.domain.note.api.dto.NoteUpdateResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -73,7 +74,7 @@ public class NoteController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<NoteSaveResponse> create(
+    public ApiResponse<NoteCreateResponse> create(
             @AuthenticationPrincipal Long memberId,
             @Valid @RequestBody CreateNoteRequest request) {
         Long authenticatedMemberId = requireMemberId(memberId);
@@ -81,7 +82,7 @@ public class NoteController {
     }
 
     @PatchMapping("/{noteId}")
-    public ApiResponse<NoteSaveResponse> update(
+    public ApiResponse<NoteUpdateResponse> update(
             @AuthenticationPrincipal Long memberId,
             @PathVariable("noteId") Long noteId,
             @Valid @RequestBody UpdateNoteRequest request) {
