@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -234,6 +235,46 @@ class NoteRepositoryIntegrationTest {
         assertThat(page0.getContent().get(1).getTitle()).isEqualTo("두번째");
     }
 
+    @Test
+    @DisplayName("findSavedCalendarNotes는 저장된 내 노트 중 삭제되지 않고 savedAt이 월 범위에 있는 것만 조회한다")
+    void findSavedCalendarNotes_filtersCalendarNotes() {
+        Note firstDay = persistCalendarNote(10L, NoteCategory.MEDITATION, 100L,
+                LocalDateTime.of(2026, 5, 1, 0, 0));
+        Note lastDay = persistCalendarNote(10L, NoteCategory.PRAYER, null,
+                LocalDateTime.of(2026, 5, 31, 23, 59));
+        persistCalendarNote(20L, NoteCategory.MEDITATION, 200L,
+                LocalDateTime.of(2026, 5, 10, 10, 0));
+        persistCalendarNote(10L, NoteCategory.GRATITUDE, null,
+                LocalDateTime.of(2026, 4, 30, 23, 59));
+        persistCalendarNote(10L, NoteCategory.GRATITUDE, null,
+                LocalDateTime.of(2026, 6, 1, 0, 0));
+
+        Note draft = persistCalendarNote(10L, NoteCategory.GRATITUDE, null,
+                LocalDateTime.of(2026, 5, 12, 10, 0));
+        setField(draft, "status", NoteStatus.DRAFT);
+
+        Note noSavedAt = persistCalendarNote(10L, NoteCategory.PRAYER, null,
+                LocalDateTime.of(2026, 5, 13, 10, 0));
+        setField(noSavedAt, "savedAt", null);
+
+        Note deleted = persistCalendarNote(10L, NoteCategory.GRATITUDE, null,
+                LocalDateTime.of(2026, 5, 14, 10, 0));
+        deleted.delete(LocalDateTime.of(2026, 5, 15, 0, 0));
+
+        em.flush();
+        em.clear();
+
+        List<Note> result = noteRepository.findSavedCalendarNotes(
+                10L,
+                LocalDateTime.of(2026, 5, 1, 0, 0),
+                LocalDateTime.of(2026, 6, 1, 0, 0)
+        );
+
+        assertThat(result)
+                .extracting(Note::getId)
+                .containsExactly(firstDay.getId(), lastDay.getId());
+    }
+
     // ─────────────────────────────────────────────────────
     // 헬퍼 메서드
     // ─────────────────────────────────────────────────────
@@ -269,6 +310,26 @@ class NoteRepositoryIntegrationTest {
                 null,
                 null,
                 LocalDateTime.now()
+        );
+        em.persist(note);
+        return note;
+    }
+
+    private Note persistCalendarNote(Long memberId, NoteCategory category, Long qtPassageId,
+            LocalDateTime savedAt) {
+        Note note = Note.create(
+                memberId,
+                qtPassageId,
+                category,
+                NoteStatus.SAVED,
+                NoteVisibility.PRIVATE,
+                "calendar",
+                "body",
+                null,
+                null,
+                null,
+                null,
+                savedAt
         );
         em.persist(note);
         return note;

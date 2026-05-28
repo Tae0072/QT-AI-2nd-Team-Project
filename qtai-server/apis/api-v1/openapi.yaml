@@ -364,6 +364,37 @@ paths:
                 $ref: "#/components/schemas/NoteCategoryApiResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /api/v1/me/meditation-calendar:
+    get:
+      tags:
+        - Note
+      operationId: getMeditationCalendar
+      summary: 묵상 달력 조회
+      description: >
+        인증 사용자의 월별 노트 저장 현황을 조회한다. 집계 기준은 notes.status=SAVED,
+        notes.deleted_at IS NULL, notes.saved_at 날짜이며, 기록이 없는 날짜도 saved=false로 포함한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^\\d{4}-\\d{2}$"
+            example: "2026-05"
+          description: yyyy-MM 형식. 생략하면 KST 현재 월을 사용한다.
+      responses:
+        "200":
+          description: 묵상 달력 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeditationCalendarApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/v1/admin/ai/assets:
     get:
       tags:
@@ -2074,6 +2105,64 @@ components:
           format: date-time
         sharingSnapshotUpdated:
           type: boolean
+    MeditationCalendarResponse:
+      type: object
+      required:
+        - month
+        - days
+        - summary
+      properties:
+        month:
+          type: string
+          pattern: "^\\d{4}-\\d{2}$"
+          example: "2026-05"
+        days:
+          type: array
+          items:
+            type: object
+            required:
+              - date
+              - saved
+              - savedNoteCount
+              - categories
+            properties:
+              date:
+                type: string
+                format: date
+              saved:
+                type: boolean
+              savedNoteCount:
+                type: integer
+                format: int64
+                minimum: 0
+              meditationNoteId:
+                type: integer
+                format: int64
+                nullable: true
+              categories:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NoteCategory"
+                uniqueItems: true
+        summary:
+          type: object
+          required:
+            - savedDays
+            - savedNoteCount
+            - meditationStreakDays
+          properties:
+            savedDays:
+              type: integer
+              format: int64
+              minimum: 0
+            savedNoteCount:
+              type: integer
+              format: int64
+              minimum: 0
+            meditationStreakDays:
+              type: integer
+              format: int64
+              minimum: 0
     NoteVerseItem:
       type: object
       required:
@@ -2445,3 +2534,10 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/NoteCategoryResponse"
+    MeditationCalendarApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/MeditationCalendarResponse"

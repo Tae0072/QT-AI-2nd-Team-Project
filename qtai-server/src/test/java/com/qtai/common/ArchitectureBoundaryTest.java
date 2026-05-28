@@ -56,6 +56,21 @@ class ArchitectureBoundaryTest {
         }
     }
 
+    @Test
+    @DisplayName("member web은 note api만 import하고 note internal 패키지를 직접 import하지 않는다")
+    void memberWeb_importsOnlyNoteApiBoundary() throws IOException {
+        Path memberWebRoot = Path.of("src/main/java/com/qtai/domain/member/web");
+
+        try (var stream = Files.walk(memberWebRoot)) {
+            List<String> violations = stream
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .flatMap(path -> importsOf(path).stream())
+                    .filter(line -> line.contains("com.qtai.domain.note.internal"))
+                    .toList();
+            assertThat(violations).isEmpty();
+        }
+    }
+
     private static List<String> violationsFor(String domainName) throws IOException {
         Path domainRoot = Path.of("src/main/java/com/qtai/domain");
 

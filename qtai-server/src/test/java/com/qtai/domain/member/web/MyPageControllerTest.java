@@ -87,9 +87,4 @@ class MyPageControllerTest {
                 .andExpect(jsonPath("$.data.widgetErrors[0]").value("profile"));
     }
 
-    @Test
-    void meditationCalendar_미구현_에러() throws Exception {
-        mockMvc.perform(get("/api/v1/me/meditation-calendar"))
-                .andExpect(status().is5xxServerError());
-    }
 }

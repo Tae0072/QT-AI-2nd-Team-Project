@@ -3,8 +3,12 @@ package com.qtai.common;
 import com.qtai.config.JpaAuditingConfig;
 import com.qtai.domain.bible.internal.BibleBook;
 import com.qtai.domain.member.internal.Member;
-import com.qtai.domain.note.internal.Note;
+import com.qtai.domain.note.api.JournalChangedEvent;
+import com.qtai.domain.note.api.JournalEventType;
 import com.qtai.domain.note.api.NoteCategory;
+import com.qtai.domain.note.api.NoteStatus;
+import com.qtai.domain.note.internal.JournalEvent;
+import com.qtai.domain.note.internal.Note;
 import com.qtai.domain.sharing.internal.PostLike;
 import com.qtai.domain.sharing.internal.SharingPost;
 import jakarta.persistence.Column;
@@ -20,15 +24,16 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Phase 1 공통 기반 — H2 create-drop으로 Entity → DDL 자동 생성 검증.
- * Flyway off, Redis 불필요 (@DataJpaTest는 JPA 슬라이스만 로드).
- * JpaAuditingConfig를 Import하여 @CreatedDate/@LastModifiedDate 동작 보장.
- */
 @DataJpaTest
 @Import(JpaAuditingConfig.class)
 @ActiveProfiles("test")
@@ -41,17 +46,18 @@ class JpaEntityDdlTest {
     private TestEntityManager testEm;
 
     @Test
-    @DisplayName("JPA 컨텍스트 로드 — 모든 Entity 테이블이 H2에 생성된다")
+    @DisplayName("JPA context loads core entity tables")
     void contextLoads_and_tables_created() {
         assertNotNull(em);
         assertNotNull(em.getMetamodel().entity(Member.class));
         assertNotNull(em.getMetamodel().entity(BibleBook.class));
         assertNotNull(em.getMetamodel().entity(Note.class));
+        assertNotNull(em.getMetamodel().entity(JournalEvent.class));
         assertNotNull(em.getMetamodel().entity(SharingPost.class));
     }
 
     @Test
-    @DisplayName("모든 Phase 1 엔티티가 메타모델에 등록되어 있다")
+    @DisplayName("phase1 entities are registered in metamodel")
     void all_phase1_entities_in_metamodel() {
         assertNotNull(em.getMetamodel().entity(BibleBook.class));
         assertDoesNotThrow(() -> em.getMetamodel().entity(
@@ -64,70 +70,79 @@ class JpaEntityDdlTest {
                 Class.forName("com.qtai.domain.study.internal.SimulatorClip")));
         assertDoesNotThrow(() -> em.getMetamodel().entity(
                 Class.forName("com.qtai.domain.study.internal.SimulatorComponentLibraryVersion")));
-        assertDoesNotThrow(() -> em.getMetamodel().entity(
-                Class.forName("com.qtai.domain.sharing.internal.PostLike")));
+        assertDoesNotThrow(() -> em.getMetamodel().entity(PostLike.class));
     }
 
     @Test
-    @DisplayName("Member — 정상 persist/flush 성공")
+    @DisplayName("member can be persisted")
     void member_persist_and_flush() {
-        Member m = Member.builder()
+        Member member = Member.builder()
                 .kakaoId(10001L)
-                .nickname("정상유저")
+                .nickname("normal-user")
                 .build();
-        Member saved = testEm.persistAndFlush(m);
+
+        Member saved = testEm.persistAndFlush(member);
+
         assertNotNull(saved.getId());
-        assertEquals("정상유저", saved.getNickname());
+        assertEquals("normal-user", saved.getNickname());
     }
 
     @Test
-    @DisplayName("Member.kakao_id UNIQUE 제약 — 중복 kakaoId 삽입 시 예외 발생")
+    @DisplayName("member kakaoId is unique")
     void member_kakaoId_unique_constraint() {
-        testEm.persistAndFlush(
-                Member.builder().kakaoId(99999L).nickname("유저A").build());
+        testEm.persistAndFlush(Member.builder().kakaoId(99999L).nickname("user-a").build());
 
         assertThrows(Exception.class, () ->
-                testEm.persistAndFlush(
-                        Member.builder().kakaoId(99999L).nickname("유저B").build()));
+                testEm.persistAndFlush(Member.builder().kakaoId(99999L).nickname("user-b").build()));
     }
 
     @Test
-    @DisplayName("Member.nickname UNIQUE 제약 — 중복 닉네임 삽입 시 예외 발생")
+    @DisplayName("member nickname is unique")
     void member_nickname_unique_constraint() {
-        testEm.persistAndFlush(
-                Member.builder().kakaoId(11111L).nickname("동일닉네임").build());
+        testEm.persistAndFlush(Member.builder().kakaoId(11111L).nickname("same-name").build());
 
         assertThrows(Exception.class, () ->
-                testEm.persistAndFlush(
-                        Member.builder().kakaoId(22222L).nickname("동일닉네임").build()));
+                testEm.persistAndFlush(Member.builder().kakaoId(22222L).nickname("same-name").build()));
     }
 
     @Test
-    @DisplayName("Note MEDITATION UK — 동일 member+qtPassage+ACTIVE 중복 삽입 시 예외")
+    @DisplayName("active meditation note is unique per member and QT passage")
     void note_meditation_active_unique_constraint() {
         Note first = Note.builder()
                 .memberId(1L)
                 .qtPassageId(100L)
                 .category(NoteCategory.MEDITATION)
-                .title("묵상1")
-                .body("본문1")
+                .title("meditation1")
+                .body("body1")
                 .build();
         testEm.persistAndFlush(first);
-        assertEquals("ACTIVE", first.getActiveUniqueKey());
+        assertEquals(Note.ACTIVE_KEY, first.getActiveUniqueKey());
 
         Note duplicate = Note.builder()
                 .memberId(1L)
                 .qtPassageId(100L)
                 .category(NoteCategory.MEDITATION)
-                .title("묵상2")
-                .body("본문2")
+                .title("meditation2")
+                .body("body2")
                 .build();
 
         assertThrows(Exception.class, () -> testEm.persistAndFlush(duplicate));
     }
 
     @Test
-    @DisplayName("Note 생명주기 컬럼과 활성 묵상 unique 제약이 Entity DDL에 반영된다")
+    @DisplayName("journal event id is unique")
+    void journalEvent_eventId_unique_constraint() {
+        UUID eventId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        JournalChangedEvent event = journalChangedEvent(eventId);
+        testEm.persistAndFlush(JournalEvent.pending(event));
+
+        JournalChangedEvent duplicateEvent = journalChangedEvent(eventId);
+
+        assertThrows(Exception.class, () -> testEm.persistAndFlush(JournalEvent.pending(duplicateEvent)));
+    }
+
+    @Test
+    @DisplayName("note lifecycle columns and active unique constraint are mapped")
     void note_lifecycle_columns_and_unique_constraint() throws Exception {
         Column activeUniqueKey = Note.class.getDeclaredField("activeUniqueKey").getAnnotation(Column.class);
         Column savedAt = Note.class.getDeclaredField("savedAt").getAnnotation(Column.class);
@@ -149,7 +164,7 @@ class JpaEntityDdlTest {
     }
 
     @Test
-    @DisplayName("PostLike UK — 동일 sharingPostId+memberId 중복 삽입 시 예외")
+    @DisplayName("post like is unique per post and member")
     void postLike_unique_constraint() throws Exception {
         PostLike like1 = createPostLike(500L, 1L);
         testEm.persistAndFlush(like1);
@@ -159,7 +174,6 @@ class JpaEntityDdlTest {
         assertThrows(Exception.class, () -> testEm.persistAndFlush(like2));
     }
 
-    /** PostLike는 protected 생성자만 존재 — 리플렉션으로 필드 세팅 */
     private PostLike createPostLike(Long sharingPostId, Long memberId) throws Exception {
         Constructor<PostLike> ctor = PostLike.class.getDeclaredConstructor();
         ctor.setAccessible(true);
@@ -174,6 +188,19 @@ class JpaEntityDdlTest {
         memberIdField.set(like, memberId);
 
         return like;
+    }
+
+    private JournalChangedEvent journalChangedEvent(UUID eventId) {
+        return new JournalChangedEvent(
+                eventId,
+                10L,
+                99L,
+                100L,
+                JournalEventType.JOURNAL_UPDATED,
+                NoteStatus.DRAFT,
+                NoteStatus.SAVED,
+                LocalDateTime.of(2026, 5, 17, 9, 0)
+        );
     }
 
     private static Field findField(Class<?> clazz, String fieldName) throws NoSuchFieldException {

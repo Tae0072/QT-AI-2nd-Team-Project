@@ -1,8 +1,6 @@
 package com.qtai.domain.member.web;
 
 import com.qtai.common.dto.ApiResponse;
-import com.qtai.common.exception.BusinessException;
-import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.member.api.dto.DashboardResponse;
 import com.qtai.domain.member.api.dto.DashboardResponse.PraiseSummary;
@@ -62,17 +60,6 @@ public class MyPageController {
                 profile, stats, unreadCount, praiseSummary, widgetErrors);
 
         return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    /**
-     * GET /api/v1/me/meditation-calendar?month=2026-05
-     * 묵상 달력 — notes 도메인 구현 후 연동 예정.
-     */
-    @GetMapping("/api/v1/me/meditation-calendar")
-    public ResponseEntity<ApiResponse<Object>> meditationCalendar(
-            @AuthenticationPrincipal Long memberId) {
-        // notes 도메인 미구현 — 공통 에러 응답 구조로 반환
-        throw new BusinessException(ErrorCode.NOT_IMPLEMENTED, "묵상 달력은 notes 도메인 구현 후 연동 예정");
     }
 
     // ── private widget loaders (부분 실패 허용) ──
