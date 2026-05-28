@@ -685,6 +685,109 @@ paths:
           $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /api/v1/system/validation-reference-jobs:
+    post:
+      tags:
+        - System AI
+      operationId: createSystemValidationReferenceJob
+      summary: 시스템 검증 참조 작업 생성
+      description: >
+        SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH authority를 가진 시스템 배치만 호출할 수 있다.
+        서버는 검증 참조 원문을 응답으로 노출하지 않고 임시 파일/색인 위치와 상태만 registry로 관리한다.
+        ROLE_ADMIN과 ADMIN_ROLE_CONTENT_CREATOR 직접 접근은 이번 구현 범위에서 제외한다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemValidationReferenceJobRequest"
+      responses:
+        "201":
+          description: 검증 참조 작업 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationReferenceJobApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/system/validation-reference-jobs/{jobId}:
+    get:
+      tags:
+        - System AI
+      operationId: getSystemValidationReferenceJob
+      summary: 시스템 검증 참조 작업 단건 조회
+      description: >
+        SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH authority를 가진 시스템 배치만 호출할 수 있다.
+        응답에는 sourceFileHash, storageUri, indexStorageUri를 포함하지 않는다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 검증 참조 작업 단건 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationReferenceJobApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/system/validation-reference-jobs/{jobId}/expire:
+    post:
+      tags:
+        - System AI
+      operationId: expireSystemValidationReferenceJob
+      summary: 시스템 검증 참조 작업 만료
+      description: >
+        ACTIVE 상태의 검증 참조 작업만 EXPIRED로 전이한다.
+        실제 파일/색인 삭제와 DELETED 상태 전이는 후속 삭제 작업 범위다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 검증 참조 작업 만료 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationReferenceJobApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 components:
   securitySchemes:
     bearerAuth:
@@ -692,7 +795,7 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >
-        관리자 AI API는 ROLE_ADMIN과 세부 ADMIN_ROLE authority를 확인한다. 시스템 AI API는
+        관리자 AI API는 ROLE_ADMIN과 세부 ADMIN_ROLE authority를 확인한다. 시스템 API는
         SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH authority를 확인하며, service account 기반 검증
         필터는 아직 구현 범위 밖이다.
   parameters:
@@ -1431,6 +1534,12 @@ components:
         - DRAFT
         - ACTIVE
         - RETIRED
+    ValidationReferenceJobStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - EXPIRED
+        - DELETED
     SystemAiGenerationJobRequest:
       type: object
       required:
@@ -1665,6 +1774,109 @@ components:
             - true
         data:
           $ref: "#/components/schemas/SystemAiValidationLogResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    SystemValidationReferenceJobRequest:
+      type: object
+      required:
+        - sourceName
+        - sourceFileName
+        - sourceFileHash
+      properties:
+        sourceName:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: 검증 참조 자료
+        sourceFileName:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: reference-notes.pdf
+        sourceFileHash:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: sha256:reference-hash
+        storageUri:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: restricted://validation/reference.pdf
+        indexStorageUri:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: restricted://validation/index
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-05-29T04:00:00+09:00"
+    ValidationReferenceJobResponse:
+      type: object
+      required:
+        - id
+        - sourceName
+        - sourceFileName
+        - status
+        - expiresAt
+        - deletedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 33
+        sourceName:
+          type: string
+          example: 검증 참조 자료
+        sourceFileName:
+          type: string
+          example: reference-notes.pdf
+        status:
+          $ref: "#/components/schemas/ValidationReferenceJobStatus"
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-05-29T04:00:00+09:00"
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-05-28T10:00:00+09:00"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-05-28T10:00:00+09:00"
+    ValidationReferenceJobApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/ValidationReferenceJobResponse"
         error:
           allOf:
             - $ref: "#/components/schemas/ErrorBody"
