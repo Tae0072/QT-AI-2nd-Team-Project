@@ -2,12 +2,14 @@ package com.qtai.domain.qt.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -18,209 +20,235 @@ import org.mockito.Mockito;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.note.api.GetNoteUseCase;
+import com.qtai.domain.note.api.NoteCategory;
+import com.qtai.domain.note.api.dto.NoteDetailResponse;
+import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
 
 /**
- * QtService 단위 테스트 — GetTodayQtUseCase.
+ * QtService 단위 테스트 — Note 도메인 연동 및 draftNoteId enrich 검증.
  *
- * <p>CLAUDE.md §6 정책 (00:00/04:00 KST 캐시 전환)을 검증한다.
- * <p>CLAUDE.md §10 필수 테스트: 00:00/04:00 Today QT cache 동작.
+ * <p>본문 조회 로직(HIT/STALE_FALLBACK/MISS/EMPTY)은
+ * {@link QtPassageLookupTest}에서 검증한다.
+ * 이 테스트는 QtService의 오케스트레이션 역할을 검증한다:
+ * <ul>
+ *   <li>QtPassageLookup에서 공용 캐시 데이터 위임</li>
+ *   <li>note 도메인(GetNoteUseCase)에서 draftNoteId 조회 후 enrich</li>
+ *   <li>예외 상황에서 방어적 처리 (draftNoteId=null fallback)</li>
+ * </ul>
  */
 class QtServiceTest {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-
+    private QtPassageLookup passageLookup;
     private QtPassageRepository qtPassageRepository;
+    private GetNoteUseCase getNoteUseCase;
     private QtService qtService;
 
-    // ------------------------------------------------------------------
-    // 테스트용 시간 헬퍼
-    // ------------------------------------------------------------------
-
-    /** KST 기준 특정 시각의 고정 Clock 생성. */
-    private static Clock fixedClockKst(int year, int month, int day, int hour, int minute) {
-        String iso = String.format("%04d-%02d-%02dT%02d:%02d:00+09:00",
-                year, month, day, hour, minute);
-        Instant instant = Instant.from(java.time.OffsetDateTime.parse(iso));
-        return Clock.fixed(instant, KST);
+    @BeforeEach
+    void setUp() {
+        passageLookup = Mockito.mock(QtPassageLookup.class);
+        qtPassageRepository = Mockito.mock(QtPassageRepository.class);
+        getNoteUseCase = Mockito.mock(GetNoteUseCase.class);
+        qtService = new QtService(passageLookup, qtPassageRepository, getNoteUseCase);
     }
 
-    /** QtPassageFixture 위임. */
-    private static QtPassage createPassage(Long id, LocalDate date, String title) {
-        return QtPassageFixture.createPassage(id, date, title);
+    /**
+     * note 도메인의 NoteDetailResponse 더미를 생성한다.
+     * id 필드만 필요하므로 나머지는 null/기본값.
+     */
+    private static NoteDetailResponse dummyNoteDetail(Long noteId) {
+        return new NoteDetailResponse(
+                noteId,      // id
+                100L,        // memberId
+                NoteCategory.MEDITATION,  // category
+                1L,          // qtPassageId
+                "묵상 제목",  // title
+                "본문",       // body
+                null, null, null, null,  // remember/interpret/apply/pray sections
+                null,        // status
+                null,        // visibility
+                null,        // qtDate
+                null,        // rangeLabel
+                false,       // shared
+                null,        // savedAt
+                null,        // createdAt
+                null,        // updatedAt
+                java.util.List.of() // verses
+        );
     }
 
     // ------------------------------------------------------------------
-    // GetTodayQtUseCase.getToday() 테스트
+    // getToday() 테스트
     // ------------------------------------------------------------------
 
     @Nested
-    @DisplayName("getToday — 오늘의 QT 조회")
+    @DisplayName("getToday — Note 도메인 연동")
     class GetTodayTest {
 
         @Test
-        @DisplayName("오늘 본문이 있으면 HIT 반환")
-        void 오늘_본문_존재_HIT() {
-            // given: 2026-05-28 오후 2시 (배치 이후)
-            Clock clock = fixedClockKst(2026, 5, 28, 14, 0);
-            qtPassageRepository = Mockito.mock(QtPassageRepository.class);
-            qtService = new QtService(qtPassageRepository, clock);
+        @DisplayName("DRAFT 노트가 있으면 draftNoteId를 enrich하여 반환")
+        void DRAFT_노트_있으면_draftNoteId_포함() {
+            // given: passageLookup이 HIT 본문 반환
+            TodayQtResponse base = new TodayQtResponse(
+                    1L, "2026-05-28", "하나님이 세상을 이처럼 사랑하사",
+                    "MISSING", false, null, "HIT");
+            when(passageLookup.findTodayPassage()).thenReturn(base);
 
-            LocalDate today = LocalDate.of(2026, 5, 28);
-            QtPassage passage = createPassage(1L, today, "하나님이 세상을 이처럼 사랑하사");
-            when(qtPassageRepository.findByQtDate(today)).thenReturn(Optional.of(passage));
+            // given: note 도메인에서 DRAFT 노트 존재
+            NoteDraftResponse draft = new NoteDraftResponse(true, dummyNoteDetail(42L));
+            when(getNoteUseCase.getDraft(100L, NoteCategory.MEDITATION, 1L)).thenReturn(draft);
 
             // when
             TodayQtResponse response = qtService.getToday(100L);
 
-            // then
+            // then: draftNoteId가 enrich됨
+            assertThat(response.draftNoteId()).isEqualTo(42L);
             assertThat(response.qtPassageId()).isEqualTo(1L);
-            assertThat(response.passageDate()).isEqualTo("2026-05-28");
+            assertThat(response.cacheStatus()).isEqualTo("HIT");
             assertThat(response.title()).isEqualTo("하나님이 세상을 이처럼 사랑하사");
-            assertThat(response.cacheStatus()).isEqualTo("HIT");
-            assertThat(response.simulatorStatus()).isEqualTo("MISSING"); // 1차: 기본값
-            assertThat(response.hasExplanation()).isFalse();             // 1차: 기본값
-            assertThat(response.draftNoteId()).isNull();                 // 1차: 기본값
         }
 
         @Test
-        @DisplayName("00:00~04:00 사이 오늘 본문 없으면 어제 본문을 STALE_FALLBACK으로 반환")
-        void 새벽_본문_없음_STALE_FALLBACK() {
-            // given: 2026-05-28 새벽 2시 (배치 이전)
-            Clock clock = fixedClockKst(2026, 5, 28, 2, 0);
-            qtPassageRepository = Mockito.mock(QtPassageRepository.class);
-            qtService = new QtService(qtPassageRepository, clock);
+        @DisplayName("DRAFT 노트가 없으면 draftNoteId=null 반환")
+        void DRAFT_노트_없으면_draftNoteId_null() {
+            // given
+            TodayQtResponse base = new TodayQtResponse(
+                    1L, "2026-05-28", "테스트 본문",
+                    "MISSING", false, null, "HIT");
+            when(passageLookup.findTodayPassage()).thenReturn(base);
 
-            LocalDate today = LocalDate.of(2026, 5, 28);
-            LocalDate yesterday = LocalDate.of(2026, 5, 27);
-
-            when(qtPassageRepository.findByQtDate(today)).thenReturn(Optional.empty());
-            QtPassage yesterdayPassage = createPassage(2L, yesterday, "여호와는 나의 목자시니");
-            when(qtPassageRepository.findByQtDate(yesterday)).thenReturn(Optional.of(yesterdayPassage));
+            NoteDraftResponse noDraft = new NoteDraftResponse(false, null);
+            when(getNoteUseCase.getDraft(100L, NoteCategory.MEDITATION, 1L)).thenReturn(noDraft);
 
             // when
             TodayQtResponse response = qtService.getToday(100L);
 
             // then
-            assertThat(response.qtPassageId()).isEqualTo(2L);
-            assertThat(response.passageDate()).isEqualTo("2026-05-27");
-            assertThat(response.cacheStatus()).isEqualTo("STALE_FALLBACK");
+            assertThat(response.draftNoteId()).isNull();
+            assertThat(response.qtPassageId()).isEqualTo(1L);
         }
 
         @Test
-        @DisplayName("00:00~04:00 사이 어제 본문도 없으면 EMPTY 반환")
-        void 새벽_어제도_없음_EMPTY() {
-            // given: 2026-05-28 새벽 1시, 어제 데이터도 없음
-            Clock clock = fixedClockKst(2026, 5, 28, 1, 0);
-            qtPassageRepository = Mockito.mock(QtPassageRepository.class);
-            qtService = new QtService(qtPassageRepository, clock);
-
-            LocalDate today = LocalDate.of(2026, 5, 28);
-            LocalDate yesterday = LocalDate.of(2026, 5, 27);
-
-            when(qtPassageRepository.findByQtDate(today)).thenReturn(Optional.empty());
-            when(qtPassageRepository.findByQtDate(yesterday)).thenReturn(Optional.empty());
-
-            // when
-            TodayQtResponse response = qtService.getToday(100L);
-
-            // then
-            assertThat(response.qtPassageId()).isNull();
-            assertThat(response.cacheStatus()).isEqualTo("EMPTY");
-            assertThat(response.simulatorStatus()).isEqualTo("DISABLED"); // 데이터 없음 → DISABLED
-        }
-
-        @Test
-        @DisplayName("04:00 이후 오늘 본문 없으면 MISS 반환 (배치 미완료)")
-        void 배치_이후_본문_없음_MISS() {
-            // given: 2026-05-28 오후 5시 (배치 이후인데 데이터 없음)
-            Clock clock = fixedClockKst(2026, 5, 28, 17, 0);
-            qtPassageRepository = Mockito.mock(QtPassageRepository.class);
-            qtService = new QtService(qtPassageRepository, clock);
-
-            LocalDate today = LocalDate.of(2026, 5, 28);
-            when(qtPassageRepository.findByQtDate(today)).thenReturn(Optional.empty());
-
-            // when
-            TodayQtResponse response = qtService.getToday(100L);
-
-            // then
-            assertThat(response.qtPassageId()).isNull();
-            assertThat(response.cacheStatus()).isEqualTo("MISS");
-            assertThat(response.simulatorStatus()).isEqualTo("DISABLED"); // 데이터 없음 → DISABLED
-        }
-
-        @Test
-        @DisplayName("00:00~04:00 사이라도 오늘 본문이 있으면 HIT 반환")
-        void 새벽_오늘_본문_있으면_HIT() {
-            // given: 2026-05-28 새벽 3시, 이미 오늘 데이터가 준비됨
-            Clock clock = fixedClockKst(2026, 5, 28, 3, 0);
-            qtPassageRepository = Mockito.mock(QtPassageRepository.class);
-            qtService = new QtService(qtPassageRepository, clock);
-
-            LocalDate today = LocalDate.of(2026, 5, 28);
-            QtPassage passage = createPassage(3L, today, "태초에 하나님이");
-            when(qtPassageRepository.findByQtDate(today)).thenReturn(Optional.of(passage));
-
-            // when
-            TodayQtResponse response = qtService.getToday(100L);
-
-            // then
-            assertThat(response.qtPassageId()).isEqualTo(3L);
-            assertThat(response.cacheStatus()).isEqualTo("HIT");
-        }
-
-        @Test
-        @DisplayName("principal 미해석 시에도 방어적으로 정상 동작")
-        void principal_미해석_시_방어적_처리() {
-            // given: memberId null (@AuthenticationPrincipal 해석 실패 시 방어적 처리)
-            Clock clock = fixedClockKst(2026, 5, 28, 14, 0);
-            qtPassageRepository = Mockito.mock(QtPassageRepository.class);
-            qtService = new QtService(qtPassageRepository, clock);
-
-            LocalDate today = LocalDate.of(2026, 5, 28);
-            QtPassage passage = createPassage(1L, today, "테스트 본문");
-            when(qtPassageRepository.findByQtDate(today)).thenReturn(Optional.of(passage));
+        @DisplayName("memberId가 null이면 note 도메인 호출 생략, draftNoteId=null")
+        void memberId_null이면_note_조회_생략() {
+            // given
+            TodayQtResponse base = new TodayQtResponse(
+                    1L, "2026-05-28", "테스트 본문",
+                    "MISSING", false, null, "HIT");
+            when(passageLookup.findTodayPassage()).thenReturn(base);
 
             // when
             TodayQtResponse response = qtService.getToday(null);
 
             // then
+            assertThat(response.draftNoteId()).isNull();
+            verify(getNoteUseCase, never()).getDraft(anyLong(), any(), anyLong());
+        }
+
+        @Test
+        @DisplayName("qtPassageId가 null이면(EMPTY/MISS) note 도메인 호출 생략")
+        void qtPassageId_null이면_note_조회_생략() {
+            // given: EMPTY 응답 (qtPassageId=null)
+            TodayQtResponse base = new TodayQtResponse(
+                    null, null, null, "DISABLED", false, null, "EMPTY");
+            when(passageLookup.findTodayPassage()).thenReturn(base);
+
+            // when
+            TodayQtResponse response = qtService.getToday(100L);
+
+            // then
+            assertThat(response.draftNoteId()).isNull();
+            verify(getNoteUseCase, never()).getDraft(anyLong(), any(), anyLong());
+        }
+
+        @Test
+        @DisplayName("note 도메인 호출 실패 시 draftNoteId=null로 방어적 처리")
+        void note_도메인_예외_시_방어적_처리() {
+            // given
+            TodayQtResponse base = new TodayQtResponse(
+                    1L, "2026-05-28", "테스트 본문",
+                    "MISSING", false, null, "HIT");
+            when(passageLookup.findTodayPassage()).thenReturn(base);
+
+            when(getNoteUseCase.getDraft(100L, NoteCategory.MEDITATION, 1L))
+                    .thenThrow(new RuntimeException("DB connection error"));
+
+            // when: 예외가 전파되지 않고 draftNoteId=null로 fallback
+            TodayQtResponse response = qtService.getToday(100L);
+
+            // then
+            assertThat(response.draftNoteId()).isNull();
             assertThat(response.qtPassageId()).isEqualTo(1L);
             assertThat(response.cacheStatus()).isEqualTo("HIT");
+        }
+
+        @Test
+        @DisplayName("STALE_FALLBACK 응답에도 draftNoteId enrich 정상 동작")
+        void STALE_FALLBACK에도_draftNoteId_enrich() {
+            // given: 새벽 구간, 어제 본문 STALE_FALLBACK
+            TodayQtResponse base = new TodayQtResponse(
+                    2L, "2026-05-27", "여호와는 나의 목자시니",
+                    "MISSING", false, null, "STALE_FALLBACK");
+            when(passageLookup.findTodayPassage()).thenReturn(base);
+
+            NoteDraftResponse draft = new NoteDraftResponse(true, dummyNoteDetail(99L));
+            when(getNoteUseCase.getDraft(100L, NoteCategory.MEDITATION, 2L)).thenReturn(draft);
+
+            // when
+            TodayQtResponse response = qtService.getToday(100L);
+
+            // then
+            assertThat(response.draftNoteId()).isEqualTo(99L);
+            assertThat(response.cacheStatus()).isEqualTo("STALE_FALLBACK");
         }
     }
 
     // ------------------------------------------------------------------
-    // GetTodayQtUseCase.getPassage() 테스트
+    // getPassage() 테스트
     // ------------------------------------------------------------------
 
     @Nested
-    @DisplayName("getPassage — 특정 QT 본문 조회")
+    @DisplayName("getPassage — 특정 QT 본문 조회 + Note 연동")
     class GetPassageTest {
 
-        @BeforeEach
-        void setUp() {
-            Clock clock = fixedClockKst(2026, 5, 28, 14, 0);
-            qtPassageRepository = Mockito.mock(QtPassageRepository.class);
-            qtService = new QtService(qtPassageRepository, clock);
-        }
-
         @Test
-        @DisplayName("존재하는 본문 ID로 조회하면 HIT 반환")
-        void 존재하는_본문_조회_성공() {
+        @DisplayName("존재하는 본문 + DRAFT 노트가 있으면 draftNoteId 포함")
+        void 본문_존재_DRAFT_있음() {
             // given
-            QtPassage passage = createPassage(5L, LocalDate.of(2026, 5, 26), "태초에 하나님이");
+            QtPassage passage = QtPassageFixture.createPassage(5L,
+                    LocalDate.of(2026, 5, 26), "태초에 하나님이");
             when(qtPassageRepository.findById(5L)).thenReturn(Optional.of(passage));
+
+            NoteDraftResponse draft = new NoteDraftResponse(true, dummyNoteDetail(77L));
+            when(getNoteUseCase.getDraft(100L, NoteCategory.MEDITATION, 5L)).thenReturn(draft);
 
             // when
             TodayQtResponse response = qtService.getPassage(100L, 5L);
 
             // then
             assertThat(response.qtPassageId()).isEqualTo(5L);
-            assertThat(response.passageDate()).isEqualTo("2026-05-26");
-            assertThat(response.title()).isEqualTo("태초에 하나님이");
+            assertThat(response.draftNoteId()).isEqualTo(77L);
             assertThat(response.cacheStatus()).isEqualTo("HIT");
+        }
+
+        @Test
+        @DisplayName("존재하는 본문 + DRAFT 노트가 없으면 draftNoteId=null")
+        void 본문_존재_DRAFT_없음() {
+            // given
+            QtPassage passage = QtPassageFixture.createPassage(5L,
+                    LocalDate.of(2026, 5, 26), "태초에 하나님이");
+            when(qtPassageRepository.findById(5L)).thenReturn(Optional.of(passage));
+
+            NoteDraftResponse noDraft = new NoteDraftResponse(false, null);
+            when(getNoteUseCase.getDraft(100L, NoteCategory.MEDITATION, 5L)).thenReturn(noDraft);
+
+            // when
+            TodayQtResponse response = qtService.getPassage(100L, 5L);
+
+            // then
+            assertThat(response.qtPassageId()).isEqualTo(5L);
+            assertThat(response.draftNoteId()).isNull();
         }
 
         @Test
@@ -236,6 +264,25 @@ class QtServiceTest {
                         BusinessException be = (BusinessException) ex;
                         assertThat(be.getErrorCode()).isEqualTo(ErrorCode.QT_PASSAGE_NOT_FOUND);
                     });
+        }
+
+        @Test
+        @DisplayName("note 도메인 실패 시에도 본문은 정상 반환 (draftNoteId=null)")
+        void note_실패_시_본문_정상_반환() {
+            // given
+            QtPassage passage = QtPassageFixture.createPassage(5L,
+                    LocalDate.of(2026, 5, 26), "태초에 하나님이");
+            when(qtPassageRepository.findById(5L)).thenReturn(Optional.of(passage));
+
+            when(getNoteUseCase.getDraft(eq(100L), any(), eq(5L)))
+                    .thenThrow(new RuntimeException("note service down"));
+
+            // when
+            TodayQtResponse response = qtService.getPassage(100L, 5L);
+
+            // then
+            assertThat(response.qtPassageId()).isEqualTo(5L);
+            assertThat(response.draftNoteId()).isNull();
         }
     }
 }
