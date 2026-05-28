@@ -1,20 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/config/app_config.dart';
+import 'features/onboarding/providers/onboarding_providers.dart';
 import 'routes/app_router.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.initialize();
 
-  runApp(const ProviderScope(child: QTAIApp()));
+  final prefs = await SharedPreferences.getInstance();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
+      child: const QTAIApp(),
+    ),
+  );
 }
 
-class QTAIApp extends StatelessWidget {
+class QTAIApp extends ConsumerWidget {
   const QTAIApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final onboardingComplete = ref.watch(onboardingCompleteProvider);
+
     return MaterialApp(
       title: 'QT AI',
       debugShowCheckedModeBanner: AppConfig.instance.isDev,
@@ -23,7 +36,7 @@ class QTAIApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Pretendard',
       ),
-      initialRoute: AppRouter.home,
+      initialRoute: onboardingComplete ? AppRouter.login : AppRouter.onboarding,
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }

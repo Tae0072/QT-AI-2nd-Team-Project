@@ -10,6 +10,9 @@ CLAUDE.local.md
 doc/standards/
 doc/workspaces/DevE_김지민/skills/
 
+# Environment variables (로컬 개발 JWT 키 등)
+.env
+
 # OS
 .DS_Store
 Thumbs.db

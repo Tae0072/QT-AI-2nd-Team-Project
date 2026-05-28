@@ -18,7 +18,8 @@ final class AiWebExceptionResponses {
             case FORBIDDEN -> HttpStatus.FORBIDDEN;
             case INVALID_INPUT -> HttpStatus.BAD_REQUEST;
             case INVALID_STATUS_TRANSITION -> HttpStatus.CONFLICT;
-            case AI_GENERATION_JOB_NOT_FOUND, AI_ASSET_NOT_FOUND, CHECKLIST_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case AI_GENERATION_JOB_NOT_FOUND, AI_ASSET_NOT_FOUND, CHECKLIST_NOT_FOUND,
+                    VALIDATION_REFERENCE_JOB_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case DUPLICATE_CHECKLIST_VERSION -> HttpStatus.CONFLICT;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
