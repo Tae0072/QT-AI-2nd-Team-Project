@@ -1,15 +1,15 @@
-# 진행 중 Todo — W2 목요일 마감 (B4까지 완료)
+# 진행 중 Todo — W2 수요일 마감
 
-> **현재 브랜치**: `feature/sharing-posts`
-> **목표**: 나눔 조회(B3+B4) PR 생성 + 공지 발송 → 금요일 W3 시작
-> **최종 업데이트**: 2026-05-28 (목요일 마감, B4까지 완료)
+> **현재 브랜치**: `bugfix/note-category-error-codes`
+> **목표**: 에러코드 개선 PR 생성 + 내일 나눔 도메인 시작
+> **최종 업데이트**: 2026-05-27 (수요일 마감 시점)
 
 ---
 
 ## 진행 상황 한눈에
 
 ```
-[██████████████████████████████████████] W2 백엔드 B1~B4 완료 (49/49 = 100%)
+[██████████████████████████░░░░░░░░░░░░] W2 수요일 완료 (27/49 = 55%)
 
 ✅ 완료     ⏳ 대기     ⬜ 예정
 ```
@@ -17,91 +17,91 @@
 | W2 | 상태 |
 | --- | --- |
 | 월(공휴일) | — |
-| 화(B1 GET /notes) | ✅ 완료 (PR #94 머지) |
-| 수(B2 POST /notes + 에러코드 개선) | ✅ 완료 (PR #123 머지) |
-| 목(04 반영 + B3 목록 + B4 상세) | ✅ 구현+테스트 완료, PR 대기 |
-| 금(원래 B4 계획) | ✅ 목요일에 당겨 완료 → 금요일은 PR·공지·W3 |
+| 화(B1 GET /notes) | ✅ 완료 (PR #94 머지 완료) |
+| 수(B2 POST /notes + 에러코드 개선) | ✅ 학습+구현 완료, PR 대기 (GitHub 500) |
+| 목(B3 GET /sharing-posts) | ⬜ 내일 시작 예정 |
+| 금(B4 GET /sharing-posts/{id} + W2 마무리) | ⬜ |
 
 ---
 
 ## 오늘 완료한 항목
 
-### ✅ 에러코드/DTO 분리 PR dev 머지 (#123)
-- 봇 리뷰 BLOCK 2회 대응(OpenAPI 분리 / 04 API 명세 에러코드 반영)
+### ✅ B2 POST /api/v1/notes 학습 + 구현
 
-### ✅ 04 API 명세 에러코드 반영 (강태오 협의)
-- §6.2 + §4.3.4 + §4.3.6에 N0004~N0007 반영
-- 리포트: `reports/2026-05-28_04-api-error-code-reflection_report.md`
+- DTO 검증 위치 결정 (③번 — @Valid + Service 분리)
+- CreateNoteUseCase + NoteCreateRequest + NoteResponse 작성
+- NoteService.create() + 카테고리별 switch 검증
+- NoteController POST (201 Created)
+- 테스트 3종 (단위 8건 + 컨트롤러 2건 + 통합 1건)
+- 빌드+테스트 전체 통과
+- **이지윤 CRUD PR(#97, #113, #116)과 겹침 발견 → merge 취소**
 
-### ✅ B3 나눔 피드 목록 (GET /api/v1/sharing-posts, F-10)
-- 이승욱 협의 후 V13: `nickname_snapshot` + `snapshot_verse_label` 추가
-- DTO + Repository 2개 + Service + Controller
-- N+1 방지(likedByMe 배치) + 정렬 화이트리스트 + q 이스케이프 + category/q 필터
-- 테스트 11건
+### ✅ dev 코드 리딩 + 비교
 
-### ✅ B4 나눔 상세 (GET /api/v1/sharing-posts/{postId}, F-10)
-- GetSharingPostUseCase + getDetail (404 + likedByMe + ownedByMe)
-- 상세 DTO(SharingPostResponse + VerseSnapshotDetail + VerseLine)
-- findByIdAndStatus(PUBLISHED만) → HIDDEN/DELETED/없는 글 404
-- verses[]는 빈 배열(v2 이관 — 07 §19.2, 이지윤·이승욱 영역)
-- 테스트 +6건 → 나눔 조회 전체 17건
-- 리포트: `reports/2026-05-28_B3-나눔피드-조회_리포트.md` (B3+B4)
+- create 비교: 내 에러코드 분리가 더 나음, @Valid는 이미 동일, 응답 필드는 내일
+- PATCH 학습: 찾기→인가→삭제확인 3단계 + delete-and-reinsert 패턴
+- DELETE 학습: 소프트 삭제 + 멱등성
+
+### ✅ 에러코드 개선 PR
+
+- ErrorCode N0003~N0007 추가
+- NoteService.validateForSave() + normalize() 에러코드 교체
+- NoteServiceTest 3건 에러코드 매칭 수정
+- commit + push 완료 (`bugfix/note-category-error-codes`)
 
 ---
 
 ## 대기 항목
 
-### ⏳ 나눔 조회 PR 생성 (B3+B4 한 PR)
-- 코드·테스트 완료. PR 본문 보강 후 생성. `feature/sharing-posts` 한 브랜치 = 나눔 조회 기능
+### ⏳ PR 생성 — GitHub 500 에러
 
-### ⏳ 팀 공지 3건 (미발송)
-- V13 DB 변경(#decisions) / 이승욱 발행로직 / 이지윤 신규파일 — 초안은 B3 리포트에 있음
+- push 완료. GitHub 서버 복구 후 PR 생성 예정
+- PR 본문 준비 완료 (리포트에 첨부)
 
 ---
 
-## 내일 (금요일) Quick Start
+## 내일 (목요일) Quick Start
 
 ### 1️⃣ 첫 명령
 
 ```
-오늘 W3 금요일 시작
+오늘 W2 목요일 시작
 ```
-(W2 B1~B4는 끝. 금요일부터 W3)
 
 ### 2️⃣ 내일 작업 목록
 
-| # | 작업 | 예상 |
+| # | 작업 | 예상 시간 |
 | --- | --- | --- |
-| 1 | 나눔 조회 PR(B3+B4) 본문 보강 + 생성 | 30분 |
-| 2 | 공지 3건 발송 | 10분 |
-| 3 | W2 마무리 자기 점검 + 주간 회고 | 30분 |
-| 4 | **W3 시작 — 브랜치 분리** | 본작업 |
+| 1 | PR 생성 (GitHub 500 해소 후) | 5분 |
+| 2 | 개선 3: NoteSaveResponse → API 명세 응답 필드 확장 | 1시간 |
+| 3 | B3: GET /api/v1/sharing-posts 나눔 목록 조회 | 3~4시간 |
 
-### 3️⃣ W3 브랜치 분리 계획 (한 브랜치 = 한 기능)
+### 3️⃣ B3 시작 조건
 
-| 브랜치 | 못다한 기능 |
-| --- | --- |
-| `feature/note-*` | 노트 미완: 노트→나눔 공유(POST /notes/{id}/share §4.3.8), JournalEvent(이벤트 이력) 등 |
-| `feature/sharing-*` | 나눔 쓰기: publish / 좋아요(like) / 댓글(comment) — 전부 스켈레톤 |
-| (보류) | 토큰 공유(Share) 갈래 — 담당·우선순위 협의 필요 |
-
-> 인벤토리 상세는 B3 리포트 + 2026-05-28 스캔 결과 참조.
+- 이승욱 SharingPost Entity 머지 여부 확인 필요
+- 미머지면 B4로 순서 변경 또는 Entity 직접 생성
 
 ---
 
 ## 막힌 부분 / 다른 사람 의존성
 
-### 1. 발행 로직(PublishNoteUseCase) 미구현
-- 나눔 피드에 실제 데이터가 쌓이려면 발행 흐름 필요 (W3 sharing 브랜치)
-- nickname_snapshot은 발행 시 반드시 채워야 함 (이승욱과 책임 공유)
+### 1. GitHub 500 에러 — PR 생성 대기
 
-### 2. verses[] 다중 절 = v2
-- 절 본문 스냅샷 저장 구조 없음. 다중 절 선택은 v2(07 §19.2). 이지윤(절 데이터)·이승욱(설정) 협의 필요
+- 코드 push는 완료. 서버 복구 대기
+
+### 2. 이지윤 — 역할 겹침 전달 완료
+
+- 노트 CRUD PR #97에서 김지민 담당 영역 포함
+- 슬랙으로 확인 요청 전달 완료
+
+### 3. 이승욱 — SharingPost Entity
+
+- 내일(목) B3 시작 전 머지 여부 확인
 
 ---
 
 ## 참고 문서
 
-- 오늘 리포트(B3+B4): [reports/2026-05-28_B3-나눔피드-조회_리포트.md](../reports/2026-05-28_B3-나눔피드-조회_리포트.md)
-- 오늘 리포트(04 반영): [reports/2026-05-28_04-api-error-code-reflection_report.md](../reports/2026-05-28_04-api-error-code-reflection_report.md)
+- 오늘 리포트: [reports/2026-05-27_note-error-code-improvement_report.md](../reports/2026-05-27_note-error-code-improvement_report.md)
 - W2 워크플로우: [workflows/2026-W2_상세-워크플로우.md](../workflows/2026-W2_상세-워크플로우.md)
+- 이지윤 workflow: dev 브랜치 `doc/workspaces/DevA_이지윤/workflows/2026-05-27_note-domain-completion.md`
