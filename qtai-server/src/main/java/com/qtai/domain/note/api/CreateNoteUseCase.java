@@ -1,9 +1,9 @@
 package com.qtai.domain.note.api;
 
 import com.qtai.domain.note.api.dto.CreateNoteCommand;
-import com.qtai.domain.note.api.dto.NoteSaveResponse;
+import com.qtai.domain.note.api.dto.NoteCreateResponse;
 
 public interface CreateNoteUseCase {
 
-    NoteSaveResponse create(Long memberId, CreateNoteCommand command);
+    NoteCreateResponse create(Long memberId, CreateNoteCommand command);
 }
