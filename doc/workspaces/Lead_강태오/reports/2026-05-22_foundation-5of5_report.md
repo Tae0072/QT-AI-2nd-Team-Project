@@ -170,3 +170,8 @@ Kafka / Kubernetes / Helm / SSE / RAG / ChromaDB / Elasticsearch
 - `workflows/2026-05-18_claude-review-rules-strict.md`
 - `workflows/2026-05-19_package-structure-and-comments.md`
 - `workflows/2026-05-21_quality-gate-bot-relax.md`
+
+
+> **[미구현 항목 안내]** 위 체크리스트에서 - [ ]로 표시된 항목은
+> 현재 미구현 상태이며, 회의 확정 또는 일정에 따라 추후 구현될 예정입니다.
+> 해당 항목이 구현되면 - [x]로 변경하고 별도 워크플로우·리포트를 작성합니다.
