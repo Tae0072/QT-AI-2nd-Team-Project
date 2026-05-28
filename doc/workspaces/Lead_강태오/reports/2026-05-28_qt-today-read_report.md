@@ -16,9 +16,11 @@
 | `QtService.java` | 수정 | GetTodayQtUseCase 구현 (캐시 정책, Clock 주입) |
 | `QtController.java` | 수정 | `GET /today`, `GET /passages/{id}` 엔드포인트 |
 | `CacheConfig.java` | 수정 | `todayQt` Caffeine 캐시 등록 (1시간 TTL, 10 max) |
-| `QtServiceTest.java` | 신규 | 단위 테스트 7건 (캐시 정책 전 경우의 수) |
+| `QtServiceTest.java` | 신규 | 단위 테스트 8건 (캐시 정책 전 경우의 수) |
+| `QtServiceCacheTest.java` | 신규 | 캐시 통합 테스트 2건 (Spring 프록시 @Cacheable 동작) |
 
-**총:** 6 files, +528, -32 lines
+**초기 커밋:** 6 files, +528, -32 lines
+**fix 커밋 (PR #126 대응):** 3 files, +182, -5 lines
 
 ## 2. 테스트 결과
 
@@ -31,9 +33,11 @@
 | `새벽_오늘_본문_있으면_HIT` | ✅ PASS |
 | `존재하는_본문_조회_성공` | ✅ PASS |
 | `존재하지_않는_본문_조회_실패` (QT_PASSAGE_NOT_FOUND) | ✅ PASS |
-| `memberId_null_허용` | ✅ PASS |
+| `principal_미해석_시_방어적_처리` | ✅ PASS |
+| `HIT_응답_캐싱_검증` (통합) | ✅ PASS |
+| `MISS_응답_미캐싱_검증` (통합) | ✅ PASS |
 
-`./gradlew build` → BUILD SUCCESSFUL
+`./gradlew test` → BUILD SUCCESSFUL (전체 테스트 통과)
 
 ## 3. CLAUDE.md 규칙 준수 확인
 
@@ -55,4 +59,16 @@
 | Qt 엔티티 + DB 마이그레이션 | 높음 | 사용자 QT 기록 CRUD를 위한 `qt` 테이블 필요 |
 | 시뮬레이터/해설/노트 도메인 연동 | 중간 | 현재 TodayQtResponse에 기본값 사용 중 |
 | QtController 통합 테스트 | 중간 | `@WebMvcTest` + `MockMvc` 추가 필요 |
-| 캐시 키에 날짜 반영 | 낮음 | 현재 1시간 TTL로 대응, 정밀 제어 시 키 개선 |
+| ~~캐시 키에 날짜 반영~~ | ~~해결~~ | fix 커밋에서 SpEL로 KST 날짜 키 적용 완료 |
+
+## 5. PR #126 REQUEST_CHANGES 대응 (2026-05-28)
+
+자동 리뷰에서 BLOCK 2건, WARN 1건 지적 → 모두 수정 후 push 완료.
+
+| 지적 | 심각도 | 수정 내용 |
+|------|--------|-----------|
+| 캐시 키에 날짜 미포함 → 자정 전환 시 stale 데이터 | BLOCK | SpEL `T(java.time.LocalDate).now(KST)` 키 적용 |
+| non-HIT 응답 캐싱 방지 없음 | BLOCK | `unless = "!#result.cacheStatus().equals('HIT')"` 추가 |
+| 캐시 통합 테스트 부재 | BLOCK | `QtServiceCacheTest` 추가 (2건) |
+| emptyResponse simulatorStatus `null` | WARN | `"DISABLED"`로 변경 (CLAUDE.md §6) |
+| 테스트 이름 혼동 | WARN | `principal_미해석_시_방어적_처리`로 변경 |
