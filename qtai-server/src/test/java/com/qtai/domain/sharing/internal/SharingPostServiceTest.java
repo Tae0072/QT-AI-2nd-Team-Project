@@ -1,7 +1,10 @@
 package com.qtai.domain.sharing.internal;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.sharing.api.dto.SharingPostListItem;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
+import com.qtai.domain.sharing.api.dto.SharingPostResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,8 +18,10 @@ import org.springframework.data.domain.Sort;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
@@ -135,6 +140,51 @@ class SharingPostServiceTest {
 
         assertThat(response.content()).isEmpty();
         verify(postLikeRepository, never()).findLikedPostIds(any(), anyCollection());
+    }
+
+    @Test
+    @DisplayName("상세 조회: 전체 본문·rangeLabel을 매핑하고 verses는 빈 배열(v2)이다")
+    void getDetail_mapsFullDetail() {
+        SharingPost post = sharingPost(1L, "하늘QT", "오늘의 묵상", "MEDITATION",
+                "전체 본문 내용", "창세기 1:1-5", 5, 2);
+        when(sharingPostRepository.findByIdAndStatus(1L, SharingPostStatus.PUBLISHED))
+                .thenReturn(Optional.of(post));
+        when(postLikeRepository.findLikedPostIds(eq(10L), anyCollection())).thenReturn(List.of(1L));
+
+        SharingPostResponse response = sharingPostService.getDetail(10L, 1L);
+
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.bodySnapshot()).isEqualTo("전체 본문 내용");
+        assertThat(response.verseSnapshot().rangeLabel()).isEqualTo("창세기 1:1-5");
+        assertThat(response.verseSnapshot().verses()).isEmpty();
+        assertThat(response.likedByMe()).isTrue();
+        assertThat(response.status()).isEqualTo("PUBLISHED");
+        assertThat(response.likeCount()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("상세 조회: PUBLISHED가 아니면(HIDDEN/DELETED/없음) 404 NOT_FOUND")
+    void getDetail_notPublished_throwsNotFound() {
+        when(sharingPostRepository.findByIdAndStatus(99L, SharingPostStatus.PUBLISHED))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingPostService.getDetail(10L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.SHARING_POST_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("상세 조회: ownedByMe는 작성자(memberId=99)일 때만 true다")
+    void getDetail_ownedByMe_reflectsAuthorship() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        when(sharingPostRepository.findByIdAndStatus(1L, SharingPostStatus.PUBLISHED))
+                .thenReturn(Optional.of(post));
+        when(postLikeRepository.findLikedPostIds(any(), anyCollection())).thenReturn(List.of());
+
+        // 헬퍼가 memberId=99로 글을 만듦
+        assertThat(sharingPostService.getDetail(99L, 1L).ownedByMe()).isTrue();
+        assertThat(sharingPostService.getDetail(10L, 1L).ownedByMe()).isFalse();
     }
 
     // ─────────────────────────────────────────────────────

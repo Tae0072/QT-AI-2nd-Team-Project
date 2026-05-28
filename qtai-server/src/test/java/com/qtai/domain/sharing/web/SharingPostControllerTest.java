@@ -3,8 +3,11 @@ package com.qtai.domain.sharing.web;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.sharing.api.GetSharingPostUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
+import com.qtai.domain.sharing.api.dto.SharingPostResponse;
+import com.qtai.domain.sharing.api.dto.VerseSnapshotDetail;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,13 +29,15 @@ import static org.mockito.Mockito.when;
 class SharingPostControllerTest {
 
     private ListSharingPostsUseCase listSharingPostsUseCase;
+    private GetSharingPostUseCase getSharingPostUseCase;
     private SharingPostController controller;
     private Pageable pageable;
 
     @BeforeEach
     void setUp() {
         listSharingPostsUseCase = mock(ListSharingPostsUseCase.class);
-        controller = new SharingPostController(listSharingPostsUseCase);
+        getSharingPostUseCase = mock(GetSharingPostUseCase.class);
+        controller = new SharingPostController(listSharingPostsUseCase, getSharingPostUseCase);
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishedAt"));
     }
 
@@ -60,5 +65,32 @@ class SharingPostControllerTest {
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
 
         verify(listSharingPostsUseCase, never()).list(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("상세 조회는 인증된 memberId와 postId를 UseCase로 위임한다")
+    void get_delegates() {
+        SharingPostResponse expected = new SharingPostResponse(
+                300L, 200L, 10L, "하늘QT", "오늘의 묵상", "본문 전체", "MEDITATION",
+                new VerseSnapshotDetail("창세기 1:1-5", List.of()),
+                true, null, "PUBLISHED", 5, 2, true, false, null, null, null);
+        when(getSharingPostUseCase.getDetail(eq(1L), eq(300L))).thenReturn(expected);
+
+        ApiResponse<SharingPostResponse> response = controller.get(1L, 300L);
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.data()).isSameAs(expected);
+        verify(getSharingPostUseCase).getDetail(eq(1L), eq(300L));
+    }
+
+    @Test
+    @DisplayName("상세 조회도 memberId가 없으면 UNAUTHORIZED로 거부한다")
+    void get_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.get(null, 300L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(getSharingPostUseCase, never()).getDetail(any(), any());
     }
 }

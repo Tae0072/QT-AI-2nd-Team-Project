@@ -84,6 +84,20 @@ class SharingPostRepositoryIntegrationTest {
         assertThat(result.getContent()).hasSize(2);
     }
 
+    @Test
+    @DisplayName("findByIdAndStatus는 PUBLISHED 글만 반환하고 HIDDEN/DELETED는 빈 결과다")
+    void findByIdAndStatus_publishedOnly() {
+        SharingPost published = persistPost(SharingPostStatus.PUBLISHED, "MEDITATION", "공개", "본문");
+        SharingPost hidden = persistPost(SharingPostStatus.HIDDEN, "MEDITATION", "숨김", "본문");
+        em.flush();
+        em.clear();
+
+        assertThat(sharingPostRepository.findByIdAndStatus(published.getId(), SharingPostStatus.PUBLISHED))
+                .isPresent();
+        assertThat(sharingPostRepository.findByIdAndStatus(hidden.getId(), SharingPostStatus.PUBLISHED))
+                .isEmpty();
+    }
+
     // ─────────────────────────────────────────────────────
     // 헬퍼 — noteId는 UNIQUE라 매 건 다른 값을 준다.
     // ─────────────────────────────────────────────────────

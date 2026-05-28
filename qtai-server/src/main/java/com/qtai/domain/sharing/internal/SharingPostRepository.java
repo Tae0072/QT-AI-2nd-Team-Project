@@ -6,7 +6,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
+
 public interface SharingPostRepository extends JpaRepository<SharingPost, Long> {
+
+    /**
+     * 상세 조회용. PUBLISHED 상태만 반환하므로 HIDDEN/DELETED/없는 글은 비어 있고,
+     * 호출부에서 404로 처리한다(존재를 숨김, 04 §4.4.2).
+     */
+    Optional<SharingPost> findByIdAndStatus(Long id, SharingPostStatus status);
 
     /**
      * 나눔 피드 검색. status는 호출부(Service)에서 PUBLISHED를 넘긴다.
