@@ -40,6 +40,7 @@ public enum ErrorCode {
     AI_ASSET_NOT_FOUND("A0002", "AI 산출물을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     CHECKLIST_NOT_FOUND("A0003", "AI 검증 체크리스트 버전을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     DUPLICATE_CHECKLIST_VERSION("A0004", "이미 존재하는 AI 검증 체크리스트 버전입니다.", HttpStatus.CONFLICT),
+    VALIDATION_REFERENCE_JOB_NOT_FOUND("A0005", "AI 검증 참조 작업을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
     // 성경
     BIBLE_BOOK_NOT_FOUND("B0001", "성경 책을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -59,7 +60,12 @@ public enum ErrorCode {
 
     // 나눔
     SHARING_POST_NOT_FOUND("S0001", "나눔 게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    COMMENT_NOT_FOUND("S0002", "댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
+    COMMENT_NOT_FOUND("S0002", "댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    // 관리자
+    ADMIN_USER_NOT_FOUND("AD0001", "관리자 계정을 찾을 수 없습니다.", HttpStatus.FORBIDDEN),
+    ADMIN_USER_DISABLED("AD0002", "비활성화된 관리자 계정입니다.", HttpStatus.FORBIDDEN),
+    ADMIN_ROLE_INSUFFICIENT("AD0003", "해당 작업에 필요한 관리자 권한이 없습니다.", HttpStatus.FORBIDDEN);
 
     private final String code;
     private final String message;

@@ -2078,35 +2078,45 @@
 - **Method + URL:** `POST /api/v1/system/validation-reference-jobs`
 - **Method + URL:** `GET /api/v1/system/validation-reference-jobs/{jobId}`
 - **Method + URL:** `POST /api/v1/system/validation-reference-jobs/{jobId}/expire`
-- **인증:** SYSTEM_BATCH 또는 CONTENT_CREATOR 제한 권한
-- **ERD:** `validation_reference_jobs`, `commentary_sources`, `commentary_materials`, `commentary_material_verses`
-- **주의:** 검증용 주석 원문은 사용자 화면과 일반 관리자 화면에 노출하지 않는다.
+- **인증:** SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH
+- **ERD:** `validation_reference_jobs`
+- **주의:** 검증용 주석 원문은 사용자 화면, 일반 관리자 화면, API 응답, 감사 로그 snapshot에 노출하지 않는다.
+- **제외:** CONTENT_CREATOR 직접 호출 권한, 영구 주석 자료 관리 API, 실제 파일/색인 삭제 작업은 이번 구현 범위가 아니다.
 
 생성 요청:
 
 ```json
 {
-  "sourceName": "IVP 성경배경주석",
-  "sourceFileName": "ivp-background-commentary.pdf",
-  "sourceFileHash": "sha256:...",
-  "storageUri": "s3://temporary-validation/source.pdf",
-  "indexStorageUri": "s3://temporary-validation/index",
-  "expiresAt": "2026-05-18T10:00:00+09:00"
+  "sourceName": "검증 참조 자료",
+  "sourceFileName": "reference-notes.pdf",
+  "sourceFileHash": "sha256:reference-hash",
+  "storageUri": "restricted://validation/reference.pdf",
+  "indexStorageUri": "restricted://validation/index",
+  "expiresAt": "2026-05-29T04:00:00+09:00"
 }
 ```
 
+생성 응답과 단건 조회/만료 응답:
+
 ```json
 {
-  "id": 20,
-  "sourceName": "IVP 성경배경주석",
-  "sourceFileName": "ivp-background-commentary.pdf",
+  "id": 33,
+  "sourceName": "검증 참조 자료",
+  "sourceFileName": "reference-notes.pdf",
   "status": "ACTIVE",
-  "expiresAt": "2026-05-18T10:00:00+09:00",
-  "deletedAt": null
+  "expiresAt": "2026-05-29T04:00:00+09:00",
+  "deletedAt": null,
+  "createdAt": "2026-05-28T10:00:00+09:00",
+  "updatedAt": "2026-05-28T10:00:00+09:00"
 }
 ```
 
 - **상태 값:** `validation_reference_jobs.status`는 `ACTIVE`, `EXPIRED`, `DELETED`만 사용한다.
+- **생성:** 생성 시 상태는 항상 `ACTIVE`이며 요청자가 `status`를 지정할 수 없다. 성공 시 `201 Created`를 반환한다.
+- **조회:** 없는 `jobId`는 `404 VALIDATION_REFERENCE_JOB_NOT_FOUND`로 응답한다.
+- **만료:** `ACTIVE -> EXPIRED` 전이만 허용한다. 이미 `EXPIRED` 또는 `DELETED`인 작업은 `409 INVALID_STATUS_TRANSITION`으로 응답한다. 만료 API는 `deletedAt`을 설정하지 않는다.
+- **응답 미노출:** `sourceFileHash`, `storageUri`, `indexStorageUri`, 검증 참조 원문 전체는 생성/조회/만료 응답에 포함하지 않는다.
+- **감사 로그:** 생성과 만료는 `actorType=SYSTEM_BATCH`, `actorLabel=SYSTEM_BATCH`, `actionType=VALIDATION_REFERENCE_JOB_CREATE|VALIDATION_REFERENCE_JOB_EXPIRE`, `targetType=VALIDATION_REFERENCE_JOB`로 기록한다. service account id 매핑 전까지 `actorId`는 null일 수 있다.
 
 ---
 
