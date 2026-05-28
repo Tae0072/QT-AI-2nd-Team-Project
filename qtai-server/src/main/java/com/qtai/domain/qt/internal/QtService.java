@@ -5,12 +5,16 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.note.api.GetNoteUseCase;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
+import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
 import com.qtai.domain.qt.api.GetTodayQtUseCase;
+import com.qtai.domain.qt.api.dto.QtPassageContentContext;
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 /**
  * QT 도메인 서비스 — Today QT 조회 + Note 도메인 연동.
@@ -35,10 +39,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class QtService implements GetTodayQtUseCase {
+public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextUseCase {
 
     private final QtPassageLookup passageLookup;
     private final QtPassageRepository qtPassageRepository;
+    private final QtPassageVerseRepository qtPassageVerseRepository;
     private final GetNoteUseCase getNoteUseCase;
 
     // ------------------------------------------------------------------
@@ -86,6 +91,28 @@ public class QtService implements GetTodayQtUseCase {
                 false,        // hasExplanation: AI 해설 도메인 연동 전 기본값
                 draftNoteId,
                 "HIT"
+        );
+    }
+
+    @Override
+    public QtPassageContentContext getContentContext(Long qtPassageId) {
+        if (qtPassageId == null || qtPassageId < 1) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        QtPassage passage = qtPassageRepository.findById(qtPassageId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND));
+        List<Long> verseIds = qtPassageVerseRepository.findByQtPassageIdOrderByDisplayOrderAsc(qtPassageId)
+                .stream()
+                .map(QtPassageVerse::getBibleVerseId)
+                .toList();
+
+        return new QtPassageContentContext(
+                passage.getId(),
+                passage.getQtDate(),
+                passage.getTitle(),
+                verseIds,
+                true
         );
     }
 
