@@ -1,9 +1,9 @@
 package com.qtai.domain.note.internal;
 
 import com.qtai.common.entity.BaseEntity;
-import com.qtai.domain.note.api.NoteCategory;
+import com.qtai.domain.note.api.JournalChangedEvent;
+import com.qtai.domain.note.api.JournalEventType;
 import com.qtai.domain.note.api.NoteStatus;
-import com.qtai.domain.note.internal.event.JournalChangedEvent;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,8 +14,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "journal_events", uniqueConstraints = {
@@ -25,12 +25,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class JournalEvent extends BaseEntity {
 
-    @Column(name = "event_id", nullable = false, length = 36)
-    private String eventId;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "event_type", nullable = false, length = 30)
-    private JournalEventType eventType;
+    @Column(name = "event_id", nullable = false, columnDefinition = "BINARY(16)")
+    private UUID eventId;
 
     @Column(name = "member_id", nullable = false)
     private Long memberId;
@@ -42,37 +38,71 @@ public class JournalEvent extends BaseEntity {
     private Long qtPassageId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private NoteCategory category;
+    @Column(name = "event_type", nullable = false, length = 30)
+    private JournalEventType eventType;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "previous_status", length = 10)
     private NoteStatus previousStatus;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "next_status", nullable = false, length = 10)
-    private NoteStatus nextStatus;
+    @Column(name = "current_status", nullable = false, length = 10)
+    private NoteStatus currentStatus;
 
-    @Column(name = "saved_date")
-    private LocalDate savedDate;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private JournalEventStatus status;
 
     @Column(name = "occurred_at", nullable = false)
     private LocalDateTime occurredAt;
 
+    @Column(name = "processed_at")
+    private LocalDateTime processedAt;
+
+    @Column(name = "failed_at")
+    private LocalDateTime failedAt;
+
+    @Column(name = "last_error_message", length = 500)
+    private String lastErrorMessage;
+
+    @Column(name = "retry_count", nullable = false)
+    private int retryCount;
+
     private JournalEvent(JournalChangedEvent event) {
         this.eventId = event.eventId();
-        this.eventType = event.eventType();
         this.memberId = event.memberId();
         this.noteId = event.noteId();
         this.qtPassageId = event.qtPassageId();
-        this.category = event.category();
+        this.eventType = event.eventType();
         this.previousStatus = event.previousStatus();
-        this.nextStatus = event.nextStatus();
-        this.savedDate = event.savedDate();
+        this.currentStatus = event.currentStatus();
+        this.status = JournalEventStatus.PENDING;
         this.occurredAt = event.occurredAt();
+        this.retryCount = 0;
     }
 
-    public static JournalEvent from(JournalChangedEvent event) {
+    public static JournalEvent pending(JournalChangedEvent event) {
         return new JournalEvent(event);
+    }
+
+    public void markProcessed(LocalDateTime processedAt) {
+        this.status = JournalEventStatus.PROCESSED;
+        this.processedAt = processedAt;
+        this.failedAt = null;
+        this.lastErrorMessage = null;
+    }
+
+    public void markFailed(String errorMessage, LocalDateTime failedAt) {
+        this.status = JournalEventStatus.FAILED;
+        this.failedAt = failedAt;
+        this.lastErrorMessage = truncate(errorMessage);
+        this.retryCount++;
+    }
+
+    private static String truncate(String value) {
+        if (value == null || value.length() <= 500) {
+            return value;
+        }
+        return value.substring(0, 500);
     }
 }

@@ -6,16 +6,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.Collections;
-import java.util.List;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.member.api.dto.MemberResponse;
-import com.qtai.domain.note.api.GetMeditationCalendarUseCase;
-import com.qtai.domain.note.api.dto.MeditationCalendarDay;
-import com.qtai.domain.note.api.dto.MeditationCalendarResponse;
-import com.qtai.domain.note.api.dto.MeditationCalendarSummary;
 import com.qtai.domain.notification.api.ListNotificationUseCase;
 import com.qtai.domain.praise.api.ListMemberPraiseSongUseCase;
 import com.qtai.security.JwtAuthenticationFilter;
@@ -29,11 +24,6 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.time.LocalDate;
-import java.time.YearMonth;
-
-import static com.qtai.domain.note.api.NoteCategory.MEDITATION;
 
 /**
  * MyPageController MockMvc 슬라이스 테스트.
@@ -56,9 +46,6 @@ class MyPageControllerTest {
 
     @MockBean
     private ListMemberPraiseSongUseCase listMemberPraiseSongUseCase;
-
-    @MockBean
-    private GetMeditationCalendarUseCase getMeditationCalendarUseCase;
 
     @BeforeEach
     void setUpSecurity() {
@@ -100,36 +87,4 @@ class MyPageControllerTest {
                 .andExpect(jsonPath("$.data.widgetErrors[0]").value("profile"));
     }
 
-    @Test
-    void meditationCalendar_200_noteUseCase_위임() throws Exception {
-        MeditationCalendarResponse response = new MeditationCalendarResponse(
-                "2026-05",
-                List.of(new MeditationCalendarDay(
-                        LocalDate.of(2026, 5, 17),
-                        true,
-                        1,
-                        200L,
-                        List.of(MEDITATION)
-                )),
-                new MeditationCalendarSummary(1, 1, 1)
-        );
-        when(getMeditationCalendarUseCase.get(1L, YearMonth.of(2026, 5))).thenReturn(response);
-
-        mockMvc.perform(get("/api/v1/me/meditation-calendar").param("month", "2026-05"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.month").value("2026-05"))
-                .andExpect(jsonPath("$.data.days[0].date").value("2026-05-17"))
-                .andExpect(jsonPath("$.data.days[0].meditationNoteId").value(200))
-                .andExpect(jsonPath("$.data.summary.savedDays").value(1));
-    }
-
-    @Test
-    void meditationCalendar_인증_없음_UNAUTHORIZED() throws Exception {
-        SecurityContextHolder.clearContext();
-
-        mockMvc.perform(get("/api/v1/me/meditation-calendar").param("month", "2026-05"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error.code").value("M0002"));
-    }
 }

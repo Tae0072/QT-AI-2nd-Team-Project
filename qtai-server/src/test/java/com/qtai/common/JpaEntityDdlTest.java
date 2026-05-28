@@ -3,12 +3,12 @@ package com.qtai.common;
 import com.qtai.config.JpaAuditingConfig;
 import com.qtai.domain.bible.internal.BibleBook;
 import com.qtai.domain.member.internal.Member;
+import com.qtai.domain.note.api.JournalChangedEvent;
+import com.qtai.domain.note.api.JournalEventType;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.internal.JournalEvent;
-import com.qtai.domain.note.internal.JournalEventType;
 import com.qtai.domain.note.internal.Note;
-import com.qtai.domain.note.internal.event.JournalChangedEvent;
 import com.qtai.domain.sharing.internal.PostLike;
 import com.qtai.domain.sharing.internal.SharingPost;
 import jakarta.persistence.Column;
@@ -24,9 +24,9 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -126,12 +126,13 @@ class JpaEntityDdlTest {
     @Test
     @DisplayName("journal event id is unique")
     void journalEvent_eventId_unique_constraint() {
-        JournalChangedEvent event = journalChangedEvent("11111111-1111-1111-1111-111111111111");
-        testEm.persistAndFlush(JournalEvent.from(event));
+        UUID eventId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        JournalChangedEvent event = journalChangedEvent(eventId);
+        testEm.persistAndFlush(JournalEvent.pending(event));
 
-        JournalChangedEvent duplicateEvent = journalChangedEvent("11111111-1111-1111-1111-111111111111");
+        JournalChangedEvent duplicateEvent = journalChangedEvent(eventId);
 
-        assertThrows(Exception.class, () -> testEm.persistAndFlush(JournalEvent.from(duplicateEvent)));
+        assertThrows(Exception.class, () -> testEm.persistAndFlush(JournalEvent.pending(duplicateEvent)));
     }
 
     @Test
@@ -183,17 +184,15 @@ class JpaEntityDdlTest {
         return like;
     }
 
-    private JournalChangedEvent journalChangedEvent(String eventId) {
+    private JournalChangedEvent journalChangedEvent(UUID eventId) {
         return new JournalChangedEvent(
                 eventId,
-                JournalEventType.JOURNAL_UPDATED,
                 10L,
                 99L,
                 100L,
-                NoteCategory.MEDITATION,
+                JournalEventType.JOURNAL_UPDATED,
                 NoteStatus.DRAFT,
                 NoteStatus.SAVED,
-                LocalDate.of(2026, 5, 17),
                 LocalDateTime.of(2026, 5, 17, 9, 0)
         );
     }

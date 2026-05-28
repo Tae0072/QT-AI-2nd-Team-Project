@@ -70,6 +70,7 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
             WHERE n.memberId = :memberId
               AND n.status = com.qtai.domain.note.api.NoteStatus.SAVED
               AND n.deletedAt IS NULL
+              AND n.savedAt IS NOT NULL
               AND n.savedAt >= :startAt
               AND n.savedAt < :endAt
             ORDER BY n.savedAt ASC, n.id ASC

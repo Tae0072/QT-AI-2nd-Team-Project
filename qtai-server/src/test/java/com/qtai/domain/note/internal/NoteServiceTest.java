@@ -7,6 +7,8 @@ import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.NoteVisibility;
+import com.qtai.domain.note.api.JournalChangedEvent;
+import com.qtai.domain.note.api.JournalEventType;
 import com.qtai.domain.note.api.dto.CreateNoteCommand;
 import com.qtai.domain.note.api.dto.NoteCategoryResponse;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
@@ -28,6 +30,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.lang.reflect.Field;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
@@ -63,8 +68,15 @@ class NoteServiceTest {
         getBibleVerseUseCase = mock(GetBibleVerseUseCase.class);
         noteQtClient = mock(NoteQtClient.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
-        noteService = new NoteService(noteRepository, noteVerseRepository, getBibleVerseUseCase, noteQtClient,
-                eventPublisher);
+        Clock clock = Clock.fixed(Instant.parse("2026-05-28T03:00:00Z"), ZoneId.of("Asia/Seoul"));
+        noteService = new NoteService(
+                noteRepository,
+                noteVerseRepository,
+                getBibleVerseUseCase,
+                noteQtClient,
+                eventPublisher,
+                clock
+        );
         noteVersesCaptor = ArgumentCaptor.forClass(Iterable.class);
         when(noteRepository.saveAndFlush(any())).thenAnswer(invocation -> {
             Note note = invocation.getArgument(0);
@@ -166,6 +178,27 @@ class NoteServiceTest {
         assertThat(saved.getVisibility()).isEqualTo(NoteVisibility.PRIVATE);
         assertThat(saved.getActiveUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
         assertThat(saved.getSavedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("create meditation note publishes journal created event")
+    void create_meditationNote_publishesJournalCreatedEvent() {
+        ArgumentCaptor<JournalChangedEvent> eventCaptor = ArgumentCaptor.forClass(JournalChangedEvent.class);
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
+                List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
+
+        noteService.create(10L, command);
+
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        JournalChangedEvent event = eventCaptor.getValue();
+        assertThat(event.eventId()).isNotNull();
+        assertThat(event.memberId()).isEqualTo(10L);
+        assertThat(event.noteId()).isEqualTo(99L);
+        assertThat(event.qtPassageId()).isEqualTo(100L);
+        assertThat(event.eventType()).isEqualTo(JournalEventType.JOURNAL_CREATED);
+        assertThat(event.previousStatus()).isNull();
+        assertThat(event.currentStatus()).isEqualTo(NoteStatus.DRAFT);
     }
 
     @Test
@@ -287,6 +320,7 @@ class NoteServiceTest {
         verify(noteVerseRepository).saveAll(any());
         verify(getBibleVerseUseCase).getVerses(List.of(3L, 2L));
         verify(getBibleVerseUseCase, never()).getVerse(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -516,6 +550,27 @@ class NoteServiceTest {
     }
 
     @Test
+    @DisplayName("update meditation calendar fields publishes journal updated event")
+    void update_meditationCalendarFields_publishesJournalUpdatedEvent() {
+        ArgumentCaptor<JournalChangedEvent> eventCaptor = ArgumentCaptor.forClass(JournalChangedEvent.class);
+        Note note = persistedNote(1L, 10L, NoteCategory.MEDITATION, NoteStatus.DRAFT, 100L);
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+
+        UpdateNoteCommand command = new UpdateNoteCommand(
+                NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
+                List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
+
+        noteService.update(10L, 1L, command);
+
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        JournalChangedEvent event = eventCaptor.getValue();
+        assertThat(event.eventType()).isEqualTo(JournalEventType.JOURNAL_UPDATED);
+        assertThat(event.previousStatus()).isEqualTo(NoteStatus.DRAFT);
+        assertThat(event.currentStatus()).isEqualTo(NoteStatus.SAVED);
+        assertThat(event.noteId()).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("update meditation to duplicate active QT note is rejected")
     void update_meditationDuplicate_rejected() {
         Note note = persistedNote(1L, 10L, NoteCategory.MEDITATION, NoteStatus.DRAFT, 100L);
@@ -643,6 +698,22 @@ class NoteServiceTest {
     }
 
     @Test
+    @DisplayName("delete meditation note publishes journal deleted event")
+    void delete_meditationNote_publishesJournalDeletedEvent() {
+        ArgumentCaptor<JournalChangedEvent> eventCaptor = ArgumentCaptor.forClass(JournalChangedEvent.class);
+        Note note = persistedNote(1L, 10L, NoteCategory.MEDITATION, NoteStatus.SAVED, 100L);
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+
+        noteService.delete(10L, 1L);
+
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        JournalChangedEvent event = eventCaptor.getValue();
+        assertThat(event.eventType()).isEqualTo(JournalEventType.JOURNAL_DELETED);
+        assertThat(event.previousStatus()).isEqualTo(NoteStatus.SAVED);
+        assertThat(event.currentStatus()).isEqualTo(NoteStatus.DELETED);
+    }
+
+    @Test
     @DisplayName("delete rejects missing note")
     void delete_missingNote_rejected() {
         when(noteRepository.findById(1L)).thenReturn(Optional.empty());
@@ -676,6 +747,7 @@ class NoteServiceTest {
         assertThatNoException().isThrownBy(() -> noteService.delete(10L, 1L));
         assertThat(note.getDeletedAt()).isSameAs(deletedAt);
         assertThat(note.getStatus()).isEqualTo(NoteStatus.DELETED);
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     private static Note persistedNote(Long id, Long memberId, NoteCategory category, NoteStatus status, Long qtPassageId) {

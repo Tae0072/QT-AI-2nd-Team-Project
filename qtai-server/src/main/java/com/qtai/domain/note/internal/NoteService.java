@@ -6,8 +6,9 @@ import com.qtai.domain.bible.api.GetBibleVerseUseCase;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.note.api.CreateNoteUseCase;
 import com.qtai.domain.note.api.DeleteNoteUseCase;
-import com.qtai.domain.note.api.GetMeditationCalendarUseCase;
 import com.qtai.domain.note.api.GetNoteUseCase;
+import com.qtai.domain.note.api.JournalChangedEvent;
+import com.qtai.domain.note.api.JournalEventType;
 import com.qtai.domain.note.api.ListNoteCategoriesUseCase;
 import com.qtai.domain.note.api.ListNotesUseCase;
 import com.qtai.domain.note.api.NoteCategory;
@@ -15,9 +16,6 @@ import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.NoteVisibility;
 import com.qtai.domain.note.api.UpdateNoteUseCase;
 import com.qtai.domain.note.api.dto.CreateNoteCommand;
-import com.qtai.domain.note.api.dto.MeditationCalendarDay;
-import com.qtai.domain.note.api.dto.MeditationCalendarResponse;
-import com.qtai.domain.note.api.dto.MeditationCalendarSummary;
 import com.qtai.domain.note.api.dto.NoteCategoryItem;
 import com.qtai.domain.note.api.dto.NoteCategoryResponse;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
@@ -29,7 +27,6 @@ import com.qtai.domain.note.api.dto.NoteUpdateResponse;
 import com.qtai.domain.note.api.dto.NoteVerseItem;
 import com.qtai.domain.note.api.dto.UpdateNoteCommand;
 import com.qtai.domain.note.client.qt.NoteQtClient;
-import com.qtai.domain.note.internal.event.JournalChangedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -39,23 +36,20 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableSet;
-import java.util.TreeSet;
-import java.util.stream.Collectors;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNoteUseCase,
-        UpdateNoteUseCase, DeleteNoteUseCase, ListNoteCategoriesUseCase, GetMeditationCalendarUseCase {
+        UpdateNoteUseCase, DeleteNoteUseCase, ListNoteCategoriesUseCase {
 
     private static final String DEFAULT_SORT = "updatedAt,desc";
 
@@ -64,6 +58,7 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     private final GetBibleVerseUseCase getBibleVerseUseCase;
     private final NoteQtClient noteQtClient;
     private final ApplicationEventPublisher eventPublisher;
+    private final Clock clock;
 
     @Override
     public NoteListResponse list(Long memberId, NoteCategory category, NoteStatus status, String q, Pageable pageable) {
@@ -120,12 +115,14 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 input.interpretSection(),
                 input.applySection(),
                 input.praySection(),
-                LocalDateTime.now()
+                LocalDateTime.now(clock)
         );
 
         Note saved = saveNoteForCreate(note);
         replaceNoteVerses(saved.getId(), input.verseIds());
-        publishCreatedEventIfNeeded(saved, LocalDateTime.now());
+        if (saved.getCategory() == NoteCategory.MEDITATION) {
+            publishJournalEvent(saved, JournalEventType.JOURNAL_CREATED, null);
+        }
         return new NoteCreateResponse(
                 saved.getId(),
                 saved.getCategory(),
@@ -147,10 +144,10 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         if (note.isDeleted()) {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
+        NoteSnapshot before = NoteSnapshot.from(note);
 
         NormalizedNoteInput input = normalize(command);
         validateForSave(memberId, noteId, input);
-        NoteTransition previous = NoteTransition.from(note);
         note.update(
                 input.category(),
                 input.qtPassageId(),
@@ -162,10 +159,12 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 input.interpretSection(),
                 input.applySection(),
                 input.praySection(),
-                LocalDateTime.now()
+                LocalDateTime.now(clock)
         );
         replaceNoteVerses(note.getId(), input.verseIds());
-        publishUpdatedEventIfNeeded(previous, note, LocalDateTime.now());
+        if (shouldPublishJournalUpdate(before, note)) {
+            publishJournalEvent(note, JournalEventType.JOURNAL_UPDATED, before.status());
+        }
         return new NoteUpdateResponse(
                 note.getId(),
                 note.getCategory(),
@@ -189,9 +188,12 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         if (note.isDeleted()) {
             return;
         }
-        NoteTransition previous = NoteTransition.from(note);
-        note.delete(LocalDateTime.now());
-        publishDeletedEventIfNeeded(previous, note, LocalDateTime.now());
+        NoteStatus previousStatus = note.getStatus();
+        boolean meditationNote = note.getCategory() == NoteCategory.MEDITATION;
+        note.delete(LocalDateTime.now(clock));
+        if (meditationNote) {
+            publishJournalEvent(note, JournalEventType.JOURNAL_DELETED, previousStatus);
+        }
     }
 
     @Override
@@ -203,35 +205,6 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 new NoteCategoryItem(NoteCategory.REPENTANCE, "회개 노트", false, true, true),
                 new NoteCategoryItem(NoteCategory.GRATITUDE, "감사 노트", false, true, true)
         ));
-    }
-
-    @Override
-    public MeditationCalendarResponse get(Long memberId, YearMonth month) {
-        LocalDateTime startAt = month.atDay(1).atStartOfDay();
-        LocalDateTime endAt = month.plusMonths(1).atDay(1).atStartOfDay();
-        List<Note> notes = noteRepository.findSavedCalendarNotes(memberId, startAt, endAt);
-
-        Map<LocalDate, List<Note>> notesByDate = notes.stream()
-                .collect(Collectors.groupingBy(
-                        note -> note.getSavedAt().toLocalDate(),
-                        LinkedHashMap::new,
-                        Collectors.toList()
-                ));
-
-        List<MeditationCalendarDay> days = notesByDate.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> toCalendarDay(entry.getKey(), entry.getValue()))
-                .toList();
-
-        long savedNoteCount = notes.size();
-        long savedDays = days.size();
-        long streakDays = calculateLongestStreak(notesByDate.keySet());
-
-        return new MeditationCalendarResponse(
-                month.toString(),
-                days,
-                new MeditationCalendarSummary(savedDays, savedNoteCount, streakDays)
-        );
     }
 
     private void validateForSave(Long memberId, Long currentNoteId, NormalizedNoteInput input) {
@@ -260,6 +233,32 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         }
     }
 
+    private boolean shouldPublishJournalUpdate(NoteSnapshot before, Note note) {
+        boolean relatedToMeditation = before.category() == NoteCategory.MEDITATION
+                || note.getCategory() == NoteCategory.MEDITATION;
+        if (!relatedToMeditation) {
+            return false;
+        }
+        return before.category() != note.getCategory()
+                || !Objects.equals(before.qtPassageId(), note.getQtPassageId())
+                || before.status() != note.getStatus()
+                || !Objects.equals(before.savedAt(), note.getSavedAt())
+                || !Objects.equals(before.deletedAt(), note.getDeletedAt());
+    }
+
+    private void publishJournalEvent(Note note, JournalEventType eventType, NoteStatus previousStatus) {
+        eventPublisher.publishEvent(new JournalChangedEvent(
+                UUID.randomUUID(),
+                note.getMemberId(),
+                note.getId(),
+                note.getQtPassageId(),
+                eventType,
+                previousStatus,
+                note.getStatus(),
+                LocalDateTime.now(clock)
+        ));
+    }
+
     private void validateMeditationDuplicate(Long memberId, Long currentNoteId, Long qtPassageId) {
         boolean exists = currentNoteId == null
                 ? noteRepository.existsByMemberIdAndQtPassageIdAndCategoryAndActiveUniqueKey(
@@ -281,101 +280,6 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
             noteVerses.add(NoteVerse.create(noteId, verseId, order++));
         }
         noteVerseRepository.saveAll(noteVerses);
-    }
-
-    private void publishCreatedEventIfNeeded(Note note, LocalDateTime occurredAt) {
-        if (note.getCategory() != NoteCategory.MEDITATION || note.getStatus() != NoteStatus.SAVED) {
-            return;
-        }
-        eventPublisher.publishEvent(JournalChangedEvent.create(
-                JournalEventType.JOURNAL_CREATED,
-                note.getMemberId(),
-                note.getId(),
-                note.getQtPassageId(),
-                note.getCategory(),
-                null,
-                note.getStatus(),
-                savedDateOf(note),
-                occurredAt
-        ));
-    }
-
-    private void publishUpdatedEventIfNeeded(NoteTransition previous, Note note, LocalDateTime occurredAt) {
-        if (previous.category() != NoteCategory.MEDITATION && note.getCategory() != NoteCategory.MEDITATION) {
-            return;
-        }
-        if (!shouldPublishUpdateEvent(previous, note)) {
-            return;
-        }
-        eventPublisher.publishEvent(JournalChangedEvent.create(
-                JournalEventType.JOURNAL_UPDATED,
-                note.getMemberId(),
-                note.getId(),
-                note.getQtPassageId(),
-                note.getCategory(),
-                previous.status(),
-                note.getStatus(),
-                savedDateOf(note),
-                occurredAt
-        ));
-    }
-
-    private void publishDeletedEventIfNeeded(NoteTransition previous, Note note, LocalDateTime occurredAt) {
-        if (previous.category() != NoteCategory.MEDITATION) {
-            return;
-        }
-        eventPublisher.publishEvent(JournalChangedEvent.create(
-                JournalEventType.JOURNAL_DELETED,
-                note.getMemberId(),
-                note.getId(),
-                note.getQtPassageId(),
-                previous.category(),
-                previous.status(),
-                note.getStatus(),
-                null,
-                occurredAt
-        ));
-    }
-
-    private boolean shouldPublishUpdateEvent(NoteTransition previous, Note note) {
-        if (note.getStatus() == NoteStatus.SAVED) {
-            return previous.status() != NoteStatus.SAVED
-                    || previous.savedAt() == null
-                    || !previous.savedAt().equals(note.getSavedAt());
-        }
-        return previous.status() == NoteStatus.SAVED && note.getStatus() == NoteStatus.DRAFT;
-    }
-
-    private MeditationCalendarDay toCalendarDay(LocalDate date, List<Note> notes) {
-        Long meditationNoteId = notes.stream()
-                .filter(note -> note.getCategory() == NoteCategory.MEDITATION)
-                .map(Note::getId)
-                .findFirst()
-                .orElse(null);
-        List<NoteCategory> categories = notes.stream()
-                .map(Note::getCategory)
-                .collect(Collectors.toCollection(LinkedHashSet::new))
-                .stream()
-                .toList();
-        return new MeditationCalendarDay(date, true, notes.size(), meditationNoteId, categories);
-    }
-
-    private long calculateLongestStreak(Iterable<LocalDate> savedDates) {
-        NavigableSet<LocalDate> sortedDates = new TreeSet<>();
-        savedDates.forEach(sortedDates::add);
-        long longest = 0;
-        long current = 0;
-        LocalDate previous = null;
-        for (LocalDate date : sortedDates) {
-            current = previous != null && previous.plusDays(1).equals(date) ? current + 1 : 1;
-            longest = Math.max(longest, current);
-            previous = date;
-        }
-        return longest;
-    }
-
-    private LocalDate savedDateOf(Note note) {
-        return note.getSavedAt() == null ? null : note.getSavedAt().toLocalDate();
     }
 
     private NoteDetailResponse toDetailResponse(Note note) {
@@ -578,13 +482,22 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     ) {
     }
 
-    private record NoteTransition(
+    private record NoteSnapshot(
             NoteCategory category,
+            Long qtPassageId,
             NoteStatus status,
-            LocalDateTime savedAt
+            LocalDateTime savedAt,
+            LocalDateTime deletedAt
     ) {
-        private static NoteTransition from(Note note) {
-            return new NoteTransition(note.getCategory(), note.getStatus(), note.getSavedAt());
+
+        static NoteSnapshot from(Note note) {
+            return new NoteSnapshot(
+                    note.getCategory(),
+                    note.getQtPassageId(),
+                    note.getStatus(),
+                    note.getSavedAt(),
+                    note.getDeletedAt()
+            );
         }
     }
 }

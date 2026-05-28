@@ -1,8 +1,6 @@
 package com.qtai.domain.member.web;
 
 import com.qtai.common.dto.ApiResponse;
-import com.qtai.common.exception.BusinessException;
-import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.member.api.dto.DashboardResponse;
 import com.qtai.domain.member.api.dto.DashboardResponse.PraiseSummary;
@@ -10,8 +8,6 @@ import com.qtai.domain.member.api.dto.DashboardResponse.ProfileSummary;
 import com.qtai.domain.member.api.dto.DashboardResponse.StatsWidget;
 import com.qtai.domain.member.api.dto.DashboardResponse.StatsWidget.WeekMonth;
 import com.qtai.domain.member.api.dto.MemberResponse;
-import com.qtai.domain.note.api.GetMeditationCalendarUseCase;
-import com.qtai.domain.note.api.dto.MeditationCalendarResponse;
 import com.qtai.domain.notification.api.ListNotificationUseCase;
 import com.qtai.domain.praise.api.ListMemberPraiseSongUseCase;
 import lombok.RequiredArgsConstructor;
@@ -19,11 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.YearMonth;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,7 +34,6 @@ public class MyPageController {
     private final GetMemberUseCase getMemberUseCase;
     private final ListNotificationUseCase listNotificationUseCase;
     private final ListMemberPraiseSongUseCase listMemberPraiseSongUseCase;
-    private final GetMeditationCalendarUseCase getMeditationCalendarUseCase;
 
     /**
      * GET /api/v1/me/dashboard — 대시보드.
@@ -68,21 +60,6 @@ public class MyPageController {
                 profile, stats, unreadCount, praiseSummary, widgetErrors);
 
         return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    /**
-     * GET /api/v1/me/meditation-calendar?month=2026-05
-     * 묵상 달력.
-     */
-    @GetMapping("/api/v1/me/meditation-calendar")
-    public ResponseEntity<ApiResponse<MeditationCalendarResponse>> meditationCalendar(
-            @AuthenticationPrincipal Long memberId,
-            @RequestParam String month) {
-        Long authenticatedMemberId = requireMemberId(memberId);
-        YearMonth targetMonth = parseMonth(month);
-        return ResponseEntity.ok(ApiResponse.success(
-                getMeditationCalendarUseCase.get(authenticatedMemberId, targetMonth)
-        ));
     }
 
     // ── private widget loaders (부분 실패 허용) ──
@@ -127,21 +104,6 @@ public class MyPageController {
             log.warn("대시보드 찬양 위젯 실패: memberId={}", memberId, e);
             errors.add("praiseSummary");
             return new PraiseSummary(0);
-        }
-    }
-
-    private Long requireMemberId(Long memberId) {
-        if (memberId == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-        return memberId;
-    }
-
-    private YearMonth parseMonth(String month) {
-        try {
-            return YearMonth.parse(month);
-        } catch (DateTimeParseException e) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
     }
 }

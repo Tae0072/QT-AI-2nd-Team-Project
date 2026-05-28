@@ -6,5 +6,5 @@ import java.time.YearMonth;
 
 public interface GetMeditationCalendarUseCase {
 
-    MeditationCalendarResponse get(Long memberId, YearMonth month);
+    MeditationCalendarResponse getCalendar(Long memberId, YearMonth month);
 }

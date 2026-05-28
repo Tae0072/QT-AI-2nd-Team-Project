@@ -1,4 +1,4 @@
-package com.qtai.domain.note.internal;
+package com.qtai.domain.note.api;
 
 public enum JournalEventType {
     JOURNAL_CREATED,
