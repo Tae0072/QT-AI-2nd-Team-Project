@@ -59,6 +59,12 @@ class JpaEntityDdlTest {
         assertDoesNotThrow(() -> em.getMetamodel().entity(
                 Class.forName("com.qtai.domain.note.internal.NoteVerse")));
         assertDoesNotThrow(() -> em.getMetamodel().entity(
+                Class.forName("com.qtai.domain.study.internal.GlossaryTerm")));
+        assertDoesNotThrow(() -> em.getMetamodel().entity(
+                Class.forName("com.qtai.domain.study.internal.SimulatorClip")));
+        assertDoesNotThrow(() -> em.getMetamodel().entity(
+                Class.forName("com.qtai.domain.study.internal.SimulatorComponentLibraryVersion")));
+        assertDoesNotThrow(() -> em.getMetamodel().entity(
                 Class.forName("com.qtai.domain.sharing.internal.PostLike")));
     }
 

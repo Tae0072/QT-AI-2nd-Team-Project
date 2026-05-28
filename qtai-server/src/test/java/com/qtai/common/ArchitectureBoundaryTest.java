@@ -25,6 +25,18 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
+    @DisplayName("study 도메인은 qt internal/web 패키지를 직접 import하지 않는다")
+    void studyDomain_doesNotImportQtInternalOrWebPackages() throws IOException {
+        assertThat(violationsForDomain("study", "qt")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("qt 도메인은 study internal/web 패키지를 직접 import하지 않는다")
+    void qtDomain_doesNotImportStudyInternalOrWebPackages() throws IOException {
+        assertThat(violationsForDomain("qt", "study")).isEmpty();
+    }
+
+    @Test
     @DisplayName("note 도메인은 bible/qt/sharing internal/web 패키지를 직접 import하지 않는다")
     void noteDomain_doesNotImportOtherInternalOrWebPackages() throws IOException {
         Path noteRoot = Path.of("src/main/java/com/qtai/domain/note");
@@ -54,6 +66,19 @@ class ArchitectureBoundaryTest {
                     .flatMap(path -> importsOf(path).stream())
                     .filter(line -> line.contains("com.qtai.domain." + domainName + ".internal")
                             || line.contains("com.qtai.domain." + domainName + ".web"))
+                    .toList();
+        }
+    }
+
+    private static List<String> violationsForDomain(String sourceDomain, String forbiddenDomain) throws IOException {
+        Path sourceRoot = Path.of("src/main/java/com/qtai/domain").resolve(sourceDomain);
+
+        try (var stream = Files.walk(sourceRoot)) {
+            return stream
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .flatMap(path -> importsOf(path).stream())
+                    .filter(line -> line.contains("com.qtai.domain." + forbiddenDomain + ".internal")
+                            || line.contains("com.qtai.domain." + forbiddenDomain + ".web"))
                     .toList();
         }
     }

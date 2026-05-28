@@ -11,6 +11,8 @@ tags:
     description: 성경 권 목록과 절 범위 조회 API
   - name: Note
     description: 묵상 노트와 자유 노트 CRUD API
+  - name: QT Study
+    description: QT 본문에 연결된 승인 해설, 용어, 시뮬레이터 조회 API
   - name: Admin AI
     description: 관리자 웹이 AI 산출물과 검증 로그를 검토하는 운영 API
   - name: System AI
@@ -94,6 +96,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorApiResponse"
+  /api/v1/qt/{qtPassageId}/study-content:
+    get:
+      tags:
+        - QT Study
+      operationId: getQtStudyContent
+      summary: QT 학습 콘텐츠 조회
+      description: 인증된 사용자가 QT 본문에 연결된 승인 해설과 승인 용어만 조회한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qtPassageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: QT 학습 콘텐츠 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QtStudyContentApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/qt/{qtPassageId}/simulator:
+    get:
+      tags:
+        - QT Study
+      operationId: getQtSimulator
+      summary: QT 시뮬레이터 조회
+      description: >
+        인증된 사용자가 QT 본문에 연결된 승인 시뮬레이터 클립을 조회한다.
+        기준 API 문서 v1.7의 /simulator-clips/{clipId}와의 공개 경로 정합화는 Lead 검토 대상이다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qtPassageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: QT 시뮬레이터 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QtSimulatorApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/notes:
     get:
       tags:
@@ -2207,6 +2275,134 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/NoteCategoryItem"
+    QtStudyContentApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/QtStudyContentResponse"
+    QtStudyContentResponse:
+      type: object
+      required:
+        - explanations
+        - glossaryTerms
+      properties:
+        summary:
+          type: string
+          nullable: true
+          example: 검증 완료된 해설 요약을 세 문장 이내로 조합합니다.
+        explanations:
+          type: array
+          items:
+            $ref: "#/components/schemas/QtStudyExplanationItem"
+        glossaryTerms:
+          type: array
+          items:
+            $ref: "#/components/schemas/QtGlossaryTermItem"
+    QtStudyExplanationItem:
+      type: object
+      required:
+        - verseId
+        - explanation
+        - sourceLabel
+      properties:
+        verseId:
+          type: integer
+          format: int64
+          example: 1001
+        summary:
+          type: string
+          nullable: true
+          example: 검증 완료된 절 요약입니다.
+        explanation:
+          type: string
+          example: 사용자에게 노출 가능한 검증 완료 해설입니다.
+        sourceLabel:
+          type: string
+          example: QT-AI verified content
+        aiAssetId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 500
+    QtGlossaryTermItem:
+      type: object
+      required:
+        - id
+        - verseId
+        - term
+        - meaning
+        - sourceLabel
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 80
+        verseId:
+          type: integer
+          format: int64
+          example: 1001
+        term:
+          type: string
+          example: sample term
+        meaning:
+          type: string
+          example: 사용자에게 노출 가능한 검증 완료 용어 설명입니다.
+        sourceLabel:
+          type: string
+          example: QT-AI verified content
+    QtSimulatorApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/QtSimulatorResponse"
+    QtSimulatorResponse:
+      type: object
+      required:
+        - status
+        - qtPassageId
+      properties:
+        status:
+          $ref: "#/components/schemas/QtSimulatorUserStatus"
+        clipId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 12
+        qtPassageId:
+          type: integer
+          format: int64
+          example: 35
+        title:
+          type: string
+          nullable: true
+          example: 검증 완료 시뮬레이터 클립
+        componentLibraryVersion:
+          type: string
+          nullable: true
+          example: 2026.05.1
+        sceneScriptJson:
+          type: object
+          nullable: true
+          additionalProperties: true
+          example:
+            scenes: []
+        clipStatus:
+          type: string
+          nullable: true
+          enum:
+            - APPROVED
+          example: APPROVED
+    QtSimulatorUserStatus:
+      type: string
+      enum:
+        - READY
+        - MISSING
+        - FAILED
+        - DISABLED
     NoteListApiResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponse"
