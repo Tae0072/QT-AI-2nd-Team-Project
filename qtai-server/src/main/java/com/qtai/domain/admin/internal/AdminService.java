@@ -41,18 +41,7 @@ public class AdminService implements VerifyAdminRoleUseCase {
      */
     @Override
     public AdminUserInfo getActiveAdmin(Long memberId) {
-        AdminUser adminUser = adminUserRepository.findByMemberId(memberId)
-                .orElseThrow(() -> {
-                    log.warn("관리자 계정 미등록 — memberId={}", memberId);
-                    return new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND);
-                });
-
-        if (!adminUser.isActive()) {
-            log.warn("비활성 관리자 접근 시도 — memberId={}, adminUserId={}, status={}",
-                    memberId, adminUser.getId(), adminUser.getStatus());
-            throw new BusinessException(ErrorCode.ADMIN_USER_DISABLED);
-        }
-
+        AdminUser adminUser = findActiveAdminUser(memberId);
         return toAdminUserInfo(adminUser);
     }
 
@@ -68,21 +57,40 @@ public class AdminService implements VerifyAdminRoleUseCase {
      */
     @Override
     public AdminUserInfo verifyRole(Long memberId, String requiredRole) {
-        AdminUserInfo adminInfo = getActiveAdmin(memberId);
+        // 1) 활성 관리자 조회 (DB 1회만 조회)
+        AdminUser adminUser = findActiveAdminUser(memberId);
 
+        // 2) 세부 역할 검증 — SUPER_ADMIN은 모든 역할을 포함
         AdminRole required = AdminRole.valueOf(requiredRole);
-
-        // AdminUser.hasRole()에서 SUPER_ADMIN은 모든 역할을 포함
-        AdminUser adminUser = adminUserRepository.findByMemberId(memberId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND));
-
         if (!adminUser.hasRole(required)) {
             log.warn("관리자 권한 부족 — memberId={}, adminRole={}, requiredRole={}",
                     memberId, adminUser.getAdminRole(), requiredRole);
             throw new BusinessException(ErrorCode.ADMIN_ROLE_INSUFFICIENT);
         }
 
-        return adminInfo;
+        return toAdminUserInfo(adminUser);
+    }
+
+    /**
+     * memberId로 활성 AdminUser 엔티티를 조회한다 (내부 공통 메서드).
+     *
+     * @throws BusinessException ADMIN_USER_NOT_FOUND — admin_users에 레코드 없음
+     * @throws BusinessException ADMIN_USER_DISABLED — 관리자 계정 비활성
+     */
+    private AdminUser findActiveAdminUser(Long memberId) {
+        AdminUser adminUser = adminUserRepository.findByMemberId(memberId)
+                .orElseThrow(() -> {
+                    log.warn("관리자 계정 미등록 — memberId={}", memberId);
+                    return new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND);
+                });
+
+        if (!adminUser.isActive()) {
+            log.warn("비활성 관리자 접근 시도 — memberId={}, adminUserId={}, status={}",
+                    memberId, adminUser.getId(), adminUser.getStatus());
+            throw new BusinessException(ErrorCode.ADMIN_USER_DISABLED);
+        }
+
+        return adminUser;
     }
 
     /** AdminUser Entity를 외부 DTO로 변환. */
