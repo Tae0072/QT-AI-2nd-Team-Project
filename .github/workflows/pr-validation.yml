@@ -46,11 +46,11 @@ jobs:
             echo "✅ 기본 브랜치($BRANCH)는 브랜치명 규칙 예외"
             exit 0
           fi
-          if [[ ! "$BRANCH" =~ ^(feature|bugfix|hotfix|chore|release|docs)/[a-z0-9]+([a-z0-9-]*[a-z0-9])?$ ]]; then
+          if [[ ! "$BRANCH" =~ ^(feature|bugfix|hotfix|chore|release|docs|test)/[a-z0-9]+([a-z0-9-]*[a-z0-9])?$ ]]; then
             echo "❌ 브랜치명 규칙 위반: $BRANCH"
             echo ""
             echo "올바른 형식: {type}/{kebab-case-summary}"
-            echo "허용 타입: feature / bugfix / hotfix / chore / release / docs"
+            echo "허용 타입: feature / bugfix / hotfix / chore / release / docs / test"
             echo ""
             echo "예시:"
             echo "  feature/member-kakao-oauth"
