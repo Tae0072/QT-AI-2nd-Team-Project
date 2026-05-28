@@ -2051,54 +2051,50 @@ components:
         days:
           type: array
           items:
-            $ref: "#/components/schemas/MeditationCalendarDay"
+            type: object
+            required:
+              - date
+              - saved
+              - savedNoteCount
+              - categories
+            properties:
+              date:
+                type: string
+                format: date
+              saved:
+                type: boolean
+              savedNoteCount:
+                type: integer
+                format: int64
+                minimum: 0
+              meditationNoteId:
+                type: integer
+                format: int64
+                nullable: true
+              categories:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NoteCategory"
+                uniqueItems: true
         summary:
-          $ref: "#/components/schemas/MeditationCalendarSummary"
-    MeditationCalendarDay:
-      type: object
-      required:
-        - date
-        - saved
-        - savedNoteCount
-        - categories
-      properties:
-        date:
-          type: string
-          format: date
-        saved:
-          type: boolean
-        savedNoteCount:
-          type: integer
-          format: int64
-          minimum: 0
-        meditationNoteId:
-          type: integer
-          format: int64
-          nullable: true
-        categories:
-          type: array
-          items:
-            $ref: "#/components/schemas/NoteCategory"
-          uniqueItems: true
-    MeditationCalendarSummary:
-      type: object
-      required:
-        - savedDays
-        - savedNoteCount
-        - meditationStreakDays
-      properties:
-        savedDays:
-          type: integer
-          format: int64
-          minimum: 0
-        savedNoteCount:
-          type: integer
-          format: int64
-          minimum: 0
-        meditationStreakDays:
-          type: integer
-          format: int64
-          minimum: 0
+          type: object
+          required:
+            - savedDays
+            - savedNoteCount
+            - meditationStreakDays
+          properties:
+            savedDays:
+              type: integer
+              format: int64
+              minimum: 0
+            savedNoteCount:
+              type: integer
+              format: int64
+              minimum: 0
+            meditationStreakDays:
+              type: integer
+              format: int64
+              minimum: 0
     NoteVerseItem:
       type: object
       required:

@@ -39,7 +39,7 @@
 
 공통 경로: `qtai-server/src/main/resources/db/migration/`
 
-- `V13__create_journal_events.sql`: `journal_events` 테이블과 eventId unique 제약, 상태/시간/오류 컬럼을 추가하는 migration이다.
+- `V14__create_journal_events.sql`: `journal_events` 테이블과 eventId unique 제약, 상태/시간/오류 컬럼을 추가하는 migration이다.
 
 ### 3. 노트 서비스와 달력 조회
 

@@ -65,7 +65,7 @@ QT 묵상 노트(`category=MEDITATION`)가 생성, 저장 확정, 수정, 삭제
 | Create | `qtai-server/src/main/java/com/qtai/domain/note/web/MeditationCalendarController.java` | `GET /api/v1/me/meditation-calendar` 엔드포인트 |
 | Modify | `qtai-server/src/main/java/com/qtai/domain/member/web/MyPageController.java` | 기존 미구현 달력 매핑 제거 또는 note UseCase 위임으로 중복 매핑 방지 |
 | Modify | `qtai-server/src/test/java/com/qtai/domain/member/web/MyPageControllerTest.java` | 미구현 5xx 기대 테스트 제거 또는 새 책임에 맞게 조정 |
-| Create | `qtai-server/src/main/resources/db/migration/V13__create_journal_events.sql` | `journal_events` 테이블, `event_id` unique, `member_id`, `note_id`, `qt_passage_id`, 상태/시각/오류 컬럼 |
+| Create | `qtai-server/src/main/resources/db/migration/V14__create_journal_events.sql` | `journal_events` 테이블, `event_id` unique, `member_id`, `note_id`, `qt_passage_id`, 상태/시각/오류 컬럼 |
 | Create | `qtai-server/src/test/java/com/qtai/domain/note/internal/JournalEventHandlerTest.java` | AFTER_COMMIT 핸들러, 이력 저장, 실패 로그/상태 검증 |
 | Modify/Create | `qtai-server/src/test/java/com/qtai/domain/note/internal/NoteServiceTest.java` | 묵상 이벤트 발행 조건과 부정 경로 검증 |
 | Create | `qtai-server/src/test/java/com/qtai/domain/note/web/MeditationCalendarControllerTest.java` | 인증, month 검증, UseCase 위임, 공통 envelope 검증 |

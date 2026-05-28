@@ -70,7 +70,7 @@ QT 묵상 노트가 `SAVED`로 확정되거나 `DELETED`로 삭제될 때 변경
 | Modify | `qtai-server/src/main/java/com/qtai/domain/note/internal/NoteService.java` | 상태 전이 후 이벤트 발행, 달력 UseCase 구현 |
 | Modify | `qtai-server/src/main/java/com/qtai/domain/note/internal/NoteRepository.java` | 월별 달력 집계 쿼리 추가 |
 | Modify | `qtai-server/src/main/java/com/qtai/domain/member/web/MyPageController.java` | 묵상 달력 엔드포인트를 note UseCase에 위임 |
-| Create | `qtai-server/src/main/resources/db/migration/V12__create_journal_events.sql` | `journal_events` DDL과 인덱스 추가 |
+| Create | `qtai-server/src/main/resources/db/migration/V14__create_journal_events.sql` | `journal_events` DDL과 인덱스 추가 |
 | Modify | `qtai-server/apis/api-v1/openapi.yaml` | 묵상 달력 응답 스키마와 실패 응답 정합화 |
 | Test | `qtai-server/src/test/java/com/qtai/domain/note/internal/JournalEventHandlerTest.java` | 이벤트 저장, 중복 eventId, 실패 로그 정책 검증 |
 | Test | `qtai-server/src/test/java/com/qtai/domain/note/internal/NoteServiceTest.java` | 상태 전이별 이벤트 발행 조건 검증 |
@@ -85,7 +85,7 @@ QT 묵상 노트가 `SAVED`로 확정되거나 `DELETED`로 삭제될 때 변경
 3. `GetMeditationCalendarUseCase`와 calendar DTO를 `domain.note.api`에 먼저 정의한다.
 4. `MyPageController`는 `GetMeditationCalendarUseCase`만 주입받도록 수정하고, Controller가 note repository나 internal 타입을 직접 알지 않게 한다.
 5. `JournalEvent`를 `BaseEntity` 상속 Entity로 구현하고 `eventId`, `eventType`, `memberId`, `noteId`, `qtPassageId`, `category`, `previousStatus`, `nextStatus`, `savedDate`, `occurredAt` 컬럼을 명시한다.
-6. `V12__create_journal_events.sql`에 `event_id` unique, `member_id + saved_date`, `note_id + occurred_at` 인덱스를 추가한다.
+6. `V14__create_journal_events.sql`에 `event_id` unique, `member_id + saved_date`, `note_id + occurred_at` 인덱스를 추가한다.
 7. `JournalChangedEvent` record를 만들고 `eventId`는 UUID 문자열로 생성한다.
 8. `NoteService.create/update/delete`에서 상태 전이 전후 값을 비교해 이벤트 발행 여부를 결정한다.
 9. 이벤트 발행은 DB 저장 성공 후 같은 트랜잭션 안에서 `ApplicationEventPublisher.publishEvent`를 호출한다.

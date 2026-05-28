@@ -6,7 +6,7 @@ import com.qtai.domain.note.api.NoteStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -14,9 +14,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -26,30 +26,30 @@ import static org.mockito.Mockito.when;
 class JournalEventHandlerTest {
 
     private JournalEventRepository journalEventRepository;
+    private JournalEventPersistenceService journalEventPersistenceService;
     private JournalEventHandler handler;
 
     @BeforeEach
     void setUp() {
         journalEventRepository = mock(JournalEventRepository.class);
+        journalEventPersistenceService = mock(JournalEventPersistenceService.class);
         Clock clock = Clock.fixed(Instant.parse("2026-05-28T03:00:00Z"), ZoneId.of("Asia/Seoul"));
-        handler = new JournalEventHandler(journalEventRepository, clock);
+        handler = new JournalEventHandler(journalEventRepository, journalEventPersistenceService, clock);
     }
 
     @Test
-    @DisplayName("AFTER_COMMIT handler stores processed journal event")
+    @DisplayName("AFTER_COMMIT handler stores pending event and then marks it processed")
     void handle_storesProcessedJournalEvent() {
-        ArgumentCaptor<JournalEvent> captor = ArgumentCaptor.forClass(JournalEvent.class);
         JournalChangedEvent event = event(UUID.randomUUID());
+        JournalEvent pending = JournalEvent.pending(event);
         when(journalEventRepository.existsByEventId(event.eventId())).thenReturn(false);
+        when(journalEventPersistenceService.savePending(event)).thenReturn(pending);
 
         handler.handle(event);
 
-        verify(journalEventRepository).save(captor.capture());
-        JournalEvent saved = captor.getValue();
-        assertThat(saved.getEventId()).isEqualTo(event.eventId());
-        assertThat(saved.getEventType()).isEqualTo(JournalEventType.JOURNAL_CREATED);
-        assertThat(saved.getStatus()).isEqualTo(JournalEventStatus.PROCESSED);
-        assertThat(saved.getProcessedAt()).isEqualTo(LocalDateTime.of(2026, 5, 28, 12, 0));
+        verify(journalEventPersistenceService).savePending(event);
+        verify(journalEventPersistenceService).markProcessed(pending, LocalDateTime.of(2026, 5, 28, 12, 0));
+        verify(journalEventPersistenceService, never()).markFailed(any(), any(), any());
     }
 
     @Test
@@ -60,27 +60,44 @@ class JournalEventHandlerTest {
 
         handler.handle(event);
 
-        verify(journalEventRepository, never()).save(any());
+        verify(journalEventPersistenceService, never()).savePending(any());
+        verify(journalEventPersistenceService, never()).markProcessed(any(), any());
     }
 
     @Test
-    @DisplayName("handler failure leaves failed state on event candidate")
-    void handle_saveFailure_marksFailedCandidate() {
-        ArgumentCaptor<JournalEvent> captor = ArgumentCaptor.forClass(JournalEvent.class);
+    @DisplayName("processing failure stores failed state for retry candidate")
+    void handle_processingFailure_marksFailedCandidate() {
         JournalChangedEvent event = event(UUID.randomUUID());
+        JournalEvent pending = JournalEvent.pending(event);
         when(journalEventRepository.existsByEventId(event.eventId())).thenReturn(false);
-        doThrow(new IllegalStateException("저장 실패")).when(journalEventRepository).save(any());
+        when(journalEventPersistenceService.savePending(event)).thenReturn(pending);
+        doThrow(new IllegalStateException("processing failed"))
+                .when(journalEventPersistenceService)
+                .markProcessed(eq(pending), any());
 
         assertThatThrownBy(() -> handler.handle(event))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("저장 실패");
+                .hasMessage("processing failed");
 
-        verify(journalEventRepository).save(captor.capture());
-        JournalEvent failed = captor.getValue();
-        assertThat(failed.getStatus()).isEqualTo(JournalEventStatus.FAILED);
-        assertThat(failed.getRetryCount()).isEqualTo(1);
-        assertThat(failed.getLastErrorMessage()).isEqualTo("저장 실패");
-        assertThat(failed.getFailedAt()).isEqualTo(LocalDateTime.of(2026, 5, 28, 12, 0));
+        verify(journalEventPersistenceService).markFailed(pending, "processing failed",
+                LocalDateTime.of(2026, 5, 28, 12, 0));
+    }
+
+    @Test
+    @DisplayName("unique violation for already stored eventId is treated as idempotent success")
+    void handle_duplicateEventIdDuringSaveIgnored() {
+        JournalChangedEvent event = event(UUID.randomUUID());
+        when(journalEventRepository.existsByEventId(event.eventId()))
+                .thenReturn(false)
+                .thenReturn(true);
+        when(journalEventPersistenceService.savePending(event))
+                .thenThrow(new DataIntegrityViolationException("duplicate eventId"));
+
+        handler.handle(event);
+
+        verify(journalEventPersistenceService).savePending(event);
+        verify(journalEventPersistenceService, never()).markProcessed(any(), any());
+        verify(journalEventPersistenceService, never()).markFailed(any(), any(), any());
     }
 
     private static JournalChangedEvent event(UUID eventId) {
