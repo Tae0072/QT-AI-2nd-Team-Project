@@ -337,7 +337,18 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         NoteVisibility normalizedVisibility = visibility == null ? NoteVisibility.PRIVATE : visibility;
         String normalizedTitle = trimToNull(title);
         String normalizedBody = trimToNull(body);
-        if (normalizedTitle == null && normalizedBody == null) {
+        String normalizedRememberSection = trimToNull(rememberSection);
+        String normalizedInterpretSection = trimToNull(interpretSection);
+        String normalizedApplySection = trimToNull(applySection);
+        String normalizedPraySection = trimToNull(praySection);
+        boolean hasSectionContent = normalizedRememberSection != null
+                || normalizedInterpretSection != null
+                || normalizedApplySection != null
+                || normalizedPraySection != null;
+        boolean hasRequiredContent = normalizedTitle != null
+                || normalizedBody != null
+                || (category == NoteCategory.MEDITATION && hasSectionContent);
+        if (!hasRequiredContent) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
 
@@ -346,10 +357,10 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 qtPassageId,
                 normalizedTitle == null ? "" : normalizedTitle,
                 normalizedBody == null ? "" : normalizedBody,
-                trimToNull(rememberSection),
-                trimToNull(interpretSection),
-                trimToNull(applySection),
-                trimToNull(praySection),
+                normalizedRememberSection,
+                normalizedInterpretSection,
+                normalizedApplySection,
+                normalizedPraySection,
                 normalizeVerseIds(verseIds),
                 normalizedStatus,
                 normalizedVisibility
