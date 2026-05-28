@@ -95,43 +95,9 @@ class QtServiceCacheTest {
         }
     }
 
-    /** 더미 QtPassage 생성 헬퍼. */
+    /** QtPassageFixture 위임. */
     private static QtPassage createPassage(Long id, LocalDate date, String title) {
-        try {
-            QtPassage passage = QtPassage.class.getDeclaredConstructor().newInstance();
-
-            var idField = passage.getClass().getSuperclass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(passage, id);
-
-            var qtDateField = passage.getClass().getDeclaredField("qtDate");
-            qtDateField.setAccessible(true);
-            qtDateField.set(passage, date);
-
-            var titleField = passage.getClass().getDeclaredField("title");
-            titleField.setAccessible(true);
-            titleField.set(passage, title);
-
-            var bookIdField = passage.getClass().getDeclaredField("bookId");
-            bookIdField.setAccessible(true);
-            bookIdField.set(passage, (short) 1);
-
-            var chapterField = passage.getClass().getDeclaredField("chapter");
-            chapterField.setAccessible(true);
-            chapterField.set(passage, (short) 1);
-
-            var startVerseField = passage.getClass().getDeclaredField("startVerse");
-            startVerseField.setAccessible(true);
-            startVerseField.set(passage, (short) 1);
-
-            var endVerseField = passage.getClass().getDeclaredField("endVerse");
-            endVerseField.setAccessible(true);
-            endVerseField.set(passage, (short) 5);
-
-            return passage;
-        } catch (Exception e) {
-            throw new RuntimeException("테스트 QtPassage 생성 실패", e);
-        }
+        return QtPassageFixture.createPassage(id, date, title);
     }
 
     @Test

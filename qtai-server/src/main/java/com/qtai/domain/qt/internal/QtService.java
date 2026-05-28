@@ -67,6 +67,9 @@ public class QtService implements GetTodayQtUseCase {
      *
      * @param memberId 인증된 사용자 ID (DRAFT 노트 조회용, 노트 도메인 연동 후 활용 예정)
      */
+    // WARN: 캐시 키에 memberId가 없음. 현재 draftNoteId=null이라 무해하지만,
+    // 노트 도메인 연동 시 사용자별 데이터(draftNoteId 등)를 캐시 밖에서 enrich하거나
+    // 캐시 구조를 재설계해야 함. → 후속 PR에서 반드시 처리 필요.
     @Override
     @Cacheable(cacheNames = "todayQt",
             key = "T(java.time.LocalDate).now(T(java.time.ZoneId).of('Asia/Seoul')).toString()",
