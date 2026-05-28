@@ -40,6 +40,7 @@ public enum ErrorCode {
     AI_ASSET_NOT_FOUND("A0002", "AI 산출물을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     CHECKLIST_NOT_FOUND("A0003", "AI 검증 체크리스트 버전을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     DUPLICATE_CHECKLIST_VERSION("A0004", "이미 존재하는 AI 검증 체크리스트 버전입니다.", HttpStatus.CONFLICT),
+    VALIDATION_REFERENCE_JOB_NOT_FOUND("A0005", "AI 검증 참조 작업을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
     // 성경
     BIBLE_BOOK_NOT_FOUND("B0001", "성경 책을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

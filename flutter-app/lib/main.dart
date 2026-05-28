@@ -36,7 +36,7 @@ class QTAIApp extends ConsumerWidget {
         useMaterial3: true,
         fontFamily: 'Pretendard',
       ),
-      initialRoute: onboardingComplete ? AppRouter.home : AppRouter.onboarding,
+      initialRoute: onboardingComplete ? AppRouter.login : AppRouter.onboarding,
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }

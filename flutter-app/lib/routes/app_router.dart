@@ -21,9 +21,13 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (context) => Consumer(
             builder: (context, ref, _) => OnboardingScreen(
-              onComplete: () {
-                ref.read(onboardingCompleteProvider.notifier).complete();
-                Navigator.of(context).pushReplacementNamed(login);
+              onComplete: () async {
+                await ref
+                    .read(onboardingCompleteProvider.notifier)
+                    .complete();
+                if (context.mounted) {
+                  Navigator.of(context).pushReplacementNamed(login);
+                }
               },
             ),
           ),

@@ -16,12 +16,15 @@ import com.qtai.domain.ai.api.dto.AdminAiValidationLogItem;
 import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistListResponse;
 import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistResponse;
 import com.qtai.domain.ai.api.dto.ChangeAdminAiValidationChecklistStatusCommand;
+import com.qtai.domain.ai.api.dto.CreateValidationReferenceJobCommand;
 import com.qtai.domain.ai.api.dto.CreateAiGenerationJobCommand;
 import com.qtai.domain.ai.api.dto.CreateAiGenerationJobResult;
 import com.qtai.domain.ai.api.dto.CreateAdminAiValidationChecklistCommand;
+import com.qtai.domain.ai.api.dto.ExpireValidationReferenceJobCommand;
 import com.qtai.domain.ai.api.dto.GetAdminAiAssetQuery;
 import com.qtai.domain.ai.api.dto.GetAiQaResultCommand;
 import com.qtai.domain.ai.api.dto.GetAiQaResultResult;
+import com.qtai.domain.ai.api.dto.GetValidationReferenceJobQuery;
 import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
 import com.qtai.domain.ai.api.dto.ListAdminAiValidationChecklistsQuery;
 import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetCommand;
@@ -34,6 +37,7 @@ import com.qtai.domain.ai.api.dto.RequestAiQaCommand;
 import com.qtai.domain.ai.api.dto.RequestAiQaResult;
 import com.qtai.domain.ai.api.dto.ReviewAiAssetCommand;
 import com.qtai.domain.ai.api.dto.ReviewAiAssetResult;
+import com.qtai.domain.ai.api.dto.ValidationReferenceJobResponse;
 
 class AiUseCaseContractTest {
 
@@ -50,7 +54,10 @@ class AiUseCaseContractTest {
             ListAdminAiValidationChecklistsUseCase.class,
             CreateAdminAiValidationChecklistUseCase.class,
             ActivateAdminAiValidationChecklistUseCase.class,
-            RetireAdminAiValidationChecklistUseCase.class
+            RetireAdminAiValidationChecklistUseCase.class,
+            CreateValidationReferenceJobUseCase.class,
+            GetValidationReferenceJobUseCase.class,
+            ExpireValidationReferenceJobUseCase.class
     );
 
     private static final List<Class<?>> USE_CASE_DTOS = List.of(
@@ -78,7 +85,11 @@ class AiUseCaseContractTest {
             CreateAdminAiValidationChecklistCommand.class,
             ChangeAdminAiValidationChecklistStatusCommand.class,
             AdminAiValidationChecklistResponse.class,
-            AdminAiValidationChecklistListResponse.class
+            AdminAiValidationChecklistListResponse.class,
+            CreateValidationReferenceJobCommand.class,
+            GetValidationReferenceJobQuery.class,
+            ExpireValidationReferenceJobCommand.class,
+            ValidationReferenceJobResponse.class
     );
 
     @Test
@@ -126,6 +137,14 @@ class AiUseCaseContractTest {
                                 "referenceText",
                                 "promptRaw"
                         ));
+    }
+
+    @Test
+    void validationReferenceJobResponseDoesNotExposeRestrictedLocationOrHash() {
+        assertThat(List.of(ValidationReferenceJobResponse.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("id", "sourceName", "sourceFileName", "status", "expiresAt", "deletedAt", "createdAt", "updatedAt")
+                .doesNotContain("sourceFileHash", "storageUri", "indexStorageUri");
     }
 
     @Test
