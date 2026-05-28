@@ -175,6 +175,10 @@ class NoteServiceTest {
         NoteCreateResponse response = noteService.create(10L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
+        assertThat(response.id()).isEqualTo(99L);
+        assertThat(response.category()).isEqualTo(NoteCategory.MEDITATION);
+        assertThat(response.visibility()).isEqualTo(NoteVisibility.PRIVATE);
+        assertThat(response.sharedPostId()).isNull();
         verify(noteRepository).saveAndFlush(noteCaptor.capture());
         assertThat(noteCaptor.getValue().getActiveUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
         assertThat(noteCaptor.getValue().getSavedAt()).isNotNull();
@@ -495,6 +499,11 @@ class NoteServiceTest {
         NoteUpdateResponse response = noteService.update(10L, 1L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.category()).isEqualTo(NoteCategory.MEDITATION);
+        assertThat(response.visibility()).isEqualTo(NoteVisibility.PRIVATE);
+        assertThat(response.activeUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
+        assertThat(response.sharingSnapshotUpdated()).isFalse();
         assertThat(note.getActiveUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
         assertThat(note.getQtPassageId()).isEqualTo(100L);
         verify(noteQtClient).validateReadable(10L, 100L);

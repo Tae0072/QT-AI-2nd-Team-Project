@@ -43,11 +43,12 @@ merge 충돌 해소를 위해 dev 코드를 리딩하고 내 코드와 비교.
 
 ### 4. 개선 PR — 에러코드 카테고리별 분리
 
-dev 코드 기반으로 `INVALID_INPUT`을 5개 구체적 에러코드로 분리.
+dev 코드 기반으로 `INVALID_INPUT`을 구체적 에러코드로 분리.
+
+> **정정(2026-05-28)**: 최초에 NOTE_BODY_REQUIRED(N0003)를 만들었으나 사용처가 없어 삭제했다. 최종 반영은 **4개(N0004~N0007)**이며 N0003은 결번이다. 본문 누락 케이스는 NOTE_CONTENT_REQUIRED(N0005)가 커버한다.
 
 | 에러코드 | 메시지 | 상황 |
 |---|---|---|
-| NOTE_BODY_REQUIRED (N0003) | 노트 본문을 입력해 주세요 | PRAYER/REPENTANCE/GRATITUDE body 누락 |
 | NOTE_QT_PASSAGE_REQUIRED (N0004) | 묵상 노트에는 QT 본문 ID가 필요합니다 | MEDITATION qtPassageId 누락 |
 | NOTE_CONTENT_REQUIRED (N0005) | 제목 또는 본문 중 하나를 입력해 주세요 | 전체 내용 누락 |
 | NOTE_QT_PASSAGE_FORBIDDEN (N0006) | 자유 노트에는 QT 본문 ID를 지정할 수 없습니다 | 자유 노트에 qtPassageId 전달 |
