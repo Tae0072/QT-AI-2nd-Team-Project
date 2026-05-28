@@ -8,6 +8,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -45,6 +46,7 @@ public class AdminAiValidationChecklistService implements
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
+    @Autowired
     public AdminAiValidationChecklistService(
             AiValidationChecklistVersionRepository repository,
             WriteAuditLogUseCase auditLogUseCase,
