@@ -163,6 +163,7 @@ class QtServiceTest {
             // then
             assertThat(response.qtPassageId()).isNull();
             assertThat(response.cacheStatus()).isEqualTo("EMPTY");
+            assertThat(response.simulatorStatus()).isEqualTo("DISABLED"); // 데이터 없음 → DISABLED
         }
 
         @Test
@@ -182,6 +183,7 @@ class QtServiceTest {
             // then
             assertThat(response.qtPassageId()).isNull();
             assertThat(response.cacheStatus()).isEqualTo("MISS");
+            assertThat(response.simulatorStatus()).isEqualTo("DISABLED"); // 데이터 없음 → DISABLED
         }
 
         @Test
@@ -205,9 +207,9 @@ class QtServiceTest {
         }
 
         @Test
-        @DisplayName("memberId가 null이어도 정상 동작")
-        void memberId_null_허용() {
-            // given: memberId null (비인증 상태이지만 API 접근 가능한 경우)
+        @DisplayName("principal 미해석 시에도 방어적으로 정상 동작")
+        void principal_미해석_시_방어적_처리() {
+            // given: memberId null (@AuthenticationPrincipal 해석 실패 시 방어적 처리)
             Clock clock = fixedClockKst(2026, 5, 28, 14, 0);
             qtPassageRepository = Mockito.mock(QtPassageRepository.class);
             qtService = new QtService(qtPassageRepository, clock);

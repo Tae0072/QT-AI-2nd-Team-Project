@@ -68,7 +68,9 @@ public class QtService implements GetTodayQtUseCase {
      * @param memberId 인증된 사용자 ID (DRAFT 노트 조회용, 노트 도메인 연동 후 활용 예정)
      */
     @Override
-    @Cacheable(cacheNames = "todayQt", key = "'today'")
+    @Cacheable(cacheNames = "todayQt",
+            key = "T(java.time.LocalDate).now(T(java.time.ZoneId).of('Asia/Seoul')).toString()",
+            unless = "!#result.cacheStatus().equals('HIT')")
     public TodayQtResponse getToday(Long memberId) {
         ZonedDateTime nowKst = ZonedDateTime.now(clock).withZoneSameInstant(KST);
         LocalDate today = nowKst.toLocalDate();
@@ -134,7 +136,7 @@ public class QtService implements GetTodayQtUseCase {
 
     /** 데이터 없음 응답 (지정 cacheStatus). */
     private TodayQtResponse emptyResponse(String cacheStatus) {
-        return new TodayQtResponse(null, null, null, null, false, null, cacheStatus);
+        return new TodayQtResponse(null, null, null, "DISABLED", false, null, cacheStatus);
     }
 
     // ------------------------------------------------------------------
