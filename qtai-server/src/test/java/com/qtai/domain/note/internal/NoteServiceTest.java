@@ -242,6 +242,19 @@ class NoteServiceTest {
     }
 
     @Test
+    @DisplayName("자유 노트는 제목과 본문이 모두 비어 있으면 거부한다")
+    void create_freeNoteWithoutTitleAndBody_rejected() {
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.PRAYER, null, " ", " ", null, null, null, null,
+                List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.create(10L, command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.NOTE_CONTENT_REQUIRED);
+    }
+
+    @Test
     @DisplayName("create sermon note stores unique verse ids in request order")
     void create_sermonNote_replacesVersesWithDeduplicatedOrder() {
         when(getBibleVerseUseCase.getVerses(List.of(3L, 2L)))

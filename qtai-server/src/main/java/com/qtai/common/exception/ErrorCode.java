@@ -51,6 +51,7 @@ public enum ErrorCode {
     // 노트
     NOTE_NOT_FOUND("N0001", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     DUPLICATE_NOTE("N0002", "이미 저장된 노트가 있습니다.", HttpStatus.CONFLICT),
+    // N0003: 결번 (NOTE_BODY_REQUIRED로 정의했으나 미사용으로 삭제. NOTE_CONTENT_REQUIRED(N0005)가 본문 누락 케이스를 커버)
     NOTE_QT_PASSAGE_REQUIRED("N0004", "묵상 노트에는 QT 본문 ID가 필요합니다.", HttpStatus.BAD_REQUEST),
     NOTE_CONTENT_REQUIRED("N0005", "제목 또는 본문 중 하나를 입력해 주세요.", HttpStatus.BAD_REQUEST),
     NOTE_QT_PASSAGE_FORBIDDEN("N0006", "자유 노트에는 QT 본문 ID를 지정할 수 없습니다.", HttpStatus.BAD_REQUEST),

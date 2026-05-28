@@ -163,7 +163,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NoteSaveApiResponse"
+                $ref: "#/components/schemas/NoteCreateApiResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -250,7 +250,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NoteSaveApiResponse"
+                $ref: "#/components/schemas/NoteUpdateApiResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1738,17 +1738,62 @@ components:
           $ref: "#/components/schemas/NoteStatus"
         visibility:
           $ref: "#/components/schemas/NoteVisibility"
-    NoteSaveResponse:
+    NoteCreateResponse:
       type: object
       required:
         - id
+        - category
         - status
+        - visibility
+        - createdAt
       properties:
         id:
           type: integer
           format: int64
+        category:
+          $ref: "#/components/schemas/NoteCategory"
         status:
           $ref: "#/components/schemas/NoteStatus"
+        visibility:
+          $ref: "#/components/schemas/NoteVisibility"
+        sharedPostId:
+          type: integer
+          format: int64
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    NoteUpdateResponse:
+      type: object
+      required:
+        - id
+        - category
+        - status
+        - visibility
+        - updatedAt
+        - sharingSnapshotUpdated
+      properties:
+        id:
+          type: integer
+          format: int64
+        category:
+          $ref: "#/components/schemas/NoteCategory"
+        status:
+          $ref: "#/components/schemas/NoteStatus"
+        visibility:
+          $ref: "#/components/schemas/NoteVisibility"
+        activeUniqueKey:
+          type: string
+          nullable: true
+        savedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+        sharingSnapshotUpdated:
+          type: boolean
     NoteVerseItem:
       type: object
       required:
@@ -1971,13 +2016,20 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/NoteDraftResponse"
-    NoteSaveApiResponse:
+    NoteCreateApiResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponse"
         - type: object
           properties:
             data:
-              $ref: "#/components/schemas/NoteSaveResponse"
+              $ref: "#/components/schemas/NoteCreateResponse"
+    NoteUpdateApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NoteUpdateResponse"
     NoteCategoryApiResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponse"
