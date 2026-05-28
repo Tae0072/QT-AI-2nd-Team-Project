@@ -5,7 +5,7 @@
 외부 문서 저장소 `Tae0072/2nd-Team-Project`의 `master` 최신 문서 기준으로 현재 프로젝트의 기준 문서를 동기화했다.
 외부 저장소는 기준 문서를 루트에 두고 있고, 현재 프로젝트는 대응 문서를 `doc/프로젝트 문서/` 아래에 두므로 파일명 기준으로 매핑했다.
 
-이번 작업은 문서 덮어쓰기 성격이므로 별도 workflow 문서는 만들지 않고 결과 보고서만 남겼다.
+이번 작업은 문서 동기화 성격이며, 대응 workflow는 `doc/workspaces/DevC_강상민/workflows/2026-05-27_project-docs-sync.md`에 남겼다.
 
 ## 기준 정보
 
@@ -13,7 +13,7 @@
 |------|----|
 | 원본 저장소 | `https://github.com/Tae0072/2nd-Team-Project.git` |
 | 원본 브랜치 | `master` |
-| 원본 커밋 | `980bb85d821ef232636a27476f4d2d649bda9522` |
+| 원본 커밋 | `7f6ac87f9fbd7e2d4109e752dbcf2daf98378ca` |
 | 작업 브랜치 | `docs/project-docs-sync` |
 | 대상 경로 | `doc/프로젝트 문서/` |
 
@@ -31,9 +31,17 @@
 | `doc/프로젝트 문서/23_도메인_용어사전.md` | 원본 문서로 덮어쓰기 |
 | `doc/프로젝트 문서/25_기능_명세서.md` | 원본 문서로 덮어쓰기 |
 
+## 재동기화 이력
+
+- 2026-05-28 외부 문서 저장소 `master`가 `980bb85`에서 `7f6ac87`로 갱신되어 재동기화했다.
+- `03_아키텍처_정의서.md`는 v1.3 기준으로 `api/internal/web/client` 패키지 구조, v1.1/v1.2 변경 이력, 도메인 간 통신 규칙, Client/Adapter 규칙이 복구된 상태를 반영했다.
+- `04_API_명세서.md`는 제목과 메타데이터 버전 정합성, 페이징/시뮬레이터 호환 정책 보정이 반영된 상태를 동기화했다.
+- 외부 최신본에 남아 있던 JWT 형태 placeholder 1곳은 팀 지침에 맞게 `<redacted>`로 로컬 보정했다.
+- `25_기능_명세서.md`는 기준 요구사항 버전 회귀가 보정된 상태를 반영했다.
+
 ## 검증
 
-- 외부 `master`의 동일 파일명 blob hash와 로컬 대상 파일 hash가 모두 일치함을 확인한 뒤, 팀 규칙에 맞게 Markdown trailing whitespace 3곳과 민감값 형태 예시 3곳만 보정했다.
+- 외부 `master`의 동일 파일명 blob hash와 로컬 대상 파일 hash가 모두 일치함을 확인한 뒤, 민감값 형태 예시 1곳만 로컬 보정했다.
 - `git diff --check`: 통과. Windows line ending 변환 경고만 출력됐다.
 - 민감값 형태 예시 패턴 검색: 매칭 없음.
 - `gitleaks detect --source . --redact --exit-code 1`: 로컬에 `gitleaks` 명령이 없어 실행하지 못했다.
