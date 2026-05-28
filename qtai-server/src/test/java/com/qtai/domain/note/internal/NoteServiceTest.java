@@ -12,7 +12,8 @@ import com.qtai.domain.note.api.dto.NoteCategoryResponse;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.note.api.dto.NoteListResponse;
-import com.qtai.domain.note.api.dto.NoteSaveResponse;
+import com.qtai.domain.note.api.dto.NoteCreateResponse;
+import com.qtai.domain.note.api.dto.NoteUpdateResponse;
 import com.qtai.domain.note.api.dto.UpdateNoteCommand;
 import com.qtai.domain.note.client.qt.NoteQtClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -152,7 +153,7 @@ class NoteServiceTest {
                 NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
                 List.of(), NoteStatus.DRAFT, null);
 
-        NoteSaveResponse response = noteService.create(10L, command);
+        NoteCreateResponse response = noteService.create(10L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.DRAFT);
         verify(noteQtClient).validateReadable(10L, 100L);
@@ -171,9 +172,13 @@ class NoteServiceTest {
                 NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
                 List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.create(10L, command);
+        NoteCreateResponse response = noteService.create(10L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
+        assertThat(response.id()).isEqualTo(99L);
+        assertThat(response.category()).isEqualTo(NoteCategory.MEDITATION);
+        assertThat(response.visibility()).isEqualTo(NoteVisibility.PRIVATE);
+        assertThat(response.sharedPostId()).isNull();
         verify(noteRepository).saveAndFlush(noteCaptor.capture());
         assertThat(noteCaptor.getValue().getActiveUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
         assertThat(noteCaptor.getValue().getSavedAt()).isNotNull();
@@ -187,7 +192,7 @@ class NoteServiceTest {
                 NoteCategory.MEDITATION, 100L, " ", " ", null, "해석", null, null,
                 List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.create(10L, command);
+        NoteCreateResponse response = noteService.create(10L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.DRAFT);
         verify(noteRepository).saveAndFlush(noteCaptor.capture());
@@ -237,7 +242,20 @@ class NoteServiceTest {
         assertThatThrownBy(() -> noteService.create(10L, command))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_INPUT);
+                .isEqualTo(ErrorCode.NOTE_VERSE_REQUIRED);
+    }
+
+    @Test
+    @DisplayName("자유 노트는 제목과 본문이 모두 비어 있으면 거부한다")
+    void create_freeNoteWithoutTitleAndBody_rejected() {
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.PRAYER, null, " ", " ", null, null, null, null,
+                List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.create(10L, command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.NOTE_CONTENT_REQUIRED);
     }
 
     @Test
@@ -258,7 +276,7 @@ class NoteServiceTest {
                 NoteCategory.SERMON, null, "설교", "본문", null, null, null, null,
                 List.of(3L, 3L, 2L), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.create(10L, command);
+        NoteCreateResponse response = noteService.create(10L, command);
 
         assertThat(response.id()).isEqualTo(99L);
         verify(noteVerseRepository).deleteByNoteId(99L);
@@ -394,7 +412,7 @@ class NoteServiceTest {
         assertThatThrownBy(() -> noteService.create(10L, command))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_INPUT);
+                .isEqualTo(ErrorCode.NOTE_QT_PASSAGE_REQUIRED);
         verify(noteQtClient, never()).validateReadable(any(), any());
     }
 
@@ -408,7 +426,7 @@ class NoteServiceTest {
         assertThatThrownBy(() -> noteService.create(10L, command))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_INPUT);
+                .isEqualTo(ErrorCode.NOTE_QT_PASSAGE_FORBIDDEN);
     }
 
     @Test
@@ -427,7 +445,7 @@ class NoteServiceTest {
                 "기억", "해석", "적용", "기도",
                 List.of(3L, 3L, 2L), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.update(10L, 1L, command);
+        NoteUpdateResponse response = noteService.update(10L, 1L, command);
 
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
@@ -459,7 +477,7 @@ class NoteServiceTest {
                 NoteCategory.PRAYER, null, "기도", "본문", null, null, null, null,
                 List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.update(10L, 1L, command);
+        NoteUpdateResponse response = noteService.update(10L, 1L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.DRAFT);
         assertThat(note.getStatus()).isEqualTo(NoteStatus.DRAFT);
@@ -478,9 +496,14 @@ class NoteServiceTest {
                 NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
                 List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.update(10L, 1L, command);
+        NoteUpdateResponse response = noteService.update(10L, 1L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.category()).isEqualTo(NoteCategory.MEDITATION);
+        assertThat(response.visibility()).isEqualTo(NoteVisibility.PRIVATE);
+        assertThat(response.activeUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
+        assertThat(response.sharingSnapshotUpdated()).isFalse();
         assertThat(note.getActiveUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
         assertThat(note.getQtPassageId()).isEqualTo(100L);
         verify(noteQtClient).validateReadable(10L, 100L);
