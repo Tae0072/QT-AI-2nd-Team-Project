@@ -10,4 +10,10 @@ public interface SimulatorClipRepository extends JpaRepository<SimulatorClip, Lo
             Long qtPassageId,
             SimulatorClipStatus status
     );
+
+    Optional<SimulatorClip> findByIdAndQtPassageIdAndStatus(
+            Long id,
+            Long qtPassageId,
+            SimulatorClipStatus status
+    );
 }

@@ -39,8 +39,29 @@ public class QtSimulatorService implements GetQtSimulatorUseCase {
                 .orElseGet(() -> QtSimulatorResponse.missing(qtPassageId));
     }
 
+    @Override
+    public QtSimulatorResponse getSimulatorClip(Long qtPassageId, Long clipId) {
+        validateQtPassageId(qtPassageId);
+        validateClipId(clipId);
+        QtPassageContentContext context = getQtPassageContentContextUseCase.getContentContext(qtPassageId);
+        if (!context.published()) {
+            throw new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND);
+        }
+
+        return simulatorClipRepository
+                .findByIdAndQtPassageIdAndStatus(clipId, qtPassageId, SimulatorClipStatus.APPROVED)
+                .map(this::toReadyResponse)
+                .orElseGet(() -> QtSimulatorResponse.missing(qtPassageId));
+    }
+
     private static void validateQtPassageId(Long qtPassageId) {
         if (qtPassageId == null || qtPassageId < 1) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+    }
+
+    private static void validateClipId(Long clipId) {
+        if (clipId == null || clipId < 1) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
     }

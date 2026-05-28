@@ -123,6 +123,38 @@ class QtStudyContentControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/qt/{id}/simulator-clips/{clipId} — 스펙 경로 READY 응답")
+    void getSimulatorClip_ready_200() throws Exception {
+        when(getQtSimulatorUseCase.getSimulatorClip(10L, 55L)).thenReturn(new QtSimulatorResponse(
+                "READY",
+                55L,
+                10L,
+                "safe clip",
+                "2026.05.1",
+                objectMapper.readTree("{\"scenes\":[]}"),
+                "APPROVED"
+        ));
+
+        mockMvc.perform(get("/api/v1/qt/10/simulator-clips/55"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("READY"))
+                .andExpect(jsonPath("$.data.clipId").value(55))
+                .andExpect(jsonPath("$.data.sceneScriptJson.scenes").isArray());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/qt/{id}/simulator-clips/{clipId} — 비 READY 응답은 sceneScriptJson을 반환하지 않는다")
+    void getSimulatorClip_missing_200() throws Exception {
+        when(getQtSimulatorUseCase.getSimulatorClip(10L, 55L)).thenReturn(QtSimulatorResponse.missing(10L));
+
+        mockMvc.perform(get("/api/v1/qt/10/simulator-clips/55"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("MISSING"))
+                .andExpect(jsonPath("$.data.sceneScriptJson").doesNotExist());
+    }
+
+    @Test
     @DisplayName("qtPassageId가 1보다 작으면 400 INVALID_INPUT")
     void getStudyContent_invalidId_400() throws Exception {
         when(getQtStudyContentUseCase.getStudyContent(eq(0L)))

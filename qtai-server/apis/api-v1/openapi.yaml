@@ -136,7 +136,7 @@ paths:
       summary: QT 시뮬레이터 조회
       description: >
         인증된 사용자가 QT 본문에 연결된 승인 시뮬레이터 클립을 조회한다.
-        기준 API 문서 v1.7의 /simulator-clips/{clipId}와의 공개 경로 정합화는 Lead 검토 대상이다.
+        승인 클립이 있으면 READY와 clip payload를 반환하고, 없으면 검증 전 payload 없이 MISSING을 반환한다.
       security:
         - bearerAuth: []
       parameters:
@@ -150,6 +150,48 @@ paths:
       responses:
         "200":
           description: QT 시뮬레이터 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QtSimulatorApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/qt/{qtPassageId}/simulator-clips/{clipId}:
+    get:
+      tags:
+        - QT Study
+      operationId: getQtSimulatorClip
+      summary: QT 시뮬레이터 클립 조회
+      description: >
+        04_API_명세서.md v1.7 기준 경로. 인증된 사용자가 QT 본문에 연결된 특정 승인 시뮬레이터 클립을 조회한다.
+        clipId가 APPROVED 상태의 해당 QT 본문 클립이면 READY와 clip payload를 반환하고,
+        승인 클립이 아니면 검증 전 payload 없이 MISSING을 반환한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qtPassageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: clipId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: QT 시뮬레이터 클립 조회 성공
           content:
             application/json:
               schema:

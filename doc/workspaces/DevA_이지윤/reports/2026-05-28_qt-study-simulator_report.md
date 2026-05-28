@@ -8,10 +8,10 @@
 
 - `GET /api/v1/qt/{qtPassageId}/study-content`를 Study 도메인 컨트롤러와 UseCase로 구현했다.
 - `GET /api/v1/qt/{qtPassageId}/simulator`를 Study 도메인 컨트롤러와 UseCase로 구현했다.
+- `GET /api/v1/qt/{qtPassageId}/simulator-clips/{clipId}`를 04_API_명세서.md v1.7 기준 경로로 추가 구현했다.
 - Study 도메인은 QT 본문 존재 여부와 verse id 목록을 `domain.qt.api.GetQtPassageContentContextUseCase`로만 조회한다.
 - 승인된 `verse_explanations`, `glossary_terms`, `simulator_clips`만 사용자 응답으로 조립한다.
 - 승인 시뮬레이터 클립이 없으면 검증 전 payload 없이 `MISSING`을 반환한다.
-- `/simulator`와 기준 API 문서의 `/simulator-clips/{clipId}` 경로 정합화는 OpenAPI description과 후속 작업에 Lead 검토 대상으로 남겼다.
 
 ## 변경 범위
 
@@ -39,6 +39,5 @@
 
 ## 후속 작업
 
-- Lead가 `/api/v1/qt/{qtPassageId}/simulator`와 `/api/v1/qt/{qtPassageId}/simulator-clips/{clipId}` 중 공개 계약을 확정해야 한다.
 - QT 본문 게시/노출 상태 컬럼이 생기면 `QtPassageContentContext.published`를 실제 저장값과 연결해야 한다.
 - Jacoco와 Spectral ruleset을 저장소 기준 검증 명령에 맞게 구성할지 결정해야 한다.

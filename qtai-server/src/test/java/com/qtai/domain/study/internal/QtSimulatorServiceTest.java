@@ -71,6 +71,52 @@ class QtSimulatorServiceTest {
     }
 
     @Test
+    @DisplayName("스펙 경로 clipId 조회도 APPROVED 클립만 READY로 노출한다")
+    void getSimulatorClip_whenApprovedClipExists_returnsReady() {
+        when(getQtPassageContentContextUseCase.getContentContext(10L)).thenReturn(context(true));
+        when(simulatorClipRepository.findByIdAndQtPassageIdAndStatus(
+                50L,
+                10L,
+                SimulatorClipStatus.APPROVED
+        )).thenReturn(Optional.of(simulatorClip(
+                50L,
+                10L,
+                SimulatorClipStatus.APPROVED,
+                "{\"scenes\":[]}"
+        )));
+
+        QtSimulatorResponse response = service.getSimulatorClip(10L, 50L);
+
+        assertThat(response.status()).isEqualTo("READY");
+        assertThat(response.clipId()).isEqualTo(50L);
+        assertThat(response.sceneScriptJson().get("scenes").isArray()).isTrue();
+    }
+
+    @Test
+    @DisplayName("스펙 경로에서 PENDING/HIDDEN/REJECTED 클립은 payload 없이 MISSING으로 반환한다")
+    void getSimulatorClip_whenNotApproved_returnsMissing() {
+        when(getQtPassageContentContextUseCase.getContentContext(10L)).thenReturn(context(true));
+        when(simulatorClipRepository.findByIdAndQtPassageIdAndStatus(
+                50L,
+                10L,
+                SimulatorClipStatus.APPROVED
+        )).thenReturn(Optional.empty());
+
+        QtSimulatorResponse response = service.getSimulatorClip(10L, 50L);
+
+        assertThat(response.status()).isEqualTo("MISSING");
+        assertThat(response.sceneScriptJson()).isNull();
+    }
+
+    @Test
+    @DisplayName("스펙 경로에서 clipId가 1보다 작으면 INVALID_INPUT")
+    void getSimulatorClip_whenInvalidClipId_throwsInvalidInput() {
+        assertThatThrownBy(() -> service.getSimulatorClip(10L, 0L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+    }
+
+    @Test
     @DisplayName("승인 클립 JSON이 잘못되면 payload 없이 FAILED로 반환한다")
     void getSimulator_whenApprovedClipJsonInvalid_returnsFailed() {
         when(getQtPassageContentContextUseCase.getContentContext(10L)).thenReturn(context(true));

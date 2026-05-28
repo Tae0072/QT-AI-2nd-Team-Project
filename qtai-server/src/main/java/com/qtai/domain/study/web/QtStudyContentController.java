@@ -39,6 +39,15 @@ public class QtStudyContentController {
         return ResponseEntity.ok(ApiResponse.success(getQtSimulatorUseCase.getSimulator(qtPassageId)));
     }
 
+    @GetMapping("/{qtPassageId}/simulator-clips/{clipId}")
+    public ResponseEntity<ApiResponse<QtSimulatorResponse>> getSimulatorClip(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long qtPassageId,
+            @PathVariable Long clipId) {
+        requireAuthenticated(memberId);
+        return ResponseEntity.ok(ApiResponse.success(getQtSimulatorUseCase.getSimulatorClip(qtPassageId, clipId)));
+    }
+
     private static void requireAuthenticated(Long memberId) {
         if (memberId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
