@@ -23,6 +23,7 @@ class AiGenerationJobRunner {
 
     private final AiGenerationJobRepository generationJobRepository;
     private final AiGeneratedAssetRepository generatedAssetRepository;
+    private final AiAutoValidationService aiAutoValidationService;
     private final Map<AiGenerationJobType, AiGenerationJobHandler> handlers;
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
@@ -30,12 +31,14 @@ class AiGenerationJobRunner {
     AiGenerationJobRunner(
             AiGenerationJobRepository generationJobRepository,
             AiGeneratedAssetRepository generatedAssetRepository,
+            AiAutoValidationService aiAutoValidationService,
             List<AiGenerationJobHandler> handlers,
             PlatformTransactionManager transactionManager
     ) {
         this(
                 generationJobRepository,
                 generatedAssetRepository,
+                aiAutoValidationService,
                 handlers,
                 Clock.system(KST_ZONE),
                 new TransactionTemplate(transactionManager)
@@ -45,12 +48,14 @@ class AiGenerationJobRunner {
     AiGenerationJobRunner(
             AiGenerationJobRepository generationJobRepository,
             AiGeneratedAssetRepository generatedAssetRepository,
+            AiAutoValidationService aiAutoValidationService,
             List<AiGenerationJobHandler> handlers,
             Clock clock,
             TransactionTemplate transactionTemplate
     ) {
         this.generationJobRepository = generationJobRepository;
         this.generatedAssetRepository = generatedAssetRepository;
+        this.aiAutoValidationService = aiAutoValidationService;
         this.handlers = registerHandlers(handlers);
         this.clock = clock;
         this.transactionTemplate = transactionTemplate;
@@ -102,7 +107,8 @@ class AiGenerationJobRunner {
 
     private void completeSucceeded(Long jobId, AiGeneratedAsset asset) {
         transactionTemplate.executeWithoutResult(status -> {
-            generatedAssetRepository.save(asset);
+            AiGeneratedAsset savedAsset = generatedAssetRepository.save(asset);
+            validateAutomatically(savedAsset);
             findGenerationJob(jobId).markSucceeded(now());
         });
     }
@@ -116,6 +122,12 @@ class AiGenerationJobRunner {
     private AiGenerationJob findGenerationJob(Long jobId) {
         return generationJobRepository.findById(jobId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AI_GENERATION_JOB_NOT_FOUND));
+    }
+
+    private void validateAutomatically(AiGeneratedAsset asset) {
+        if (asset.getAssetType() == AiGeneratedAssetType.EXPLANATION) {
+            aiAutoValidationService.validateExplanationAsset(asset.getId(), now());
+        }
     }
 
     private AiGenerationJobHandler handler(AiGenerationJobType jobType) {
