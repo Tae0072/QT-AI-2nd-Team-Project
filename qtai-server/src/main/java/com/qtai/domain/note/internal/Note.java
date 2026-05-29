@@ -95,7 +95,6 @@ public class Note extends BaseEntity {
         this.interpretSection = interpretSection;
         this.applySection = applySection;
         this.praySection = praySection;
-        this.activeUniqueKey = (category == NoteCategory.MEDITATION) ? ACTIVE_KEY : null;
         transitionTo(status, now);
     }
 
@@ -123,7 +122,6 @@ public class Note extends BaseEntity {
         this.interpretSection = interpretSection;
         this.applySection = applySection;
         this.praySection = praySection;
-        this.activeUniqueKey = (category == NoteCategory.MEDITATION) ? ACTIVE_KEY : null;
         transitionTo(status, now);
     }
 
@@ -145,5 +143,12 @@ public class Note extends BaseEntity {
         } else if (nextStatus == NoteStatus.DRAFT) {
             this.savedAt = null;
         }
+        refreshActiveUniqueKey();
+    }
+
+    private void refreshActiveUniqueKey() {
+        this.activeUniqueKey = (category == NoteCategory.MEDITATION && status != NoteStatus.DELETED)
+                ? ACTIVE_KEY
+                : null;
     }
 }

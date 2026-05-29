@@ -7,6 +7,8 @@ import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.note.api.CreateNoteUseCase;
 import com.qtai.domain.note.api.DeleteNoteUseCase;
 import com.qtai.domain.note.api.GetNoteUseCase;
+import com.qtai.domain.note.api.JournalChangedEvent;
+import com.qtai.domain.note.api.JournalEventType;
 import com.qtai.domain.note.api.ListNoteCategoriesUseCase;
 import com.qtai.domain.note.api.ListNotesUseCase;
 import com.qtai.domain.note.api.NoteCategory;
@@ -20,11 +22,13 @@ import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.note.api.dto.NoteListItem;
 import com.qtai.domain.note.api.dto.NoteListResponse;
-import com.qtai.domain.note.api.dto.NoteSaveResponse;
+import com.qtai.domain.note.api.dto.NoteCreateResponse;
+import com.qtai.domain.note.api.dto.NoteUpdateResponse;
 import com.qtai.domain.note.api.dto.NoteVerseItem;
 import com.qtai.domain.note.api.dto.UpdateNoteCommand;
 import com.qtai.domain.note.client.qt.NoteQtClient;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,11 +36,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +57,8 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     private final NoteVerseRepository noteVerseRepository;
     private final GetBibleVerseUseCase getBibleVerseUseCase;
     private final NoteQtClient noteQtClient;
+    private final ApplicationEventPublisher eventPublisher;
+    private final Clock clock;
 
     @Override
     public NoteListResponse list(Long memberId, NoteCategory category, NoteStatus status, String q, Pageable pageable) {
@@ -90,7 +99,7 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
 
     @Override
     @Transactional
-    public NoteSaveResponse create(Long memberId, CreateNoteCommand command) {
+    public NoteCreateResponse create(Long memberId, CreateNoteCommand command) {
         NormalizedNoteInput input = normalize(command);
         validateForSave(memberId, null, input);
 
@@ -106,17 +115,27 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 input.interpretSection(),
                 input.applySection(),
                 input.praySection(),
-                LocalDateTime.now()
+                LocalDateTime.now(clock)
         );
 
         Note saved = saveNoteForCreate(note);
         replaceNoteVerses(saved.getId(), input.verseIds());
-        return new NoteSaveResponse(saved.getId(), saved.getStatus());
+        if (saved.getCategory() == NoteCategory.MEDITATION) {
+            publishJournalEvent(saved, JournalEventType.JOURNAL_CREATED, null);
+        }
+        return new NoteCreateResponse(
+                saved.getId(),
+                saved.getCategory(),
+                saved.getStatus(),
+                saved.getVisibility(),
+                null,
+                saved.getCreatedAt()
+        );
     }
 
     @Override
     @Transactional
-    public NoteSaveResponse update(Long memberId, Long noteId, UpdateNoteCommand command) {
+    public NoteUpdateResponse update(Long memberId, Long noteId, UpdateNoteCommand command) {
         Note note = noteRepository.findById(noteId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTE_NOT_FOUND));
         if (!memberId.equals(note.getMemberId())) {
@@ -125,6 +144,7 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         if (note.isDeleted()) {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
+        NoteSnapshot before = NoteSnapshot.from(note);
 
         NormalizedNoteInput input = normalize(command);
         validateForSave(memberId, noteId, input);
@@ -139,10 +159,22 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 input.interpretSection(),
                 input.applySection(),
                 input.praySection(),
-                LocalDateTime.now()
+                LocalDateTime.now(clock)
         );
         replaceNoteVerses(note.getId(), input.verseIds());
-        return new NoteSaveResponse(note.getId(), note.getStatus());
+        if (shouldPublishJournalUpdate(before, note)) {
+            publishJournalEvent(note, JournalEventType.JOURNAL_UPDATED, before.status());
+        }
+        return new NoteUpdateResponse(
+                note.getId(),
+                note.getCategory(),
+                note.getStatus(),
+                note.getVisibility(),
+                note.getActiveUniqueKey(),
+                note.getSavedAt(),
+                note.getUpdatedAt(),
+                false
+        );
     }
 
     @Override
@@ -156,7 +188,12 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         if (note.isDeleted()) {
             return;
         }
-        note.delete(LocalDateTime.now());
+        NoteStatus previousStatus = note.getStatus();
+        boolean meditationNote = note.getCategory() == NoteCategory.MEDITATION;
+        note.delete(LocalDateTime.now(clock));
+        if (meditationNote) {
+            publishJournalEvent(note, JournalEventType.JOURNAL_DELETED, previousStatus);
+        }
     }
 
     @Override
@@ -173,7 +210,7 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     private void validateForSave(Long memberId, Long currentNoteId, NormalizedNoteInput input) {
         if (input.category() == NoteCategory.MEDITATION) {
             if (input.qtPassageId() == null) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT);
+                throw new BusinessException(ErrorCode.NOTE_QT_PASSAGE_REQUIRED);
             }
             noteQtClient.validateReadable(memberId, input.qtPassageId());
             validateMeditationDuplicate(memberId, currentNoteId, input.qtPassageId());
@@ -181,10 +218,10 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         }
 
         if (input.qtPassageId() != null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.NOTE_QT_PASSAGE_FORBIDDEN);
         }
         if (input.category() == NoteCategory.SERMON && input.verseIds().isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.NOTE_VERSE_REQUIRED);
         }
     }
 
@@ -194,6 +231,32 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.DUPLICATE_NOTE);
         }
+    }
+
+    private boolean shouldPublishJournalUpdate(NoteSnapshot before, Note note) {
+        boolean relatedToMeditation = before.category() == NoteCategory.MEDITATION
+                || note.getCategory() == NoteCategory.MEDITATION;
+        if (!relatedToMeditation) {
+            return false;
+        }
+        return before.category() != note.getCategory()
+                || !Objects.equals(before.qtPassageId(), note.getQtPassageId())
+                || before.status() != note.getStatus()
+                || !Objects.equals(before.savedAt(), note.getSavedAt())
+                || !Objects.equals(before.deletedAt(), note.getDeletedAt());
+    }
+
+    private void publishJournalEvent(Note note, JournalEventType eventType, NoteStatus previousStatus) {
+        eventPublisher.publishEvent(new JournalChangedEvent(
+                UUID.randomUUID(),
+                note.getMemberId(),
+                note.getId(),
+                note.getQtPassageId(),
+                eventType,
+                previousStatus,
+                note.getStatus(),
+                LocalDateTime.now(clock)
+        ));
     }
 
     private void validateMeditationDuplicate(Long memberId, Long currentNoteId, Long qtPassageId) {
@@ -337,8 +400,19 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         NoteVisibility normalizedVisibility = visibility == null ? NoteVisibility.PRIVATE : visibility;
         String normalizedTitle = trimToNull(title);
         String normalizedBody = trimToNull(body);
-        if (normalizedTitle == null && normalizedBody == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        String normalizedRememberSection = trimToNull(rememberSection);
+        String normalizedInterpretSection = trimToNull(interpretSection);
+        String normalizedApplySection = trimToNull(applySection);
+        String normalizedPraySection = trimToNull(praySection);
+        boolean hasSectionContent = normalizedRememberSection != null
+                || normalizedInterpretSection != null
+                || normalizedApplySection != null
+                || normalizedPraySection != null;
+        boolean hasRequiredContent = normalizedTitle != null
+                || normalizedBody != null
+                || (category == NoteCategory.MEDITATION && hasSectionContent);
+        if (!hasRequiredContent) {
+            throw new BusinessException(ErrorCode.NOTE_CONTENT_REQUIRED);
         }
 
         return new NormalizedNoteInput(
@@ -346,10 +420,10 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 qtPassageId,
                 normalizedTitle == null ? "" : normalizedTitle,
                 normalizedBody == null ? "" : normalizedBody,
-                trimToNull(rememberSection),
-                trimToNull(interpretSection),
-                trimToNull(applySection),
-                trimToNull(praySection),
+                normalizedRememberSection,
+                normalizedInterpretSection,
+                normalizedApplySection,
+                normalizedPraySection,
                 normalizeVerseIds(verseIds),
                 normalizedStatus,
                 normalizedVisibility
@@ -406,5 +480,24 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
             NoteStatus status,
             NoteVisibility visibility
     ) {
+    }
+
+    private record NoteSnapshot(
+            NoteCategory category,
+            Long qtPassageId,
+            NoteStatus status,
+            LocalDateTime savedAt,
+            LocalDateTime deletedAt
+    ) {
+
+        static NoteSnapshot from(Note note) {
+            return new NoteSnapshot(
+                    note.getCategory(),
+                    note.getQtPassageId(),
+                    note.getStatus(),
+                    note.getSavedAt(),
+                    note.getDeletedAt()
+            );
+        }
     }
 }

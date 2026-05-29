@@ -42,6 +42,14 @@ public class SharingPost extends BaseEntity {
     @Column(name = "snapshot_qt_date")
     private java.time.LocalDate snapshotQtDate;
 
+    /** 발행 시점 작성자 닉네임 박제 (07 §F-10). 닉네임 변경·노트 수정에 영향받지 않는다. */
+    @Column(name = "nickname_snapshot", length = 20)
+    private String nicknameSnapshot;
+
+    /** 발행 시점 본문 범위 라벨 (예: "창세기 1:1-5", 04 §4.4.1 verseSnapshot.rangeLabel). */
+    @Column(name = "snapshot_verse_label", length = 100)
+    private String snapshotVerseLabel;
+
     // ── 댓글 허용 토글 ──
     @Column(name = "comments_enabled", nullable = false)
     private boolean commentsEnabled = true;

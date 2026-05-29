@@ -2,6 +2,11 @@ package com.qtai.support;
 
 import com.qtai.domain.bible.internal.BibleBook;
 import com.qtai.domain.bible.internal.BibleVerse;
+import com.qtai.domain.study.internal.GlossaryTerm;
+import com.qtai.domain.study.internal.GlossaryTermStatus;
+import com.qtai.domain.study.internal.SimulatorClip;
+import com.qtai.domain.study.internal.SimulatorClipStatus;
+import com.qtai.domain.study.internal.SimulatorComponentLibraryVersion;
 import com.qtai.domain.study.internal.VerseExplanation;
 import com.qtai.domain.study.internal.VerseExplanationStatus;
 
@@ -62,6 +67,47 @@ public final class TestEntityFactory {
         return explanation;
     }
 
+    public static GlossaryTerm glossaryTerm(
+            Long id,
+            Long bibleVerseId,
+            GlossaryTermStatus status,
+            String term
+    ) {
+        GlossaryTerm glossaryTerm = newInstance(GlossaryTerm.class);
+        set(glossaryTerm, "id", id);
+        set(glossaryTerm, "bibleVerseId", bibleVerseId);
+        set(glossaryTerm, "term", term);
+        set(glossaryTerm, "meaning", "test meaning");
+        set(glossaryTerm, "sourceLabel", "test source");
+        set(glossaryTerm, "status", status);
+        set(glossaryTerm, "aiAssetId", 200L);
+        return glossaryTerm;
+    }
+
+    public static SimulatorComponentLibraryVersion simulatorComponentLibraryVersion(String version) {
+        SimulatorComponentLibraryVersion libraryVersion = newInstance(SimulatorComponentLibraryVersion.class);
+        set(libraryVersion, "version", version);
+        set(libraryVersion, "status", "ACTIVE");
+        return libraryVersion;
+    }
+
+    public static SimulatorClip simulatorClip(
+            Long id,
+            Long qtPassageId,
+            SimulatorClipStatus status,
+            String sceneScriptJson
+    ) {
+        SimulatorClip clip = newInstance(SimulatorClip.class);
+        set(clip, "id", id);
+        set(clip, "qtPassageId", qtPassageId);
+        set(clip, "title", "test clip");
+        set(clip, "componentLibraryVersion", simulatorComponentLibraryVersion("2026.05.1"));
+        set(clip, "sceneScriptJson", sceneScriptJson);
+        set(clip, "status", status);
+        set(clip, "aiAssetId", 300L);
+        return clip;
+    }
+
     private static <T> T newInstance(Class<T> type) {
         try {
             var constructor = type.getDeclaredConstructor();
@@ -74,11 +120,23 @@ public final class TestEntityFactory {
 
     private static void set(Object target, String fieldName, Object value) {
         try {
-            Field field = target.getClass().getDeclaredField(fieldName);
+            Field field = findField(target.getClass(), fieldName);
             field.setAccessible(true);
             field.set(target, value);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private static Field findField(Class<?> type, String fieldName) throws NoSuchFieldException {
+        Class<?> current = type;
+        while (current != null) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException e) {
+                current = current.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(fieldName);
     }
 }

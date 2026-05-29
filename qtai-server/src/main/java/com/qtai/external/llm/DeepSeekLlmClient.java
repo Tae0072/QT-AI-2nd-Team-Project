@@ -1,35 +1,228 @@
 package com.qtai.external.llm;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.external.llm.dto.LlmCompletionRequest;
 import com.qtai.external.llm.dto.LlmCompletionResponse;
-import org.springframework.stereotype.Component;
 
 /**
  * DeepSeek OpenAI-compatible API 호출 구현체.
- *
- * CLAUDE.md §1: AI는 DeepSeek OpenAI-compatible client 만 허용.
- * Anthropic SDK 직접 사용 금지.
- *
- * 호출 대상: POST https://api.deepseek.com/v1/chat/completions
- * 헤더: Authorization: Bearer {api-key}, Content-Type: application/json
- * 실패(rate limit / 토큰 초과 / 5xx) → BusinessException(INTERNAL_ERROR).
- * API key 는 로그에 절대 남기지 않는다 (CLAUDE.md §7).
  */
-// TODO: @RequiredArgsConstructor + @Value 주입 (api-key, model)
 @Component
 public class DeepSeekLlmClient implements LlmClient {
 
-    // TODO: @Value("${external.llm.api-key}") String apiKey;
-    // TODO: @Value("${external.llm.model:deepseek-chat}") String model;
-    // TODO: final RestTemplate restTemplate; (또는 WebClient)
+    private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
+
+    private final RestTemplate restTemplate;
+    private final String apiKey;
+    private final String baseUrl;
+    private final String defaultModel;
+
+    @Autowired
+    public DeepSeekLlmClient(
+            @Value("${external.llm.deepseek.api-key}") String apiKey,
+            @Value("${external.llm.deepseek.base-url}") String baseUrl,
+            @Value("${external.llm.deepseek.model}") String defaultModel,
+            @Value("${external.llm.deepseek.connect-timeout-ms}") int connectTimeoutMs,
+            @Value("${external.llm.deepseek.read-timeout-ms}") int readTimeoutMs
+    ) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+        factory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+        this.restTemplate = new RestTemplate(factory);
+        this.apiKey = apiKey;
+        this.baseUrl = requireText(baseUrl, "baseUrl");
+        this.defaultModel = requireText(defaultModel, "defaultModel");
+    }
+
+    DeepSeekLlmClient(RestTemplate restTemplate, String apiKey, String baseUrl, String defaultModel) {
+        this.restTemplate = restTemplate;
+        this.apiKey = apiKey;
+        this.baseUrl = requireText(baseUrl, "baseUrl");
+        this.defaultModel = requireText(defaultModel, "defaultModel");
+    }
 
     @Override
     public LlmCompletionResponse complete(LlmCompletionRequest request) {
-        // TODO: complete 구현
-        //       1) 요청 바디 구성: { model, max_tokens, messages:[{role:"user", content:...}], system:... }
-        //       2) POST 호출 + 에러 처리
-        //       3) 응답에서 content / usage(input_tokens, output_tokens) 추출
-        //       4) LlmCompletionResponse 로 매핑해 반환
-        throw new UnsupportedOperationException("LLM 호출은 ai 도메인 PR에서 구현 (DeepSeek API)");
+        validateRequest(request);
+        if (isBlank(apiKey)) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "DeepSeek API key is not configured");
+        }
+
+        String model = defaultIfBlank(request.model(), defaultModel);
+        Map<String, Object> requestBody = buildRequestBody(request, model);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(apiKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    completionsUrl(),
+                    HttpMethod.POST,
+                    new HttpEntity<>(requestBody, headers),
+                    Map.class
+            );
+            return parseResponse(response.getBody(), model);
+        } catch (HttpStatusCodeException exception) {
+            throw new BusinessException(
+                    ErrorCode.INTERNAL_ERROR,
+                    "DeepSeek API request failed: status=" + exception.getStatusCode().value()
+            );
+        } catch (ResourceAccessException exception) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "DeepSeek API request failed");
+        } catch (RestClientException exception) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "DeepSeek API request failed");
+        }
+    }
+
+    private static void validateRequest(LlmCompletionRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "request must not be null");
+        }
+        if (isBlank(request.prompt())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "prompt must not be blank");
+        }
+    }
+
+    private static Map<String, Object> buildRequestBody(LlmCompletionRequest request, String model) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("messages", messages(request));
+        if (request.maxTokens() != null) {
+            body.put("max_tokens", request.maxTokens());
+        }
+        if (request.temperature() != null) {
+            body.put("temperature", request.temperature());
+        }
+        body.put("stream", false);
+        return body;
+    }
+
+    private static List<Map<String, String>> messages(LlmCompletionRequest request) {
+        List<Map<String, String>> messages = new ArrayList<>();
+        if (!isBlank(request.systemPrompt())) {
+            messages.add(message("system", request.systemPrompt()));
+        }
+        messages.add(message("user", request.prompt()));
+        return messages;
+    }
+
+    private static Map<String, String> message(String role, String content) {
+        Map<String, String> message = new LinkedHashMap<>();
+        message.put("role", role);
+        message.put("content", content);
+        return message;
+    }
+
+    private LlmCompletionResponse parseResponse(Map<?, ?> body, String fallbackModel) {
+        if (body == null) {
+            throw invalidProviderResponse();
+        }
+
+        String content = extractContent(body);
+        Map<?, ?> usage = optionalMap(body.get("usage"));
+
+        return new LlmCompletionResponse(
+                content,
+                integerValue(usage.get("prompt_tokens")),
+                integerValue(usage.get("completion_tokens")),
+                integerValue(usage.get("total_tokens")),
+                defaultIfBlank(stringValue(body.get("model")), fallbackModel)
+        );
+    }
+
+    private static String extractContent(Map<?, ?> body) {
+        Object choicesObject = body.get("choices");
+        if (!(choicesObject instanceof List<?> choices) || choices.isEmpty()) {
+            throw invalidProviderResponse();
+        }
+        Map<?, ?> choice = requiredMap(choices.get(0));
+        Map<?, ?> message = requiredMap(choice.get("message"));
+        String content = stringValue(message.get("content"));
+        if (isBlank(content)) {
+            throw invalidProviderResponse();
+        }
+        return content;
+    }
+
+    private static Map<?, ?> requiredMap(Object value) {
+        if (!(value instanceof Map<?, ?> map)) {
+            throw invalidProviderResponse();
+        }
+        return map;
+    }
+
+    private static Map<?, ?> optionalMap(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            return map;
+        }
+        return Map.of();
+    }
+
+    private static Integer integerValue(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return null;
+    }
+
+    private static String stringValue(Object value) {
+        if (value instanceof String text) {
+            return text;
+        }
+        return null;
+    }
+
+    private String completionsUrl() {
+        return trimTrailingSlash(baseUrl) + CHAT_COMPLETIONS_PATH;
+    }
+
+    private static String requireText(String value, String fieldName) {
+        if (isBlank(value)) {
+            throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value;
+    }
+
+    private static String defaultIfBlank(String value, String defaultValue) {
+        if (isBlank(value)) {
+            return defaultValue;
+        }
+        return value;
+    }
+
+    private static String trimTrailingSlash(String value) {
+        if (value.endsWith("/")) {
+            return value.substring(0, value.length() - 1);
+        }
+        return value;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private static BusinessException invalidProviderResponse() {
+        return new BusinessException(ErrorCode.INTERNAL_ERROR, "DeepSeek API response is invalid");
     }
 }

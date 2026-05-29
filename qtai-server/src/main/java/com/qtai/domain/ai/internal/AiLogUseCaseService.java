@@ -27,9 +27,11 @@ class AiLogUseCaseService implements RegisterAiGeneratedAssetUseCase, RegisterAi
     @Transactional
     public RegisterAiGeneratedAssetResult registerAiGeneratedAsset(RegisterAiGeneratedAssetCommand command) {
         requireValidCommand(command);
+        AiGeneratedAssetType assetType = parseEnum(AiGeneratedAssetType.class, command.assetType(), "assetType");
+        requireSystemGeneratedAssetType(assetType);
         AiGeneratedAsset asset = aiLogService.registerGeneratedAsset(
                 command.generationJobId(),
-                parseEnum(AiGeneratedAssetType.class, command.assetType(), "assetType"),
+                assetType,
                 parseEnum(AiTargetType.class, command.targetType(), "targetType"),
                 command.targetId(),
                 command.payloadJson(),
@@ -62,6 +64,15 @@ class AiLogUseCaseService implements RegisterAiGeneratedAssetUseCase, RegisterAi
                 log.getResult().name(),
                 assetStatusAfter(validationResult).name()
         );
+    }
+
+    private static void requireSystemGeneratedAssetType(AiGeneratedAssetType assetType) {
+        if (assetType == AiGeneratedAssetType.QA_RESPONSE) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT,
+                    "QA_RESPONSE is not supported by system generated asset registration"
+            );
+        }
     }
 
     private static void requireValidCommand(RegisterAiGeneratedAssetCommand command) {

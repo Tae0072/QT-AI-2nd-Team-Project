@@ -4,7 +4,7 @@ import org.springframework.stereotype.Component;
 
 import com.qtai.domain.ai.client.qt.dto.QtContextResult;
 
-@Component
+@Component("aiGetQtUseCaseMock")
 public class GetQtUseCaseMock implements QtContextClient {
 
     @Override

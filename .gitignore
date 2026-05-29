@@ -10,6 +10,9 @@ CLAUDE.local.md
 doc/standards/
 doc/workspaces/DevE_김지민/skills/
 
+# Environment variables (로컬 개발 JWT 키 등)
+.env
+
 # OS
 .DS_Store
 Thumbs.db
@@ -25,6 +28,12 @@ out/
 *.class
 hs_err_pid*
 replay_pid*
+build_out.txt
+build_err.txt
+
+# Flutter / Android local artifacts
+**/local.properties
+qtai-app/
 
 # Eclipse / Cursor Java LSP local metadata
 .classpath

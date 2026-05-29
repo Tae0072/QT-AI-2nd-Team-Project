@@ -10,6 +10,7 @@ CREATE TABLE qt_passages (
     main_verse_ref  VARCHAR(100),
     created_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at      TIMESTAMP,
     CONSTRAINT fk_qt_passages_book FOREIGN KEY (book_id) REFERENCES bible_books(id)
 );
 

@@ -38,6 +38,9 @@ public enum ErrorCode {
     // AI
     AI_GENERATION_JOB_NOT_FOUND("A0001", "AI 생성 작업을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     AI_ASSET_NOT_FOUND("A0002", "AI 산출물을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    CHECKLIST_NOT_FOUND("A0003", "AI 검증 체크리스트 버전을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    DUPLICATE_CHECKLIST_VERSION("A0004", "이미 존재하는 AI 검증 체크리스트 버전입니다.", HttpStatus.CONFLICT),
+    VALIDATION_REFERENCE_JOB_NOT_FOUND("A0005", "AI 검증 참조 작업을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
     // 성경
     BIBLE_BOOK_NOT_FOUND("B0001", "성경 책을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -49,10 +52,24 @@ public enum ErrorCode {
     // 노트
     NOTE_NOT_FOUND("N0001", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     DUPLICATE_NOTE("N0002", "이미 저장된 노트가 있습니다.", HttpStatus.CONFLICT),
+    // N0003: 결번 (NOTE_BODY_REQUIRED로 정의했으나 미사용으로 삭제. NOTE_CONTENT_REQUIRED(N0005)가 본문 누락 케이스를 커버)
+    NOTE_QT_PASSAGE_REQUIRED("N0004", "묵상 노트에는 QT 본문 ID가 필요합니다.", HttpStatus.BAD_REQUEST),
+    NOTE_CONTENT_REQUIRED("N0005", "제목 또는 본문 중 하나를 입력해 주세요.", HttpStatus.BAD_REQUEST),
+    NOTE_QT_PASSAGE_FORBIDDEN("N0006", "자유 노트에는 QT 본문 ID를 지정할 수 없습니다.", HttpStatus.BAD_REQUEST),
+    NOTE_VERSE_REQUIRED("N0007", "설교 노트에는 성경 구절이 필요합니다.", HttpStatus.BAD_REQUEST),
 
     // 나눔
     SHARING_POST_NOT_FOUND("S0001", "나눔 게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    COMMENT_NOT_FOUND("S0002", "댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
+    COMMENT_NOT_FOUND("S0002", "댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    // 신고
+    DUPLICATE_REPORT("R0001", "이미 신고한 대상입니다.", HttpStatus.CONFLICT),
+    REPORT_TARGET_NOT_FOUND("R0002", "신고 대상을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    // 관리자
+    ADMIN_USER_NOT_FOUND("AD0001", "관리자 계정을 찾을 수 없습니다.", HttpStatus.FORBIDDEN),
+    ADMIN_USER_DISABLED("AD0002", "비활성화된 관리자 계정입니다.", HttpStatus.FORBIDDEN),
+    ADMIN_ROLE_INSUFFICIENT("AD0003", "해당 작업에 필요한 관리자 권한이 없습니다.", HttpStatus.FORBIDDEN);
 
     private final String code;
     private final String message;

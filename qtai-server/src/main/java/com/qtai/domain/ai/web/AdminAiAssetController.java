@@ -45,6 +45,7 @@ public class AdminAiAssetController {
     private final GetAdminAiAssetUseCase getAdminAiAssetUseCase;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AdminAiAssetController(
             RegenerateAiAssetUseCase regenerateAiAssetUseCase,
             ListAdminAiAssetsUseCase listAdminAiAssetsUseCase,
@@ -95,7 +96,7 @@ public class AdminAiAssetController {
 
     @GetMapping("/{assetId}")
     public ResponseEntity<ApiResponse<AdminAiAssetDetailResponse>> getAsset(
-            @PathVariable Long assetId,
+            @PathVariable("assetId") Long assetId,
             Authentication authentication
     ) {
         AdminAuthentication adminAuthentication = requireAdminAuthentication(authentication);
@@ -111,7 +112,7 @@ public class AdminAiAssetController {
 
     @PostMapping("/{assetId}/regenerate")
     public ResponseEntity<ApiResponse<RegenerateAiAssetResponse>> regenerate(
-            @PathVariable Long assetId,
+            @PathVariable("assetId") Long assetId,
             Authentication authentication,
             @Valid @RequestBody RegenerateAiAssetRequest request
     ) {

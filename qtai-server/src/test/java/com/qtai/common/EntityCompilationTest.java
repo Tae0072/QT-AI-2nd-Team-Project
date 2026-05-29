@@ -11,6 +11,9 @@ import com.qtai.domain.qt.internal.QtPassageVerse;
 import com.qtai.domain.sharing.internal.Comment;
 import com.qtai.domain.sharing.internal.PostLike;
 import com.qtai.domain.sharing.internal.SharingPost;
+import com.qtai.domain.study.internal.GlossaryTerm;
+import com.qtai.domain.study.internal.SimulatorClip;
+import com.qtai.domain.study.internal.SimulatorComponentLibraryVersion;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -37,6 +40,9 @@ class EntityCompilationTest {
         assertNotNull(newInstance(Note.class));
         assertNotNull(newInstance(SharingPost.class));
         assertNotNull(newInstance(Comment.class));
+        assertNotNull(newInstance(GlossaryTerm.class));
+        assertNotNull(newInstance(SimulatorClip.class));
+        assertNotNull(newInstance(SimulatorComponentLibraryVersion.class));
     }
 
     @Test

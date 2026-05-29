@@ -27,10 +27,12 @@ import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetResult;
 public class SystemAiAssetController {
 
     private static final String VALIDATING = "VALIDATING";
+    private static final String QA_RESPONSE = "QA_RESPONSE";
 
     private final RegisterAiGeneratedAssetUseCase registerAiGeneratedAssetUseCase;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public SystemAiAssetController(RegisterAiGeneratedAssetUseCase registerAiGeneratedAssetUseCase) {
         this(registerAiGeneratedAssetUseCase, Clock.systemDefaultZone());
     }
@@ -47,6 +49,7 @@ public class SystemAiAssetController {
     ) {
         SystemAiAuthentication.requireSystemBatch(authentication);
         requireValidatingStatus(request.status());
+        requireSystemGeneratedAssetType(request.assetType());
 
         RegisterAiGeneratedAssetResult result = registerAiGeneratedAssetUseCase.registerAiGeneratedAsset(
                 new RegisterAiGeneratedAssetCommand(
@@ -81,6 +84,15 @@ public class SystemAiAssetController {
             return;
         }
         throw new BusinessException(ErrorCode.INVALID_INPUT, "status must be VALIDATING when provided");
+    }
+
+    private static void requireSystemGeneratedAssetType(String assetType) {
+        if (QA_RESPONSE.equals(assetType)) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT,
+                    "QA_RESPONSE is not supported by system generated asset registration"
+            );
+        }
     }
 
     private static String compactObjectJson(JsonNode jsonNode, String fieldName) {

@@ -53,7 +53,7 @@ public class MemberController {
 
     /** GET /api/v1/members/{id} — 타 회원 공개 프로필 조회 (비공개 필드 제외). */
     @GetMapping("/api/v1/members/{id}")
-    public ResponseEntity<ApiResponse<MemberPublicResponse>> getMember(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<MemberPublicResponse>> getMember(@PathVariable("id") Long id) {
         MemberPublicResponse response = getMemberUseCase.getMemberPublic(id);
         return ResponseEntity.ok(ApiResponse.success(response));
     }

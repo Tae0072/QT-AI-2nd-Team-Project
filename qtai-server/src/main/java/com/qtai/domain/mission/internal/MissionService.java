@@ -1,21 +1,72 @@
 package com.qtai.domain.mission.internal;
 
+import com.qtai.domain.mission.api.GetMemberMissionProgressUseCase;
+import com.qtai.domain.mission.api.dto.MissionProgressResponse;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 /**
- * 미션 도메인 진입점. 3개 UseCase 구현 + 트랜잭션 경계.
+ * 미션 도메인 서비스 (읽기 모델).
  *
- * 타 도메인은 client/ 어댑터로만 접근:
- *   - member.GetMemberUseCase    — 회원 검증
- *   - qt.GetQtUseCase            — "오늘 QT 작성" 같은 완료 조건 확인
+ * <p>API 명세서에 사용자용 /api/v1/missions 엔드포인트는 없다. 미션은 마이페이지 대시보드
+ * (GET /api/v1/me/dashboard)의 {@code missionProgress}로만 노출되며, 진행률 수치는
+ * 노트 활동 집계 배치가 갱신한다(ERD §2.24). 따라서 본 서비스는 진행률을 조회·매핑만 한다.
+ *
+ * <p>도메인 경계: member/note 등 다른 도메인 타입을 직접 import하지 않고 Long FK만 사용한다.
  */
-// TODO: @Service, @RequiredArgsConstructor, @Transactional(readOnly = true)
-// TODO: implements StartMissionUseCase, CompleteMissionUseCase, ListMissionUseCase
-public class MissionService {
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class MissionService implements GetMemberMissionProgressUseCase {
 
-    // TODO: final MissionRepository missionRepository;
-    // TODO: final GetMemberUseCase getMemberUseCase;
-    // TODO: final GetQtUseCase getQtUseCase;
+    private final MemberMissionProgressRepository progressRepository;
+    private final MissionDefinitionRepository definitionRepository;
 
-    // TODO: @Transactional start(memberId, request) — 중복 진행 검증 후 INSERT
-    // TODO: @Transactional complete(memberId, missionId) — qt 조건 확인 → status=COMPLETED
-    // TODO: listMyMissions / listAvailable 구현
+    @Override
+    public List<MissionProgressResponse> getMissionProgress(Long memberId) {
+        List<MemberMissionProgress> progresses =
+                progressRepository.findByMemberIdOrderByPeriodStartDateDesc(memberId);
+        if (progresses.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> definitionIds = progresses.stream()
+                .map(MemberMissionProgress::getMissionDefinitionId)
+                .distinct()
+                .toList();
+        Map<Long, MissionDefinition> definitionMap = definitionRepository.findByIdIn(definitionIds).stream()
+                .collect(Collectors.toMap(MissionDefinition::getId, Function.identity()));
+
+        return progresses.stream()
+                // HIDDEN 처리된 미션 정의의 진행률은 대시보드에 노출하지 않는다(ACTIVE만 노출).
+                // 정의가 조회되지 않는 경우(삭제 등 예외 상황)는 진행 기록 보존을 위해 방어적으로 유지한다.
+                .filter(p -> {
+                    MissionDefinition def = definitionMap.get(p.getMissionDefinitionId());
+                    return def == null || def.getStatus() != MissionDefinitionStatus.HIDDEN;
+                })
+                .map(p -> toResponse(p, definitionMap.get(p.getMissionDefinitionId())))
+                .toList();
+    }
+
+    private MissionProgressResponse toResponse(MemberMissionProgress p, MissionDefinition def) {
+        return new MissionProgressResponse(
+                p.getMissionDefinitionId(),
+                def != null ? def.getCode() : null,
+                def != null ? def.getTitle() : null,
+                def != null ? def.getMetricType().name() : null,
+                def != null ? def.getPeriodType().name() : null,
+                p.getCurrentCount(),
+                p.getTargetCountSnapshot(),
+                p.getProgressRate(),
+                p.isCompleted(),
+                p.getPeriodStartDate(),
+                p.getPeriodEndDate(),
+                p.getCompletedAt()
+        );
+    }
 }

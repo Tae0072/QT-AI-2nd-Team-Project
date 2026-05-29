@@ -1,15 +1,15 @@
-# 진행 중 Todo — W2 화요일 마감 (PR #92 머지 대기)
+# 진행 중 Todo — W2 목요일 마감 (B4까지 완료)
 
-> **현재 브랜치**: `feature/note-freenote-impl`
-> **목표**: PR #92 강태오 수동 머지 완료 후 W2 수요일 B2(POST /api/v1/notes) 시작
-> **최종 업데이트**: 2026-05-26 (화요일 마감 시점)
+> **현재 브랜치**: `feature/sharing-posts`
+> **목표**: 나눔 조회(B3+B4) PR 생성 + 공지 발송 → 금요일 W3 시작
+> **최종 업데이트**: 2026-05-28 (목요일 마감, B4까지 완료)
 
 ---
 
 ## 진행 상황 한눈에
 
 ```
-[████████████████░░░░░░░░░░░░░░░░░░░░░░] W2 화요일 완료 (16/49 = 33%)
+[██████████████████████████████████████] W2 백엔드 B1~B4 완료 (49/49 = 100%)
 
 ✅ 완료     ⏳ 대기     ⬜ 예정
 ```
@@ -17,87 +17,91 @@
 | W2 | 상태 |
 | --- | --- |
 | 월(공휴일) | — |
-| 화(B1 GET /notes) | ✅ 완료 (PR #92 머지 대기) |
-| 수(B2 POST /notes) | ⬜ 내일 시작 예정 |
-| 목(B3 GET /sharing-posts) | ⬜ |
-| 금(B4 GET /sharing-posts/{id} + W2 마무리) | ⬜ |
+| 화(B1 GET /notes) | ✅ 완료 (PR #94 머지) |
+| 수(B2 POST /notes + 에러코드 개선) | ✅ 완료 (PR #123 머지) |
+| 목(04 반영 + B3 목록 + B4 상세) | ✅ 구현+테스트 완료, PR 대기 |
+| 금(원래 B4 계획) | ✅ 목요일에 당겨 완료 → 금요일은 PR·공지·W3 |
 
 ---
 
-## 진행 중 — 대기 항목
+## 오늘 완료한 항목
 
-### ⏳ PR #92 머지 (강태오 수동)
+### ✅ 에러코드/DTO 분리 PR dev 머지 (#123)
+- 봇 리뷰 BLOCK 2회 대응(OpenAPI 분리 / 04 API 명세 에러코드 반영)
 
-- **현재 상태**: 🟢 Open / Claude 자동 리뷰 2회 — BaseEntity.deletedAt BLOCK 유지 + WARN/INFO 모두 처리
-- **블로커**: Claude가 BaseEntity 변경을 두 번 BLOCK으로 잡음 → 자동 머지 불가 → 강태오 수동 머지 필요
-- **합의 사실**: 이승욱과 사전 협의 완료 (소프트 삭제 표준 패턴, F-04·F-10·F-13 공통 필요)
-- **수동 머지 결정 이유**: 옵션 ①(Note 전용 이동)은 W3 나눔 PR에서 SharingPost·Comment 등에도 deletedAt 반복 추가 → 부채 누적. 옵션 ②(BaseEntity 유지 + 수동 머지)가 장기적으로 깔끔.
-- **블로커 알림**: 강태오에게 PR #92 수동 머지 요청 (저녁 카톡/슬랙 — 내일 머지 가능 시점)
+### ✅ 04 API 명세 에러코드 반영 (강태오 협의)
+- §6.2 + §4.3.4 + §4.3.6에 N0004~N0007 반영
+- 리포트: `reports/2026-05-28_04-api-error-code-reflection_report.md`
 
-### ⏳ Flyway V6 충돌 (별도 이슈, 김지민 외)
+### ✅ B3 나눔 피드 목록 (GET /api/v1/sharing-posts, F-10)
+- 이승욱 협의 후 V13: `nickname_snapshot` + `snapshot_verse_label` 추가
+- DTO + Repository 2개 + Service + Controller
+- N+1 방지(likedByMe 배치) + 정렬 화이트리스트 + q 이스케이프 + category/q 필터
+- 테스트 11건
 
-- `V6__create_ai_generation_logging.sql` (강상민 추정) ↔ `V6__create_member_auth_providers.sql` (이승욱 추정) 같은 버전 점유
-- dev CI 빌드 실패 중
-- 김지민 영역엔 영향 X (`@ActiveProfiles("test")`로 격리됨)
-- **블로커 알림**: 슬랙 `#bugs` 또는 `#개발-리뷰`에 V6 충돌 알림 (강상민/이승욱 hotfix PR 필요)
+### ✅ B4 나눔 상세 (GET /api/v1/sharing-posts/{postId}, F-10)
+- GetSharingPostUseCase + getDetail (404 + likedByMe + ownedByMe)
+- 상세 DTO(SharingPostResponse + VerseSnapshotDetail + VerseLine)
+- findByIdAndStatus(PUBLISHED만) → HIDDEN/DELETED/없는 글 404
+- verses[]는 빈 배열(v2 이관 — 07 §19.2, 이지윤·이승욱 영역)
+- 테스트 +6건 → 나눔 조회 전체 17건
+- 리포트: `reports/2026-05-28_B3-나눔피드-조회_리포트.md` (B3+B4)
 
 ---
 
-## 내일 (수요일) Quick Start
+## 대기 항목
 
-### 1️⃣ 첫 명령 한 줄
+### ⏳ 나눔 조회 PR 생성 (B3+B4 한 PR)
+- 코드·테스트 완료. PR 본문 보강 후 생성. `feature/sharing-posts` 한 브랜치 = 나눔 조회 기능
+
+### ⏳ 팀 공지 3건 (미발송)
+- V13 DB 변경(#decisions) / 이승욱 발행로직 / 이지윤 신규파일 — 초안은 B3 리포트에 있음
+
+---
+
+## 내일 (금요일) Quick Start
+
+### 1️⃣ 첫 명령
 
 ```
-PR #92 머지 확인하고 W2 수요일 시작
+오늘 W3 금요일 시작
 ```
+(W2 B1~B4는 끝. 금요일부터 W3)
 
-→ Claude가 자동으로:
-1. PR #92 머지 여부 확인 (git fetch + log 또는 GitHub)
-2. 머지 됐으면: 이 todo 파일 + W2 워크플로우 갱신
-3. 워크플로우 §수요일 (B2 POST /api/v1/notes 자유 노트 생성) 읽고 TodoWrite로 쪼개기
-4. 첫 "선택 필요" (DTO 검증 위치) 선택지 제시
+### 2️⃣ 내일 작업 목록
 
-### 2️⃣ B2 시작 조건
+| # | 작업 | 예상 |
+| --- | --- | --- |
+| 1 | 나눔 조회 PR(B3+B4) 본문 보강 + 생성 | 30분 |
+| 2 | 공지 3건 발송 | 10분 |
+| 3 | W2 마무리 자기 점검 + 주간 회고 | 30분 |
+| 4 | **W3 시작 — 브랜치 분리** | 본작업 |
 
-- Note Entity는 이미 dev에 있음 (PR #51 머지됨) → 시작 가능
-- 의존성: B1(PR #92)이 머지 안 돼도 작업 자체는 가능. 단, B2가 B1 위에 쌓이므로 B1 머지 우선
+### 3️⃣ W3 브랜치 분리 계획 (한 브랜치 = 한 기능)
 
-### 3️⃣ B2 작업 미리보기 (워크플로우 §수요일 11항목)
-
-| 분류 | 항목 수 |
+| 브랜치 | 못다한 기능 |
 | --- | --- |
-| 선택 필요 (DTO 검증 위치 ①/②/③) | 1 |
-| Use Case / Service (CreateNoteUseCase 본문 + create() 메서드 + Note.Builder 호출) | 3 |
-| Controller (@PostMapping + @Valid + 201) | 2 |
-| 테스트 3종 | 3 |
-| 핵심 개념 확인 (201 vs 200, @Valid 예외) | 2 |
-| 마무리 (테스트 + commit + push + PR) | 1 |
+| `feature/note-*` | 노트 미완: 노트→나눔 공유(POST /notes/{id}/share §4.3.8), JournalEvent(이벤트 이력) 등 |
+| `feature/sharing-*` | 나눔 쓰기: publish / 좋아요(like) / 댓글(comment) — 전부 스켈레톤 |
+| (보류) | 토큰 공유(Share) 갈래 — 담당·우선순위 협의 필요 |
 
-**예상 작업 시간**: 화요일보다 가벼움 (~3~4시간)
+> 인벤토리 상세는 B3 리포트 + 2026-05-28 스캔 결과 참조.
 
 ---
 
 ## 막힌 부분 / 다른 사람 의존성
 
-### 1. 강태오 (Lead) — PR #92 수동 머지
+### 1. 발행 로직(PublishNoteUseCase) 미구현
+- 나눔 피드에 실제 데이터가 쌓이려면 발행 흐름 필요 (W3 sharing 브랜치)
+- nickname_snapshot은 발행 시 반드시 채워야 함 (이승욱과 책임 공유)
 
-- 슬랙/카톡으로 미리 요청 완료 예정
-- 내일 오전 안에 머지 처리 가능 여부 확인
-
-### 2. 이승욱 — BaseEntity 협의 확인 + V6 격리
-
-- PR #92 코멘트로 "BaseEntity 협의 OK" 확인 부탁
-- (선택) 자기 V6__create_member_auth_providers.sql을 V7로 rename 검토
-
-### 3. 강상민 (또는 이승욱) — V6 충돌 hotfix
-
-- 슬랙 알림 완료 예정
-- 김지민 작업에 직접 영향 없음 (격리됨)
+### 2. verses[] 다중 절 = v2
+- 절 본문 스냅샷 저장 구조 없음. 다중 절 선택은 v2(07 §19.2). 이지윤(절 데이터)·이승욱(설정) 협의 필요
 
 ---
 
 ## 참고 문서
 
-- 이번 작업 리포트: [reports/2026-05-26_GET-notes-본문구현_리포트.md](../reports/2026-05-26_GET-notes-본문구현_리포트.md)
+- 오늘 리포트(B3+B4): [reports/2026-05-28_B3-나눔피드-조회_리포트.md](../reports/2026-05-28_B3-나눔피드-조회_리포트.md)
+- 오늘 리포트(04 반영): [reports/2026-05-28_04-api-error-code-reflection_report.md](../reports/2026-05-28_04-api-error-code-reflection_report.md)
 - W2 워크플로우: [workflows/2026-W2_상세-워크플로우.md](../workflows/2026-W2_상세-워크플로우.md)
-- PR #92: https://github.com/Tae0072/QT-AI-2nd-Team-Project/pull/92

@@ -13,7 +13,8 @@ import com.qtai.domain.note.api.UpdateNoteUseCase;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.note.api.dto.NoteListResponse;
-import com.qtai.domain.note.api.dto.NoteSaveResponse;
+import com.qtai.domain.note.api.dto.NoteCreateResponse;
+import com.qtai.domain.note.api.dto.NoteUpdateResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -66,14 +67,14 @@ public class NoteController {
     @GetMapping("/{noteId}")
     public ApiResponse<NoteDetailResponse> get(
             @AuthenticationPrincipal Long memberId,
-            @PathVariable Long noteId) {
+            @PathVariable("noteId") Long noteId) {
         Long authenticatedMemberId = requireMemberId(memberId);
         return ApiResponse.success(getNoteUseCase.get(authenticatedMemberId, noteId));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<NoteSaveResponse> create(
+    public ApiResponse<NoteCreateResponse> create(
             @AuthenticationPrincipal Long memberId,
             @Valid @RequestBody CreateNoteRequest request) {
         Long authenticatedMemberId = requireMemberId(memberId);
@@ -81,9 +82,9 @@ public class NoteController {
     }
 
     @PatchMapping("/{noteId}")
-    public ApiResponse<NoteSaveResponse> update(
+    public ApiResponse<NoteUpdateResponse> update(
             @AuthenticationPrincipal Long memberId,
-            @PathVariable Long noteId,
+            @PathVariable("noteId") Long noteId,
             @Valid @RequestBody UpdateNoteRequest request) {
         Long authenticatedMemberId = requireMemberId(memberId);
         return ApiResponse.success(updateNoteUseCase.update(authenticatedMemberId, noteId, request.toCommand()));
@@ -93,7 +94,7 @@ public class NoteController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(
             @AuthenticationPrincipal Long memberId,
-            @PathVariable Long noteId) {
+            @PathVariable("noteId") Long noteId) {
         Long authenticatedMemberId = requireMemberId(memberId);
         deleteNoteUseCase.delete(authenticatedMemberId, noteId);
     }

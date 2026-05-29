@@ -11,6 +11,8 @@ tags:
     description: 성경 권 목록과 절 범위 조회 API
   - name: Note
     description: 묵상 노트와 자유 노트 CRUD API
+  - name: QT Study
+    description: QT 본문에 연결된 승인 해설, 용어, 시뮬레이터 조회 API
   - name: Admin AI
     description: 관리자 웹이 AI 산출물과 검증 로그를 검토하는 운영 API
   - name: System AI
@@ -94,6 +96,114 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorApiResponse"
+  /api/v1/qt/{qtPassageId}/study-content:
+    get:
+      tags:
+        - QT Study
+      operationId: getQtStudyContent
+      summary: QT 학습 콘텐츠 조회
+      description: 인증된 사용자가 QT 본문에 연결된 승인 해설과 승인 용어만 조회한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qtPassageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: QT 학습 콘텐츠 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QtStudyContentApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/qt/{qtPassageId}/simulator:
+    get:
+      tags:
+        - QT Study
+      operationId: getQtSimulator
+      summary: QT 시뮬레이터 조회
+      description: >
+        인증된 사용자가 QT 본문에 연결된 승인 시뮬레이터 클립을 조회한다.
+        승인 클립이 있으면 READY와 clip payload를 반환하고, 없으면 검증 전 payload 없이 MISSING을 반환한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qtPassageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: QT 시뮬레이터 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QtSimulatorApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/qt/{qtPassageId}/simulator-clips/{clipId}:
+    get:
+      tags:
+        - QT Study
+      operationId: getQtSimulatorClip
+      summary: QT 시뮬레이터 클립 조회
+      description: >
+        04_API_명세서.md v1.7 기준 경로. 인증된 사용자가 QT 본문에 연결된 특정 승인 시뮬레이터 클립을 조회한다.
+        clipId가 APPROVED 상태의 해당 QT 본문 클립이면 READY와 clip payload를 반환하고,
+        승인 클립이 아니면 검증 전 payload 없이 MISSING을 반환한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qtPassageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: clipId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: QT 시뮬레이터 클립 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QtSimulatorApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/notes:
     get:
       tags:
@@ -163,7 +273,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NoteSaveApiResponse"
+                $ref: "#/components/schemas/NoteCreateApiResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -250,7 +360,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NoteSaveApiResponse"
+                $ref: "#/components/schemas/NoteUpdateApiResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -294,6 +404,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NoteCategoryApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/me/meditation-calendar:
+    get:
+      tags:
+        - Note
+      operationId: getMeditationCalendar
+      summary: 묵상 달력 조회
+      description: >
+        인증 사용자의 월별 노트 저장 현황을 조회한다. 집계 기준은 notes.status=SAVED,
+        notes.deleted_at IS NULL, notes.saved_at 날짜이며, 기록이 없는 날짜도 saved=false로 포함한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^\\d{4}-\\d{2}$"
+            example: "2026-05"
+          description: yyyy-MM 형식. 생략하면 KST 현재 월을 사용한다.
+      responses:
+        "200":
+          description: 묵상 달력 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeditationCalendarApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
   /api/v1/admin/ai/assets:
@@ -420,6 +561,165 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/validation-checklists:
+    get:
+      tags:
+        - Admin AI
+      operationId: listAdminAiValidationChecklists
+      summary: 관리자 AI 검증 체크리스트 버전 목록 조회
+      description: >
+        AI 검증 체크리스트 버전을 조회한다. ROLE_ADMIN과 ADMIN_ROLE_REVIEWER 또는
+        ADMIN_ROLE_SUPER_ADMIN authority가 필요하며, 실제 체크리스트 원문은 외부 SSoT로
+        관리하고 서버는 contentHash 기반 registry만 제공한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: checklistType
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiValidationChecklistType"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiValidationChecklistStatus"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: 관리자 AI 검증 체크리스트 버전 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiValidationChecklistListApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - Admin AI
+      operationId: createAdminAiValidationChecklist
+      summary: 관리자 AI 검증 체크리스트 버전 생성
+      description: >
+        DRAFT 상태의 검증 체크리스트 버전 registry row를 생성한다. ACTIVE 또는 RETIRED 직접
+        생성은 상태 전이 우회를 막기 위해 INVALID_INPUT으로 차단한다. 서버는 checklistType,
+        version, contentHash, status만 저장하고 실제 체크리스트 원문은 외부 문서/파일을 SSoT로 둔다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiValidationChecklistRequest"
+      responses:
+        "201":
+          description: 관리자 AI 검증 체크리스트 버전 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiValidationChecklistApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/validation-checklists/{id}/activate:
+    post:
+      tags:
+        - Admin AI
+      operationId: activateAdminAiValidationChecklist
+      summary: 관리자 AI 검증 체크리스트 버전 활성화
+      description: >
+        DRAFT 상태의 체크리스트 버전을 ACTIVE로 변경한다. 같은 checklistType의 기존 ACTIVE
+        버전은 자동 RETIRED 처리한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 관리자 AI 검증 체크리스트 버전 활성화 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiValidationChecklistApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/validation-checklists/{id}/retire:
+    post:
+      tags:
+        - Admin AI
+      operationId: retireAdminAiValidationChecklist
+      summary: 관리자 AI 검증 체크리스트 버전 폐기
+      description: ACTIVE 상태의 체크리스트 버전만 RETIRED로 변경한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 관리자 AI 검증 체크리스트 버전 폐기 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiValidationChecklistApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/system/ai/generation-jobs:
     post:
       tags:
@@ -526,6 +826,109 @@ paths:
           $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /api/v1/system/validation-reference-jobs:
+    post:
+      tags:
+        - System AI
+      operationId: createSystemValidationReferenceJob
+      summary: 시스템 검증 참조 작업 생성
+      description: >
+        SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH authority를 가진 시스템 배치만 호출할 수 있다.
+        서버는 검증 참조 원문을 응답으로 노출하지 않고 임시 파일/색인 위치와 상태만 registry로 관리한다.
+        ROLE_ADMIN과 ADMIN_ROLE_CONTENT_CREATOR 직접 접근은 이번 구현 범위에서 제외한다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemValidationReferenceJobRequest"
+      responses:
+        "201":
+          description: 검증 참조 작업 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationReferenceJobApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/system/validation-reference-jobs/{jobId}:
+    get:
+      tags:
+        - System AI
+      operationId: getSystemValidationReferenceJob
+      summary: 시스템 검증 참조 작업 단건 조회
+      description: >
+        SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH authority를 가진 시스템 배치만 호출할 수 있다.
+        응답에는 sourceFileHash, storageUri, indexStorageUri를 포함하지 않는다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 검증 참조 작업 단건 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationReferenceJobApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/system/validation-reference-jobs/{jobId}/expire:
+    post:
+      tags:
+        - System AI
+      operationId: expireSystemValidationReferenceJob
+      summary: 시스템 검증 참조 작업 만료
+      description: >
+        ACTIVE 상태의 검증 참조 작업만 EXPIRED로 전이한다.
+        실제 파일/색인 삭제와 DELETED 상태 전이는 후속 삭제 작업 범위다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 검증 참조 작업 만료 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationReferenceJobApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 components:
   securitySchemes:
     bearerAuth:
@@ -533,7 +936,7 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >
-        관리자 AI API는 ROLE_ADMIN과 세부 ADMIN_ROLE authority를 확인한다. 시스템 AI API는
+        관리자 AI API는 ROLE_ADMIN과 세부 ADMIN_ROLE authority를 확인한다. 시스템 API는
         SYSTEM_BATCH 또는 ROLE_SYSTEM_BATCH authority를 확인하며, service account 기반 검증
         필터는 아직 구현 범위 밖이다.
   parameters:
@@ -830,6 +1233,54 @@ components:
           format: date-time
         traceId:
           type: string
+    AdminAiValidationChecklistListApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiValidationChecklistListResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiValidationChecklistApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiValidationChecklistResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
     AdminAiAssetListResponse:
       type: object
       required:
@@ -871,6 +1322,110 @@ components:
           type: string
           enum:
             - createdAt,desc
+    AdminAiValidationChecklistListResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiValidationChecklistResponse"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          enum:
+            - createdAt,desc,id,desc
+    AdminAiValidationChecklistResponse:
+      type: object
+      required:
+        - id
+        - checklistType
+        - version
+        - contentHash
+        - status
+        - createdByAdminId
+        - createdAt
+        - activatedAt
+        - retiredAt
+      properties:
+        id:
+          type: integer
+          format: int64
+        checklistType:
+          $ref: "#/components/schemas/AiValidationChecklistType"
+        version:
+          type: string
+          example: "2026.05.1"
+        contentHash:
+          type: string
+          example: sha256:checklist-v1
+        status:
+          $ref: "#/components/schemas/AiValidationChecklistStatus"
+        createdByAdminId:
+          type: integer
+          format: int64
+          nullable: true
+          description: admin_users.id 매핑 전까지 null일 수 있다.
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+        activatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        retiredAt:
+          type: string
+          format: date-time
+          nullable: true
+    AdminAiValidationChecklistRequest:
+      type: object
+      required:
+        - checklistType
+        - version
+        - contentHash
+      properties:
+        checklistType:
+          $ref: "#/components/schemas/AiValidationChecklistType"
+        version:
+          type: string
+          example: "2026.05.1"
+        contentHash:
+          type: string
+          example: sha256:checklist-v1
+        status:
+          type: string
+          enum:
+            - DRAFT
+          nullable: true
     AdminAiAssetListItem:
       type: object
       required:
@@ -1108,6 +1663,24 @@ components:
         - PASSED
         - REJECTED
         - NEEDS_REVIEW
+    AiValidationChecklistType:
+      type: string
+      enum:
+        - EXPLANATION
+        - SIMULATOR
+        - QA
+    AiValidationChecklistStatus:
+      type: string
+      enum:
+        - DRAFT
+        - ACTIVE
+        - RETIRED
+    ValidationReferenceJobStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - EXPIRED
+        - DELETED
     SystemAiGenerationJobRequest:
       type: object
       required:
@@ -1197,7 +1770,6 @@ components:
             - SUMMARY
             - GLOSSARY
             - SIMULATOR
-            - QA_RESPONSE
         targetType:
           type: string
           enum:
@@ -1351,6 +1923,109 @@ components:
           format: date-time
         traceId:
           type: string
+    SystemValidationReferenceJobRequest:
+      type: object
+      required:
+        - sourceName
+        - sourceFileName
+        - sourceFileHash
+      properties:
+        sourceName:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: 검증 참조 자료
+        sourceFileName:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: reference-notes.pdf
+        sourceFileHash:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: sha256:reference-hash
+        storageUri:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: restricted://validation/reference.pdf
+        indexStorageUri:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: restricted://validation/index
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-05-29T04:00:00+09:00"
+    ValidationReferenceJobResponse:
+      type: object
+      required:
+        - id
+        - sourceName
+        - sourceFileName
+        - status
+        - expiresAt
+        - deletedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 33
+        sourceName:
+          type: string
+          example: 검증 참조 자료
+        sourceFileName:
+          type: string
+          example: reference-notes.pdf
+        status:
+          $ref: "#/components/schemas/ValidationReferenceJobStatus"
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-05-29T04:00:00+09:00"
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-05-28T10:00:00+09:00"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-05-28T10:00:00+09:00"
+    ValidationReferenceJobApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/ValidationReferenceJobResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
     NoteCategory:
       type: string
       enum:
@@ -1415,17 +2090,120 @@ components:
           $ref: "#/components/schemas/NoteStatus"
         visibility:
           $ref: "#/components/schemas/NoteVisibility"
-    NoteSaveResponse:
+    NoteCreateResponse:
       type: object
       required:
         - id
+        - category
         - status
+        - visibility
+        - createdAt
       properties:
         id:
           type: integer
           format: int64
+        category:
+          $ref: "#/components/schemas/NoteCategory"
         status:
           $ref: "#/components/schemas/NoteStatus"
+        visibility:
+          $ref: "#/components/schemas/NoteVisibility"
+        sharedPostId:
+          type: integer
+          format: int64
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    NoteUpdateResponse:
+      type: object
+      required:
+        - id
+        - category
+        - status
+        - visibility
+        - updatedAt
+        - sharingSnapshotUpdated
+      properties:
+        id:
+          type: integer
+          format: int64
+        category:
+          $ref: "#/components/schemas/NoteCategory"
+        status:
+          $ref: "#/components/schemas/NoteStatus"
+        visibility:
+          $ref: "#/components/schemas/NoteVisibility"
+        activeUniqueKey:
+          type: string
+          nullable: true
+        savedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+        sharingSnapshotUpdated:
+          type: boolean
+    MeditationCalendarResponse:
+      type: object
+      required:
+        - month
+        - days
+        - summary
+      properties:
+        month:
+          type: string
+          pattern: "^\\d{4}-\\d{2}$"
+          example: "2026-05"
+        days:
+          type: array
+          items:
+            type: object
+            required:
+              - date
+              - saved
+              - savedNoteCount
+              - categories
+            properties:
+              date:
+                type: string
+                format: date
+              saved:
+                type: boolean
+              savedNoteCount:
+                type: integer
+                format: int64
+                minimum: 0
+              meditationNoteId:
+                type: integer
+                format: int64
+                nullable: true
+              categories:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NoteCategory"
+                uniqueItems: true
+        summary:
+          type: object
+          required:
+            - savedDays
+            - savedNoteCount
+            - meditationStreakDays
+          properties:
+            savedDays:
+              type: integer
+              format: int64
+              minimum: 0
+            savedNoteCount:
+              type: integer
+              format: int64
+              minimum: 0
+            meditationStreakDays:
+              type: integer
+              format: int64
+              minimum: 0
     NoteVerseItem:
       type: object
       required:
@@ -1627,6 +2405,134 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/NoteCategoryItem"
+    QtStudyContentApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/QtStudyContentResponse"
+    QtStudyContentResponse:
+      type: object
+      required:
+        - explanations
+        - glossaryTerms
+      properties:
+        summary:
+          type: string
+          nullable: true
+          example: 검증 완료된 해설 요약을 세 문장 이내로 조합합니다.
+        explanations:
+          type: array
+          items:
+            $ref: "#/components/schemas/QtStudyExplanationItem"
+        glossaryTerms:
+          type: array
+          items:
+            $ref: "#/components/schemas/QtGlossaryTermItem"
+    QtStudyExplanationItem:
+      type: object
+      required:
+        - verseId
+        - explanation
+        - sourceLabel
+      properties:
+        verseId:
+          type: integer
+          format: int64
+          example: 1001
+        summary:
+          type: string
+          nullable: true
+          example: 검증 완료된 절 요약입니다.
+        explanation:
+          type: string
+          example: 사용자에게 노출 가능한 검증 완료 해설입니다.
+        sourceLabel:
+          type: string
+          example: QT-AI verified content
+        aiAssetId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 500
+    QtGlossaryTermItem:
+      type: object
+      required:
+        - id
+        - verseId
+        - term
+        - meaning
+        - sourceLabel
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 80
+        verseId:
+          type: integer
+          format: int64
+          example: 1001
+        term:
+          type: string
+          example: sample term
+        meaning:
+          type: string
+          example: 사용자에게 노출 가능한 검증 완료 용어 설명입니다.
+        sourceLabel:
+          type: string
+          example: QT-AI verified content
+    QtSimulatorApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/QtSimulatorResponse"
+    QtSimulatorResponse:
+      type: object
+      required:
+        - status
+        - qtPassageId
+      properties:
+        status:
+          $ref: "#/components/schemas/QtSimulatorUserStatus"
+        clipId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 12
+        qtPassageId:
+          type: integer
+          format: int64
+          example: 35
+        title:
+          type: string
+          nullable: true
+          example: 검증 완료 시뮬레이터 클립
+        componentLibraryVersion:
+          type: string
+          nullable: true
+          example: 2026.05.1
+        sceneScriptJson:
+          type: object
+          nullable: true
+          additionalProperties: true
+          example:
+            scenes: []
+        clipStatus:
+          type: string
+          nullable: true
+          enum:
+            - APPROVED
+          example: APPROVED
+    QtSimulatorUserStatus:
+      type: string
+      enum:
+        - READY
+        - MISSING
+        - FAILED
+        - DISABLED
     NoteListApiResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponse"
@@ -1648,13 +2554,20 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/NoteDraftResponse"
-    NoteSaveApiResponse:
+    NoteCreateApiResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponse"
         - type: object
           properties:
             data:
-              $ref: "#/components/schemas/NoteSaveResponse"
+              $ref: "#/components/schemas/NoteCreateResponse"
+    NoteUpdateApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NoteUpdateResponse"
     NoteCategoryApiResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponse"
@@ -1662,3 +2575,10 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/NoteCategoryResponse"
+    MeditationCalendarApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/MeditationCalendarResponse"

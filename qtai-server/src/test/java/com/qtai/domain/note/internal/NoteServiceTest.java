@@ -7,18 +7,22 @@ import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.NoteVisibility;
+import com.qtai.domain.note.api.JournalChangedEvent;
+import com.qtai.domain.note.api.JournalEventType;
 import com.qtai.domain.note.api.dto.CreateNoteCommand;
 import com.qtai.domain.note.api.dto.NoteCategoryResponse;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.note.api.dto.NoteListResponse;
-import com.qtai.domain.note.api.dto.NoteSaveResponse;
+import com.qtai.domain.note.api.dto.NoteCreateResponse;
+import com.qtai.domain.note.api.dto.NoteUpdateResponse;
 import com.qtai.domain.note.api.dto.UpdateNoteCommand;
 import com.qtai.domain.note.client.qt.NoteQtClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +30,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.lang.reflect.Field;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
@@ -48,6 +55,7 @@ class NoteServiceTest {
     private NoteVerseRepository noteVerseRepository;
     private GetBibleVerseUseCase getBibleVerseUseCase;
     private NoteQtClient noteQtClient;
+    private ApplicationEventPublisher eventPublisher;
     private NoteService noteService;
     private ArgumentCaptor<Iterable<NoteVerse>> noteVersesCaptor;
     private Pageable pageable;
@@ -59,7 +67,16 @@ class NoteServiceTest {
         noteVerseRepository = mock(NoteVerseRepository.class);
         getBibleVerseUseCase = mock(GetBibleVerseUseCase.class);
         noteQtClient = mock(NoteQtClient.class);
-        noteService = new NoteService(noteRepository, noteVerseRepository, getBibleVerseUseCase, noteQtClient);
+        eventPublisher = mock(ApplicationEventPublisher.class);
+        Clock clock = Clock.fixed(Instant.parse("2026-05-28T03:00:00Z"), ZoneId.of("Asia/Seoul"));
+        noteService = new NoteService(
+                noteRepository,
+                noteVerseRepository,
+                getBibleVerseUseCase,
+                noteQtClient,
+                eventPublisher,
+                clock
+        );
         noteVersesCaptor = ArgumentCaptor.forClass(Iterable.class);
         when(noteRepository.saveAndFlush(any())).thenAnswer(invocation -> {
             Note note = invocation.getArgument(0);
@@ -81,6 +98,7 @@ class NoteServiceTest {
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).visibility()).isEqualTo(NoteVisibility.PRIVATE);
         assertThat(response.sort()).isEqualTo("updatedAt,desc");
+        verify(noteRepository).search(eq(10L), isNull(), isNull(), isNull(), eq(emptyPageable));
     }
 
     @Test
@@ -145,6 +163,114 @@ class NoteServiceTest {
     }
 
     @Test
+    @DisplayName("create meditation draft stores active key private visibility and no savedAt")
+    void create_meditationDraft_setsLifecycleFields() {
+        ArgumentCaptor<Note> noteCaptor = ArgumentCaptor.forClass(Note.class);
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
+                List.of(), NoteStatus.DRAFT, null);
+
+        NoteCreateResponse response = noteService.create(10L, command);
+
+        assertThat(response.status()).isEqualTo(NoteStatus.DRAFT);
+        verify(noteQtClient).validateReadable(10L, 100L);
+        verify(noteRepository).saveAndFlush(noteCaptor.capture());
+        Note saved = noteCaptor.getValue();
+        assertThat(saved.getVisibility()).isEqualTo(NoteVisibility.PRIVATE);
+        assertThat(saved.getActiveUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
+        assertThat(saved.getSavedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("create meditation note publishes journal created event")
+    void create_meditationNote_publishesJournalCreatedEvent() {
+        ArgumentCaptor<JournalChangedEvent> eventCaptor = ArgumentCaptor.forClass(JournalChangedEvent.class);
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
+                List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
+
+        noteService.create(10L, command);
+
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        JournalChangedEvent event = eventCaptor.getValue();
+        assertThat(event.eventId()).isNotNull();
+        assertThat(event.memberId()).isEqualTo(10L);
+        assertThat(event.noteId()).isEqualTo(99L);
+        assertThat(event.qtPassageId()).isEqualTo(100L);
+        assertThat(event.eventType()).isEqualTo(JournalEventType.JOURNAL_CREATED);
+        assertThat(event.previousStatus()).isNull();
+        assertThat(event.currentStatus()).isEqualTo(NoteStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("create meditation saved note records savedAt")
+    void create_meditationSaved_recordsSavedAt() {
+        ArgumentCaptor<Note> noteCaptor = ArgumentCaptor.forClass(Note.class);
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
+                List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
+
+        NoteCreateResponse response = noteService.create(10L, command);
+
+        assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
+        assertThat(response.id()).isEqualTo(99L);
+        assertThat(response.category()).isEqualTo(NoteCategory.MEDITATION);
+        assertThat(response.visibility()).isEqualTo(NoteVisibility.PRIVATE);
+        assertThat(response.sharedPostId()).isNull();
+        verify(noteRepository).saveAndFlush(noteCaptor.capture());
+        assertThat(noteCaptor.getValue().getActiveUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
+        assertThat(noteCaptor.getValue().getSavedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("create meditation accepts one non-blank section without title or body")
+    void create_meditationWithOnlySection_succeeds() {
+        ArgumentCaptor<Note> noteCaptor = ArgumentCaptor.forClass(Note.class);
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.MEDITATION, 100L, " ", " ", null, "해석", null, null,
+                List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
+
+        NoteCreateResponse response = noteService.create(10L, command);
+
+        assertThat(response.status()).isEqualTo(NoteStatus.DRAFT);
+        verify(noteRepository).saveAndFlush(noteCaptor.capture());
+        Note saved = noteCaptor.getValue();
+        assertThat(saved.getTitle()).isEmpty();
+        assertThat(saved.getBody()).isEmpty();
+        assertThat(saved.getInterpretSection()).isEqualTo("해석");
+    }
+
+    @Test
+    @DisplayName("create meditation rejects unreadable QT passage")
+    void create_meditationUnreadableQtPassage_rejected() {
+        doThrow(new BusinessException(ErrorCode.NOTE_NOT_FOUND))
+                .when(noteQtClient).validateReadable(10L, 404L);
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.MEDITATION, 404L, "묵상", "본문", null, null, null, null,
+                List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.create(10L, command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.NOTE_NOT_FOUND);
+        verify(noteRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("create rejects deleted status request")
+    void create_deletedStatus_rejected() {
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
+                List.of(), NoteStatus.DELETED, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.create(10L, command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+        verify(noteQtClient, never()).validateReadable(any(), any());
+    }
+
+    @Test
     @DisplayName("create sermon note requires at least one verse")
     void create_sermonWithoutVerse_rejected() {
         CreateNoteCommand command = new CreateNoteCommand(
@@ -154,12 +280,25 @@ class NoteServiceTest {
         assertThatThrownBy(() -> noteService.create(10L, command))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_INPUT);
+                .isEqualTo(ErrorCode.NOTE_VERSE_REQUIRED);
     }
 
     @Test
-    @DisplayName("create stores unique verse ids in request order")
-    void create_replacesVersesWithDeduplicatedOrder() {
+    @DisplayName("자유 노트는 제목과 본문이 모두 비어 있으면 거부한다")
+    void create_freeNoteWithoutTitleAndBody_rejected() {
+        CreateNoteCommand command = new CreateNoteCommand(
+                NoteCategory.PRAYER, null, " ", " ", null, null, null, null,
+                List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.create(10L, command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.NOTE_CONTENT_REQUIRED);
+    }
+
+    @Test
+    @DisplayName("create sermon note stores unique verse ids in request order")
+    void create_sermonNote_replacesVersesWithDeduplicatedOrder() {
         when(getBibleVerseUseCase.getVerses(List.of(3L, 2L)))
                 .thenReturn(List.of(
                         new BibleVerseResponse(3L, "GEN", 1, 3, "중립 예시 문구", null),
@@ -172,16 +311,17 @@ class NoteServiceTest {
         });
 
         CreateNoteCommand command = new CreateNoteCommand(
-                NoteCategory.PRAYER, null, "기도", "본문", null, null, null, null,
+                NoteCategory.SERMON, null, "설교", "본문", null, null, null, null,
                 List.of(3L, 3L, 2L), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.create(10L, command);
+        NoteCreateResponse response = noteService.create(10L, command);
 
         assertThat(response.id()).isEqualTo(99L);
         verify(noteVerseRepository).deleteByNoteId(99L);
         verify(noteVerseRepository).saveAll(any());
         verify(getBibleVerseUseCase).getVerses(List.of(3L, 2L));
         verify(getBibleVerseUseCase, never()).getVerse(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -311,7 +451,7 @@ class NoteServiceTest {
         assertThatThrownBy(() -> noteService.create(10L, command))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_INPUT);
+                .isEqualTo(ErrorCode.NOTE_QT_PASSAGE_REQUIRED);
         verify(noteQtClient, never()).validateReadable(any(), any());
     }
 
@@ -325,7 +465,7 @@ class NoteServiceTest {
         assertThatThrownBy(() -> noteService.create(10L, command))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_INPUT);
+                .isEqualTo(ErrorCode.NOTE_QT_PASSAGE_FORBIDDEN);
     }
 
     @Test
@@ -344,7 +484,7 @@ class NoteServiceTest {
                 "기억", "해석", "적용", "기도",
                 List.of(3L, 3L, 2L), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.update(10L, 1L, command);
+        NoteUpdateResponse response = noteService.update(10L, 1L, command);
 
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
@@ -376,7 +516,7 @@ class NoteServiceTest {
                 NoteCategory.PRAYER, null, "기도", "본문", null, null, null, null,
                 List.of(), NoteStatus.DRAFT, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.update(10L, 1L, command);
+        NoteUpdateResponse response = noteService.update(10L, 1L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.DRAFT);
         assertThat(note.getStatus()).isEqualTo(NoteStatus.DRAFT);
@@ -395,14 +535,81 @@ class NoteServiceTest {
                 NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
                 List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
 
-        NoteSaveResponse response = noteService.update(10L, 1L, command);
+        NoteUpdateResponse response = noteService.update(10L, 1L, command);
 
         assertThat(response.status()).isEqualTo(NoteStatus.SAVED);
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.category()).isEqualTo(NoteCategory.MEDITATION);
+        assertThat(response.visibility()).isEqualTo(NoteVisibility.PRIVATE);
+        assertThat(response.activeUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
+        assertThat(response.sharingSnapshotUpdated()).isFalse();
         assertThat(note.getActiveUniqueKey()).isEqualTo(Note.ACTIVE_KEY);
         assertThat(note.getQtPassageId()).isEqualTo(100L);
         verify(noteQtClient).validateReadable(10L, 100L);
         verify(noteRepository).existsByMemberIdAndQtPassageIdAndCategoryAndActiveUniqueKeyAndIdNot(
                 10L, 100L, NoteCategory.MEDITATION, Note.ACTIVE_KEY, 1L);
+    }
+
+    @Test
+    @DisplayName("update meditation calendar fields publishes journal updated event")
+    void update_meditationCalendarFields_publishesJournalUpdatedEvent() {
+        ArgumentCaptor<JournalChangedEvent> eventCaptor = ArgumentCaptor.forClass(JournalChangedEvent.class);
+        Note note = persistedNote(1L, 10L, NoteCategory.MEDITATION, NoteStatus.DRAFT, 100L);
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+
+        UpdateNoteCommand command = new UpdateNoteCommand(
+                NoteCategory.MEDITATION, 100L, "묵상", "본문", null, null, null, null,
+                List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
+
+        noteService.update(10L, 1L, command);
+
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        JournalChangedEvent event = eventCaptor.getValue();
+        assertThat(event.eventType()).isEqualTo(JournalEventType.JOURNAL_UPDATED);
+        assertThat(event.previousStatus()).isEqualTo(NoteStatus.DRAFT);
+        assertThat(event.currentStatus()).isEqualTo(NoteStatus.SAVED);
+        assertThat(event.noteId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("update meditation to duplicate active QT note is rejected")
+    void update_meditationDuplicate_rejected() {
+        Note note = persistedNote(1L, 10L, NoteCategory.MEDITATION, NoteStatus.DRAFT, 100L);
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+        when(noteRepository.existsByMemberIdAndQtPassageIdAndCategoryAndActiveUniqueKeyAndIdNot(
+                10L, 200L, NoteCategory.MEDITATION, Note.ACTIVE_KEY, 1L))
+                .thenReturn(true);
+
+        UpdateNoteCommand command = new UpdateNoteCommand(
+                NoteCategory.MEDITATION, 200L, "묵상", "본문", null, null, null, null,
+                List.of(), NoteStatus.SAVED, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.update(10L, 1L, command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.DUPLICATE_NOTE);
+        assertThat(note.getQtPassageId()).isEqualTo(100L);
+        assertThat(note.getStatus()).isEqualTo(NoteStatus.DRAFT);
+        verify(noteVerseRepository, never()).deleteByNoteId(any());
+    }
+
+    @Test
+    @DisplayName("update with missing bible verse aborts verse replacement")
+    void update_missingBibleVerse_rejected() {
+        Note note = persistedNote(1L, 10L, NoteCategory.PRAYER, NoteStatus.DRAFT, null);
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+        when(getBibleVerseUseCase.getVerses(List.of(999L))).thenReturn(List.of());
+
+        UpdateNoteCommand command = new UpdateNoteCommand(
+                NoteCategory.PRAYER, null, "기도", "본문", null, null, null, null,
+                List.of(999L), NoteStatus.SAVED, NoteVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> noteService.update(10L, 1L, command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.BIBLE_VERSE_NOT_FOUND);
+        verify(noteVerseRepository).deleteByNoteId(1L);
+        verify(noteVerseRepository, never()).saveAll(any());
     }
 
     @Test
@@ -488,6 +695,23 @@ class NoteServiceTest {
         assertThat(note.getStatus()).isEqualTo(NoteStatus.DELETED);
         assertThat(note.getDeletedAt()).isNotNull();
         assertThat(note.getActiveUniqueKey()).isNull();
+        assertThat(note.getSavedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("delete meditation note publishes journal deleted event")
+    void delete_meditationNote_publishesJournalDeletedEvent() {
+        ArgumentCaptor<JournalChangedEvent> eventCaptor = ArgumentCaptor.forClass(JournalChangedEvent.class);
+        Note note = persistedNote(1L, 10L, NoteCategory.MEDITATION, NoteStatus.SAVED, 100L);
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+
+        noteService.delete(10L, 1L);
+
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        JournalChangedEvent event = eventCaptor.getValue();
+        assertThat(event.eventType()).isEqualTo(JournalEventType.JOURNAL_DELETED);
+        assertThat(event.previousStatus()).isEqualTo(NoteStatus.SAVED);
+        assertThat(event.currentStatus()).isEqualTo(NoteStatus.DELETED);
     }
 
     @Test
@@ -524,6 +748,7 @@ class NoteServiceTest {
         assertThatNoException().isThrownBy(() -> noteService.delete(10L, 1L));
         assertThat(note.getDeletedAt()).isSameAs(deletedAt);
         assertThat(note.getStatus()).isEqualTo(NoteStatus.DELETED);
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     private static Note persistedNote(Long id, Long memberId, NoteCategory category, NoteStatus status, Long qtPassageId) {

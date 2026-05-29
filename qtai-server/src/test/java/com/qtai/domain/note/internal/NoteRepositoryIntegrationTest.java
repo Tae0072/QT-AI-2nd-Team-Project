@@ -1,9 +1,11 @@
 package com.qtai.domain.note.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import com.qtai.config.JpaAuditingConfig;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
+import com.qtai.domain.note.api.NoteVisibility;
 
 /**
  * NoteRepository 통합 테스트 (@DataJpaTest + H2 in-memory).
@@ -94,6 +97,66 @@ class NoteRepositoryIntegrationTest {
 
         assertThat(noteRepository.findActiveByIdAndMemberId(active.getId(), 10L)).isPresent();
         assertThat(noteRepository.findActiveByIdAndMemberId(deleted.getId(), 10L)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findDraft는 같은 QT의 DRAFT 묵상 노트만 반환한다")
+    void findDraft_returnsOnlyDraftMeditation() {
+        Note draft = persistMeditationNote(10L, 100L, NoteStatus.DRAFT);
+        persistMeditationNote(10L, 200L, NoteStatus.SAVED);
+        Note deletedDraft = persistMeditationNote(10L, 300L, NoteStatus.DRAFT);
+        deletedDraft.delete(LocalDateTime.now());
+        em.flush();
+        em.clear();
+
+        assertThat(noteRepository.findDraft(10L, NoteCategory.MEDITATION, 100L))
+                .map(Note::getId)
+                .contains(draft.getId());
+        assertThat(noteRepository.findDraft(10L, NoteCategory.MEDITATION, 200L)).isEmpty();
+        assertThat(noteRepository.findDraft(10L, NoteCategory.MEDITATION, 300L)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("활성 MEDITATION은 memberId와 qtPassageId 기준으로 중복 삽입할 수 없다")
+    void meditation_activeUniqueConstraint_rejectsDuplicateDraftOrSaved() {
+        persistMeditationNote(10L, 100L, NoteStatus.DRAFT);
+        em.flush();
+
+        Note duplicateSaved = Note.create(
+                10L,
+                100L,
+                NoteCategory.MEDITATION,
+                NoteStatus.SAVED,
+                NoteVisibility.PRIVATE,
+                "묵상2",
+                "본문2",
+                null,
+                null,
+                null,
+                null,
+                LocalDateTime.now()
+        );
+
+        assertThatThrownBy(() -> {
+            em.persist(duplicateSaved);
+            em.flush();
+        }).isInstanceOf(Exception.class);
+    }
+
+    @Test
+    @DisplayName("삭제된 MEDITATION 이후 같은 QT 본문에 새 노트를 작성할 수 있다")
+    void meditation_deletedNote_allowsRecreate() {
+        Note first = persistMeditationNote(10L, 100L, NoteStatus.SAVED);
+        first.delete(LocalDateTime.now());
+        em.flush();
+        em.clear();
+
+        Note recreated = persistMeditationNote(10L, 100L, NoteStatus.DRAFT);
+        em.flush();
+        em.clear();
+
+        assertThat(recreated.getId()).isNotNull();
+        assertThat(noteRepository.findDraft(10L, NoteCategory.MEDITATION, 100L)).isPresent();
     }
 
     @Test
@@ -172,6 +235,46 @@ class NoteRepositoryIntegrationTest {
         assertThat(page0.getContent().get(1).getTitle()).isEqualTo("두번째");
     }
 
+    @Test
+    @DisplayName("findSavedCalendarNotes는 저장된 내 노트 중 삭제되지 않고 savedAt이 월 범위에 있는 것만 조회한다")
+    void findSavedCalendarNotes_filtersCalendarNotes() {
+        Note firstDay = persistCalendarNote(10L, NoteCategory.MEDITATION, 100L,
+                LocalDateTime.of(2026, 5, 1, 0, 0));
+        Note lastDay = persistCalendarNote(10L, NoteCategory.PRAYER, null,
+                LocalDateTime.of(2026, 5, 31, 23, 59));
+        persistCalendarNote(20L, NoteCategory.MEDITATION, 200L,
+                LocalDateTime.of(2026, 5, 10, 10, 0));
+        persistCalendarNote(10L, NoteCategory.GRATITUDE, null,
+                LocalDateTime.of(2026, 4, 30, 23, 59));
+        persistCalendarNote(10L, NoteCategory.GRATITUDE, null,
+                LocalDateTime.of(2026, 6, 1, 0, 0));
+
+        Note draft = persistCalendarNote(10L, NoteCategory.GRATITUDE, null,
+                LocalDateTime.of(2026, 5, 12, 10, 0));
+        setField(draft, "status", NoteStatus.DRAFT);
+
+        Note noSavedAt = persistCalendarNote(10L, NoteCategory.PRAYER, null,
+                LocalDateTime.of(2026, 5, 13, 10, 0));
+        setField(noSavedAt, "savedAt", null);
+
+        Note deleted = persistCalendarNote(10L, NoteCategory.GRATITUDE, null,
+                LocalDateTime.of(2026, 5, 14, 10, 0));
+        deleted.delete(LocalDateTime.of(2026, 5, 15, 0, 0));
+
+        em.flush();
+        em.clear();
+
+        List<Note> result = noteRepository.findSavedCalendarNotes(
+                10L,
+                LocalDateTime.of(2026, 5, 1, 0, 0),
+                LocalDateTime.of(2026, 6, 1, 0, 0)
+        );
+
+        assertThat(result)
+                .extracting(Note::getId)
+                .containsExactly(firstDay.getId(), lastDay.getId());
+    }
+
     // ─────────────────────────────────────────────────────
     // 헬퍼 메서드
     // ─────────────────────────────────────────────────────
@@ -189,6 +292,45 @@ class NoteRepositoryIntegrationTest {
                 .body(body)
                 .build();
         setField(note, "status", status);
+        em.persist(note);
+        return note;
+    }
+
+    private Note persistMeditationNote(Long memberId, Long qtPassageId, NoteStatus status) {
+        Note note = Note.create(
+                memberId,
+                qtPassageId,
+                NoteCategory.MEDITATION,
+                status,
+                NoteVisibility.PRIVATE,
+                "묵상",
+                "본문",
+                null,
+                null,
+                null,
+                null,
+                LocalDateTime.now()
+        );
+        em.persist(note);
+        return note;
+    }
+
+    private Note persistCalendarNote(Long memberId, NoteCategory category, Long qtPassageId,
+            LocalDateTime savedAt) {
+        Note note = Note.create(
+                memberId,
+                qtPassageId,
+                category,
+                NoteStatus.SAVED,
+                NoteVisibility.PRIVATE,
+                "calendar",
+                "body",
+                null,
+                null,
+                null,
+                null,
+                savedAt
+        );
         em.persist(note);
         return note;
     }
