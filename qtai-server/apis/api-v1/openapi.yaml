@@ -11,6 +11,8 @@ tags:
     description: 성경 권 목록과 절 범위 조회 API
   - name: Note
     description: 묵상 노트와 자유 노트 CRUD API
+  - name: QT Study
+    description: QT 본문에 연결된 승인 해설, 용어, 시뮬레이터 조회 API
   - name: Admin AI
     description: 관리자 웹이 AI 산출물과 검증 로그를 검토하는 운영 API
   - name: System AI
@@ -94,6 +96,114 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorApiResponse"
+  /api/v1/qt/{qtPassageId}/study-content:
+    get:
+      tags:
+        - QT Study
+      operationId: getQtStudyContent
+      summary: QT 학습 콘텐츠 조회
+      description: 인증된 사용자가 QT 본문에 연결된 승인 해설과 승인 용어만 조회한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qtPassageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: QT 학습 콘텐츠 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QtStudyContentApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/qt/{qtPassageId}/simulator:
+    get:
+      tags:
+        - QT Study
+      operationId: getQtSimulator
+      summary: QT 시뮬레이터 조회
+      description: >
+        인증된 사용자가 QT 본문에 연결된 승인 시뮬레이터 클립을 조회한다.
+        승인 클립이 있으면 READY와 clip payload를 반환하고, 없으면 검증 전 payload 없이 MISSING을 반환한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qtPassageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: QT 시뮬레이터 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QtSimulatorApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/qt/{qtPassageId}/simulator-clips/{clipId}:
+    get:
+      tags:
+        - QT Study
+      operationId: getQtSimulatorClip
+      summary: QT 시뮬레이터 클립 조회
+      description: >
+        04_API_명세서.md v1.7 기준 경로. 인증된 사용자가 QT 본문에 연결된 특정 승인 시뮬레이터 클립을 조회한다.
+        clipId가 APPROVED 상태의 해당 QT 본문 클립이면 READY와 clip payload를 반환하고,
+        승인 클립이 아니면 검증 전 payload 없이 MISSING을 반환한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qtPassageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: clipId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: QT 시뮬레이터 클립 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QtSimulatorApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/notes:
     get:
       tags:
@@ -294,6 +404,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NoteCategoryApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/me/meditation-calendar:
+    get:
+      tags:
+        - Note
+      operationId: getMeditationCalendar
+      summary: 묵상 달력 조회
+      description: >
+        인증 사용자의 월별 노트 저장 현황을 조회한다. 집계 기준은 notes.status=SAVED,
+        notes.deleted_at IS NULL, notes.saved_at 날짜이며, 기록이 없는 날짜도 saved=false로 포함한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^\\d{4}-\\d{2}$"
+            example: "2026-05"
+          description: yyyy-MM 형식. 생략하면 KST 현재 월을 사용한다.
+      responses:
+        "200":
+          description: 묵상 달력 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeditationCalendarApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
   /api/v1/admin/ai/assets:
@@ -1629,7 +1770,6 @@ components:
             - SUMMARY
             - GLOSSARY
             - SIMULATOR
-            - QA_RESPONSE
         targetType:
           type: string
           enum:
@@ -2006,6 +2146,64 @@ components:
           format: date-time
         sharingSnapshotUpdated:
           type: boolean
+    MeditationCalendarResponse:
+      type: object
+      required:
+        - month
+        - days
+        - summary
+      properties:
+        month:
+          type: string
+          pattern: "^\\d{4}-\\d{2}$"
+          example: "2026-05"
+        days:
+          type: array
+          items:
+            type: object
+            required:
+              - date
+              - saved
+              - savedNoteCount
+              - categories
+            properties:
+              date:
+                type: string
+                format: date
+              saved:
+                type: boolean
+              savedNoteCount:
+                type: integer
+                format: int64
+                minimum: 0
+              meditationNoteId:
+                type: integer
+                format: int64
+                nullable: true
+              categories:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NoteCategory"
+                uniqueItems: true
+        summary:
+          type: object
+          required:
+            - savedDays
+            - savedNoteCount
+            - meditationStreakDays
+          properties:
+            savedDays:
+              type: integer
+              format: int64
+              minimum: 0
+            savedNoteCount:
+              type: integer
+              format: int64
+              minimum: 0
+            meditationStreakDays:
+              type: integer
+              format: int64
+              minimum: 0
     NoteVerseItem:
       type: object
       required:
@@ -2207,6 +2405,134 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/NoteCategoryItem"
+    QtStudyContentApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/QtStudyContentResponse"
+    QtStudyContentResponse:
+      type: object
+      required:
+        - explanations
+        - glossaryTerms
+      properties:
+        summary:
+          type: string
+          nullable: true
+          example: 검증 완료된 해설 요약을 세 문장 이내로 조합합니다.
+        explanations:
+          type: array
+          items:
+            $ref: "#/components/schemas/QtStudyExplanationItem"
+        glossaryTerms:
+          type: array
+          items:
+            $ref: "#/components/schemas/QtGlossaryTermItem"
+    QtStudyExplanationItem:
+      type: object
+      required:
+        - verseId
+        - explanation
+        - sourceLabel
+      properties:
+        verseId:
+          type: integer
+          format: int64
+          example: 1001
+        summary:
+          type: string
+          nullable: true
+          example: 검증 완료된 절 요약입니다.
+        explanation:
+          type: string
+          example: 사용자에게 노출 가능한 검증 완료 해설입니다.
+        sourceLabel:
+          type: string
+          example: QT-AI verified content
+        aiAssetId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 500
+    QtGlossaryTermItem:
+      type: object
+      required:
+        - id
+        - verseId
+        - term
+        - meaning
+        - sourceLabel
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 80
+        verseId:
+          type: integer
+          format: int64
+          example: 1001
+        term:
+          type: string
+          example: sample term
+        meaning:
+          type: string
+          example: 사용자에게 노출 가능한 검증 완료 용어 설명입니다.
+        sourceLabel:
+          type: string
+          example: QT-AI verified content
+    QtSimulatorApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/QtSimulatorResponse"
+    QtSimulatorResponse:
+      type: object
+      required:
+        - status
+        - qtPassageId
+      properties:
+        status:
+          $ref: "#/components/schemas/QtSimulatorUserStatus"
+        clipId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 12
+        qtPassageId:
+          type: integer
+          format: int64
+          example: 35
+        title:
+          type: string
+          nullable: true
+          example: 검증 완료 시뮬레이터 클립
+        componentLibraryVersion:
+          type: string
+          nullable: true
+          example: 2026.05.1
+        sceneScriptJson:
+          type: object
+          nullable: true
+          additionalProperties: true
+          example:
+            scenes: []
+        clipStatus:
+          type: string
+          nullable: true
+          enum:
+            - APPROVED
+          example: APPROVED
+    QtSimulatorUserStatus:
+      type: string
+      enum:
+        - READY
+        - MISSING
+        - FAILED
+        - DISABLED
     NoteListApiResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponse"
@@ -2249,3 +2575,10 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/NoteCategoryResponse"
+    MeditationCalendarApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/MeditationCalendarResponse"

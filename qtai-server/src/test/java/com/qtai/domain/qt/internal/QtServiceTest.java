@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +25,7 @@ import com.qtai.domain.note.api.GetNoteUseCase;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
+import com.qtai.domain.qt.api.dto.QtPassageContentContext;
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
 
 /**
@@ -42,6 +44,7 @@ class QtServiceTest {
 
     private QtPassageLookup passageLookup;
     private QtPassageRepository qtPassageRepository;
+    private QtPassageVerseRepository qtPassageVerseRepository;
     private GetNoteUseCase getNoteUseCase;
     private QtService qtService;
 
@@ -49,8 +52,9 @@ class QtServiceTest {
     void setUp() {
         passageLookup = Mockito.mock(QtPassageLookup.class);
         qtPassageRepository = Mockito.mock(QtPassageRepository.class);
+        qtPassageVerseRepository = Mockito.mock(QtPassageVerseRepository.class);
         getNoteUseCase = Mockito.mock(GetNoteUseCase.class);
-        qtService = new QtService(passageLookup, qtPassageRepository, getNoteUseCase);
+        qtService = new QtService(passageLookup, qtPassageRepository, qtPassageVerseRepository, getNoteUseCase);
     }
 
     /**
@@ -283,6 +287,68 @@ class QtServiceTest {
             // then
             assertThat(response.qtPassageId()).isEqualTo(5L);
             assertThat(response.draftNoteId()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getContentContext — Study 도메인 공개 context")
+    class GetContentContextTest {
+
+        @Test
+        @DisplayName("QT 본문과 연결된 verse id를 displayOrder 순서로 반환")
+        void 본문_context_조회_성공() {
+            QtPassage passage = QtPassageFixture.createPassage(5L,
+                    LocalDate.of(2026, 5, 26), "태초에 하나님이");
+            when(qtPassageRepository.findById(5L)).thenReturn(Optional.of(passage));
+            when(qtPassageVerseRepository.findByQtPassageIdOrderByDisplayOrderAsc(5L))
+                    .thenReturn(List.of(
+                            verse(5L, 100L, (short) 1),
+                            verse(5L, 101L, (short) 2)
+                    ));
+
+            QtPassageContentContext context = qtService.getContentContext(5L);
+
+            assertThat(context.qtPassageId()).isEqualTo(5L);
+            assertThat(context.qtDate()).isEqualTo(LocalDate.of(2026, 5, 26));
+            assertThat(context.title()).isEqualTo("태초에 하나님이");
+            assertThat(context.verseIds()).containsExactly(100L, 101L);
+            assertThat(context.published()).isTrue();
+        }
+
+        @Test
+        @DisplayName("qtPassageId가 1보다 작으면 INVALID_INPUT")
+        void 본문_context_잘못된_id() {
+            assertThatThrownBy(() -> qtService.getContentContext(0L))
+                    .isInstanceOfSatisfying(BusinessException.class, exception ->
+                            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 본문이면 QT_PASSAGE_NOT_FOUND")
+        void 본문_context_미존재() {
+            when(qtPassageRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> qtService.getContentContext(999L))
+                    .isInstanceOfSatisfying(BusinessException.class, exception ->
+                            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.QT_PASSAGE_NOT_FOUND));
+        }
+
+        private QtPassageVerse verse(Long qtPassageId, Long bibleVerseId, Short displayOrder) {
+            try {
+                QtPassageVerse verse = QtPassageVerse.class.getDeclaredConstructor().newInstance();
+                setField(verse, "qtPassageId", qtPassageId);
+                setField(verse, "bibleVerseId", bibleVerseId);
+                setField(verse, "displayOrder", displayOrder);
+                return verse;
+            } catch (Exception e) {
+                throw new RuntimeException("테스트 QtPassageVerse 생성 실패", e);
+            }
+        }
+
+        private void setField(Object target, String fieldName, Object value) throws Exception {
+            var field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
         }
     }
 }

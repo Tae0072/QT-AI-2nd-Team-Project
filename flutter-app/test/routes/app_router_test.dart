@@ -3,10 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:qtai_app/core/config/app_config.dart';
 import 'package:qtai_app/features/onboarding/providers/onboarding_providers.dart';
 import 'package:qtai_app/routes/app_router.dart';
 
 void main() {
+  setUp(() {
+    AppConfig.reset();
+    AppConfig.initializeForTest();
+  });
+
+  tearDown(() {
+    AppConfig.reset();
+  });
+
   group('AppRouter', () {
     test('route constants are correctly defined', () {
       expect(AppRouter.splash, equals('/'));
@@ -56,15 +66,17 @@ void main() {
       expect(find.byType(Scaffold), findsOneWidget);
     });
 
-    testWidgets('login route renders 로그인 텍스트', (tester) async {
+    testWidgets('login route renders 카카오 로그인 텍스트', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          initialRoute: '/login',
+        const ProviderScope(
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            initialRoute: '/login',
+          ),
         ),
       );
-      await tester.pumpAndSettle();
-      expect(find.text('로그인'), findsOneWidget);
+      await tester.pump();
+      expect(find.text('카카오 로그인'), findsOneWidget);
     });
 
     testWidgets('unknown route renders error message', (tester) async {
@@ -101,8 +113,8 @@ void main() {
       await tester.tap(find.text('건너뛰기'));
       await tester.pumpAndSettle();
 
-      // login 화면으로 전환됨
-      expect(find.text('로그인'), findsOneWidget);
+      // login 화면으로 전환됨 — LoginScreen의 카카오 로그인 버튼 확인
+      expect(find.text('카카오 로그인'), findsOneWidget);
 
       // SharedPreferences에 완료 플래그 저장됨
       expect(prefs.getBool('onboarding_complete'), isTrue);
