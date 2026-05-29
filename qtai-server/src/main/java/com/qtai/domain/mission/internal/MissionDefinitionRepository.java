@@ -10,4 +10,7 @@ public interface MissionDefinitionRepository extends JpaRepository<MissionDefini
 
     /** 주어진 ID 목록의 미션 정의 조회 (진행률 → 정의 매핑용). */
     List<MissionDefinition> findByIdIn(List<Long> ids);
+
+    /** 특정 상태의 미션 정의 조회 (배치 계산은 ACTIVE만 대상). */
+    List<MissionDefinition> findByStatus(MissionDefinitionStatus status);
 }

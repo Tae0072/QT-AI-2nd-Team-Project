@@ -95,4 +95,26 @@ public class MemberMissionProgress {
     public boolean isCompleted() {
         return completedAt != null;
     }
+
+    /**
+     * 진행률 배치 계산 결과를 반영한다(멱등 upsert의 update 경로).
+     *
+     * <p>completed_at은 최초 달성 시각을 보존한다 — 이미 달성된 행은 재달성으로 시각이 바뀌지 않는다.
+     * 달성 상태에서 미달성으로 되돌아가더라도(데이터 정정 등) 기존 completed_at은 유지한다.
+     *
+     * @param currentCount 재계산된 현재 달성 수치
+     * @param progressRate 재계산된 진행률(0.00~100.00)
+     * @param reachedTarget 이번 계산에서 목표 달성 여부
+     * @param now           계산 수행 시각
+     */
+    public void applyCalculation(int currentCount, BigDecimal progressRate,
+                                 boolean reachedTarget, LocalDateTime now) {
+        this.currentCount = currentCount;
+        this.progressRate = progressRate;
+        if (reachedTarget && this.completedAt == null) {
+            this.completedAt = now;
+        }
+        this.lastCalculatedAt = now;
+        this.updatedAt = now;
+    }
 }
