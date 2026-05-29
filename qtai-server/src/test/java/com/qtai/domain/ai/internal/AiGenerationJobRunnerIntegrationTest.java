@@ -54,6 +54,12 @@ class AiGenerationJobRunnerIntegrationTest {
     private AiGeneratedAssetRepository generatedAssetRepository;
 
     @Autowired
+    private AiValidationLogRepository validationLogRepository;
+
+    @Autowired
+    private AiValidationChecklistVersionRepository checklistVersionRepository;
+
+    @Autowired
     private AiPromptVersionRepository promptVersionRepository;
 
     @Autowired
@@ -75,6 +81,7 @@ class AiGenerationJobRunnerIntegrationTest {
     @Test
     void explanationJobStoresValidatingAssetAndSucceeds() throws Exception {
         AiPromptVersion promptVersion = persistPromptVersion(AiPromptType.EXPLANATION);
+        AiValidationChecklistVersion checklistVersion = persistActiveChecklistVersion();
         AiGenerationJob job = persistJob(AiGenerationJobType.EXPLANATION, promptVersion);
         givenQtAndBibleContext(List.of(1001L, 1002L));
         when(llmClient.complete(any())).thenReturn(completionResponse("""
@@ -95,6 +102,7 @@ class AiGenerationJobRunnerIntegrationTest {
 
         AiGenerationJob foundJob = generationJobRepository.findById(job.getId()).orElseThrow();
         List<AiGeneratedAsset> assets = generatedAssetRepository.findAll();
+        List<AiValidationLog> validationLogs = validationLogRepository.findAll();
         assertThat(foundJob.getStatus()).isEqualTo(AiGenerationJobStatus.SUCCEEDED);
         assertThat(foundJob.getErrorMessage()).isNull();
         assertThat(assets).hasSize(1);
@@ -118,6 +126,48 @@ class AiGenerationJobRunnerIntegrationTest {
                 "validationReferenceText",
                 "promptText"
         );
+        assertThat(validationLogs).hasSize(1);
+        AiValidationLog validationLog = validationLogs.get(0);
+        assertThat(validationLog.getAiAssetId()).isEqualTo(asset.getId());
+        assertThat(validationLog.getResult()).isEqualTo(AiValidationResult.PASSED);
+        assertThat(validationLog.getReviewerType()).isEqualTo(AiValidationReviewerType.AUTO);
+        assertThat(validationLog.getLayer()).isEqualTo(1);
+        assertThat(validationLog.getValidationReferenceJobId()).isNull();
+        assertThat(validationLog.getChecklistVersionId()).isEqualTo(checklistVersion.getId());
+        assertThat(validationLog.getChecklistJson()).contains("AI_AUTO_VALIDATION_MINIMUM", "PASSED");
+    }
+
+    @Test
+    void autoValidationFailureRejectsAssetAndSucceedsJob() {
+        AiPromptVersion promptVersion = persistPromptVersion(AiPromptType.EXPLANATION);
+        AiValidationChecklistVersion checklistVersion = persistActiveChecklistVersion();
+        AiGenerationJob job = persistJob(AiGenerationJobType.EXPLANATION, promptVersion);
+        AiGenerationJobRunner runner = runner(payloadHandler("""
+                {
+                  "explanations": [],
+                  "glossaryTerms": [],
+                  "sourceMetadata": {"verseIds": [1001]}
+                }
+                """));
+
+        assertThat(runner.runJob(job.getId())).isTrue();
+        flushAndClear();
+
+        AiGenerationJob foundJob = generationJobRepository.findById(job.getId()).orElseThrow();
+        List<AiGeneratedAsset> assets = generatedAssetRepository.findAll();
+        List<AiValidationLog> validationLogs = validationLogRepository.findAll();
+        assertThat(foundJob.getStatus()).isEqualTo(AiGenerationJobStatus.SUCCEEDED);
+        assertThat(foundJob.getErrorMessage()).isNull();
+        assertThat(assets).hasSize(1);
+        AiGeneratedAsset asset = assets.get(0);
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.REJECTED);
+        assertThat(validationLogs).hasSize(1);
+        AiValidationLog validationLog = validationLogs.get(0);
+        assertThat(validationLog.getAiAssetId()).isEqualTo(asset.getId());
+        assertThat(validationLog.getResult()).isEqualTo(AiValidationResult.REJECTED);
+        assertThat(validationLog.getReviewerType()).isEqualTo(AiValidationReviewerType.AUTO);
+        assertThat(validationLog.getChecklistVersionId()).isEqualTo(checklistVersion.getId());
+        assertThat(validationLog.getErrorMessage()).isEqualTo("EXPLANATION_SCHEMA");
     }
 
     @Test
@@ -135,6 +185,7 @@ class AiGenerationJobRunnerIntegrationTest {
         assertThat(foundJob.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
         assertThat(foundJob.getErrorMessage()).isEqualTo("LLM_RESPONSE_INVALID_JSON");
         assertThat(generatedAssetRepository.findAll()).isEmpty();
+        assertThat(validationLogRepository.findAll()).isEmpty();
     }
 
     @Test
@@ -159,6 +210,7 @@ class AiGenerationJobRunnerIntegrationTest {
         assertThat(foundJob.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
         assertThat(foundJob.getErrorMessage()).isEqualTo("LLM_RESPONSE_VERSE_ID_OUT_OF_SCOPE");
         assertThat(generatedAssetRepository.findAll()).isEmpty();
+        assertThat(validationLogRepository.findAll()).isEmpty();
     }
 
     @Test
@@ -174,6 +226,7 @@ class AiGenerationJobRunnerIntegrationTest {
         assertThat(foundJob.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
         assertThat(foundJob.getErrorMessage()).isEqualTo("SIMULATOR_GENERATION_DISABLED");
         assertThat(generatedAssetRepository.findAll()).isEmpty();
+        assertThat(validationLogRepository.findAll()).isEmpty();
         verify(llmClient, never()).complete(any(LlmCompletionRequest.class));
     }
 
@@ -181,9 +234,24 @@ class AiGenerationJobRunnerIntegrationTest {
         return new AiGenerationJobRunner(
                 generationJobRepository,
                 generatedAssetRepository,
+                autoValidationService(),
                 List.of(handlers),
                 CLOCK,
                 new TransactionTemplate(transactionManager)
+        );
+    }
+
+    private AiAutoValidationService autoValidationService() {
+        AiLogService aiLogService = new AiLogService(
+                generationJobRepository,
+                generatedAssetRepository,
+                validationLogRepository
+        );
+        return new AiAutoValidationService(
+                generatedAssetRepository,
+                checklistVersionRepository,
+                aiLogService,
+                objectMapper
         );
     }
 
@@ -219,6 +287,28 @@ class AiGenerationJobRunnerIntegrationTest {
                         .toList());
     }
 
+    private AiGenerationJobHandler payloadHandler(String payloadJson) {
+        return new AiGenerationJobHandler() {
+            @Override
+            public AiGenerationJobType jobType() {
+                return AiGenerationJobType.EXPLANATION;
+            }
+
+            @Override
+            public AiGeneratedAsset generate(AiGenerationJob job, OffsetDateTime createdAt) {
+                return AiGeneratedAsset.create(
+                        job.getId(),
+                        AiGeneratedAssetType.EXPLANATION,
+                        job.getTargetType(),
+                        job.getTargetId(),
+                        payloadJson,
+                        "QT-AI DeepSeek",
+                        createdAt
+                );
+            }
+        };
+    }
+
     private AiPromptVersion persistPromptVersion(AiPromptType promptType) {
         AiPromptVersion promptVersion = new AiPromptVersion();
         setField(promptVersion, "promptType", promptType);
@@ -237,6 +327,18 @@ class AiGenerationJobRunnerIntegrationTest {
                 promptVersion.getId(),
                 BASE_TIME
         ));
+    }
+
+    private AiValidationChecklistVersion persistActiveChecklistVersion() {
+        AiValidationChecklistVersion checklistVersion = AiValidationChecklistVersion.create(
+                AiValidationChecklistType.EXPLANATION,
+                "2026.05.29",
+                "sha256:explanation-auto-validation",
+                null,
+                BASE_TIME.minusDays(1)
+        );
+        checklistVersion.activate(BASE_TIME.minusHours(1));
+        return testEntityManager.persistAndFlush(checklistVersion);
     }
 
     private void flushAndClear() {

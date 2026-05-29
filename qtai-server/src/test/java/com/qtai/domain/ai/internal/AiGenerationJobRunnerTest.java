@@ -35,11 +35,13 @@ class AiGenerationJobRunnerTest {
 
     private AiGenerationJobRepository generationJobRepository;
     private AiGeneratedAssetRepository generatedAssetRepository;
+    private AiAutoValidationService aiAutoValidationService;
 
     @BeforeEach
     void setUp() {
         generationJobRepository = mock(AiGenerationJobRepository.class);
         generatedAssetRepository = mock(AiGeneratedAssetRepository.class);
+        aiAutoValidationService = mock(AiAutoValidationService.class);
     }
 
     @Test
@@ -52,6 +54,7 @@ class AiGenerationJobRunnerTest {
         when(generationJobRepository.findByIdAndStatus(99L, AiGenerationJobStatus.QUEUED))
                 .thenReturn(Optional.of(job));
         when(generationJobRepository.findById(99L)).thenReturn(Optional.of(job));
+        when(generatedAssetRepository.save(asset)).thenReturn(asset);
 
         int processedCount = runner.runQueuedBatch(5);
 
@@ -61,6 +64,27 @@ class AiGenerationJobRunnerTest {
         assertThat(job.getFinishedAt()).isEqualTo(OffsetDateTime.now(CLOCK));
         assertThat(job.getErrorMessage()).isNull();
         verify(generatedAssetRepository).save(asset);
+        verify(aiAutoValidationService).validateExplanationAsset(500L, OffsetDateTime.now(CLOCK));
+    }
+
+    @Test
+    void autoValidationErrorFailsJobAfterAssetGeneration() {
+        AiGenerationJob job = job(102L, AiGenerationJobType.EXPLANATION);
+        AiGeneratedAsset asset = asset(job);
+        AiGenerationJobRunner runner = runner(List.of(handler(AiGenerationJobType.EXPLANATION, asset)));
+
+        when(generationJobRepository.findByIdAndStatus(102L, AiGenerationJobStatus.QUEUED))
+                .thenReturn(Optional.of(job));
+        when(generationJobRepository.findById(102L)).thenReturn(Optional.of(job));
+        when(generatedAssetRepository.save(asset)).thenReturn(asset);
+        when(aiAutoValidationService.validateExplanationAsset(500L, OffsetDateTime.now(CLOCK)))
+                .thenThrow(new BusinessException(ErrorCode.INTERNAL_ERROR, "AUTO_VALIDATION_CONFIGURATION_ERROR"));
+
+        boolean processed = runner.runJob(102L);
+
+        assertThat(processed).isTrue();
+        assertThat(job.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
+        assertThat(job.getErrorMessage()).isEqualTo("AUTO_VALIDATION_CONFIGURATION_ERROR");
     }
 
     @Test
@@ -81,6 +105,7 @@ class AiGenerationJobRunnerTest {
         assertThat(job.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
         assertThat(job.getErrorMessage()).isEqualTo("DeepSeek API request failed");
         verify(generatedAssetRepository, never()).save(any());
+        verify(aiAutoValidationService, never()).validateExplanationAsset(any(), any());
     }
 
     @Test
@@ -98,12 +123,14 @@ class AiGenerationJobRunnerTest {
         assertThat(job.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
         assertThat(job.getErrorMessage()).isEqualTo("SIMULATOR_GENERATION_DISABLED");
         verify(generatedAssetRepository, never()).save(any());
+        verify(aiAutoValidationService, never()).validateExplanationAsset(any(), any());
     }
 
     private AiGenerationJobRunner runner(List<AiGenerationJobHandler> handlers) {
         return new AiGenerationJobRunner(
                 generationJobRepository,
                 generatedAssetRepository,
+                aiAutoValidationService,
                 handlers,
                 CLOCK,
                 new TransactionTemplate(new NoOpTransactionManager())
@@ -151,7 +178,7 @@ class AiGenerationJobRunnerTest {
     }
 
     private static AiGeneratedAsset asset(AiGenerationJob job) {
-        return AiGeneratedAsset.create(
+        AiGeneratedAsset asset = AiGeneratedAsset.create(
                 job.getId(),
                 AiGeneratedAssetType.EXPLANATION,
                 job.getTargetType(),
@@ -160,6 +187,8 @@ class AiGenerationJobRunnerTest {
                 "QT-AI DeepSeek",
                 OffsetDateTime.now(CLOCK)
         );
+        setId(asset, 500L);
+        return asset;
     }
 
     private static void setId(Object target, Long id) {
