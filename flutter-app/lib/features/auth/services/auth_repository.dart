@@ -26,14 +26,16 @@ class AuthRepository {
 
     // 2) 서버에 카카오 토큰 전달 → JWT 발급
     final response = await _dio.post(
-      '/api/v1/auth/kakao',
-      data: {'accessToken': kakaoToken.accessToken},
+      '/auth/kakao',
+      data: {'kakaoAccessToken': kakaoToken.accessToken},
     );
 
     final data = response.data['data'] as Map<String, dynamic>;
     final accessToken = data['accessToken'] as String;
     final refreshToken = data['refreshToken'] as String;
-    final isNewMember = data['isNewMember'] as bool? ?? false;
+    // 서버 응답: member.onboardingRequired (닉네임 미설정 시 true)
+    final member = data['member'] as Map<String, dynamic>?;
+    final isNewMember = member?['onboardingRequired'] as bool? ?? false;
 
     // 3) 토큰 저장
     await SecureStorage.setAccessToken(accessToken);

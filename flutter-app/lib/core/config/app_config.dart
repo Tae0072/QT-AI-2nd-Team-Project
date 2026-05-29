@@ -34,8 +34,9 @@ class AppConfig {
     }
 
     const envName = String.fromEnvironment('ENV', defaultValue: 'dev');
-    const kakaoKey =
-        String.fromEnvironment('KAKAO_NATIVE_APP_KEY', defaultValue: '');
+    // dev 기본값: 네이티브 앱 키는 APK에 포함되는 공개 키로 보안 리스크 없음
+    const kakaoKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY',
+        defaultValue: '53e5afb2d90048af9e71332e47f387fa');
 
     final env = Environment.values.firstWhere(
       (e) => e.name == envName,
