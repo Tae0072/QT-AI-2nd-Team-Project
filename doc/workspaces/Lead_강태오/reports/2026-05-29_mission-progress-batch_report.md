@@ -53,3 +53,14 @@ note 월간 묵상 집계를 소비해 회원 MONTHLY 미션 진행률을 계산
 - **MONTHLY 주기만 계산**: note가 월간 집계만 제공 → DAILY/WEEKLY는 note 기간별 집계 api가 생긴 뒤 후속(note 담당 조율).
 - **enroll(최초 진행 레코드 생성)**: 배치는 이미 진행 레코드가 있는 회원만 재계산한다. 신규 회원의 최초 enroll 트리거(노트 저장 이벤트 또는 가입 시)는 후속 과제.
 - H2 자동 검증은 기존 V13 H2 비호환으로 불가(#145 리포트 참조) — V19 시드/엔티티는 prod MySQL 기준 + 단위 테스트로 검증.
+
+## 7. 자동 리뷰(#146) 대응
+
+자동 리뷰의 BLOCK 2건을 구조적으로 수정했다.
+
+- **[BLOCK] 트랜잭션 자기호출 격리 실패** → 단일 `MissionProgressCalculator`가 `@Transactional`에서 자기 메서드를 호출(self-invocation)해 회원 전체가 한 트랜잭션에 묶이고, 한 회원 실패 시 rollback-only로 배치 전체가 롤백될 수 있던 문제. → **비트랜잭션 코디네이터(`MissionProgressCoordinator`) + 회원별 `@Transactional` 계산기(`MissionProgressCalculator`) 빈 분리**로 변경. 코디네이터가 회원마다 계산기를 프록시 경유 호출 → 회원별 독립 트랜잭션 → 실패 격리 보장.
+- **[BLOCK] mock 격리 테스트의 거짓 신뢰** → 격리 책임이 코디네이터로 이동했고, `MissionProgressCoordinatorTest`에서 계산기가 한 회원에 예외를 던져도 나머지 회원이 계속 처리되는지 검증. (구조상 회원별 TX는 스프링 프록시 모델로 보장)
+- [WARN] 정의 N회 조회 → 코디네이터가 ACTIVE 정의를 **1회 로드해 전달**(테스트로 times(1) 검증).
+- [WARN] `target<=0` 완료 오판 → `reached = target>0 && current>=target`로 수정(단위 테스트 추가).
+- [INFO] Clock zone → `JpaAuditingConfig.clock()`이 `Asia/Seoul`이라 월경계 오계산 없음(확인 완료).
+- 실 DB 격리 통합 테스트(@SpringBootTest)는 기존 @SpringBootTest 부재·H2/V13 제약으로 보류 — 컨텍스트 로드/Modulith 검증 가드는 전사 CI 개선(#149 W3 체크리스트)으로 제안.
