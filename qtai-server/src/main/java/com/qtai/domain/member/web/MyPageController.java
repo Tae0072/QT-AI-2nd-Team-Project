@@ -8,6 +8,8 @@ import com.qtai.domain.member.api.dto.DashboardResponse.ProfileSummary;
 import com.qtai.domain.member.api.dto.DashboardResponse.StatsWidget;
 import com.qtai.domain.member.api.dto.DashboardResponse.StatsWidget.WeekMonth;
 import com.qtai.domain.member.api.dto.MemberResponse;
+import com.qtai.domain.mission.api.GetMemberMissionProgressUseCase;
+import com.qtai.domain.mission.api.dto.MissionProgressResponse;
 import com.qtai.domain.notification.api.ListNotificationUseCase;
 import com.qtai.domain.praise.api.ListMemberPraiseSongUseCase;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,7 @@ public class MyPageController {
     private final GetMemberUseCase getMemberUseCase;
     private final ListNotificationUseCase listNotificationUseCase;
     private final ListMemberPraiseSongUseCase listMemberPraiseSongUseCase;
+    private final GetMemberMissionProgressUseCase getMemberMissionProgressUseCase;
 
     /**
      * GET /api/v1/me/dashboard — 대시보드.
@@ -56,8 +59,11 @@ public class MyPageController {
         // ── 찬양 요약 ──
         PraiseSummary praiseSummary = loadPraiseSummary(memberId, widgetErrors);
 
+        // ── 미션 진행률 ──
+        List<MissionProgressResponse> missionProgress = loadMissionProgress(memberId, widgetErrors);
+
         DashboardResponse response = new DashboardResponse(
-                profile, stats, unreadCount, praiseSummary, widgetErrors);
+                profile, stats, unreadCount, praiseSummary, missionProgress, widgetErrors);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -104,6 +110,16 @@ public class MyPageController {
             log.warn("대시보드 찬양 위젯 실패: memberId={}", memberId, e);
             errors.add("praiseSummary");
             return new PraiseSummary(0);
+        }
+    }
+
+    private List<MissionProgressResponse> loadMissionProgress(Long memberId, List<String> errors) {
+        try {
+            return getMemberMissionProgressUseCase.getMissionProgress(memberId);
+        } catch (Exception e) {
+            log.warn("대시보드 미션 위젯 실패: memberId={}", memberId, e);
+            errors.add("missionProgress");
+            return List.of();
         }
     }
 }
