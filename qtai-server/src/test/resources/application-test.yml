@@ -29,3 +29,12 @@ security:
 kakao:
   api:
     user-info-url: https://test.kakao.com/v2/user/me
+
+external:
+  llm:
+    deepseek:
+      api-key: placeholder-credential
+      base-url: https://test.deepseek.local
+      model: deepseek-v4-flash
+      connect-timeout-ms: 100
+      read-timeout-ms: 100
