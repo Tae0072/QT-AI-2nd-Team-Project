@@ -146,6 +146,29 @@ class SystemAiAssetControllerTest {
     }
 
     @Test
+    void qaResponseAssetTypeReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/system/ai/assets")
+                        .principal(principal("batch", "ROLE_SYSTEM_BATCH"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "generationJobId": 101,
+                                  "assetType": "QA_RESPONSE",
+                                  "targetType": "QA_REQUEST",
+                                  "targetId": 700,
+                                  "payloadJson": {"answer": "validated answer"},
+                                  "sourceLabel": "QT-AI curated content"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("C0002"));
+
+        verify(registerAiGeneratedAssetUseCase, never())
+                .registerAiGeneratedAsset(any(RegisterAiGeneratedAssetCommand.class));
+    }
+
+    @Test
     void unauthenticatedRequestReturnsUnauthorized() throws Exception {
         mockMvc.perform(post("/api/v1/system/ai/assets")
                         .contentType(MediaType.APPLICATION_JSON)

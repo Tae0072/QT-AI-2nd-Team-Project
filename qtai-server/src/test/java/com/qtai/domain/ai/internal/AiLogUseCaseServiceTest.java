@@ -119,6 +119,24 @@ class AiLogUseCaseServiceTest {
     }
 
     @Test
+    void qaResponseAssetRegistrationIsRejectedInSystemGenerationFlow() {
+        RegisterAiGeneratedAssetCommand command = new RegisterAiGeneratedAssetCommand(
+                101L,
+                "QA_RESPONSE",
+                "QA_REQUEST",
+                700L,
+                "{\"answer\":\"validated answer\"}",
+                null,
+                OffsetDateTime.parse("2026-05-26T10:30:00+09:00")
+        );
+
+        assertThatThrownBy(() -> aiLogUseCaseService.registerAiGeneratedAsset(command))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verifyNoInteractions(aiLogService);
+    }
+
+    @Test
     void invalidEnumStringIsRejectedAsInvalidInput() {
         RegisterAiGeneratedAssetCommand command = new RegisterAiGeneratedAssetCommand(
                 101L,

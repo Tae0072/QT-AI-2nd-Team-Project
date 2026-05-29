@@ -16,6 +16,36 @@ class AiGeneratedAssetTest {
     private static final OffsetDateTime REVIEWED_AT = OffsetDateTime.parse("2026-05-20T04:04:00+09:00");
 
     @Test
+    void validatingAssetCanBeApproved() {
+        AiGeneratedAsset asset = newAsset();
+
+        asset.approve(REVIEWED_AT);
+
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.APPROVED);
+        assertThat(asset.getReviewedAt()).isEqualTo(REVIEWED_AT);
+    }
+
+    @Test
+    void validatingAssetCanBeRejected() {
+        AiGeneratedAsset asset = newAsset();
+
+        asset.reject(REVIEWED_AT);
+
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.REJECTED);
+        assertThat(asset.getReviewedAt()).isEqualTo(REVIEWED_AT);
+    }
+
+    @Test
+    void validatingAssetCanBeHidden() {
+        AiGeneratedAsset asset = newAsset();
+
+        asset.hide(REVIEWED_AT);
+
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.HIDDEN);
+        assertThat(asset.getReviewedAt()).isEqualTo(REVIEWED_AT);
+    }
+
+    @Test
     void approvedAssetCannotBeRejected() {
         AiGeneratedAsset asset = newAsset();
         asset.approve(REVIEWED_AT);
