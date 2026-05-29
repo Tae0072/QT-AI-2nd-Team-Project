@@ -102,4 +102,22 @@ class MyPageControllerTest {
                 .andExpect(jsonPath("$.data.widgetErrors[0]").value("profile"));
     }
 
+    @Test
+    void dashboard_미션_위젯_실패시_빈배열_widgetErrors_포함() throws Exception {
+        MemberResponse member = new MemberResponse(
+                1L, "user1", "user@test.com", null,
+                "ACTIVE", "USER", null, null);
+        when(getMemberUseCase.getMember(1L)).thenReturn(member);
+        when(listNotificationUseCase.countUnread(1L)).thenReturn(0L);
+        when(listMemberPraiseSongUseCase.countMy(1L)).thenReturn(0L);
+        // 미션 위젯만 실패 → 부분 실패 격리: missionProgress는 빈 배열, widgetErrors에 기록
+        when(getMemberMissionProgressUseCase.getMissionProgress(1L))
+                .thenThrow(new RuntimeException("mission unavailable"));
+
+        mockMvc.perform(get("/api/v1/me/dashboard"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.missionProgress").isEmpty())
+                .andExpect(jsonPath("$.data.widgetErrors[0]").value("missionProgress"));
+    }
+
 }

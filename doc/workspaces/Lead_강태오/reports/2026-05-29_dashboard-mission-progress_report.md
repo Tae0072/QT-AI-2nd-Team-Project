@@ -39,9 +39,12 @@
 | 테스트 | 케이스 | 결과 |
 |--------|--------|------|
 | MyPageControllerTest | 정상 응답에 missionProgress 포함(title/progressRate) | PASS |
-| | 위젯 부분 실패 widgetErrors 포함 | PASS |
+| | profile 위젯 실패 → widgetErrors 포함 | PASS |
+| | **미션 위젯 실패 → missionProgress 빈 배열 + widgetErrors "missionProgress"** | PASS |
 
-- `./gradlew test --no-daemon` (전체) → BUILD SUCCESSFUL (48s).
+- `./gradlew test --no-daemon` (전체) → BUILD SUCCESSFUL.
+
+> 정정: 초기 작성 시 미션 위젯 부정 경로가 별도 테스트로 커버된 것처럼 기재했으나 실제 누락이었음. 자동 리뷰(#143 REQUEST_CHANGES) 지적을 반영해 부정 경로 테스트를 추가하고 표를 정정함.
 
 ## 5. 남은 후속
 

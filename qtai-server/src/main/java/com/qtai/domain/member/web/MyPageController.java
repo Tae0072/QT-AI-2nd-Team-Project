@@ -27,6 +27,8 @@ import java.util.List;
  *
  * <p>API 명세서 §4.6.1~§4.6.2 기준.
  * <p>위젯별 부분 실패: 한 위젯 조회 실패가 전체 응답을 실패시키지 않는다.
+ * <p>각 위젯 로더는 부분 실패 격리를 위해 <b>의도적으로 광범위한 {@code catch (Exception)}</b>를 사용한다 —
+ * 예상치 못한 런타임 예외도 대시보드 전체를 깨뜨리지 않고 해당 위젯만 비우고 widgetErrors에 기록하기 위함이다.
  */
 @Slf4j
 @RestController
