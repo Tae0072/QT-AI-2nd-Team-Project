@@ -2,6 +2,7 @@ package com.qtai.domain.ai.internal;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,8 @@ import com.qtai.common.exception.ErrorCode;
 
 @Service
 class AiGenerationJobRunner {
+
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
     private final AiGenerationJobRepository generationJobRepository;
     private final AiGeneratedAssetRepository generatedAssetRepository;
@@ -34,7 +37,7 @@ class AiGenerationJobRunner {
                 generationJobRepository,
                 generatedAssetRepository,
                 handlers,
-                Clock.systemDefaultZone(),
+                Clock.system(KST_ZONE),
                 new TransactionTemplate(transactionManager)
         );
     }
@@ -81,7 +84,7 @@ class AiGenerationJobRunner {
         try {
             AiGeneratedAsset asset = requireAsset(job, handler(job.getJobType()).generate(job, now()));
             completeSucceeded(job.getId(), asset);
-        } catch (Exception exception) {
+        } catch (RuntimeException exception) {
             completeFailed(job.getId(), failureMessage(exception));
         }
         return true;
@@ -150,7 +153,7 @@ class AiGenerationJobRunner {
         return Map.copyOf(registry);
     }
 
-    private static String failureMessage(Exception exception) {
+    private static String failureMessage(RuntimeException exception) {
         if (exception instanceof BusinessException businessException
                 && businessException.getMessage() != null
                 && !businessException.getMessage().isBlank()) {

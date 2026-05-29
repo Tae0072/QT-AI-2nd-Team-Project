@@ -30,7 +30,7 @@ class AiGenerationJobWorker {
         }
         try {
             runner.runQueuedBatch(batchSize);
-        } catch (Exception exception) {
+        } catch (RuntimeException exception) {
             log.warn("AI generation worker polling failed. errorType={}", exception.getClass().getSimpleName());
         }
     }
