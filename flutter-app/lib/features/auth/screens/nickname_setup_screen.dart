@@ -54,7 +54,7 @@ class _NicknameSetupScreenState extends ConsumerState<NicknameSetupScreen> {
     try {
       final dio = ref.read(dioProvider);
       await dio.patch(
-        '/api/v1/members/me/nickname',
+        '/me/nickname',
         data: {'nickname': _controller.text.trim()},
       );
 
