@@ -2,9 +2,12 @@ package com.qtai.domain.report.internal;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.ai.api.GetAiQaResultUseCase;
+import com.qtai.domain.ai.api.dto.GetAiQaResultCommand;
 import com.qtai.domain.report.api.CreateReportUseCase;
 import com.qtai.domain.report.api.dto.ReportCreateRequest;
 import com.qtai.domain.report.api.dto.ReportResponse;
+import com.qtai.domain.sharing.api.GetSharingPostUseCase;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -34,11 +37,14 @@ public class ReportService implements CreateReportUseCase {
 
     private final ReportRepository reportRepository;
     private final Clock clock;
+    private final GetSharingPostUseCase getSharingPostUseCase;
+    private final GetAiQaResultUseCase getAiQaResultUseCase;
 
     @Override
     @Transactional
     public ReportResponse createReport(Long memberId, ReportCreateRequest request) {
         ReportTargetType targetType = parseTargetType(request.targetType());
+        validateTargetExists(memberId, targetType, request.targetId());
 
         if (reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(
                 memberId, targetType, request.targetId())) {
@@ -71,6 +77,32 @@ public class ReportService implements CreateReportUseCase {
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.INVALID_INPUT,
                     "지원하지 않는 신고 대상 타입입니다: " + raw);
+        }
+    }
+
+    /**
+     * 신고 대상의 존재(및 신고자 가시성)를 대상 도메인의 api/UseCase로 검증한다.
+     *
+     * <p>현재 검증 가능한 대상: POST(나눔글), AI_QA_REQUEST. COMMENT·AI_ASSET은 해당 도메인이
+     * 사용자용 존재 확인 api를 제공하면 후속 보강한다(미제공 시 형식·중복 검증까지만).
+     * 대상 도메인이 NOT_FOUND/FORBIDDEN을 던지면 신고 대상으로 부적합하므로 REPORT_TARGET_NOT_FOUND로 변환한다.
+     */
+    private void validateTargetExists(Long memberId, ReportTargetType targetType, Long targetId) {
+        switch (targetType) {
+            case POST -> requireTarget(() -> getSharingPostUseCase.getDetail(memberId, targetId));
+            case AI_QA_REQUEST -> requireTarget(() ->
+                    getAiQaResultUseCase.getAiQaResult(new GetAiQaResultCommand(memberId, targetId)));
+            case COMMENT, AI_ASSET -> {
+                // 해당 도메인의 사용자용 존재 확인 api 미제공 — 후속 보강 대상.
+            }
+        }
+    }
+
+    private void requireTarget(Runnable existenceCheck) {
+        try {
+            existenceCheck.run();
+        } catch (BusinessException e) {
+            throw new BusinessException(ErrorCode.REPORT_TARGET_NOT_FOUND);
         }
     }
 
