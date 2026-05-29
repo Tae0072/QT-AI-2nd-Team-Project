@@ -23,6 +23,9 @@ dependencies:
   # 로컬 저장소
   shared_preferences: ^2.3.4
 
+  # 카카오 로그인
+  kakao_flutter_sdk_user: ^1.9.5
+
   # UI
   cupertino_icons: ^1.0.8
 
