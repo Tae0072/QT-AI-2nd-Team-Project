@@ -117,6 +117,21 @@ class ReportServiceTest {
         verify(reportRepository, never()).save(any(Report.class));
     }
 
+    @Test
+    void createReport_POST_검증중_비대상예외는_그대로_전파() {
+        // SHARING_POST_NOT_FOUND가 아닌 BusinessException은 REPORT_TARGET_NOT_FOUND로 둔갑시키지 않고 재던진다.
+        when(getSharingPostUseCase.getDetail(1L, 300L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
+
+        ReportCreateRequest request =
+                new ReportCreateRequest("POST", 300L, "SPAM", null);
+
+        assertThatThrownBy(() -> reportService.createReport(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN);
+        verify(reportRepository, never()).save(any(Report.class));
+    }
+
     private void setId(Object entity, Long id) {
         try {
             Field field = entity.getClass().getDeclaredField("id");

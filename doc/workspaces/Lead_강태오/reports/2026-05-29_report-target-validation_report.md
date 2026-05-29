@@ -7,15 +7,15 @@
 
 ## 1. 한 줄 요약
 
-신고 접수 시 대상의 실제 존재·가시성을 대상 도메인 api로 검증하도록 보강했다. 검증 가능한 POST(나눔글)·AI_QA_REQUEST 2종을 구현하고, COMMENT·AI_ASSET은 해당 도메인 api 부재로 후속 과제로 남겼다. 전체 회귀 통과.
+신고 접수 시 대상의 실제 존재·가시성을 대상 도메인 api로 검증하도록 보강했다. 검증 가능한 **POST(나눔글) 1종**을 구현(sharing `GetSharingPostUseCase`)하고, AI_QA_REQUEST(구현 빈 부재)·COMMENT·AI_ASSET은 해당 도메인 api 부재로 후속 과제로 남겼다. 전체 회귀 통과.
 
 ## 2. 변경 사항
 
 | 구분 | 파일 | 내용 |
 |------|------|------|
-| 수정 | `report/internal/ReportService.java` | `validateTargetExists` 추가 — POST: `GetSharingPostUseCase.getDetail`, AI_QA_REQUEST: `GetAiQaResultUseCase.getAiQaResult`로 존재 검증. NOT_FOUND/FORBIDDEN → `REPORT_TARGET_NOT_FOUND` 변환 |
+| 수정 | `report/internal/ReportService.java` | `validateTargetExists` 추가 — POST: `GetSharingPostUseCase.getDetail`로 존재 검증, `SHARING_POST_NOT_FOUND`만 `REPORT_TARGET_NOT_FOUND`로 변환(그 외 BusinessException 재던짐). 그 외 대상 타입은 검증 보류 |
 | 수정 | `common/exception/ErrorCode.java` | `REPORT_TARGET_NOT_FOUND`(R0002, 404) 추가 |
-| 수정 | `test/.../report/internal/ReportServiceTest.java` | 4-arg 생성자 갱신 + 대상없음 검증 테스트 2건 |
+| 수정 | `test/.../report/internal/ReportServiceTest.java` | 3-arg 생성자 갱신 + POST 검증 테스트 2건(대상없음 변환 / 비대상예외 전파) |
 
 ## 3. 검증 범위 (대상 4종)
 
@@ -30,18 +30,20 @@
 
 ## 4. 도메인 경계
 
-- report가 sharing·ai의 `api/UseCase`만 호출(Long FK only, internal 직접 접근 없음). 실제 구현체가 dev에 있어 client Mock 불필요(기존 stale Mock 스텁은 미사용 — 별도 정리 가능).
+- report가 sharing의 `api/UseCase`(GetSharingPostUseCase)만 호출(Long FK only, internal 직접 접근 없음). 실제 구현체(SharingPostService)가 dev에 있어 client Mock 불필요.
 - 검증 순서: 대상 타입 파싱 → **대상 존재 검증** → 중복 차단 → 저장.
 
 ## 5. 테스트 결과
 
 | 케이스 | 결과 |
 |--------|------|
-| POST 대상 없음 → REPORT_TARGET_NOT_FOUND | PASS |
-| AI_QA 대상 없음 → REPORT_TARGET_NOT_FOUND | PASS |
+| POST 대상 없음(SHARING_POST_NOT_FOUND) → REPORT_TARGET_NOT_FOUND | PASS |
+| POST 검증 중 비대상 예외(FORBIDDEN)는 변환 없이 그대로 전파 | PASS |
 | (기존) 접수 성공 / 중복 / TOCTOU / 잘못된 타입 | PASS |
 
-- `./gradlew test --no-daemon` (전체) → BUILD SUCCESSFUL (39s).
+- `./gradlew test --no-daemon` (전체) → BUILD SUCCESSFUL.
+
+> 정정: 초안 §5에 존재하지 않던 "AI_QA 대상 없음 PASS" 행과 §2 "4-arg/2건" 표기가 코드와 어긋나 자동 리뷰(#147)가 지적. AI_QA 검증 제거(POST만)에 맞춰 §1/§2/§4/§5를 정합화하고, 신규 테스트는 POST 2건(대상없음 변환 / 비대상예외 전파)으로 명시.
 
 ## 6. 남은 후속
 
