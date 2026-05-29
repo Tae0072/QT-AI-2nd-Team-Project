@@ -197,6 +197,9 @@ class DomainBoundaryArchTest {
                 .that().resideInAPackage("..domain." + domain + ".web..")
                 .should().dependOnClassesThat()
                 .resideInAnyPackage(otherWebPackages)
-                .as("CLAUDE.md §3: " + domain + " web은 다른 도메인의 web 패키지에 의존하지 않는다");
+                .as("CLAUDE.md §3: " + domain + " web은 다른 도메인의 web 패키지에 의존하지 않는다")
+                // 일부 도메인(예: mission)은 명세상 사용자 web 엔드포인트가 없어 web 클래스가 0건일 수 있다.
+                // 이 경우 "의존하지 않는다" 규칙은 공허하게 참이므로 빈 집합을 허용한다.
+                .allowEmptyShould(true);
     }
 }
