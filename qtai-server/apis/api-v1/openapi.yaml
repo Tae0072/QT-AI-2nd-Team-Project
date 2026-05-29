@@ -1770,7 +1770,6 @@ components:
             - SUMMARY
             - GLOSSARY
             - SIMULATOR
-            - QA_RESPONSE
         targetType:
           type: string
           enum:
