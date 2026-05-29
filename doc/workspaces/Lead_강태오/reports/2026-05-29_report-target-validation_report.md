@@ -22,9 +22,11 @@
 | targetType | 검증 | 방식 |
 |-----------|------|------|
 | POST | ✅ | sharing `GetSharingPostUseCase.getDetail(memberId, postId)` (없거나 HIDDEN/DELETE → 404) |
-| AI_QA_REQUEST | ✅ | ai `GetAiQaResultUseCase.getAiQaResult(memberId, requestId)` |
+| AI_QA_REQUEST | ❌ 후속 | `GetAiQaResultUseCase` 구현 빈 미등록(AiController 스텁) — 주입 시 컨텍스트 기동 실패하므로 보류. 구현되면 추가 |
 | COMMENT | ❌ 후속 | sharing `CommentUseCase` 미구현 — 사용자용 존재 확인 api 생기면 보강 |
 | AI_ASSET | ❌ 후속 | ai 사용자용 단건 조회 api 미제공(관리자 전용만 존재) — 보강 대상 |
+
+> 정정: 초안은 AI_QA_REQUEST도 검증한다고 기재했으나, `GetAiQaResultUseCase` 구현 빈이 없어(스텁) 주입 시 앱 기동이 실패한다(자동 리뷰 #147 BLOCK). POST만 검증하도록 수정하고, `catch`도 `SHARING_POST_NOT_FOUND`만 변환하도록 좁혔다.
 
 ## 4. 도메인 경계
 

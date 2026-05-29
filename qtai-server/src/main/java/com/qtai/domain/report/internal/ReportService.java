@@ -2,8 +2,6 @@ package com.qtai.domain.report.internal;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.GetAiQaResultUseCase;
-import com.qtai.domain.ai.api.dto.GetAiQaResultCommand;
 import com.qtai.domain.report.api.CreateReportUseCase;
 import com.qtai.domain.report.api.dto.ReportCreateRequest;
 import com.qtai.domain.report.api.dto.ReportResponse;
@@ -22,12 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>API 명세서 §4.4.7 (POST /api/v1/reports) 기준.
  * <ul>
  *   <li>대상 식별: (targetType, targetId). targetType은 ReportTargetType enum으로 검증.</li>
+ *   <li>대상 존재성: 사용자용 조회 api가 있는 대상만 검증(현재 POST). 없거나 비가시면 REPORT_TARGET_NOT_FOUND.</li>
  *   <li>중복 신고 차단: (reporter, targetType, targetId) UNIQUE + TOCTOU 방어.</li>
  *   <li>접수 상태는 항상 RECEIVED. 상태 전이(REVIEWING/RESOLVED/REJECTED)는 admin 도메인 책임.</li>
  * </ul>
- *
- * <p>대상 존재성(나눔글/AI 산출물 등) 교차 검증은 각 대상 도메인 client 어댑터로 후속 처리 예정이며,
- * 본 MVP 접수 경로에서는 형식 검증과 중복 차단만 수행한다.
  */
 @Slf4j
 @Service
@@ -38,7 +34,6 @@ public class ReportService implements CreateReportUseCase {
     private final ReportRepository reportRepository;
     private final Clock clock;
     private final GetSharingPostUseCase getSharingPostUseCase;
-    private final GetAiQaResultUseCase getAiQaResultUseCase;
 
     @Override
     @Transactional
@@ -83,27 +78,27 @@ public class ReportService implements CreateReportUseCase {
     /**
      * 신고 대상의 존재(및 신고자 가시성)를 대상 도메인의 api/UseCase로 검증한다.
      *
-     * <p>현재 검증 가능한 대상: POST(나눔글), AI_QA_REQUEST. COMMENT·AI_ASSET은 해당 도메인이
-     * 사용자용 존재 확인 api를 제공하면 후속 보강한다(미제공 시 형식·중복 검증까지만).
-     * 대상 도메인이 NOT_FOUND/FORBIDDEN을 던지면 신고 대상으로 부적합하므로 REPORT_TARGET_NOT_FOUND로 변환한다.
+     * <p>현재 검증 가능한 대상은 POST(나눔글)뿐이다(sharing {@code GetSharingPostUseCase}). 나머지는
+     * 사용자용 존재 확인 수단이 없어 형식·중복 검증까지만 수행한다:
+     * <ul>
+     *   <li>AI_QA_REQUEST — ai {@code GetAiQaResultUseCase} 구현 빈 미등록(스텁). 구현 후 검증 추가.</li>
+     *   <li>COMMENT — sharing CommentUseCase 미구현.</li>
+     *   <li>AI_ASSET — ai 사용자용 단건 조회 api 미제공(관리자 전용만 존재).</li>
+     * </ul>
      */
     private void validateTargetExists(Long memberId, ReportTargetType targetType, Long targetId) {
-        switch (targetType) {
-            case POST -> requireTarget(() -> getSharingPostUseCase.getDetail(memberId, targetId));
-            case AI_QA_REQUEST -> requireTarget(() ->
-                    getAiQaResultUseCase.getAiQaResult(new GetAiQaResultCommand(memberId, targetId)));
-            case COMMENT, AI_ASSET -> {
-                // 해당 도메인의 사용자용 존재 확인 api 미제공 — 후속 보강 대상.
+        if (targetType == ReportTargetType.POST) {
+            try {
+                getSharingPostUseCase.getDetail(memberId, targetId);
+            } catch (BusinessException e) {
+                // 존재하지 않거나 비가시(HIDDEN/DELETE 포함)면 신고 대상으로 부적합 → 404로 통일.
+                if (e.getErrorCode() == ErrorCode.SHARING_POST_NOT_FOUND) {
+                    throw new BusinessException(ErrorCode.REPORT_TARGET_NOT_FOUND);
+                }
+                throw e;
             }
         }
-    }
-
-    private void requireTarget(Runnable existenceCheck) {
-        try {
-            existenceCheck.run();
-        } catch (BusinessException e) {
-            throw new BusinessException(ErrorCode.REPORT_TARGET_NOT_FOUND);
-        }
+        // COMMENT / AI_QA_REQUEST / AI_ASSET: 사용자용 존재 확인 api 미제공/미구현 — 후속 보강 대상.
     }
 
     private ReportResponse toResponse(Report report) {

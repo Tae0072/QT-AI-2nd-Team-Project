@@ -9,8 +9,6 @@ import static org.mockito.Mockito.when;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.GetAiQaResultUseCase;
-import com.qtai.domain.ai.api.dto.GetAiQaResultCommand;
 import com.qtai.domain.report.api.dto.ReportCreateRequest;
 import com.qtai.domain.report.api.dto.ReportResponse;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
@@ -26,7 +24,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 /**
  * ReportService 단위 테스트.
  *
- * <p>검증 범위: 신고 접수 성공(RECEIVED), 중복 신고 차단(사전 검사 + TOCTOU),
+ * <p>검증 범위: 신고 접수 성공(RECEIVED), 대상 존재성(POST), 중복 신고 차단(사전 검사 + TOCTOU),
  * 잘못된 대상 타입 거부.
  */
 class ReportServiceTest {
@@ -36,16 +34,13 @@ class ReportServiceTest {
 
     private ReportRepository reportRepository;
     private GetSharingPostUseCase getSharingPostUseCase;
-    private GetAiQaResultUseCase getAiQaResultUseCase;
     private ReportService reportService;
 
     @BeforeEach
     void setUp() {
         reportRepository = Mockito.mock(ReportRepository.class);
         getSharingPostUseCase = Mockito.mock(GetSharingPostUseCase.class);
-        getAiQaResultUseCase = Mockito.mock(GetAiQaResultUseCase.class);
-        reportService = new ReportService(
-                reportRepository, FIXED_CLOCK, getSharingPostUseCase, getAiQaResultUseCase);
+        reportService = new ReportService(reportRepository, FIXED_CLOCK, getSharingPostUseCase);
     }
 
     @Test
@@ -83,6 +78,7 @@ class ReportServiceTest {
 
     @Test
     void createReport_동시INSERT_UK위반_DUPLICATE_REPORT() {
+        // AI_ASSET은 대상 존재 검증 대상이 아님(사용자 조회 api 부재) → 바로 중복/저장 경로.
         when(reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(
                 1L, ReportTargetType.AI_ASSET, 42L)).thenReturn(false);
         when(reportRepository.save(any(Report.class)))
@@ -114,20 +110,6 @@ class ReportServiceTest {
 
         ReportCreateRequest request =
                 new ReportCreateRequest("POST", 300L, "SPAM", null);
-
-        assertThatThrownBy(() -> reportService.createReport(1L, request))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode").isEqualTo(ErrorCode.REPORT_TARGET_NOT_FOUND);
-        verify(reportRepository, never()).save(any(Report.class));
-    }
-
-    @Test
-    void createReport_AI_QA_대상_없으면_REPORT_TARGET_NOT_FOUND() {
-        when(getAiQaResultUseCase.getAiQaResult(any(GetAiQaResultCommand.class)))
-                .thenThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        ReportCreateRequest request =
-                new ReportCreateRequest("AI_QA_REQUEST", 700L, "FACT_ERROR", null);
 
         assertThatThrownBy(() -> reportService.createReport(1L, request))
                 .isInstanceOf(BusinessException.class)
