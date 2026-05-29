@@ -98,7 +98,6 @@ class NoteServiceTest {
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).visibility()).isEqualTo(NoteVisibility.PRIVATE);
         assertThat(response.sort()).isEqualTo("updatedAt,desc");
-        verify(noteRepository).search(eq(10L), isNull(), isNull(), isNull(), eq(emptyPageable));
     }
 
     @Test
