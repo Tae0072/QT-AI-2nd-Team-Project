@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:qtai_app/features/onboarding/providers/onboarding_providers.dart';
 import 'package:qtai_app/routes/app_router.dart';
 
 void main() {
@@ -10,11 +14,26 @@ void main() {
       expect(AppRouter.home, equals('/home'));
       expect(AppRouter.onboarding, equals('/onboarding'));
       expect(AppRouter.myPage, equals('/my-page'));
+      expect(AppRouter.profileEdit, equals('/my-page/profile'));
     });
 
     test('home route returns MaterialPageRoute', () {
       final route = AppRouter.onGenerateRoute(
         const RouteSettings(name: '/home'),
+      );
+      expect(route, isA<MaterialPageRoute>());
+    });
+
+    test('login route returns MaterialPageRoute', () {
+      final route = AppRouter.onGenerateRoute(
+        const RouteSettings(name: '/login'),
+      );
+      expect(route, isA<MaterialPageRoute>());
+    });
+
+    test('onboarding route returns MaterialPageRoute', () {
+      final route = AppRouter.onGenerateRoute(
+        const RouteSettings(name: '/onboarding'),
       );
       expect(route, isA<MaterialPageRoute>());
     });
@@ -37,6 +56,17 @@ void main() {
       expect(find.byType(Scaffold), findsOneWidget);
     });
 
+    testWidgets('login route renders 로그인 텍스트', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          initialRoute: '/login',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('로그인'), findsOneWidget);
+    });
+
     testWidgets('unknown route renders error message', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -46,6 +76,36 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Route not found: /nonexistent'), findsOneWidget);
+    });
+
+    testWidgets('onboarding onComplete → login으로 네비게이션된다',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            initialRoute: '/onboarding',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 온보딩 화면이 렌더링됨
+      expect(find.byType(Scaffold), findsOneWidget);
+
+      // 건너뛰기 버튼으로 onComplete 호출
+      await tester.tap(find.text('건너뛰기'));
+      await tester.pumpAndSettle();
+
+      // login 화면으로 전환됨
+      expect(find.text('로그인'), findsOneWidget);
+
+      // SharedPreferences에 완료 플래그 저장됨
+      expect(prefs.getBool('onboarding_complete'), isTrue);
     });
   });
 }

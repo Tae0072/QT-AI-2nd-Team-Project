@@ -7,6 +7,8 @@ import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.note.api.CreateNoteUseCase;
 import com.qtai.domain.note.api.DeleteNoteUseCase;
 import com.qtai.domain.note.api.GetNoteUseCase;
+import com.qtai.domain.note.api.JournalChangedEvent;
+import com.qtai.domain.note.api.JournalEventType;
 import com.qtai.domain.note.api.ListNoteCategoriesUseCase;
 import com.qtai.domain.note.api.ListNotesUseCase;
 import com.qtai.domain.note.api.NoteCategory;
@@ -26,6 +28,7 @@ import com.qtai.domain.note.api.dto.NoteVerseItem;
 import com.qtai.domain.note.api.dto.UpdateNoteCommand;
 import com.qtai.domain.note.client.qt.NoteQtClient;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,11 +36,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -51,6 +57,8 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     private final NoteVerseRepository noteVerseRepository;
     private final GetBibleVerseUseCase getBibleVerseUseCase;
     private final NoteQtClient noteQtClient;
+    private final ApplicationEventPublisher eventPublisher;
+    private final Clock clock;
 
     @Override
     public NoteListResponse list(Long memberId, NoteCategory category, NoteStatus status, String q, Pageable pageable) {
@@ -107,11 +115,14 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 input.interpretSection(),
                 input.applySection(),
                 input.praySection(),
-                LocalDateTime.now()
+                LocalDateTime.now(clock)
         );
 
         Note saved = saveNoteForCreate(note);
         replaceNoteVerses(saved.getId(), input.verseIds());
+        if (saved.getCategory() == NoteCategory.MEDITATION) {
+            publishJournalEvent(saved, JournalEventType.JOURNAL_CREATED, null);
+        }
         return new NoteCreateResponse(
                 saved.getId(),
                 saved.getCategory(),
@@ -133,6 +144,7 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         if (note.isDeleted()) {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
+        NoteSnapshot before = NoteSnapshot.from(note);
 
         NormalizedNoteInput input = normalize(command);
         validateForSave(memberId, noteId, input);
@@ -147,9 +159,12 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 input.interpretSection(),
                 input.applySection(),
                 input.praySection(),
-                LocalDateTime.now()
+                LocalDateTime.now(clock)
         );
         replaceNoteVerses(note.getId(), input.verseIds());
+        if (shouldPublishJournalUpdate(before, note)) {
+            publishJournalEvent(note, JournalEventType.JOURNAL_UPDATED, before.status());
+        }
         return new NoteUpdateResponse(
                 note.getId(),
                 note.getCategory(),
@@ -173,7 +188,12 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         if (note.isDeleted()) {
             return;
         }
-        note.delete(LocalDateTime.now());
+        NoteStatus previousStatus = note.getStatus();
+        boolean meditationNote = note.getCategory() == NoteCategory.MEDITATION;
+        note.delete(LocalDateTime.now(clock));
+        if (meditationNote) {
+            publishJournalEvent(note, JournalEventType.JOURNAL_DELETED, previousStatus);
+        }
     }
 
     @Override
@@ -211,6 +231,32 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.DUPLICATE_NOTE);
         }
+    }
+
+    private boolean shouldPublishJournalUpdate(NoteSnapshot before, Note note) {
+        boolean relatedToMeditation = before.category() == NoteCategory.MEDITATION
+                || note.getCategory() == NoteCategory.MEDITATION;
+        if (!relatedToMeditation) {
+            return false;
+        }
+        return before.category() != note.getCategory()
+                || !Objects.equals(before.qtPassageId(), note.getQtPassageId())
+                || before.status() != note.getStatus()
+                || !Objects.equals(before.savedAt(), note.getSavedAt())
+                || !Objects.equals(before.deletedAt(), note.getDeletedAt());
+    }
+
+    private void publishJournalEvent(Note note, JournalEventType eventType, NoteStatus previousStatus) {
+        eventPublisher.publishEvent(new JournalChangedEvent(
+                UUID.randomUUID(),
+                note.getMemberId(),
+                note.getId(),
+                note.getQtPassageId(),
+                eventType,
+                previousStatus,
+                note.getStatus(),
+                LocalDateTime.now(clock)
+        ));
     }
 
     private void validateMeditationDuplicate(Long memberId, Long currentNoteId, Long qtPassageId) {
@@ -434,5 +480,24 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
             NoteStatus status,
             NoteVisibility visibility
     ) {
+    }
+
+    private record NoteSnapshot(
+            NoteCategory category,
+            Long qtPassageId,
+            NoteStatus status,
+            LocalDateTime savedAt,
+            LocalDateTime deletedAt
+    ) {
+
+        static NoteSnapshot from(Note note) {
+            return new NoteSnapshot(
+                    note.getCategory(),
+                    note.getQtPassageId(),
+                    note.getStatus(),
+                    note.getSavedAt(),
+                    note.getDeletedAt()
+            );
+        }
     }
 }
