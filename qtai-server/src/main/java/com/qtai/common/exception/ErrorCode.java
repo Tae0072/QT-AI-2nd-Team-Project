@@ -62,6 +62,9 @@ public enum ErrorCode {
     SHARING_POST_NOT_FOUND("S0001", "나눔 게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     COMMENT_NOT_FOUND("S0002", "댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
+    // 신고
+    DUPLICATE_REPORT("R0001", "이미 신고한 대상입니다.", HttpStatus.CONFLICT),
+
     // 관리자
     ADMIN_USER_NOT_FOUND("AD0001", "관리자 계정을 찾을 수 없습니다.", HttpStatus.FORBIDDEN),
     ADMIN_USER_DISABLED("AD0002", "비활성화된 관리자 계정입니다.", HttpStatus.FORBIDDEN),
