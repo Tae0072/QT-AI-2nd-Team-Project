@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/auth/screens/login_screen.dart';
+import '../features/auth/screens/nickname_setup_screen.dart';
 import '../features/mypage/screens/mypage_screen.dart';
 import '../features/mypage/screens/profile_edit_screen.dart';
 import '../features/onboarding/providers/onboarding_providers.dart';
@@ -12,6 +14,7 @@ class AppRouter {
   static const String login = '/login';
   static const String home = '/home';
   static const String onboarding = '/onboarding';
+  static const String nicknameSetup = '/nickname-setup';
   static const String myPage = '/my-page';
   static const String profileEdit = '/my-page/profile';
 
@@ -33,9 +36,12 @@ class AppRouter {
           ),
         );
       case login:
-        // TODO: 카카오 로그인 화면 연동 시 교체
         return MaterialPageRoute(
-          builder: (_) => const Scaffold(body: Center(child: Text('로그인'))),
+          builder: (_) => const LoginScreen(),
+        );
+      case nicknameSetup:
+        return MaterialPageRoute(
+          builder: (_) => const NicknameSetupScreen(),
         );
       case home:
         return MaterialPageRoute(

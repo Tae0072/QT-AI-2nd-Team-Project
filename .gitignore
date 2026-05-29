@@ -28,6 +28,8 @@ out/
 *.class
 hs_err_pid*
 replay_pid*
+build_out.txt
+build_err.txt
 
 # Flutter / Android local artifacts
 **/local.properties
