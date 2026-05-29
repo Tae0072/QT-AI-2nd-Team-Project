@@ -43,6 +43,12 @@ public class MissionService implements GetMemberMissionProgressUseCase {
                 .collect(Collectors.toMap(MissionDefinition::getId, Function.identity()));
 
         return progresses.stream()
+                // HIDDEN 처리된 미션 정의의 진행률은 대시보드에 노출하지 않는다(ACTIVE만 노출).
+                // 정의가 조회되지 않는 경우(삭제 등 예외 상황)는 진행 기록 보존을 위해 방어적으로 유지한다.
+                .filter(p -> {
+                    MissionDefinition def = definitionMap.get(p.getMissionDefinitionId());
+                    return def == null || def.getStatus() != MissionDefinitionStatus.HIDDEN;
+                })
                 .map(p -> toResponse(p, definitionMap.get(p.getMissionDefinitionId())))
                 .toList();
     }

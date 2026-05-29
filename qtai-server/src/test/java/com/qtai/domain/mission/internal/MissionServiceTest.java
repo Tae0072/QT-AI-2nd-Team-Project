@@ -133,6 +133,40 @@ class MissionServiceTest {
         assertThat(result.get(0).progressRate()).isEqualByComparingTo("10.00");
     }
 
+    @Test
+    void getMissionProgress_HIDDEN_정의_진행률은_대시보드에서_제외() {
+        MissionDefinition active = definition(5L, "ACTIVE_M", "활성 미션",
+                MissionMetricType.NOTE_SAVED_COUNT, MissionPeriodType.MONTHLY, 10);
+        MissionDefinition hidden = MissionDefinition.builder()
+                .code("HIDDEN_M").title("숨김 미션")
+                .metricType(MissionMetricType.NOTE_SAVED_COUNT).periodType(MissionPeriodType.MONTHLY)
+                .targetCount(10).status(MissionDefinitionStatus.HIDDEN)
+                .createdAt(LocalDateTime.of(2026, 5, 1, 0, 0))
+                .build();
+        setId(hidden, 6L);
+
+        MemberMissionProgress activeProgress = MemberMissionProgress.builder()
+                .memberId(1L).missionDefinitionId(5L)
+                .periodStartDate(LocalDate.of(2026, 5, 1)).periodEndDate(LocalDate.of(2026, 5, 31))
+                .currentCount(5).targetCountSnapshot(10).progressRate(new BigDecimal("50.00"))
+                .createdAt(LocalDateTime.of(2026, 5, 1, 0, 0)).build();
+        MemberMissionProgress hiddenProgress = MemberMissionProgress.builder()
+                .memberId(1L).missionDefinitionId(6L)
+                .periodStartDate(LocalDate.of(2026, 5, 1)).periodEndDate(LocalDate.of(2026, 5, 31))
+                .currentCount(8).targetCountSnapshot(10).progressRate(new BigDecimal("80.00"))
+                .createdAt(LocalDateTime.of(2026, 5, 1, 0, 0)).build();
+
+        when(progressRepository.findByMemberIdOrderByPeriodStartDateDesc(1L))
+                .thenReturn(List.of(activeProgress, hiddenProgress));
+        when(definitionRepository.findByIdIn(anyList()))
+                .thenReturn(List.of(active, hidden));
+
+        List<MissionProgressResponse> result = missionService.getMissionProgress(1L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).code()).isEqualTo("ACTIVE_M");
+    }
+
     private MissionDefinition definition(Long id, String code, String title,
                                          MissionMetricType metricType,
                                          MissionPeriodType periodType, int target) {
