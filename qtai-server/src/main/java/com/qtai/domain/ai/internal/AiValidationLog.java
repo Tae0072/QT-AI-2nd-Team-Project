@@ -10,7 +10,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 @Entity
@@ -43,8 +42,7 @@ public class AiValidationLog {
     @Column(name = "checklist_version_id")
     private Long checklistVersionId;
 
-    @Lob
-    @Column(name = "checklist_json")
+    @Column(name = "checklist_json", columnDefinition = "LONGTEXT")
     private String checklistJson;
 
     @Column(name = "error_message", length = ERROR_MESSAGE_MAX_LENGTH)
