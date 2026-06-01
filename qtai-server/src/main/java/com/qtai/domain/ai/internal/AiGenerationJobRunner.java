@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -28,6 +29,9 @@ class AiGenerationJobRunner {
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
 
+    // 스프링 주입 생성자. 생성자가 2개라 @Autowired로 주입 대상을 명시하지 않으면
+    // 스프링이 생성자를 못 고르고 기본 생성자를 찾다 기동에 실패한다.
+    @Autowired
     AiGenerationJobRunner(
             AiGenerationJobRepository generationJobRepository,
             AiGeneratedAssetRepository generatedAssetRepository,
