@@ -22,6 +22,7 @@ import com.qtai.common.exception.ErrorCode;
 class AiAutoValidationService {
 
     private static final int AUTO_VALIDATION_LAYER = 1;
+    private static final String AUTO_VALIDATION_CONFIGURATION_ERROR = "AUTO_VALIDATION_CONFIGURATION_ERROR";
     private static final String VALIDATOR_NAME = "AI_AUTO_VALIDATION_MINIMUM";
     private static final List<String> RULES = List.of(
             "EXPLANATION_SCHEMA",
@@ -99,7 +100,7 @@ class AiAutoValidationService {
                 AiValidationChecklistStatus.ACTIVE
         );
         if (activeVersions.size() != 1 || activeVersions.get(0).getId() == null) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "ACTIVE_EXPLANATION_CHECKLIST_VERSION_REQUIRED");
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, AUTO_VALIDATION_CONFIGURATION_ERROR);
         }
         return activeVersions.get(0);
     }

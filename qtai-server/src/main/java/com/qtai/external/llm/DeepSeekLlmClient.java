@@ -32,6 +32,12 @@ import com.qtai.external.llm.dto.LlmCompletionResponse;
 public class DeepSeekLlmClient implements LlmClient {
 
     private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
+    private static final String LLM_CONFIGURATION_ERROR = "LLM_CONFIGURATION_ERROR";
+    private static final String LLM_PROVIDER_ERROR = "LLM_PROVIDER_ERROR";
+    private static final String LLM_PROVIDER_REQUEST_REJECTED = "LLM_PROVIDER_REQUEST_REJECTED";
+    private static final String LLM_RATE_LIMIT = "LLM_RATE_LIMIT";
+    private static final String LLM_RESPONSE_INVALID = "LLM_RESPONSE_INVALID";
+    private static final String LLM_TIMEOUT = "LLM_TIMEOUT";
 
     private final RestTemplate restTemplate;
     private final String apiKey;
@@ -66,7 +72,7 @@ public class DeepSeekLlmClient implements LlmClient {
     public LlmCompletionResponse complete(LlmCompletionRequest request) {
         validateRequest(request);
         if (isBlank(apiKey)) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "DeepSeek API key is not configured");
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, LLM_CONFIGURATION_ERROR);
         }
 
         String model = defaultIfBlank(request.model(), defaultModel);
@@ -84,15 +90,22 @@ public class DeepSeekLlmClient implements LlmClient {
             );
             return parseResponse(response.getBody(), model);
         } catch (HttpStatusCodeException exception) {
-            throw new BusinessException(
-                    ErrorCode.INTERNAL_ERROR,
-                    "DeepSeek API request failed: status=" + exception.getStatusCode().value()
-            );
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, failureCode(exception));
         } catch (ResourceAccessException exception) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "DeepSeek API request failed");
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, LLM_TIMEOUT);
         } catch (RestClientException exception) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "DeepSeek API request failed");
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, LLM_PROVIDER_ERROR);
         }
+    }
+
+    private static String failureCode(HttpStatusCodeException exception) {
+        if (exception.getStatusCode().value() == 429) {
+            return LLM_RATE_LIMIT;
+        }
+        if (exception.getStatusCode().is5xxServerError()) {
+            return LLM_PROVIDER_ERROR;
+        }
+        return LLM_PROVIDER_REQUEST_REJECTED;
     }
 
     private static void validateRequest(LlmCompletionRequest request) {
@@ -223,6 +236,6 @@ public class DeepSeekLlmClient implements LlmClient {
     }
 
     private static BusinessException invalidProviderResponse() {
-        return new BusinessException(ErrorCode.INTERNAL_ERROR, "DeepSeek API response is invalid");
+        return new BusinessException(ErrorCode.INTERNAL_ERROR, LLM_RESPONSE_INVALID);
     }
 }

@@ -171,6 +171,29 @@ class AiGenerationJobRunnerIntegrationTest {
     }
 
     @Test
+    void autoValidationConfigurationErrorFailsJobWithoutValidationLog() {
+        AiPromptVersion promptVersion = persistPromptVersion(AiPromptType.EXPLANATION);
+        AiGenerationJob job = persistJob(AiGenerationJobType.EXPLANATION, promptVersion);
+        AiGenerationJobRunner runner = runner(payloadHandler("""
+                {
+                  "explanations": [
+                    {"verseId": 1001, "summary": "summary", "explanation": "explanation"}
+                  ],
+                  "glossaryTerms": [],
+                  "sourceMetadata": {"verseIds": [1001]}
+                }
+                """));
+
+        assertThat(runner.runJob(job.getId())).isTrue();
+        flushAndClear();
+
+        AiGenerationJob foundJob = generationJobRepository.findById(job.getId()).orElseThrow();
+        assertThat(foundJob.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
+        assertThat(foundJob.getErrorMessage()).isEqualTo("AUTO_VALIDATION_CONFIGURATION_ERROR");
+        assertThat(validationLogRepository.findAll()).isEmpty();
+    }
+
+    @Test
     void invalidJsonFailsJobWithoutAsset() {
         AiPromptVersion promptVersion = persistPromptVersion(AiPromptType.EXPLANATION);
         AiGenerationJob job = persistJob(AiGenerationJobType.EXPLANATION, promptVersion);
