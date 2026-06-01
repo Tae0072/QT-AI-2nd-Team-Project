@@ -16,6 +16,9 @@ public interface SharingPostRepository extends JpaRepository<SharingPost, Long> 
      */
     Optional<SharingPost> findByIdAndStatus(Long id, SharingPostStatus status);
 
+    /** 노트 ID로 공유글 조회 — 중복 공유 방지용. DDL note_id UNIQUE 제약과 일치. */
+    Optional<SharingPost> findByNoteId(Long noteId);
+
     /**
      * 나눔 피드 검색. status는 호출부(Service)에서 PUBLISHED를 넘긴다.
      * category가 null이면 전체, q가 null이면 검색어 필터를 건너뛴다.
