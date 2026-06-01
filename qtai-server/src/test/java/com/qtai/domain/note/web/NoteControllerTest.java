@@ -19,6 +19,9 @@ import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.note.api.dto.NoteListResponse;
 import com.qtai.domain.note.api.dto.NoteCreateResponse;
 import com.qtai.domain.note.api.dto.NoteUpdateResponse;
+import com.qtai.domain.sharing.api.PublishNoteUseCase;
+import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
+import com.qtai.domain.sharing.api.dto.SharingPostResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,6 +48,7 @@ class NoteControllerTest {
     private CreateNoteUseCase createNoteUseCase;
     private UpdateNoteUseCase updateNoteUseCase;
     private DeleteNoteUseCase deleteNoteUseCase;
+    private PublishNoteUseCase publishNoteUseCase;
     private ListNoteCategoriesUseCase listNoteCategoriesUseCase;
     private NoteController controller;
     private NoteCategoryController categoryController;
@@ -57,13 +61,15 @@ class NoteControllerTest {
         createNoteUseCase = mock(CreateNoteUseCase.class);
         updateNoteUseCase = mock(UpdateNoteUseCase.class);
         deleteNoteUseCase = mock(DeleteNoteUseCase.class);
+        publishNoteUseCase = mock(PublishNoteUseCase.class);
         listNoteCategoriesUseCase = mock(ListNoteCategoriesUseCase.class);
         controller = new NoteController(
                 listNotesUseCase,
                 getNoteUseCase,
                 createNoteUseCase,
                 updateNoteUseCase,
-                deleteNoteUseCase
+                deleteNoteUseCase,
+                publishNoteUseCase
         );
         categoryController = new NoteCategoryController(listNoteCategoriesUseCase);
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "updatedAt"));
@@ -260,6 +266,34 @@ class NoteControllerTest {
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
 
         verify(deleteNoteUseCase, never()).delete(any(), any());
+    }
+
+    @Test
+    @DisplayName("share delegates authenticated member and note id to publish use case")
+    void share_delegates() {
+        // 위임 검증이 목적이라 응답 본문 값은 의미 없다. verseSnapshot은 null로 둬도 충분.
+        SharingPostResponse stub = new SharingPostResponse(
+                300L, 10L, 1L, "하늘QT", "오늘의 묵상", "본문", "MEDITATION",
+                null, true, null, "PUBLISHED", 0, 0, false, true, null, null, null);
+        when(publishNoteUseCase.publish(eq(1L), eq(10L), any())).thenReturn(stub);
+
+        ApiResponse<SharingPostResponse> response =
+                controller.share(1L, 10L, new PublishNoteRequest(true, true));
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.data()).isSameAs(stub);
+        verify(publishNoteUseCase).publish(eq(1L), eq(10L), any());
+    }
+
+    @Test
+    @DisplayName("share rejects missing member id")
+    void share_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.share(null, 10L, new PublishNoteRequest(true, true)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(publishNoteUseCase, never()).publish(any(), any(), any());
     }
 
     @Test

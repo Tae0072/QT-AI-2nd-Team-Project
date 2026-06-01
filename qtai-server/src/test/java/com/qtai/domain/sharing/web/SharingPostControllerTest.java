@@ -5,6 +5,8 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
+import com.qtai.domain.sharing.api.ToggleLikeUseCase;
+import com.qtai.domain.sharing.api.dto.LikeResponse;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.SharingPostResponse;
 import com.qtai.domain.sharing.api.dto.VerseSnapshotDetail;
@@ -30,6 +32,7 @@ class SharingPostControllerTest {
 
     private ListSharingPostsUseCase listSharingPostsUseCase;
     private GetSharingPostUseCase getSharingPostUseCase;
+    private ToggleLikeUseCase toggleLikeUseCase;
     private SharingPostController controller;
     private Pageable pageable;
 
@@ -37,7 +40,8 @@ class SharingPostControllerTest {
     void setUp() {
         listSharingPostsUseCase = mock(ListSharingPostsUseCase.class);
         getSharingPostUseCase = mock(GetSharingPostUseCase.class);
-        controller = new SharingPostController(listSharingPostsUseCase, getSharingPostUseCase);
+        toggleLikeUseCase = mock(ToggleLikeUseCase.class);
+        controller = new SharingPostController(listSharingPostsUseCase, getSharingPostUseCase, toggleLikeUseCase);
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishedAt"));
     }
 
@@ -92,5 +96,48 @@ class SharingPostControllerTest {
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
 
         verify(getSharingPostUseCase, never()).getDetail(any(), any());
+    }
+
+    @Test
+    @DisplayName("좋아요는 인증된 memberId·postId를 UseCase로 위임하고 LikeResponse를 감싸 반환한다(201)")
+    void like_delegates() {
+        LikeResponse expected = new LikeResponse(1L, true);
+        when(toggleLikeUseCase.like(eq(1L), eq(300L))).thenReturn(expected);
+
+        ApiResponse<LikeResponse> response = controller.like(1L, 300L);
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.data()).isSameAs(expected);
+        verify(toggleLikeUseCase).like(eq(1L), eq(300L));
+    }
+
+    @Test
+    @DisplayName("좋아요는 memberId가 없으면 UNAUTHORIZED로 거부한다")
+    void like_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.like(null, 300L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(toggleLikeUseCase, never()).like(any(), any());
+    }
+
+    @Test
+    @DisplayName("좋아요 취소는 인증된 memberId·postId를 UseCase로 위임한다(void/204)")
+    void unlike_delegates() {
+        controller.unlike(1L, 300L);
+
+        verify(toggleLikeUseCase).unlike(eq(1L), eq(300L));
+    }
+
+    @Test
+    @DisplayName("좋아요 취소도 memberId가 없으면 UNAUTHORIZED로 거부한다")
+    void unlike_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.unlike(null, 300L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(toggleLikeUseCase, never()).unlike(any(), any());
     }
 }

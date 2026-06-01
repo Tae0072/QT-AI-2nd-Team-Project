@@ -17,6 +17,13 @@ public interface SharingPostRepository extends JpaRepository<SharingPost, Long> 
     Optional<SharingPost> findByIdAndStatus(Long id, SharingPostStatus status);
 
     /**
+     * 나눔 공개(publish) 중복 차단용. 같은 노트가 이미 공개됐는지 검사한다.
+     * noteId는 UNIQUE 제약이라 결과는 0건 또는 1건. true면 호출부에서 409로 막는다.
+     * (true backstop은 DB UNIQUE 제약 자체이고, 이 메서드는 친절한 에러를 위한 사전 조회다.)
+     */
+    boolean existsByNoteId(Long noteId);
+
+    /**
      * 나눔 피드 검색. status는 호출부(Service)에서 PUBLISHED를 넘긴다.
      * category가 null이면 전체, q가 null이면 검색어 필터를 건너뛴다.
      * q는 호출부에서 LIKE 와일드카드(%, _, \)를 이스케이프한 값으로 넘기고,

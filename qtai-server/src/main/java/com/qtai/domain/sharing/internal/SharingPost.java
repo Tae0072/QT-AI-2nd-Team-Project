@@ -67,4 +67,54 @@ public class SharingPost extends BaseEntity {
 
     @Column(name = "source_note_unshared_at")
     private LocalDateTime sourceNoteUnsharedAt;
+
+    /**
+     * 노트를 나눔으로 공개할 때 호출하는 정적 팩토리.
+     *
+     * <p>공개 "시점"의 값을 그대로 복사(스냅샷)해 둔다 — 이후 원본 노트나 닉네임이 바뀌어도
+     * 이 게시글은 변하지 않는다(07 §F-10 공유본 스냅샷 정책).
+     *
+     * @param commentsEnabled 댓글 허용 여부(요청이 생략하면 호출부에서 true로 넘긴다)
+     */
+    public static SharingPost publish(Long memberId,
+                                      Long noteId,
+                                      String snapshotTitle,
+                                      String snapshotBody,
+                                      String snapshotCategory,
+                                      java.time.LocalDate snapshotQtDate,
+                                      String snapshotVerseLabel,
+                                      String nicknameSnapshot,
+                                      boolean commentsEnabled) {
+        SharingPost post = new SharingPost();
+        post.memberId = memberId;
+        post.noteId = noteId;
+        post.status = SharingPostStatus.PUBLISHED;
+        // snapshot_title / snapshot_body 는 NOT NULL 컬럼이라 null이면 빈 문자열로 방어한다.
+        post.snapshotTitle = snapshotTitle == null ? "" : snapshotTitle;
+        post.snapshotBody = snapshotBody == null ? "" : snapshotBody;
+        post.snapshotCategory = snapshotCategory;
+        post.snapshotQtDate = snapshotQtDate;             // QT 노트가 아니면 null 가능(nullable)
+        post.snapshotVerseLabel = snapshotVerseLabel;     // 절 라벨 없으면 null 가능(nullable)
+        post.nicknameSnapshot = nicknameSnapshot;
+        post.commentsEnabled = commentsEnabled;
+        post.likeCount = 0;
+        post.commentCount = 0;
+        return post;
+    }
+
+    /**
+     * 좋아요 수를 실제 {@code post_likes} 행 수로 맞춘다(COUNT 재계산 방식).
+     * 관리 상태 엔티티에 호출하면 dirty checking으로 {@code like_count} UPDATE가 나간다.
+     */
+    public void syncLikeCount(long count) {
+        this.likeCount = (int) count;
+    }
+
+    /**
+     * 댓글 수를 실제 {@code comments}(삭제 안 된) 행 수로 맞춘다(COUNT 재계산 방식).
+     * 관리 상태 엔티티에 호출하면 dirty checking으로 {@code comment_count} UPDATE가 나간다.
+     */
+    public void syncCommentCount(long count) {
+        this.commentCount = (int) count;
+    }
 }

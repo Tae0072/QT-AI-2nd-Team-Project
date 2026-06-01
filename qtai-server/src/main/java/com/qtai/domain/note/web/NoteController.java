@@ -15,6 +15,9 @@ import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.note.api.dto.NoteListResponse;
 import com.qtai.domain.note.api.dto.NoteCreateResponse;
 import com.qtai.domain.note.api.dto.NoteUpdateResponse;
+import com.qtai.domain.sharing.api.PublishNoteUseCase;
+import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
+import com.qtai.domain.sharing.api.dto.SharingPostResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +46,9 @@ public class NoteController {
     private final CreateNoteUseCase createNoteUseCase;
     private final UpdateNoteUseCase updateNoteUseCase;
     private final DeleteNoteUseCase deleteNoteUseCase;
+    // 다른 도메인은 api 포트로만 호출(CLAUDE.md §4). 경로가 /notes라 NoteController가 sharing의 공개
+    // 포트를 호출한다.
+    private final PublishNoteUseCase publishNoteUseCase;
 
     @GetMapping
     public ApiResponse<NoteListResponse> list(
@@ -97,6 +103,16 @@ public class NoteController {
             @PathVariable("noteId") Long noteId) {
         Long authenticatedMemberId = requireMemberId(memberId);
         deleteNoteUseCase.delete(authenticatedMemberId, noteId);
+    }
+
+    @PostMapping("/{noteId}/share")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<SharingPostResponse> share(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable("noteId") Long noteId,
+            @Valid @RequestBody PublishNoteRequest request) {
+        Long authenticatedMemberId = requireMemberId(memberId);
+        return ApiResponse.success(publishNoteUseCase.publish(authenticatedMemberId, noteId, request));
     }
 
     private Long requireMemberId(Long memberId) {

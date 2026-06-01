@@ -16,5 +16,5 @@ import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
  */
 public interface PublishNoteUseCase {
 
-    // TODO: SharingPostResponse publish(Long memberId, Long noteId, PublishNoteRequest request);
+    SharingPostResponse publish(Long memberId, Long noteId, PublishNoteRequest request);
 }
