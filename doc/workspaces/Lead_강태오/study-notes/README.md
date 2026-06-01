@@ -25,3 +25,11 @@
 | 13 | `13_conventional-commits.md` | Conventional Commits 규칙 | Git 커밋 메시지 |
 | 14 | `14_gitleaks.md` | Gitleaks 시크릿 스캔 | PR 전 보안 검사 |
 | 15 | `15_jacoco.md` | JaCoCo 코드 커버리지 | 품질 게이트 검증 |
+| 16 | `16_flyway-db-migration.md` | Flyway 마이그레이션 + SQL 방언(CLOB→LONGTEXT) | db/migration, dev/prod MySQL |
+| 17 | `17_jpa-hibernate-schema-validation.md` | JPA/Hibernate 스키마 검증(ddl-auto=validate, @Lob, Dialect) | 전체 엔티티, dev/prod 기동 검증 |
+| 18 | `18_testcontainers.md` | Testcontainers 실DB 통합 테스트 | MysqlMigrationValidationTest |
+| 19 | `19_spring-profiles-and-config.md` | Spring 프로파일·외부 설정 주입(.env, @DynamicPropertySource) | application-*.yml, 통합 테스트 |
+| 20 | `20_dockerfile-multistage-and-line-endings.md` | Dockerfile 멀티스테이지 + CRLF/LF·.gitattributes | qtai-server/Dockerfile |
+| 21 | `21_git-merge-strategies.md` | git 고급 병합(merge -s ours, 스쿼시 후유증) | dev→master 릴리스(#173) |
+
+> **2026-06-01 추가(16~21):** dev 프로파일 MySQL 전환·Docker Compose 시연 빌드·통합 E2E·dev→master 릴리스 작업에서 등장한, 노션·기존 노트에 없던 기술을 정리.
