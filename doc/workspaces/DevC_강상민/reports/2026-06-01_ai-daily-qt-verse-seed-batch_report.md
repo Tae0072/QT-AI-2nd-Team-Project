@@ -34,6 +34,12 @@
   - asset skip target id 조회.
   - active job skip target id 조회.
 
+## 시간 정책 정합성
+
+- 00:05 KST scheduler는 오늘 QT passage가 준비된 직후 내부 `EXPLANATION` generation job을 미리 시딩하는 배치로 정리했다.
+- 기존 04:00 KST 정책은 사용자 노출/cache refresh 기준이며, 이번 00:05 내부 시딩 배치와 역할이 다르다.
+- 중앙 요구사항 문서는 이번 PR에서 수정하지 않고, workflow/report와 PR 본문에서 두 시간 정책의 관계를 명시한다.
+
 ## TDD 기록
 
 1. `AiDailyQtVerseExplanationSeedServiceTest`, `AiDailyQtVerseExplanationSeedSchedulerTest`, repository query 테스트를 먼저 추가했다.
@@ -52,6 +58,8 @@
 | `.\gradlew.bat build` | 성공 |
 | `git diff --check` | 성공. CRLF 변환 warning만 출력 |
 | `rg -n "^import .*domain\.[a-z]+\.(internal|web|repository)" qtai-server/src/main/java/com/qtai/domain/ai` | 추가 금지 import 없음 |
+
+Unix/CI 환경에서는 `qtai-server` 기준 `./gradlew`로 같은 Gradle task를 실행한다.
 
 ## 수용 기준 확인
 

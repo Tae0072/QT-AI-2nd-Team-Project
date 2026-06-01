@@ -1,10 +1,12 @@
 package com.qtai.domain.ai.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -12,13 +14,19 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.ai.api.CreateAiGenerationJobUseCase;
 import com.qtai.domain.ai.api.dto.CreateAiGenerationJobCommand;
 import com.qtai.domain.ai.api.dto.CreateAiGenerationJobResult;
@@ -29,6 +37,7 @@ import com.qtai.domain.qt.api.dto.TodayQtResponse;
 import com.qtai.domain.study.api.ListApprovedVerseExplanationUseCase;
 import com.qtai.domain.study.api.dto.ApprovedVerseExplanationResponse;
 
+@ExtendWith(OutputCaptureExtension.class)
 class AiDailyQtVerseExplanationSeedServiceTest {
 
     private static final Clock CLOCK = Clock.fixed(
@@ -84,18 +93,10 @@ class AiDailyQtVerseExplanationSeedServiceTest {
                         "source",
                         900L
                 )));
-        when(generatedAssetRepository.findTargetIdsByAssetTypeAndTargetTypeAndTargetIdInAndStatusIn(
-                AiGeneratedAssetType.EXPLANATION,
-                AiTargetType.BIBLE_VERSE,
-                List.of(101L, 102L, 103L, 104L),
-                List.of(AiGeneratedAssetStatus.VALIDATING, AiGeneratedAssetStatus.APPROVED)
-        )).thenReturn(List.of(102L));
-        when(generationJobRepository.findTargetIdsByJobTypeAndTargetTypeAndTargetIdInAndStatusIn(
-                AiGenerationJobType.EXPLANATION,
-                AiTargetType.BIBLE_VERSE,
-                List.of(101L, 102L, 103L, 104L),
-                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
-        )).thenReturn(List.of(103L));
+        when(generatedAssetRepository.findReadyExplanationBibleVerseTargetIds(List.of(101L, 102L, 103L, 104L)))
+                .thenReturn(List.of(102L));
+        when(generationJobRepository.findActiveExplanationBibleVerseTargetIds(List.of(101L, 102L, 103L, 104L)))
+                .thenReturn(List.of(103L));
         when(createAiGenerationJobUseCase.createAiGenerationJob(any(CreateAiGenerationJobCommand.class)))
                 .thenReturn(new CreateAiGenerationJobResult(501L, "QUEUED"));
 
@@ -115,7 +116,24 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     }
 
     @Test
-    void seedTodayDoesNotCreateJobsWhenActiveExplanationPromptVersionIsMissing() {
+    void seedTodayReturnsZeroWhenVerseIdsAreEmpty() {
+        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
+        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(List.of()));
+
+        int createdCount = service.seedToday();
+
+        assertThat(createdCount).isZero();
+        verifyNoInteractions(
+                promptVersionRepository,
+                listApprovedVerseExplanationUseCase,
+                generatedAssetRepository,
+                generationJobRepository,
+                createAiGenerationJobUseCase
+        );
+    }
+
+    @Test
+    void seedTodayDoesNotCreateJobsWhenActiveExplanationPromptVersionIsMissing(CapturedOutput output) {
         when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
         when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context());
         when(promptVersionRepository.findFirstByPromptTypeAndStatusOrderByCreatedAtDescIdDesc(
@@ -126,17 +144,73 @@ class AiDailyQtVerseExplanationSeedServiceTest {
         int createdCount = service.seedToday();
 
         assertThat(createdCount).isZero();
+        assertThat(output).contains("ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
+        verifyNoInteractions(
+                listApprovedVerseExplanationUseCase,
+                generatedAssetRepository,
+                generationJobRepository
+        );
         verify(createAiGenerationJobUseCase, never())
                 .createAiGenerationJob(any(CreateAiGenerationJobCommand.class));
-        verify(generatedAssetRepository, never())
-                .findTargetIdsByAssetTypeAndTargetTypeAndTargetIdInAndStatusIn(any(), any(), any(), any());
-        verify(generationJobRepository, never())
-                .findTargetIdsByJobTypeAndTargetTypeAndTargetIdInAndStatusIn(any(), any(), any(), any());
+    }
+
+    @Test
+    void seedTodayRejectsInvalidQtPassageId() {
+        assertInvalidQtPassageId(null);
+        assertInvalidQtPassageId(0L);
+        assertInvalidQtPassageId(-1L);
+    }
+
+    @Test
+    void seedTodayRejectsInvalidVerseId() {
+        assertInvalidVerseIds(List.of(0L));
+        assertInvalidVerseIds(List.of(-1L));
+        assertInvalidVerseIds(Arrays.asList(101L, null));
+    }
+
+    @Test
+    void seedTodayRequiresTodayQtResponse() {
+        when(getTodayQtUseCase.getToday(null)).thenReturn(null);
+
+        assertThatThrownBy(service::seedToday)
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("todayQt must not be null");
+    }
+
+    @Test
+    void seedTodayRequiresQtPassageContentContext() {
+        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
+        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(null);
+
+        assertThatThrownBy(service::seedToday)
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("qtPassageContentContext must not be null");
+    }
+
+    private void assertInvalidQtPassageId(Long qtPassageId) {
+        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt(qtPassageId));
+
+        assertThatThrownBy(service::seedToday)
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+    }
+
+    private void assertInvalidVerseIds(List<Long> verseIds) {
+        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
+        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(verseIds));
+
+        assertThatThrownBy(service::seedToday)
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
     }
 
     private static TodayQtResponse todayQt() {
+        return todayQt(35L);
+    }
+
+    private static TodayQtResponse todayQt(Long qtPassageId) {
         return new TodayQtResponse(
-                35L,
+                qtPassageId,
                 "2026-06-01",
                 "Daily QT",
                 "MISSING",
@@ -147,11 +221,15 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     }
 
     private static QtPassageContentContext context() {
+        return context(List.of(101L, 102L, 103L, 104L, 104L));
+    }
+
+    private static QtPassageContentContext context(List<Long> verseIds) {
         return new QtPassageContentContext(
                 35L,
                 LocalDate.parse("2026-06-01"),
                 "Daily QT",
-                List.of(101L, 102L, 103L, 104L, 104L),
+                verseIds,
                 true
         );
     }

@@ -17,6 +17,8 @@ class AiGeneratedAssetRepositoryTest {
 
     private static final OffsetDateTime BASE_TIME = OffsetDateTime.parse("2026-06-01T00:05:00+09:00");
 
+    private long nextGenerationJobId = 1_000L;
+
     @Autowired
     private TestEntityManager testEntityManager;
 
@@ -24,7 +26,7 @@ class AiGeneratedAssetRepositoryTest {
     private AiGeneratedAssetRepository repository;
 
     @Test
-    void findTargetIdsByAssetTypeAndTargetTypeAndTargetIdInAndStatusInFiltersVerseExplanationAssets() {
+    void findReadyExplanationBibleVerseTargetIdsFiltersReadyVerseExplanationAssets() {
         persistAsset(AiGeneratedAssetType.EXPLANATION, AiTargetType.BIBLE_VERSE, 101L, AiGeneratedAssetStatus.VALIDATING);
         persistAsset(AiGeneratedAssetType.EXPLANATION, AiTargetType.BIBLE_VERSE, 102L, AiGeneratedAssetStatus.APPROVED);
         persistAsset(AiGeneratedAssetType.EXPLANATION, AiTargetType.BIBLE_VERSE, 103L, AiGeneratedAssetStatus.REJECTED);
@@ -32,12 +34,8 @@ class AiGeneratedAssetRepositoryTest {
         persistAsset(AiGeneratedAssetType.SIMULATOR, AiTargetType.BIBLE_VERSE, 105L, AiGeneratedAssetStatus.VALIDATING);
         flushAndClear();
 
-        List<Long> targetIds = repository.findTargetIdsByAssetTypeAndTargetTypeAndTargetIdInAndStatusIn(
-                AiGeneratedAssetType.EXPLANATION,
-                AiTargetType.BIBLE_VERSE,
-                List.of(101L, 102L, 103L, 104L, 105L),
-                List.of(AiGeneratedAssetStatus.VALIDATING, AiGeneratedAssetStatus.APPROVED)
-        );
+        List<Long> targetIds = repository.findReadyExplanationBibleVerseTargetIds(
+                List.of(101L, 102L, 103L, 104L, 105L));
 
         assertThat(targetIds).containsExactlyInAnyOrder(101L, 102L);
     }
@@ -71,8 +69,6 @@ class AiGeneratedAssetRepositoryTest {
         testEntityManager.flush();
         testEntityManager.clear();
     }
-
-    private long nextGenerationJobId = 1_000L;
 
     private Long nextGenerationJobId() {
         return nextGenerationJobId++;

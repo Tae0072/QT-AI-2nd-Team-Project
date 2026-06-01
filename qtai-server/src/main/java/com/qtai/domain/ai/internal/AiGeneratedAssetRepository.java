@@ -11,15 +11,13 @@ public interface AiGeneratedAssetRepository extends JpaRepository<AiGeneratedAss
     @Query("""
             select distinct asset.targetId
             from AiGeneratedAsset asset
-            where asset.assetType = :assetType
-              and asset.targetType = :targetType
+            where asset.assetType = com.qtai.domain.ai.internal.AiGeneratedAssetType.EXPLANATION
+              and asset.targetType = com.qtai.domain.ai.internal.AiTargetType.BIBLE_VERSE
               and asset.targetId in :targetIds
-              and asset.status in :statuses
+              and asset.status in (
+                com.qtai.domain.ai.internal.AiGeneratedAssetStatus.VALIDATING,
+                com.qtai.domain.ai.internal.AiGeneratedAssetStatus.APPROVED
+              )
             """)
-    List<Long> findTargetIdsByAssetTypeAndTargetTypeAndTargetIdInAndStatusIn(
-            AiGeneratedAssetType assetType,
-            AiTargetType targetType,
-            Collection<Long> targetIds,
-            Collection<AiGeneratedAssetStatus> statuses
-    );
+    List<Long> findReadyExplanationBibleVerseTargetIds(Collection<Long> targetIds);
 }

@@ -65,7 +65,7 @@ class AiGenerationJobRepositoryTest {
     }
 
     @Test
-    void findTargetIdsByJobTypeAndTargetTypeAndTargetIdInAndStatusInFiltersActiveVerseExplanationJobs() {
+    void findActiveExplanationBibleVerseTargetIdsFiltersActiveVerseExplanationJobs() {
         AiPromptVersion explanationPrompt = persistPromptVersion(AiPromptType.EXPLANATION);
         AiPromptVersion simulatorPrompt = persistPromptVersion(AiPromptType.SIMULATOR);
         persistJob(explanationPrompt, AiGenerationJobStatus.QUEUED, BASE_TIME, AiGenerationJobType.EXPLANATION,
@@ -82,12 +82,8 @@ class AiGenerationJobRepositoryTest {
                 AiGenerationJobType.SIMULATOR, AiTargetType.BIBLE_VERSE, 106L);
         flushAndClear();
 
-        List<Long> targetIds = repository.findTargetIdsByJobTypeAndTargetTypeAndTargetIdInAndStatusIn(
-                AiGenerationJobType.EXPLANATION,
-                AiTargetType.BIBLE_VERSE,
-                List.of(101L, 102L, 103L, 104L, 105L, 106L),
-                List.of(AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING)
-        );
+        List<Long> targetIds = repository.findActiveExplanationBibleVerseTargetIds(
+                List.of(101L, 102L, 103L, 104L, 105L, 106L));
 
         assertThat(targetIds).containsExactlyInAnyOrder(101L, 102L);
     }

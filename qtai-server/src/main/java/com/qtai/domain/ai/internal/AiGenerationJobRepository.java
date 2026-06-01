@@ -32,17 +32,15 @@ public interface AiGenerationJobRepository extends JpaRepository<AiGenerationJob
     @Query("""
             select distinct job.targetId
             from AiGenerationJob job
-            where job.jobType = :jobType
-              and job.targetType = :targetType
+            where job.jobType = com.qtai.domain.ai.internal.AiGenerationJobType.EXPLANATION
+              and job.targetType = com.qtai.domain.ai.internal.AiTargetType.BIBLE_VERSE
               and job.targetId in :targetIds
-              and job.status in :statuses
+              and job.status in (
+                com.qtai.domain.ai.internal.AiGenerationJobStatus.QUEUED,
+                com.qtai.domain.ai.internal.AiGenerationJobStatus.RUNNING
+              )
             """)
-    List<Long> findTargetIdsByJobTypeAndTargetTypeAndTargetIdInAndStatusIn(
-            AiGenerationJobType jobType,
-            AiTargetType targetType,
-            Collection<Long> targetIds,
-            Collection<AiGenerationJobStatus> statuses
-    );
+    List<Long> findActiveExplanationBibleVerseTargetIds(Collection<Long> targetIds);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<AiGenerationJob> findByIdAndStatus(Long id, AiGenerationJobStatus status);

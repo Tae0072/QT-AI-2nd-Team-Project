@@ -93,6 +93,12 @@
 - [ ] 신규 API, OpenAPI, DB schema 변경이 없다.
 - [ ] SIMULATOR와 QT_PASSAGE 단위 generation은 포함하지 않는다.
 
+## 시간 정책 정합성
+
+- 00:05 KST scheduler는 오늘 QT passage가 준비된 직후 내부 `EXPLANATION` generation job을 미리 시딩하는 배치다.
+- 기존 문서의 04:00 KST 정책은 사용자 노출/cache refresh 기준이며, 이번 00:05 내부 시딩 배치와 역할이 다르다.
+- 이번 workflow에서는 중앙 요구사항 문서를 수정하지 않고, PR 문서와 report에 두 시간 정책의 관계를 명시한다.
+
 ## Subagent Decision
 
 ### 권장 여부
@@ -124,6 +130,8 @@ Subagent 사용은 권장하지 않는다.
 - `.\gradlew.bat build`
 - `git diff --check`
 - `rg -n "^import .*domain\.[a-z]+\.(internal|web|repository)" qtai-server/src/main/java/com/qtai/domain/ai`
+
+Unix/CI 환경에서는 `qtai-server` 기준 `./gradlew`로 같은 Gradle task를 실행한다.
 
 ## 후속 작업으로 남길 항목
 

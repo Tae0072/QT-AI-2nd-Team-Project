@@ -9,6 +9,8 @@ import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
@@ -26,14 +28,6 @@ import com.qtai.domain.study.api.dto.ApprovedVerseExplanationResponse;
 class AiDailyQtVerseExplanationSeedService {
 
     private static final String SYSTEM_BATCH = "SYSTEM_BATCH";
-    private static final List<AiGeneratedAssetStatus> READY_ASSET_STATUSES = List.of(
-            AiGeneratedAssetStatus.VALIDATING,
-            AiGeneratedAssetStatus.APPROVED
-    );
-    private static final List<AiGenerationJobStatus> ACTIVE_JOB_STATUSES = List.of(
-            AiGenerationJobStatus.QUEUED,
-            AiGenerationJobStatus.RUNNING
-    );
 
     private final GetTodayQtUseCase getTodayQtUseCase;
     private final GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
@@ -64,10 +58,17 @@ class AiDailyQtVerseExplanationSeedService {
         this.clock = clock;
     }
 
-    int seedToday() {
-        TodayQtResponse todayQt = getTodayQtUseCase.getToday(null);
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public int seedToday() {
+        TodayQtResponse todayQt = Objects.requireNonNull(
+                getTodayQtUseCase.getToday(null),
+                "todayQt must not be null"
+        );
         Long qtPassageId = requirePositive(todayQt.qtPassageId(), "qtPassageId");
-        QtPassageContentContext context = getQtPassageContentContextUseCase.getContentContext(qtPassageId);
+        QtPassageContentContext context = Objects.requireNonNull(
+                getQtPassageContentContextUseCase.getContentContext(qtPassageId),
+                "qtPassageContentContext must not be null"
+        );
         List<Long> verseIds = uniqueVerseIds(context.verseIds());
         if (verseIds.isEmpty()) {
             return 0;
@@ -121,18 +122,8 @@ class AiDailyQtVerseExplanationSeedService {
                 .map(ApprovedVerseExplanationResponse::verseId)
                 .filter(Objects::nonNull)
                 .forEach(skippedVerseIds::add);
-        skippedVerseIds.addAll(generatedAssetRepository.findTargetIdsByAssetTypeAndTargetTypeAndTargetIdInAndStatusIn(
-                AiGeneratedAssetType.EXPLANATION,
-                AiTargetType.BIBLE_VERSE,
-                verseIds,
-                READY_ASSET_STATUSES
-        ));
-        skippedVerseIds.addAll(generationJobRepository.findTargetIdsByJobTypeAndTargetTypeAndTargetIdInAndStatusIn(
-                AiGenerationJobType.EXPLANATION,
-                AiTargetType.BIBLE_VERSE,
-                verseIds,
-                ACTIVE_JOB_STATUSES
-        ));
+        skippedVerseIds.addAll(generatedAssetRepository.findReadyExplanationBibleVerseTargetIds(verseIds));
+        skippedVerseIds.addAll(generationJobRepository.findActiveExplanationBibleVerseTargetIds(verseIds));
         return skippedVerseIds;
     }
 
