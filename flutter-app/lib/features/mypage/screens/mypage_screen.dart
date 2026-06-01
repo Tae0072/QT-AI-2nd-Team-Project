@@ -74,9 +74,13 @@ class MyPageScreen extends ConsumerWidget {
                       dashboard.unreadNotificationCount,
                   savedSongCount:
                       dashboard.praiseSummary?.savedSongCount ?? 0,
+                  onNotificationTap: () {
+                    Navigator.of(context)
+                        .pushNamed(AppRouter.notifications);
+                  },
                   onSettingsTap: () {
                     Navigator.of(context)
-                        .pushNamed(AppRouter.profileEdit);
+                        .pushNamed(AppRouter.appSettings);
                   },
                 ),
               ],
