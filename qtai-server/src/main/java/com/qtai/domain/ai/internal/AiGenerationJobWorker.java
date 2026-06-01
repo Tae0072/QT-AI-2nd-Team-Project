@@ -29,9 +29,16 @@ class AiGenerationJobWorker {
             return;
         }
         try {
-            runner.runQueuedBatch(batchSize);
+            int processedCount = runner.runQueuedBatch(batchSize);
+            if (processedCount > 0) {
+                log.info("AI generation worker processed jobs. processedCount={}", processedCount);
+            }
         } catch (RuntimeException exception) {
-            log.warn("AI generation worker polling failed. errorType={}", exception.getClass().getSimpleName());
+            log.warn(
+                    "AI generation worker polling failed. errorType={}, errorMessage={}",
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage()
+            );
         }
     }
 }
