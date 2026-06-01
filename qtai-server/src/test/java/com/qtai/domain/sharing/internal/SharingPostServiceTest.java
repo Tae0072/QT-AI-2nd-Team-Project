@@ -2,6 +2,15 @@ package com.qtai.domain.sharing.internal;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.member.api.GetMemberUseCase;
+import com.qtai.domain.member.api.dto.MemberResponse;
+import com.qtai.domain.note.api.GetNoteUseCase;
+import com.qtai.domain.note.api.NoteCategory;
+import com.qtai.domain.note.api.NoteStatus;
+import com.qtai.domain.note.api.NoteVisibility;
+import com.qtai.domain.note.api.dto.NoteDetailResponse;
+import com.qtai.domain.sharing.api.dto.LikeResponse;
+import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
 import com.qtai.domain.sharing.api.dto.SharingPostListItem;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.SharingPostResponse;
@@ -16,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.lang.reflect.Field;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -30,9 +40,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import com.qtai.domain.member.api.GetMemberUseCase;
-import com.qtai.domain.note.api.GetNoteUseCase;
 
 class SharingPostServiceTest {
 
@@ -49,7 +56,8 @@ class SharingPostServiceTest {
         postLikeRepository = mock(PostLikeRepository.class);
         getNoteUseCase = mock(GetNoteUseCase.class);
         getMemberUseCase = mock(GetMemberUseCase.class);
-        sharingPostService = new SharingPostService(sharingPostRepository, postLikeRepository, getNoteUseCase, getMemberUseCase);
+        sharingPostService = new SharingPostService(
+                sharingPostRepository, postLikeRepository, getNoteUseCase, getMemberUseCase);
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishedAt"));
     }
 
@@ -195,11 +203,195 @@ class SharingPostServiceTest {
     }
 
     // ─────────────────────────────────────────────────────
+    // publish — 노트 나눔 공개 (F-10)
+    // ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("공개: SAVED 노트를 PUBLISHED 스냅샷으로 박제하고 닉네임을 복사한다")
+    void publish_savesSnapshotWithNickname() {
+        when(getNoteUseCase.get(1L, 10L)).thenReturn(savedNote("제목", "본문", null, null, null, null));
+        when(getMemberUseCase.getMember(1L)).thenReturn(member("하늘QT"));
+        when(sharingPostRepository.existsByNoteId(10L)).thenReturn(false);
+        when(sharingPostRepository.save(any(SharingPost.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SharingPostResponse response = sharingPostService.publish(1L, 10L, new PublishNoteRequest(true, true));
+
+        ArgumentCaptor<SharingPost> captor = ArgumentCaptor.forClass(SharingPost.class);
+        verify(sharingPostRepository).save(captor.capture());
+        SharingPost saved = captor.getValue();
+        assertThat(saved.getNoteId()).isEqualTo(10L);
+        assertThat(saved.getStatus()).isEqualTo(SharingPostStatus.PUBLISHED);
+        assertThat(saved.getNicknameSnapshot()).isEqualTo("하늘QT");
+        assertThat(saved.getSnapshotBody()).isEqualTo("본문");
+        assertThat(saved.getLikeCount()).isZero();
+        assertThat(saved.getCommentCount()).isZero();
+        // 방금 내가 만든 글이므로 ownedByMe=true, likedByMe=false
+        assertThat(response.ownedByMe()).isTrue();
+        assertThat(response.likedByMe()).isFalse();
+    }
+
+    @Test
+    @DisplayName("공개: body가 비면(묵상 노트) 4섹션을 라벨 붙여 합쳐 스냅샷한다")
+    void publish_composesBodyFromSections() {
+        when(getNoteUseCase.get(1L, 10L))
+                .thenReturn(savedNote("묵상", null, "기억할 말씀", "느낀 점 내용", "적용", "기도제목"));
+        when(getMemberUseCase.getMember(1L)).thenReturn(member("하늘QT"));
+        when(sharingPostRepository.existsByNoteId(10L)).thenReturn(false);
+        when(sharingPostRepository.save(any(SharingPost.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        sharingPostService.publish(1L, 10L, new PublishNoteRequest(true, null));
+
+        ArgumentCaptor<SharingPost> captor = ArgumentCaptor.forClass(SharingPost.class);
+        verify(sharingPostRepository).save(captor.capture());
+        String body = captor.getValue().getSnapshotBody();
+        assertThat(body).contains("[느낀 점]").contains("느낀 점 내용");
+        assertThat(body).contains("[기도]").contains("기도제목");
+    }
+
+    @Test
+    @DisplayName("공개 거부: confirmNicknamePublic=false면 INVALID_INPUT, 저장하지 않는다")
+    void publish_confirmFalse_rejected() {
+        assertThatThrownBy(() -> sharingPostService.publish(1L, 10L, new PublishNoteRequest(false, true)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+
+        verify(getNoteUseCase, never()).get(any(), any());
+        verify(sharingPostRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("공개 거부: 노트가 SAVED가 아니면(DRAFT) INVALID_INPUT, 저장하지 않는다")
+    void publish_notSaved_rejected() {
+        NoteDetailResponse draft = new NoteDetailResponse(
+                10L, 1L, NoteCategory.MEDITATION, 35L, "임시", "본문",
+                null, null, null, null, NoteStatus.DRAFT, NoteVisibility.PRIVATE,
+                LocalDate.of(2026, 5, 17), "창세기 1:1-5", false, null, null, null, List.of());
+        when(getNoteUseCase.get(1L, 10L)).thenReturn(draft);
+
+        assertThatThrownBy(() -> sharingPostService.publish(1L, 10L, new PublishNoteRequest(true, true)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+
+        verify(sharingPostRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("공개 거부: 이미 공개된 노트면 DUPLICATE_SHARING_POST, 저장하지 않는다")
+    void publish_alreadyShared_rejected() {
+        when(getNoteUseCase.get(1L, 10L)).thenReturn(savedNote("제목", "본문", null, null, null, null));
+        when(sharingPostRepository.existsByNoteId(10L)).thenReturn(true);
+
+        assertThatThrownBy(() -> sharingPostService.publish(1L, 10L, new PublishNoteRequest(true, true)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.DUPLICATE_SHARING_POST);
+
+        verify(sharingPostRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("좋아요 정상: PostLike 저장 + likeCount를 실제 행 수로 맞추고 LikeResponse 반환")
+    void like_savesAndSyncsCount() {
+        // given — PUBLISHED 글이 존재한다 (헬퍼가 status=PUBLISHED로 만들어줌)
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        when(sharingPostRepository.findByIdAndStatus(1L, SharingPostStatus.PUBLISHED))
+                .thenReturn(Optional.of(post));
+        // (1) 아직 좋아요를 안 누른 상태로 만들려면 existsBy... 를 뭐라고 stub 해야 할까?
+        when(postLikeRepository.existsBySharingPostIdAndMemberId(1L, 10L)).thenReturn(false);
+        // (2) 좋아요 1개가 된 상황 → countBy... 가 몇을 반환하게 stub 할까?
+        when(postLikeRepository.countBySharingPostId(1L)).thenReturn(1L);
+
+        // when — 회원 10번이 1번 글에 좋아요
+        LikeResponse response = sharingPostService.like(10L, 1L);
+
+        // then
+        assertThat(response.likeCount()).isEqualTo(1); // 위 countBy와 같은 값
+        assertThat(response.likedByMe()).isEqualTo(true); // 방금 눌렀으니?
+        verify(postLikeRepository).save(any(PostLike.class)); // 좋아요 행을 저장했나
+        assertThat(post.getLikeCount()).isEqualTo(1); // syncLikeCount로 post에도 반영됐나
+    }
+
+    @Test
+    @DisplayName("좋아요 중복: 이미 누른 좋아요면 DUPLICATE_LIKE, 저장하지 않는다")
+    void like_duplicate_throws() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        when(sharingPostRepository.findByIdAndStatus(1L, SharingPostStatus.PUBLISHED))
+                .thenReturn(Optional.of(post));
+        when(postLikeRepository.existsBySharingPostIdAndMemberId(1L, 10L)).thenReturn(true);
+
+        assertThatThrownBy(() -> sharingPostService.like(10L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.DUPLICATE_LIKE);
+
+        verify(postLikeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("좋아요: 대상이 PUBLISHED가 아니면(없음/숨김/삭제) 404, 저장하지 않는다")
+    void like_postNotPublished_throwsNotFound() {
+        when(sharingPostRepository.findByIdAndStatus(99L, SharingPostStatus.PUBLISHED))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingPostService.like(10L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.SHARING_POST_NOT_FOUND);
+
+        verify(postLikeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("좋아요 취소: deleteBy 호출 + likeCount를 실제 행 수(0)로 재계산")
+    void unlike_deletesAndSyncsCount() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 1, 0);
+        when(sharingPostRepository.findByIdAndStatus(1L, SharingPostStatus.PUBLISHED))
+                .thenReturn(Optional.of(post));
+        when(postLikeRepository.countBySharingPostId(1L)).thenReturn(0L);
+
+        sharingPostService.unlike(10L, 1L);
+
+        verify(postLikeRepository).deleteBySharingPostIdAndMemberId(1L, 10L);
+        assertThat(post.getLikeCount()).isEqualTo(0); // 1 → 0으로 동기화
+    }
+
+    @Test
+    @DisplayName("좋아요 취소: 대상이 PUBLISHED가 아니면 404, 삭제하지 않는다")
+    void unlike_postNotPublished_throwsNotFound() {
+        when(sharingPostRepository.findByIdAndStatus(99L, SharingPostStatus.PUBLISHED))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingPostService.unlike(10L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.SHARING_POST_NOT_FOUND);
+
+        verify(postLikeRepository, never()).deleteBySharingPostIdAndMemberId(any(), any());
+    }
+
+    // ─────────────────────────────────────────────────────
     // 헬퍼 — SharingPost는 빌더/팩토리가 없어 reflection으로 필드를 채운다.
     // ─────────────────────────────────────────────────────
 
+    /** SAVED 상태 묵상 노트 한 건. body가 null이면 4섹션 합성 경로를 탄다. */
+    private static NoteDetailResponse savedNote(String title, String body,
+            String remember, String interpret, String apply, String pray) {
+        return new NoteDetailResponse(
+                10L, 1L, NoteCategory.MEDITATION, 35L, title, body,
+                remember, interpret, apply, pray,
+                NoteStatus.SAVED, NoteVisibility.PRIVATE,
+                LocalDate.of(2026, 5, 17), "창세기 1:1-5",
+                false, null, null, null, List.of());
+    }
+
+    private static MemberResponse member(String nickname) {
+        return new MemberResponse(1L, nickname, null, null, "ACTIVE", "USER", null, null);
+    }
+
     private static SharingPost sharingPost(Long id, String nickname, String title, String category,
-                                           String body, String verseLabel, int likeCount, int commentCount) {
+            String body, String verseLabel, int likeCount, int commentCount) {
         SharingPost post = new SharingPost();
         setField(post, "id", id);
         setField(post, "memberId", 99L);
@@ -237,102 +429,5 @@ class SharingPostServiceTest {
             }
         }
         throw new NoSuchFieldException(fieldName);
-    }
-
-    // ── publish 테스트 ──
-
-    @Test
-    @DisplayName("publish — 정상 공유 시 스냅샷 생성")
-    void publish_정상_공유() {
-        Long memberId = 1L;
-        Long noteId = 10L;
-
-        com.qtai.domain.note.api.dto.NoteDetailResponse note =
-                new com.qtai.domain.note.api.dto.NoteDetailResponse(
-                        noteId, memberId,
-                        com.qtai.domain.note.api.NoteCategory.MEDITATION,
-                        1L, "제목", "본문", null, null, null, null,
-                        com.qtai.domain.note.api.NoteStatus.SAVED,
-                        com.qtai.domain.note.api.NoteVisibility.PRIVATE,
-                        java.time.LocalDate.of(2026, 6, 1),
-                        "창세기 1:1-5", false, null, null, null, List.of());
-
-        com.qtai.domain.member.api.dto.MemberResponse member =
-                new com.qtai.domain.member.api.dto.MemberResponse(
-                        memberId, "테스트닉", null, null, "ACTIVE", "USER", null, null);
-
-        when(getNoteUseCase.get(memberId, noteId)).thenReturn(note);
-        when(getMemberUseCase.getMember(memberId)).thenReturn(member);
-        when(sharingPostRepository.findByNoteId(noteId)).thenReturn(Optional.empty());
-        when(sharingPostRepository.saveAndFlush(any(SharingPost.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-
-        com.qtai.domain.sharing.api.dto.PublishNoteRequest request =
-                new com.qtai.domain.sharing.api.dto.PublishNoteRequest(true, true);
-
-        com.qtai.domain.sharing.api.dto.SharingPostResponse response =
-                sharingPostService.publish(memberId, noteId, request);
-
-        assertThat(response.titleSnapshot()).isEqualTo("제목");
-        assertThat(response.nicknameSnapshot()).isEqualTo("테스트닉");
-        assertThat(response.category()).isEqualTo("MEDITATION");
-    }
-
-    @Test
-    @DisplayName("publish — 중복 공유 시 DUPLICATE_SHARING_POST 예외")
-    void publish_중복_공유_예외() {
-        Long memberId = 1L;
-        Long noteId = 10L;
-
-        com.qtai.domain.note.api.dto.NoteDetailResponse note =
-                new com.qtai.domain.note.api.dto.NoteDetailResponse(
-                        noteId, memberId,
-                        com.qtai.domain.note.api.NoteCategory.MEDITATION,
-                        1L, "제목", "본문", null, null, null, null,
-                        com.qtai.domain.note.api.NoteStatus.SAVED,
-                        com.qtai.domain.note.api.NoteVisibility.PRIVATE,
-                        null, null, false, null, null, null, List.of());
-
-        when(getNoteUseCase.get(memberId, noteId)).thenReturn(note);
-        when(sharingPostRepository.findByNoteId(noteId)).thenReturn(Optional.of(mock(SharingPost.class)));
-
-        com.qtai.domain.sharing.api.dto.PublishNoteRequest request =
-                new com.qtai.domain.sharing.api.dto.PublishNoteRequest(true, true);
-
-        assertThatThrownBy(() -> sharingPostService.publish(memberId, noteId, request))
-                .isInstanceOf(BusinessException.class);
-    }
-
-    @Test
-    @DisplayName("publish — race condition 시 DataIntegrityViolationException → DUPLICATE_SHARING_POST")
-    void publish_race_condition_UK위반() {
-        Long memberId = 1L;
-        Long noteId = 10L;
-
-        com.qtai.domain.note.api.dto.NoteDetailResponse note =
-                new com.qtai.domain.note.api.dto.NoteDetailResponse(
-                        noteId, memberId,
-                        com.qtai.domain.note.api.NoteCategory.MEDITATION,
-                        1L, "제목", "본문", null, null, null, null,
-                        com.qtai.domain.note.api.NoteStatus.SAVED,
-                        com.qtai.domain.note.api.NoteVisibility.PRIVATE,
-                        java.time.LocalDate.of(2026, 6, 1),
-                        "창세기 1:1-5", false, null, null, null, List.of());
-
-        com.qtai.domain.member.api.dto.MemberResponse member =
-                new com.qtai.domain.member.api.dto.MemberResponse(
-                        memberId, "테스트닉", null, null, "ACTIVE", "USER", null, null);
-
-        when(getNoteUseCase.get(memberId, noteId)).thenReturn(note);
-        when(getMemberUseCase.getMember(memberId)).thenReturn(member);
-        when(sharingPostRepository.findByNoteId(noteId)).thenReturn(Optional.empty());
-        when(sharingPostRepository.saveAndFlush(any(SharingPost.class)))
-                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("UK violation"));
-
-        com.qtai.domain.sharing.api.dto.PublishNoteRequest request =
-                new com.qtai.domain.sharing.api.dto.PublishNoteRequest(true, true);
-
-        assertThatThrownBy(() -> sharingPostService.publish(memberId, noteId, request))
-                .isInstanceOf(BusinessException.class);
     }
 }
