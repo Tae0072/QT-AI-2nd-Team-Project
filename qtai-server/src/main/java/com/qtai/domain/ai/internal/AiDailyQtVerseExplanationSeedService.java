@@ -59,7 +59,7 @@ class AiDailyQtVerseExplanationSeedService {
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public int seedToday() {
+    public AiDailyQtVerseExplanationSeedResult seedToday() {
         TodayQtResponse todayQt = Objects.requireNonNull(
                 getTodayQtUseCase.getToday(null),
                 "todayQt must not be null"
@@ -71,40 +71,52 @@ class AiDailyQtVerseExplanationSeedService {
         );
         List<Long> verseIds = uniqueVerseIds(context.verseIds());
         if (verseIds.isEmpty()) {
-            return 0;
+            return new AiDailyQtVerseExplanationSeedResult(0, 0);
         }
 
         AiPromptVersion promptVersion = latestActiveExplanationPromptVersion();
         if (promptVersion == null) {
             log.warn("AI daily QT verse explanation seed skipped. reason=ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
-            return 0;
+            return new AiDailyQtVerseExplanationSeedResult(0, 0);
         }
 
         Set<Long> skippedVerseIds = skippedVerseIds(verseIds);
         int createdCount = 0;
+        int failedCount = 0;
         for (Long verseId : verseIds) {
             if (skippedVerseIds.contains(verseId)) {
                 continue;
             }
-            createAiGenerationJobUseCase.createAiGenerationJob(new CreateAiGenerationJobCommand(
-                    AiGenerationJobType.EXPLANATION.name(),
-                    AiTargetType.BIBLE_VERSE.name(),
-                    verseId,
-                    promptVersion.getId(),
-                    SYSTEM_BATCH,
-                    OffsetDateTime.now(clock)
-            ));
-            createdCount++;
+            try {
+                createAiGenerationJobUseCase.createAiGenerationJob(new CreateAiGenerationJobCommand(
+                        AiGenerationJobType.EXPLANATION.name(),
+                        AiTargetType.BIBLE_VERSE.name(),
+                        verseId,
+                        promptVersion.getId(),
+                        SYSTEM_BATCH,
+                        OffsetDateTime.now(clock)
+                ));
+                createdCount++;
+            } catch (RuntimeException exception) {
+                failedCount++;
+                log.warn(
+                        "AI daily QT verse explanation seed failed for verse. verseId={}, errorType={}, errorMessage={}",
+                        verseId,
+                        exception.getClass().getSimpleName(),
+                        exception.getMessage()
+                );
+            }
         }
 
         log.info(
-                "AI daily QT verse explanation seed created jobs. qtPassageId={}, verseCount={}, skippedCount={}, createdCount={}",
+                "AI daily QT verse explanation seed created jobs. qtPassageId={}, verseCount={}, skippedCount={}, createdCount={}, failedCount={}",
                 qtPassageId,
                 verseIds.size(),
                 skippedVerseIds.size(),
-                createdCount
+                createdCount,
+                failedCount
         );
-        return createdCount;
+        return new AiDailyQtVerseExplanationSeedResult(createdCount, failedCount);
     }
 
     private AiPromptVersion latestActiveExplanationPromptVersion() {

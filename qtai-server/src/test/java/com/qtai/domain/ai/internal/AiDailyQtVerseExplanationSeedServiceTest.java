@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -100,9 +101,10 @@ class AiDailyQtVerseExplanationSeedServiceTest {
         when(createAiGenerationJobUseCase.createAiGenerationJob(any(CreateAiGenerationJobCommand.class)))
                 .thenReturn(new CreateAiGenerationJobResult(501L, "QUEUED"));
 
-        int createdCount = service.seedToday();
+        AiDailyQtVerseExplanationSeedResult result = service.seedToday();
 
-        assertThat(createdCount).isEqualTo(1);
+        assertThat(result.createdCount()).isEqualTo(1);
+        assertThat(result.failedCount()).isZero();
         ArgumentCaptor<CreateAiGenerationJobCommand> commandCaptor =
                 ArgumentCaptor.forClass(CreateAiGenerationJobCommand.class);
         verify(createAiGenerationJobUseCase).createAiGenerationJob(commandCaptor.capture());
@@ -116,13 +118,63 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     }
 
     @Test
+    void seedTodayContinuesWhenOneVerseJobCreationFails(CapturedOutput output) {
+        AiPromptVersion promptVersion = promptVersion(15L, "2026.06.1", REQUESTED_AT.minusDays(1));
+        List<Long> verseIds = List.of(101L, 102L, 103L, 104L, 105L);
+        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
+        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(verseIds));
+        when(promptVersionRepository.findFirstByPromptTypeAndStatusOrderByCreatedAtDescIdDesc(
+                AiPromptType.EXPLANATION,
+                AiPromptVersionStatus.ACTIVE
+        )).thenReturn(Optional.of(promptVersion));
+        when(listApprovedVerseExplanationUseCase.listApprovedByVerseIds(verseIds))
+                .thenReturn(List.of(new ApprovedVerseExplanationResponse(
+                        101L,
+                        "summary",
+                        "explanation",
+                        "source",
+                        900L
+                )));
+        when(generatedAssetRepository.findReadyExplanationBibleVerseTargetIds(verseIds))
+                .thenReturn(List.of(102L));
+        when(generationJobRepository.findActiveExplanationBibleVerseTargetIds(verseIds))
+                .thenReturn(List.of(103L));
+        when(createAiGenerationJobUseCase.createAiGenerationJob(any(CreateAiGenerationJobCommand.class)))
+                .thenAnswer(invocation -> {
+                    CreateAiGenerationJobCommand command = invocation.getArgument(0);
+                    if (command.targetId().equals(104L)) {
+                        throw new IllegalStateException("duplicate queued job");
+                    }
+                    return new CreateAiGenerationJobResult(502L, "QUEUED");
+                });
+
+        AiDailyQtVerseExplanationSeedResult result = service.seedToday();
+
+        assertThat(result.createdCount()).isEqualTo(1);
+        assertThat(result.failedCount()).isEqualTo(1);
+        ArgumentCaptor<CreateAiGenerationJobCommand> commandCaptor =
+                ArgumentCaptor.forClass(CreateAiGenerationJobCommand.class);
+        verify(createAiGenerationJobUseCase, times(2)).createAiGenerationJob(commandCaptor.capture());
+        assertThat(commandCaptor.getAllValues())
+                .extracting(CreateAiGenerationJobCommand::targetId)
+                .containsExactly(104L, 105L);
+        assertThat(output).contains(
+                "AI daily QT verse explanation seed failed for verse",
+                "verseId=104",
+                "errorType=IllegalStateException",
+                "errorMessage=duplicate queued job"
+        );
+    }
+
+    @Test
     void seedTodayReturnsZeroWhenVerseIdsAreEmpty() {
         when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
         when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(List.of()));
 
-        int createdCount = service.seedToday();
+        AiDailyQtVerseExplanationSeedResult result = service.seedToday();
 
-        assertThat(createdCount).isZero();
+        assertThat(result.createdCount()).isZero();
+        assertThat(result.failedCount()).isZero();
         verifyNoInteractions(
                 promptVersionRepository,
                 listApprovedVerseExplanationUseCase,
@@ -141,9 +193,10 @@ class AiDailyQtVerseExplanationSeedServiceTest {
                 AiPromptVersionStatus.ACTIVE
         )).thenReturn(Optional.empty());
 
-        int createdCount = service.seedToday();
+        AiDailyQtVerseExplanationSeedResult result = service.seedToday();
 
-        assertThat(createdCount).isZero();
+        assertThat(result.createdCount()).isZero();
+        assertThat(result.failedCount()).isZero();
         assertThat(output).contains("ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
         verifyNoInteractions(
                 listApprovedVerseExplanationUseCase,

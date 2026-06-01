@@ -99,6 +99,14 @@
 - 기존 문서의 04:00 KST 정책은 사용자 노출/cache refresh 기준이며, 이번 00:05 내부 시딩 배치와 역할이 다르다.
 - 이번 workflow에서는 중앙 요구사항 문서를 수정하지 않고, PR 문서와 report에 두 시간 정책의 관계를 명시한다.
 
+## REQUEST_CHANGES 반영 정책
+
+- 00:05 KST scheduler는 Lead 승인된 내부 사전 시딩 정책으로 유지한다.
+- 기존 04:00 KST 정책은 Today QT 사용자 노출/cache refresh 기준으로 해석한다.
+- SSoT 문서의 시간 정책 표현 정리는 별도 문서 갱신 PR로 남긴다.
+- verse별 job 생성은 best-effort로 처리한다. 특정 verse 생성 실패는 `failedCount`로 집계하고, 나머지 eligible verse 생성을 계속한다.
+- 실패 로그에는 `verseId`, `errorType`, `errorMessage`를 남긴다.
+
 ## Subagent Decision
 
 ### 권장 여부

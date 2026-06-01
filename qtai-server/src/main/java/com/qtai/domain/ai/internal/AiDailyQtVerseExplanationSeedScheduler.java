@@ -26,8 +26,12 @@ class AiDailyQtVerseExplanationSeedScheduler {
             return;
         }
         try {
-            int createdCount = service.seedToday();
-            log.info("AI daily QT verse explanation seed completed. createdCount={}", createdCount);
+            AiDailyQtVerseExplanationSeedResult result = service.seedToday();
+            log.info(
+                    "AI daily QT verse explanation seed completed. createdCount={}, failedCount={}",
+                    result.createdCount(),
+                    result.failedCount()
+            );
         } catch (RuntimeException exception) {
             log.warn(
                     "AI daily QT verse explanation seed failed. errorType={}, errorMessage={}",
