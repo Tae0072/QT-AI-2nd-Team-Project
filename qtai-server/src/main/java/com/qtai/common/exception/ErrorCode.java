@@ -65,6 +65,8 @@ public enum ErrorCode {
     // 신고
     DUPLICATE_REPORT("R0001", "이미 신고한 대상입니다.", HttpStatus.CONFLICT),
     REPORT_TARGET_NOT_FOUND("R0002", "신고 대상을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    REPORT_NOT_FOUND("R0003", "신고를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    REPORT_ALREADY_PROCESSED("R0004", "이미 처리된 신고입니다.", HttpStatus.CONFLICT),
 
     // 관리자
     ADMIN_USER_NOT_FOUND("AD0001", "관리자 계정을 찾을 수 없습니다.", HttpStatus.FORBIDDEN),

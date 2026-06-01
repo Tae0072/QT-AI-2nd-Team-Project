@@ -94,4 +94,20 @@ public class Report {
         this.status = ReportStatus.RECEIVED;
         this.createdAt = createdAt;
     }
+
+    /** 이미 종결(RESOLVED/REJECTED)된 신고인지. */
+    public boolean isClosed() {
+        return this.status == ReportStatus.RESOLVED || this.status == ReportStatus.REJECTED;
+    }
+
+    /**
+     * 관리자 처리 — 상태 전이(RECEIVED/REVIEWING → RESOLVED/REJECTED) + 처리자·시각 기록.
+     * 이미 종결된 신고는 재처리할 수 없다(상태 전이 위반).
+     */
+    public void process(Long adminId, ReportStatus newStatus, LocalDateTime now) {
+        this.status = newStatus;
+        this.processedByAdminId = adminId;
+        this.processedAt = now;
+        this.updatedAt = now;
+    }
 }
