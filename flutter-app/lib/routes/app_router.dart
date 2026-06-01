@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/auth/screens/login_screen.dart';
+import '../features/home/screens/home_screen.dart';
 import '../features/auth/screens/nickname_setup_screen.dart';
 import '../features/mypage/screens/mypage_screen.dart';
 import '../features/mypage/screens/notification_list_screen.dart';
 import '../features/mypage/screens/praise_screen.dart';
 import '../features/mypage/screens/profile_edit_screen.dart';
 import '../features/mypage/screens/settings_screen.dart';
+import '../features/sharing/screens/sharing_detail_screen.dart';
+import '../features/sharing/screens/sharing_feed_screen.dart';
 import '../features/onboarding/providers/onboarding_providers.dart';
 import '../features/onboarding/screens/onboarding_screen.dart';
 
@@ -23,6 +26,8 @@ class AppRouter {
   static const String notifications = '/notifications';
   static const String appSettings = '/settings';
   static const String praise = '/praise';
+  static const String sharing = '/sharing';
+  static const String sharingDetail = '/sharing/detail';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -51,7 +56,7 @@ class AppRouter {
         );
       case home:
         return MaterialPageRoute(
-          builder: (_) => const Scaffold(body: Center(child: Text('홈'))),
+          builder: (_) => const HomeScreen(),
         );
       case myPage:
         return MaterialPageRoute(
@@ -72,6 +77,15 @@ class AppRouter {
       case praise:
         return MaterialPageRoute(
           builder: (_) => const PraiseScreen(),
+        );
+      case sharing:
+        return MaterialPageRoute(
+          builder: (_) => const SharingFeedScreen(),
+        );
+      case sharingDetail:
+        final postId = settings.arguments as int;
+        return MaterialPageRoute(
+          builder: (_) => SharingDetailScreen(postId: postId),
         );
       default:
         return MaterialPageRoute(
