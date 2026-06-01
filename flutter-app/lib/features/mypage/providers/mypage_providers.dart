@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../models/dashboard_response.dart';
 import '../models/member_response.dart';
+import '../models/notification_response.dart';
+import '../models/praise_response.dart';
+import '../models/settings_response.dart';
 import '../services/mypage_repository.dart';
 
 // ── Repository Provider ──
@@ -54,4 +57,38 @@ final nicknameAvailableProvider =
 
   final repository = ref.watch(myPageRepositoryProvider);
   return repository.checkNicknameAvailable(query);
+});
+
+// ── 알림 ──
+
+/// 미읽음 필터 상태.
+final unreadOnlyFilterProvider = StateProvider<bool>((ref) => false);
+
+/// 알림 목록.
+final notificationsProvider = FutureProvider.autoDispose<NotificationListResponse>((ref) {
+  final repository = ref.watch(myPageRepositoryProvider);
+  final unreadOnly = ref.watch(unreadOnlyFilterProvider);
+  return repository.getNotifications(unreadOnly: unreadOnly);
+});
+
+// ── 설정 ──
+
+/// 사용자 설정.
+final settingsProvider = FutureProvider.autoDispose<SettingsData>((ref) {
+  final repository = ref.watch(myPageRepositoryProvider);
+  return repository.getSettings();
+});
+
+// ── 찬양 ──
+
+/// 큐레이션 곡 목록.
+final curationSongsProvider = FutureProvider.autoDispose<List<PraiseSong>>((ref) {
+  final repository = ref.watch(myPageRepositoryProvider);
+  return repository.getCurationSongs();
+});
+
+/// 내 찬양 목록.
+final myPraiseSongsProvider = FutureProvider.autoDispose<List<MyPraiseSong>>((ref) {
+  final repository = ref.watch(myPageRepositoryProvider);
+  return repository.getMyPraiseSongs();
 });

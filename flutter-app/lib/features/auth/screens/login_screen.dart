@@ -28,14 +28,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (!mounted) return;
 
-      // 인증 상태 업데이트
-      ref.read(authStatusProvider.notifier).setAuthenticated();
-
-      // 신규 회원이면 닉네임 설정, 기존 회원이면 홈으로
       if (result.isNewMember) {
+        // 신규 회원 — 닉네임 설정 후 인증 상태 업데이트 (먼저 setAuthenticated하면 홈으로 강제 이동됨)
         Navigator.of(context).pushReplacementNamed(AppRouter.nicknameSetup);
       } else {
-        Navigator.of(context).pushReplacementNamed(AppRouter.home);
+        // 기존 회원 — 인증 상태 업데이트 → main.dart에서 /home으로 전환
+        ref.read(authStatusProvider.notifier).setAuthenticated();
       }
     } catch (e) {
       if (!mounted) return;

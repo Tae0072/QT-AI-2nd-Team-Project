@@ -67,4 +67,28 @@ public class SharingPost extends BaseEntity {
 
     @Column(name = "source_note_unshared_at")
     private LocalDateTime sourceNoteUnsharedAt;
+
+    /**
+     * 노트를 나눔 피드에 공유(스냅샷 생성).
+     * 공유 시점의 노트 내용·닉네임을 복사하여 원본 변경에 영향받지 않도록 한다.
+     */
+    public static SharingPost publish(Long memberId, Long noteId,
+                                       String nickname, String title, String body,
+                                       String category, java.time.LocalDate qtDate,
+                                       String verseLabel, boolean commentsEnabled) {
+        SharingPost post = new SharingPost();
+        post.memberId = memberId;
+        post.noteId = noteId;
+        post.status = SharingPostStatus.PUBLISHED;
+        post.snapshotTitle = title;
+        post.snapshotBody = body;
+        post.snapshotCategory = category;
+        post.snapshotQtDate = qtDate;
+        post.nicknameSnapshot = nickname;
+        post.snapshotVerseLabel = verseLabel;
+        post.commentsEnabled = commentsEnabled;
+        post.likeCount = 0;
+        post.commentCount = 0;
+        return post;
+    }
 }
