@@ -78,6 +78,10 @@ class MyPageScreen extends ConsumerWidget {
                     Navigator.of(context)
                         .pushNamed(AppRouter.notifications);
                   },
+                  onPraiseTap: () {
+                    Navigator.of(context)
+                        .pushNamed(AppRouter.praise);
+                  },
                   onSettingsTap: () {
                     Navigator.of(context)
                         .pushNamed(AppRouter.appSettings);

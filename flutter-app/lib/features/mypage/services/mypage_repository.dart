@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../models/dashboard_response.dart';
 import '../models/member_response.dart';
 import '../models/notification_response.dart';
+import '../models/praise_response.dart';
 import '../models/settings_response.dart';
 
 /// 마이페이지 API 호출 레이어.
@@ -117,6 +118,35 @@ class MyPageRepository {
     final response = await _dio.patch('/me/settings', data: body);
     final data = response.data['data'] as Map<String, dynamic>;
     return SettingsData.fromJson(data);
+  }
+
+  // ── 찬양 ──
+
+  /// 큐레이션 곡 목록 조회.
+  Future<List<PraiseSong>> getCurationSongs() async {
+    final response = await _dio.get('/praise-songs');
+    final data = response.data['data'] as List<dynamic>;
+    return data.map((e) => PraiseSong.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// 내 찬양 목록 조회.
+  Future<List<MyPraiseSong>> getMyPraiseSongs() async {
+    final response = await _dio.get('/me/praise-songs');
+    final data = response.data['data'] as List<dynamic>;
+    return data.map((e) => MyPraiseSong.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// 내 찬양 저장 (큐레이션 곡).
+  Future<void> saveMyPraiseSong(int praiseSongId) async {
+    await _dio.post('/me/praise-songs', data: {
+      'praiseSongId': praiseSongId,
+      'sourceType': 'CURATION',
+    });
+  }
+
+  /// 내 찬양 삭제.
+  Future<void> deleteMyPraiseSong(int id) async {
+    await _dio.delete('/me/praise-songs/$id');
   }
 
   // ── 탈퇴 ──
