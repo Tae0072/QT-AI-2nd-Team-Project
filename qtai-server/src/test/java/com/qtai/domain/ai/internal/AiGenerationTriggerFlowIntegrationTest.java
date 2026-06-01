@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
@@ -18,6 +20,7 @@ import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -32,6 +35,8 @@ import com.qtai.domain.ai.api.dto.CreateAiGenerationJobCommand;
 import com.qtai.domain.ai.api.dto.CreateAiGenerationJobResult;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetCommand;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
+import com.qtai.domain.audit.api.WriteAuditLogUseCase;
+import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 import com.qtai.domain.bible.api.GetBibleVerseUseCase;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
@@ -70,6 +75,7 @@ class AiGenerationTriggerFlowIntegrationTest {
     private GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
     private GetBibleVerseUseCase getBibleVerseUseCase;
     private LlmClient llmClient;
+    private WriteAuditLogUseCase auditLogUseCase;
     private ObjectMapper objectMapper;
     private AiService aiService;
     private AiGenerationJobRunner runner;
@@ -79,8 +85,15 @@ class AiGenerationTriggerFlowIntegrationTest {
         getQtPassageContentContextUseCase = mock(GetQtPassageContentContextUseCase.class);
         getBibleVerseUseCase = mock(GetBibleVerseUseCase.class);
         llmClient = mock(LlmClient.class);
+        auditLogUseCase = mock(WriteAuditLogUseCase.class);
         objectMapper = new ObjectMapper();
-        aiService = new AiService(generationJobRepository, generatedAssetRepository, promptVersionRepository);
+        aiService = new AiService(
+                generationJobRepository,
+                generatedAssetRepository,
+                promptVersionRepository,
+                auditLogUseCase,
+                objectMapper
+        );
         runner = new AiGenerationJobRunner(
                 generationJobRepository,
                 generatedAssetRepository,
@@ -159,6 +172,11 @@ class AiGenerationTriggerFlowIntegrationTest {
         assertThat(queuedJob.getStatus()).isEqualTo(AiGenerationJobStatus.QUEUED);
         assertThat(generatedAssetRepository.findById(rejectedAsset.getId()).orElseThrow().getStatus())
                 .isEqualTo(AiGeneratedAssetStatus.REJECTED);
+        ArgumentCaptor<AuditLogWriteRequest> auditCaptor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
+        verify(auditLogUseCase).write(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().actionType()).isEqualTo("AI_REGENERATE_REQUEST");
+        assertThat(auditCaptor.getValue().targetType()).isEqualTo("AI_GENERATED_ASSET");
+        assertThat(auditCaptor.getValue().targetId()).isEqualTo(rejectedAsset.getId());
 
         assertThat(runner.runQueuedBatch(5)).isEqualTo(1);
 
@@ -209,6 +227,7 @@ class AiGenerationTriggerFlowIntegrationTest {
 
         assertThat(generationJobRepository.findAll()).hasSize(1);
         assertThat(generatedAssetRepository.findAll()).hasSize(1);
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
     }
 
     private AiAutoValidationService autoValidationService() {
