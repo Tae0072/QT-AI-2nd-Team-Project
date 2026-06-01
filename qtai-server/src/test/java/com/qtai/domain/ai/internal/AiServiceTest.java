@@ -12,6 +12,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -24,6 +25,8 @@ import com.qtai.domain.ai.api.dto.CreateAiGenerationJobCommand;
 import com.qtai.domain.ai.api.dto.CreateAiGenerationJobResult;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetCommand;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
+import com.qtai.domain.audit.api.WriteAuditLogUseCase;
+import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 
 class AiServiceTest {
 
@@ -36,6 +39,7 @@ class AiServiceTest {
     private AiGenerationJobRepository generationJobRepository;
     private AiGeneratedAssetRepository generatedAssetRepository;
     private AiPromptVersionRepository promptVersionRepository;
+    private WriteAuditLogUseCase auditLogUseCase;
     private AiService aiService;
 
     @BeforeEach
@@ -43,7 +47,14 @@ class AiServiceTest {
         generationJobRepository = org.mockito.Mockito.mock(AiGenerationJobRepository.class);
         generatedAssetRepository = org.mockito.Mockito.mock(AiGeneratedAssetRepository.class);
         promptVersionRepository = org.mockito.Mockito.mock(AiPromptVersionRepository.class);
-        aiService = new AiService(generationJobRepository, generatedAssetRepository, promptVersionRepository);
+        auditLogUseCase = org.mockito.Mockito.mock(WriteAuditLogUseCase.class);
+        aiService = new AiService(
+                generationJobRepository,
+                generatedAssetRepository,
+                promptVersionRepository,
+                auditLogUseCase,
+                new ObjectMapper()
+        );
     }
 
     @Test
@@ -271,6 +282,59 @@ class AiServiceTest {
     }
 
     @Test
+    void rejectedAssetRegenerationWritesSafeAuditLog() {
+        AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.REJECTED);
+        setId(asset, 500L);
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                1001L,
+                3L,
+                ACTIVE_STATUSES
+        )).thenReturn(false);
+        when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class))).thenAnswer(invocation -> {
+            AiGenerationJob job = invocation.getArgument(0);
+            setId(job, 101L);
+            return job;
+        });
+
+        aiService.regenerateAiAsset(adminCommand("REVIEWER"));
+
+        ArgumentCaptor<AuditLogWriteRequest> auditCaptor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
+        verify(auditLogUseCase).write(auditCaptor.capture());
+        AuditLogWriteRequest audit = auditCaptor.getValue();
+        assertThat(audit.actorType()).isEqualTo("ADMIN");
+        assertThat(audit.actorId()).isEqualTo(7L);
+        assertThat(audit.actorLabel()).isEqualTo("ADMIN:7");
+        assertThat(audit.actionType()).isEqualTo("AI_REGENERATE_REQUEST");
+        assertThat(audit.targetType()).isEqualTo("AI_GENERATED_ASSET");
+        assertThat(audit.targetId()).isEqualTo(500L);
+        assertThat(audit.beforeJson())
+                .contains("\"id\":500", "\"assetType\":\"EXPLANATION\"", "\"status\":\"REJECTED\"",
+                        "\"targetType\":\"BIBLE_VERSE\"", "\"targetId\":1001");
+        assertThat(audit.afterJson())
+                .contains("\"id\":101", "\"status\":\"QUEUED\"", "\"jobType\":\"EXPLANATION\"",
+                        "\"targetType\":\"BIBLE_VERSE\"", "\"targetId\":1001", "\"promptVersionId\":3",
+                        "\"requestedAt\":\"2026-05-21T10:30:00+09:00\"");
+        assertThat(audit.beforeJson() + audit.afterJson())
+                .doesNotContain(
+                        "regenerate reason",
+                        "payloadJson",
+                        "contentHash",
+                        "rawResponse",
+                        "providerRawResponse",
+                        "promptText",
+                        "validationReferenceText",
+                        "secret",
+                        "token",
+                        "password",
+                        "privateKey"
+                );
+    }
+
+    @Test
     void hiddenAssetCanBeRegeneratedBySuperAdmin() {
         AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.HIDDEN);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
@@ -296,6 +360,7 @@ class AiServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
         verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
     }
 
     @Test
@@ -307,6 +372,7 @@ class AiServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
         verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
     }
 
     @Test
@@ -326,6 +392,7 @@ class AiServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
         verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
     }
 
     @Test
@@ -347,6 +414,7 @@ class AiServiceTest {
         assertThatThrownBy(() -> aiService.regenerateAiAsset(adminCommand("REVIEWER")))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
     }
 
     @Test
@@ -370,6 +438,7 @@ class AiServiceTest {
         assertThatThrownBy(() -> aiService.regenerateAiAsset(command("ADMIN", "OPERATOR")))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
     }
 
     @Test
@@ -403,6 +472,7 @@ class AiServiceTest {
         ));
         verify(generatedAssetRepository, never()).findById(any());
         verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
     }
 
     private static RegenerateAiAssetCommand adminCommand(String adminRole) {

@@ -8,7 +8,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 /**
@@ -46,12 +45,10 @@ public class AuditLog {
     @Column(name = "target_id")
     private Long targetId;
 
-    @Lob
-    @Column(name = "before_json")
+    @Column(name = "before_json", columnDefinition = "LONGTEXT")
     private String beforeJson;
 
-    @Lob
-    @Column(name = "after_json")
+    @Column(name = "after_json", columnDefinition = "LONGTEXT")
     private String afterJson;
 
     @Column(name = "created_at", nullable = false)

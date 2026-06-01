@@ -119,7 +119,7 @@ class DeepSeekLlmClientTest {
         assertThatThrownBy(() -> clientWithoutApiKey.complete(
                 new LlmCompletionRequest(null, null, "Question", null, null)
         )).isInstanceOfSatisfying(BusinessException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR));
+                assertThat(exception.getMessage()).isEqualTo("LLM_CONFIGURATION_ERROR"));
 
         verify(restTemplate, never()).exchange(any(String.class), any(), any(), eq(Map.class));
     }
@@ -131,7 +131,7 @@ class DeepSeekLlmClientTest {
 
         assertThatThrownBy(() -> client.complete(new LlmCompletionRequest(null, null, "Question", null, null)))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR));
+                        assertThat(exception.getMessage()).isEqualTo("LLM_RESPONSE_INVALID"));
     }
 
     @Test
@@ -141,7 +141,7 @@ class DeepSeekLlmClientTest {
 
         assertThatThrownBy(() -> client.complete(new LlmCompletionRequest(null, null, "Question", null, null)))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR));
+                        assertThat(exception.getMessage()).isEqualTo("LLM_RESPONSE_INVALID"));
     }
 
     @Test
@@ -151,7 +151,7 @@ class DeepSeekLlmClientTest {
 
         assertThatThrownBy(() -> client.complete(new LlmCompletionRequest(null, null, "Question", null, null)))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR));
+                        assertThat(exception.getMessage()).isEqualTo("LLM_RESPONSE_INVALID"));
     }
 
     @Test
@@ -168,6 +168,7 @@ class DeepSeekLlmClientTest {
                 new LlmCompletionRequest(null, null, "Question", null, null)
         )).isInstanceOfSatisfying(BusinessException.class, exception -> {
             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR);
+            assertThat(exception.getMessage()).isEqualTo("LLM_PROVIDER_REQUEST_REJECTED");
             assertThat(exception.getMessage()).doesNotContain(
                     "placeholder-credential",
                     "Question",
@@ -177,10 +178,35 @@ class DeepSeekLlmClientTest {
     }
 
     @Test
-    void completeMapsRateLimitAndServerErrorsToInternalError() {
-        assertProviderErrorIsInternal(new HttpClientErrorException(HttpStatus.TOO_MANY_REQUESTS));
-        assertProviderErrorIsInternal(new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR));
-        assertProviderErrorIsInternal(new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE));
+    void completeMapsRateLimitToRateLimitCode() {
+        assertProviderErrorMessage(
+                new HttpClientErrorException(HttpStatus.TOO_MANY_REQUESTS),
+                "LLM_RATE_LIMIT"
+        );
+    }
+
+    @Test
+    void completeMapsServerErrorsToProviderErrorCode() {
+        assertProviderErrorMessage(
+                new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR),
+                "LLM_PROVIDER_ERROR"
+        );
+        assertProviderErrorMessage(
+                new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE),
+                "LLM_PROVIDER_ERROR"
+        );
+    }
+
+    @Test
+    void completeMapsOtherClientErrorsToRequestRejectedCode() {
+        assertProviderErrorMessage(
+                new HttpClientErrorException(HttpStatus.FORBIDDEN),
+                "LLM_PROVIDER_REQUEST_REJECTED"
+        );
+        assertProviderErrorMessage(
+                new HttpClientErrorException(HttpStatus.UNPROCESSABLE_ENTITY),
+                "LLM_PROVIDER_REQUEST_REJECTED"
+        );
     }
 
     @Test
@@ -190,16 +216,18 @@ class DeepSeekLlmClientTest {
 
         assertThatThrownBy(() -> client.complete(new LlmCompletionRequest(null, null, "Question", null, null)))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR));
+                        assertThat(exception.getMessage()).isEqualTo("LLM_TIMEOUT"));
     }
 
-    private void assertProviderErrorIsInternal(RuntimeException providerException) {
+    private void assertProviderErrorMessage(RuntimeException providerException, String expectedMessage) {
         when(restTemplate.exchange(any(String.class), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(providerException);
 
         assertThatThrownBy(() -> client.complete(new LlmCompletionRequest(null, null, "Question", null, null)))
-                .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR));
+                .isInstanceOfSatisfying(BusinessException.class, exception -> {
+                    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR);
+                    assertThat(exception.getMessage()).isEqualTo(expectedMessage);
+                });
 
         Mockito.reset(restTemplate);
     }

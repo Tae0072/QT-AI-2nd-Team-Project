@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/auth/screens/nickname_setup_screen.dart';
 import '../features/mypage/screens/mypage_screen.dart';
+import '../features/mypage/screens/notification_list_screen.dart';
+import '../features/mypage/screens/praise_screen.dart';
 import '../features/mypage/screens/profile_edit_screen.dart';
+import '../features/mypage/screens/settings_screen.dart';
 import '../features/onboarding/providers/onboarding_providers.dart';
 import '../features/onboarding/screens/onboarding_screen.dart';
 
@@ -17,6 +20,9 @@ class AppRouter {
   static const String nicknameSetup = '/nickname-setup';
   static const String myPage = '/my-page';
   static const String profileEdit = '/my-page/profile';
+  static const String notifications = '/notifications';
+  static const String appSettings = '/settings';
+  static const String praise = '/praise';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -54,6 +60,18 @@ class AppRouter {
       case profileEdit:
         return MaterialPageRoute(
           builder: (_) => const ProfileEditScreen(),
+        );
+      case notifications:
+        return MaterialPageRoute(
+          builder: (_) => const NotificationListScreen(),
+        );
+      case appSettings:
+        return MaterialPageRoute(
+          builder: (_) => const SettingsScreen(),
+        );
+      case praise:
+        return MaterialPageRoute(
+          builder: (_) => const PraiseScreen(),
         );
       default:
         return MaterialPageRoute(

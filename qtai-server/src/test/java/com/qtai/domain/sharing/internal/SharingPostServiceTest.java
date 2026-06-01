@@ -278,7 +278,7 @@ class SharingPostServiceTest {
     }
 
     @Test
-    @DisplayName("공개 거부: 이미 공개된 노트면 SHARING_POST_ALREADY_SHARED, 저장하지 않는다")
+    @DisplayName("공개 거부: 이미 공개된 노트면 DUPLICATE_SHARING_POST, 저장하지 않는다")
     void publish_alreadyShared_rejected() {
         when(getNoteUseCase.get(1L, 10L)).thenReturn(savedNote("제목", "본문", null, null, null, null));
         when(sharingPostRepository.existsByNoteId(10L)).thenReturn(true);
@@ -286,7 +286,7 @@ class SharingPostServiceTest {
         assertThatThrownBy(() -> sharingPostService.publish(1L, 10L, new PublishNoteRequest(true, true)))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.SHARING_POST_ALREADY_SHARED);
+                .isEqualTo(ErrorCode.DUPLICATE_SHARING_POST);
 
         verify(sharingPostRepository, never()).save(any());
     }

@@ -52,6 +52,13 @@ external:
       connect-timeout-ms: ${DEEPSEEK_CONNECT_TIMEOUT_MS:3000}
       read-timeout-ms: ${DEEPSEEK_READ_TIMEOUT_MS:30000}
 
+ai:
+  generation:
+    worker:
+      enabled: ${AI_GENERATION_WORKER_ENABLED:true}
+      fixed-delay-ms: ${AI_GENERATION_WORKER_FIXED_DELAY_MS:10000}
+      batch-size: ${AI_GENERATION_WORKER_BATCH_SIZE:5}
+
 server:
   servlet:
     encoding:

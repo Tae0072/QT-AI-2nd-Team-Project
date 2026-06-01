@@ -5,8 +5,10 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
+import com.qtai.domain.sharing.api.PublishNoteUseCase;
 import com.qtai.domain.sharing.api.ToggleLikeUseCase;
 import com.qtai.domain.sharing.api.dto.LikeResponse;
+import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.SharingPostResponse;
 import com.qtai.domain.sharing.api.dto.VerseSnapshotDetail;
@@ -32,6 +34,7 @@ class SharingPostControllerTest {
 
     private ListSharingPostsUseCase listSharingPostsUseCase;
     private GetSharingPostUseCase getSharingPostUseCase;
+    private PublishNoteUseCase publishNoteUseCase;
     private ToggleLikeUseCase toggleLikeUseCase;
     private SharingPostController controller;
     private Pageable pageable;
@@ -40,8 +43,10 @@ class SharingPostControllerTest {
     void setUp() {
         listSharingPostsUseCase = mock(ListSharingPostsUseCase.class);
         getSharingPostUseCase = mock(GetSharingPostUseCase.class);
+        publishNoteUseCase = mock(PublishNoteUseCase.class);
         toggleLikeUseCase = mock(ToggleLikeUseCase.class);
-        controller = new SharingPostController(listSharingPostsUseCase, getSharingPostUseCase, toggleLikeUseCase);
+        controller = new SharingPostController(
+                listSharingPostsUseCase, getSharingPostUseCase, publishNoteUseCase, toggleLikeUseCase);
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishedAt"));
     }
 
@@ -96,6 +101,21 @@ class SharingPostControllerTest {
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
 
         verify(getSharingPostUseCase, never()).getDetail(any(), any());
+    }
+
+    @Test
+    @DisplayName("공개는 인증된 memberId·noteId·요청을 UseCase로 위임하고 201로 응답한다")
+    void publish_delegates() {
+        SharingPostResponse stub = new SharingPostResponse(
+                300L, 200L, 1L, "하늘QT", "오늘의 묵상", "본문", "MEDITATION",
+                null, true, null, "PUBLISHED", 0, 0, false, true, null, null, null);
+        when(publishNoteUseCase.publish(eq(1L), eq(200L), any())).thenReturn(stub);
+
+        var response = controller.publish(1L, 200L, new PublishNoteRequest(true, true));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(201);
+        assertThat(response.getBody().data()).isSameAs(stub);
+        verify(publishNoteUseCase).publish(eq(1L), eq(200L), any());
     }
 
     @Test

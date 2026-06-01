@@ -26,14 +26,16 @@ class AuthRepository {
 
     // 2) 서버에 카카오 토큰 전달 → JWT 발급
     final response = await _dio.post(
-      '/api/v1/auth/kakao',
-      data: {'accessToken': kakaoToken.accessToken},
+      '/auth/kakao',
+      data: {'kakaoAccessToken': kakaoToken.accessToken},
     );
 
     final data = response.data['data'] as Map<String, dynamic>;
     final accessToken = data['accessToken'] as String;
     final refreshToken = data['refreshToken'] as String;
-    final isNewMember = data['isNewMember'] as bool? ?? false;
+    // 서버 응답: member.onboardingRequired (닉네임 미설정 시 true)
+    final member = data['member'] as Map<String, dynamic>?;
+    final isNewMember = member?['onboardingRequired'] as bool? ?? false;
 
     // 3) 토큰 저장
     await SecureStorage.setAccessToken(accessToken);
@@ -46,14 +48,30 @@ class AuthRepository {
     );
   }
 
-  /// 로그아웃 — 토큰 삭제.
+  /// 로그아웃 — 로컬 토큰 우선 삭제 후 서버/카카오 폐기.
+  ///
+  /// SecureStorage를 먼저 삭제하여 서버/카카오 호출 실패 시에도
+  /// 로컬 인증 상태가 반드시 초기화되도록 한다.
   Future<void> logout() async {
+    // 1) 로컬 토큰 우선 삭제 (부분 실패 시에도 로그아웃 보장)
+    final refreshToken = await SecureStorage.getRefreshToken();
+    await SecureStorage.clearTokens();
+
+    // 2) 서버 Refresh Token 폐기 (Redis 삭제)
+    try {
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _dio.post('/auth/logout');
+      }
+    } catch (_) {
+      // 서버 호출 실패해도 로컬 토큰은 이미 삭제됨
+    }
+
+    // 3) 카카오 SDK 로그아웃
     try {
       await UserApi.instance.logout();
     } catch (_) {
-      // 카카오 로그아웃 실패해도 로컬 토큰은 삭제
+      // 카카오 로그아웃 실패해도 무시
     }
-    await SecureStorage.clearTokens();
   }
 
   /// 저장된 액세스 토큰 확인.

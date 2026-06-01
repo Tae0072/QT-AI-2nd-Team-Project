@@ -109,7 +109,7 @@ public class SharingPostService
         }
         // 4. 같은 노트는 한 번만 공개(noteId UNIQUE). 사전 조회로 친절한 409, DB 제약이 최종 backstop.
         if (sharingPostRepository.existsByNoteId(noteId)) {
-            throw new BusinessException(ErrorCode.SHARING_POST_ALREADY_SHARED);
+            throw new BusinessException(ErrorCode.DUPLICATE_SHARING_POST);
         }
         // 5. 작성자 닉네임 박제(member 도메인에서 조회).
         String nickname = getMemberUseCase.getMember(memberId).nickname();
