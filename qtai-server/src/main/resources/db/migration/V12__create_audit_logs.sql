@@ -7,8 +7,8 @@ CREATE TABLE audit_logs (
     action_type   VARCHAR(50)  NOT NULL,
     target_type   VARCHAR(50)  NOT NULL,
     target_id     BIGINT,
-    before_json   CLOB,
-    after_json    CLOB,
+    before_json   LONGTEXT,
+    after_json    LONGTEXT,
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
