@@ -44,3 +44,6 @@ qtai-app/
 # Local Claude Code state
 .claude/
 
+# dev-console — 김지민 개인 dev 전용 API 테스트 도구 (커밋/PR 제외)
+qtai-server/src/main/resources/static/dev-console.html
+
