@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/error_interceptor.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../auth/providers/auth_providers.dart';
 import '../providers/mypage_providers.dart';
 import '../widgets/withdraw_dialog.dart';
 
@@ -73,6 +74,25 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    try {
+      final authRepository = ref.read(authRepositoryProvider);
+      await authRepository.logout();
+      ref.read(authStatusProvider.notifier).setUnauthenticated();
+
+      if (mounted) {
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('로그아웃에 실패했습니다.')),
+        );
+      }
     }
   }
 
@@ -160,6 +180,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 ),
 
               const SizedBox(height: 32),
+
+              // 로그아웃 버튼
+              OutlinedButton.icon(
+                onPressed: _handleLogout,
+                icon: const Icon(Icons.logout),
+                label: const Text('로그아웃'),
+              ),
+
+              const SizedBox(height: 12),
 
               // 탈퇴 버튼
               TextButton(

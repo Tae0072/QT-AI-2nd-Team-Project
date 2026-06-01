@@ -18,13 +18,17 @@ final authStatusProvider =
 });
 
 class AuthStatusNotifier extends StateNotifier<AuthStatus> {
-  final AuthRepository _repository;
+  final AuthRepository? _repository;
 
-  AuthStatusNotifier(this._repository) : super(AuthStatus.unknown) {
+  AuthStatusNotifier(AuthRepository repository) : _repository = repository, super(AuthStatus.unknown) {
     _checkAuthStatus();
   }
 
+  /// 테스트 전용 — Dio/SecureStorage 없이 즉시 상태 설정.
+  AuthStatusNotifier.withInitial(super.initial) : _repository = null;
+
   Future<void> _checkAuthStatus() async {
+    if (_repository == null) return;
     final hasToken = await _repository.hasToken();
     state = hasToken ? AuthStatus.authenticated : AuthStatus.unauthenticated;
   }
