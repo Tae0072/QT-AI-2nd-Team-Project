@@ -107,10 +107,15 @@
 
 ## ② 🟢 나눔 쓰기 — W3 구현 완료 (공개·좋아요·댓글, 2026-06-01, `feature/sharing-write`)
 
+> ⚠️ **publish 중복 구현 / merge 정리 (2026-06-01)**: 나눔 공개(`POST /notes/{id}/share`)는 **이승욱이 PR #179로 dev에 먼저 머지**했다. dev merge 시 충돌 → **A안(dev #179 기반 + 내 버그수정 이식)**으로 해결:
+> - 배선은 dev(SharingPostController)로, 내 `NoteController.share`는 제거(중복 매핑 방지).
+> - 단, #179 publish는 **묵상노트(body=null)·제목없는노트에서 NOT NULL 위반 크래시** → 내 `composeBody`·null방어·SAVED 검증을 이식해 고쳤다.
+> - **내 고유 기여 = 좋아요·댓글** (충돌 없음).
+
 | 파일 | 무슨 일을 하나 | 상태 |
 |---|---|---|
-| **PublishNoteUseCase** + `SharingPostService.publish` | 노트→나눔 공개(스냅샷·닉네임 박제, @Transactional 원자성). 미저장·중복공유 거부 | ✅ |
-| **PublishNoteRequest** | `confirmNicknamePublic`(@NotNull) + `commentsEnabled` | ✅ |
+| **PublishNoteUseCase** + `SharingPostService.publish` | 노트→나눔 공개. #179 기반 + 내 버그수정 이식(composeBody·null방어·SAVED). 중복공유 `DUPLICATE_SHARING_POST` | ✅ #179+이식 |
+| **PublishNoteRequest** | `@NotNull @AssertTrue confirmNicknamePublic` + `isCommentsEnabled()` (dev #179 채택) | ✅ |
 | **ToggleLikeUseCase** + `SharingPostService.like/unlike` | 좋아요 토글. **COUNT 재계산**·중복 409·취소 멱등 204 | ✅ |
 | **LikeResponse** | likeCount + likedByMe | ✅ |
 | **CommentUseCase** + **CommentService** (신규) | 댓글 작성·목록·삭제. 댓글OFF 409·본인만 403·soft delete 멱등·commentCount 재계산 | ✅ |
