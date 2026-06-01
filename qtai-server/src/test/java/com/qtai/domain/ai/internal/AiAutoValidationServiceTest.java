@@ -213,8 +213,10 @@ class AiAutoValidationServiceTest {
         )).thenReturn(List.of());
 
         assertThatThrownBy(() -> aiAutoValidationService.validateExplanationAsset(ASSET_ID, VALIDATED_AT))
-                .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR));
+                .isInstanceOfSatisfying(BusinessException.class, exception -> {
+                    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR);
+                    assertThat(exception.getMessage()).isEqualTo("AUTO_VALIDATION_CONFIGURATION_ERROR");
+                });
         verify(validationLogRepository, never()).save(any(AiValidationLog.class));
     }
 

@@ -88,11 +88,11 @@ class AiGenerationJobRunnerTest {
     }
 
     @Test
-    void llmErrorFailsJobWithoutStoringAsset() {
+    void llmTimeoutFailsJobWithSafeFailureCodeWithoutStoringAsset() {
         AiGenerationJob job = job(100L, AiGenerationJobType.EXPLANATION);
         AiGenerationJobRunner runner = runner(List.of(failingHandler(
                 AiGenerationJobType.EXPLANATION,
-                new BusinessException(ErrorCode.INTERNAL_ERROR, "DeepSeek API request failed")
+                new BusinessException(ErrorCode.INTERNAL_ERROR, "LLM_TIMEOUT")
         )));
 
         when(generationJobRepository.findByIdAndStatus(100L, AiGenerationJobStatus.QUEUED))
@@ -103,7 +103,49 @@ class AiGenerationJobRunnerTest {
 
         assertThat(processed).isTrue();
         assertThat(job.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
-        assertThat(job.getErrorMessage()).isEqualTo("DeepSeek API request failed");
+        assertThat(job.getErrorMessage()).isEqualTo("LLM_TIMEOUT");
+        verify(generatedAssetRepository, never()).save(any());
+        verify(aiAutoValidationService, never()).validateExplanationAsset(any(), any());
+    }
+
+    @Test
+    void llmRateLimitFailsJobWithSafeFailureCodeWithoutStoringAsset() {
+        AiGenerationJob job = job(103L, AiGenerationJobType.EXPLANATION);
+        AiGenerationJobRunner runner = runner(List.of(failingHandler(
+                AiGenerationJobType.EXPLANATION,
+                new BusinessException(ErrorCode.INTERNAL_ERROR, "LLM_RATE_LIMIT")
+        )));
+
+        when(generationJobRepository.findByIdAndStatus(103L, AiGenerationJobStatus.QUEUED))
+                .thenReturn(Optional.of(job));
+        when(generationJobRepository.findById(103L)).thenReturn(Optional.of(job));
+
+        boolean processed = runner.runJob(103L);
+
+        assertThat(processed).isTrue();
+        assertThat(job.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
+        assertThat(job.getErrorMessage()).isEqualTo("LLM_RATE_LIMIT");
+        verify(generatedAssetRepository, never()).save(any());
+        verify(aiAutoValidationService, never()).validateExplanationAsset(any(), any());
+    }
+
+    @Test
+    void llmProviderErrorFailsJobWithSafeFailureCodeWithoutStoringAsset() {
+        AiGenerationJob job = job(104L, AiGenerationJobType.EXPLANATION);
+        AiGenerationJobRunner runner = runner(List.of(failingHandler(
+                AiGenerationJobType.EXPLANATION,
+                new BusinessException(ErrorCode.INTERNAL_ERROR, "LLM_PROVIDER_ERROR")
+        )));
+
+        when(generationJobRepository.findByIdAndStatus(104L, AiGenerationJobStatus.QUEUED))
+                .thenReturn(Optional.of(job));
+        when(generationJobRepository.findById(104L)).thenReturn(Optional.of(job));
+
+        boolean processed = runner.runJob(104L);
+
+        assertThat(processed).isTrue();
+        assertThat(job.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
+        assertThat(job.getErrorMessage()).isEqualTo("LLM_PROVIDER_ERROR");
         verify(generatedAssetRepository, never()).save(any());
         verify(aiAutoValidationService, never()).validateExplanationAsset(any(), any());
     }
