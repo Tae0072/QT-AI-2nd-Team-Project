@@ -10,7 +10,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 import com.qtai.common.exception.BusinessException;
@@ -38,8 +37,7 @@ public class AiGeneratedAsset {
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
-    @Lob
-    @Column(name = "payload_json", nullable = false)
+    @Column(name = "payload_json", nullable = false, columnDefinition = "LONGTEXT")
     private String payloadJson;
 
     @Column(name = "source_label", length = 255)
