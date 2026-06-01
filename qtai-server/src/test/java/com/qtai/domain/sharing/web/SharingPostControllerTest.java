@@ -30,6 +30,7 @@ class SharingPostControllerTest {
 
     private ListSharingPostsUseCase listSharingPostsUseCase;
     private GetSharingPostUseCase getSharingPostUseCase;
+    private com.qtai.domain.sharing.api.PublishNoteUseCase publishNoteUseCase;
     private SharingPostController controller;
     private Pageable pageable;
 
@@ -37,7 +38,8 @@ class SharingPostControllerTest {
     void setUp() {
         listSharingPostsUseCase = mock(ListSharingPostsUseCase.class);
         getSharingPostUseCase = mock(GetSharingPostUseCase.class);
-        controller = new SharingPostController(listSharingPostsUseCase, getSharingPostUseCase);
+        publishNoteUseCase = mock(com.qtai.domain.sharing.api.PublishNoteUseCase.class);
+        controller = new SharingPostController(listSharingPostsUseCase, getSharingPostUseCase, publishNoteUseCase);
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishedAt"));
     }
 
@@ -92,5 +94,41 @@ class SharingPostControllerTest {
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
 
         verify(getSharingPostUseCase, never()).getDetail(any(), any());
+    }
+
+    // ── publish 테스트 ──
+
+    @Test
+    @DisplayName("publish — 정상 요청 시 201 반환")
+    void publish_정상() {
+        Long memberId = 1L;
+        Long noteId = 10L;
+        com.qtai.domain.sharing.api.dto.PublishNoteRequest request =
+                new com.qtai.domain.sharing.api.dto.PublishNoteRequest(true, true);
+
+        SharingPostResponse expected = new SharingPostResponse(
+                1L, noteId, memberId, "닉네임", "제목", "본문", "MEDITATION",
+                new com.qtai.domain.sharing.api.dto.VerseSnapshotDetail(null, List.of()),
+                true, null, "PUBLISHED", 0, 0, false, true, null, null, null);
+
+        when(publishNoteUseCase.publish(memberId, noteId, request)).thenReturn(expected);
+
+        org.springframework.http.ResponseEntity<com.qtai.common.dto.ApiResponse<SharingPostResponse>> response =
+                controller.publish(memberId, noteId, request);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(201);
+        assertThat(response.getBody().data().titleSnapshot()).isEqualTo("제목");
+    }
+
+    @Test
+    @DisplayName("publish — memberId null이면 UNAUTHORIZED")
+    void publish_memberIdNull_rejected() {
+        com.qtai.domain.sharing.api.dto.PublishNoteRequest request =
+                new com.qtai.domain.sharing.api.dto.PublishNoteRequest(true, true);
+
+        assertThatThrownBy(() -> controller.publish(null, 10L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
     }
 }

@@ -2,8 +2,14 @@ package com.qtai.domain.sharing.internal;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.member.api.GetMemberUseCase;
+import com.qtai.domain.member.api.dto.MemberResponse;
+import com.qtai.domain.note.api.GetNoteUseCase;
+import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
+import com.qtai.domain.sharing.api.PublishNoteUseCase;
+import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
 import com.qtai.domain.sharing.api.dto.SharingPostListItem;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.SharingPostResponse;
@@ -26,7 +32,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class SharingPostService implements ListSharingPostsUseCase, GetSharingPostUseCase {
+public class SharingPostService implements ListSharingPostsUseCase, GetSharingPostUseCase, PublishNoteUseCase {
 
     private static final int PREVIEW_LENGTH = 100;
 
@@ -39,6 +45,8 @@ public class SharingPostService implements ListSharingPostsUseCase, GetSharingPo
 
     private final SharingPostRepository sharingPostRepository;
     private final PostLikeRepository postLikeRepository;
+    private final GetNoteUseCase getNoteUseCase;
+    private final GetMemberUseCase getMemberUseCase;
 
     @Override
     public SharingPostListResponse list(Long memberId, String category, String q, Pageable pageable) {
@@ -168,5 +176,64 @@ public class SharingPostService implements ListSharingPostsUseCase, GetSharingPo
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    // ── 나눔 공유 (PublishNoteUseCase) ──
+
+    @Override
+    @Transactional
+    public SharingPostResponse publish(Long memberId, Long noteId, PublishNoteRequest request) {
+        // 1) 노트 조회 (본인 소유 + 존재 검증은 GetNoteUseCase에서 처리)
+        NoteDetailResponse note = getNoteUseCase.get(memberId, noteId);
+
+        // 2) 이미 공유된 노트인지 확인 (DDL note_id UNIQUE — 1:1 정책)
+        if (sharingPostRepository.findByNoteId(noteId).isPresent()) {
+            throw new BusinessException(ErrorCode.DUPLICATE_SHARING_POST);
+        }
+
+        // 3) 닉네임 조회
+        MemberResponse member = getMemberUseCase.getMember(memberId);
+
+        // 4) 스냅샷 생성 + 저장
+        // verse 본문(절 텍스트)은 현재 미포함 — rangeLabel(구절 범위)만 스냅샷.
+        // 다중 절 본문 스냅샷은 sharing_post_verses 테이블 추가 시 v2에서 확장 예정.
+        SharingPost post = SharingPost.publish(
+                memberId,
+                noteId,
+                member.nickname(),
+                note.title(),
+                note.body(),
+                note.category().name(),
+                note.qtDate(),
+                note.rangeLabel(),
+                request.isCommentsEnabled()
+        );
+
+        SharingPost saved;
+        try {
+            saved = sharingPostRepository.saveAndFlush(post);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.DUPLICATE_SHARING_POST);
+        }
+
+        return new SharingPostResponse(
+                saved.getId(),
+                saved.getNoteId(),
+                saved.getMemberId(),
+                saved.getNicknameSnapshot(),
+                saved.getSnapshotTitle(),
+                saved.getSnapshotBody(),
+                saved.getSnapshotCategory(),
+                new VerseSnapshotDetail(saved.getSnapshotVerseLabel(), List.of()),
+                saved.isCommentsEnabled(),
+                saved.getSourceNoteUnsharedAt(),
+                saved.getStatus().name(),
+                saved.getLikeCount(),
+                saved.getCommentCount(),
+                false,
+                true,
+                saved.getCreatedAt(),
+                saved.getHiddenAt(),
+                saved.getDeletedAt());
     }
 }
