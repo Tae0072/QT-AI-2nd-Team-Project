@@ -1,5 +1,6 @@
 package com.qtai.common;
 
+import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.common.exception.GlobalExceptionHandler;
@@ -10,31 +11,45 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * GlobalExceptionHandler 단독(standalone) MockMvc 테스트.
- * Spring 컨텍스트 없이 직접 MockMvc를 구성하여 예외 → ApiResponse 변환 검증.
+ * GlobalExceptionHandler 테스트.
+ *
+ * 대부분은 standalone MockMvc 환경에서 검증.
+ * 단, MethodArgumentTypeMismatchException은 standalone setup에서 Spring MVC ExceptionResolver
+ * 라우팅이 우리 핸들러까지 도달하지 못하는 한계가 있어 핸들러 메서드를 직접 호출(unit) 방식으로 검증한다.
+ * 통합 환경에서의 실제 동작은 NoteRepositoryIntegrationTest / Postman 수동 검증 또는 다음 PR 통합 테스트에서 확인.
  */
+@SuppressWarnings("null") // Eclipse JDT가 assertThat(body).isNotNull() 후의 null 안전을 추론 못함. 빌드·실행 영향 없음.
 class GlobalExceptionHandlerTest {
 
     private MockMvc mockMvc;
+    private GlobalExceptionHandler handler;
 
     @BeforeEach
     void setUp() {
+        handler = new GlobalExceptionHandler();
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new ErrorTestController())
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(handler)
                 .build();
     }
 
@@ -69,6 +84,55 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.error.code").value("C0002"));
     }
 
+    @Test
+    @DisplayName("MethodArgumentTypeMismatchException (enum 잘못된 값) → 400 + C0002 + 허용 값 목록 메시지")
+    void typeMismatch_enum_returns_400_with_allowed_values() {
+        // given — enum 변환 실패를 흉내내는 mock 예외
+        MethodArgumentTypeMismatchException e = mock(MethodArgumentTypeMismatchException.class);
+        when(e.getName()).thenReturn("kind");
+        when(e.getValue()).thenReturn("INVALID");
+        doReturn(SampleEnum.class).when(e).getRequiredType();
+
+        // when
+        ResponseEntity<ApiResponse<Void>> response = handler.handleTypeMismatch(e);
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ApiResponse<Void> body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.success()).isFalse();
+        assertThat(body.error()).isNotNull();
+        assertThat(body.error().code()).isEqualTo("C0002");
+        assertThat(body.error().message())
+                .contains("kind")
+                .contains("INVALID")
+                .contains("허용 값: ALPHA, BETA");
+    }
+
+    @Test
+    @DisplayName("MethodArgumentTypeMismatchException (Integer 자리에 문자열) → 400 + C0002 + 형식 메시지")
+    void typeMismatch_integer_returns_400_with_type_message() {
+        // given
+        MethodArgumentTypeMismatchException e = mock(MethodArgumentTypeMismatchException.class);
+        when(e.getName()).thenReturn("number");
+        when(e.getValue()).thenReturn("abc");
+        doReturn(Integer.class).when(e).getRequiredType();
+
+        // when
+        ResponseEntity<ApiResponse<Void>> response = handler.handleTypeMismatch(e);
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ApiResponse<Void> body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.success()).isFalse();
+        assertThat(body.error().code()).isEqualTo("C0002");
+        assertThat(body.error().message())
+                .contains("number")
+                .contains("abc")
+                .contains("Integer 형식이 아닙니다");
+    }
+
     // ── 테스트용 더미 컨트롤러 ──
 
     @RestController
@@ -95,4 +159,6 @@ class GlobalExceptionHandlerTest {
         @NotBlank
         private String name;
     }
+
+    enum SampleEnum { ALPHA, BETA }
 }

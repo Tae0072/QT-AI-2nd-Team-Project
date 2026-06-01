@@ -1,7 +1,12 @@
 package com.qtai.domain.member.api.dto;
 
-/** 로그인 요청 DTO. */
+import jakarta.validation.constraints.NotBlank;
+
+/**
+ * 카카오 로그인 요청 DTO.
+ * Flutter SDK가 발급한 카카오 access token을 전달받는다.
+ */
 public record LoginRequest(
-        // TODO: String kakaoAccessToken — 클라이언트가 카카오 SDK로 받은 access token (필수)
-        // 또는 authCode 방식 사용 시: String authCode
+        @NotBlank(message = "카카오 access token은 필수입니다.")
+        String kakaoAccessToken
 ) {}

@@ -38,9 +38,6 @@ public class AiGeneratedAsset {
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
-    @Column(name = "prompt_version", nullable = false, length = 80)
-    private String promptVersion;
-
     @Lob
     @Column(name = "payload_json", nullable = false)
     private String payloadJson;
@@ -66,16 +63,14 @@ public class AiGeneratedAsset {
             AiGeneratedAssetType assetType,
             AiTargetType targetType,
             Long targetId,
-            String promptVersion,
             String payloadJson,
             String sourceLabel,
             OffsetDateTime createdAt
     ) {
-        this.generationJobId = Objects.requireNonNull(generationJobId, "generationJobId must not be null");
+        this.generationJobId = requirePositive(generationJobId, "generationJobId");
         this.assetType = Objects.requireNonNull(assetType, "assetType must not be null");
         this.targetType = Objects.requireNonNull(targetType, "targetType must not be null");
         this.targetId = Objects.requireNonNull(targetId, "targetId must not be null");
-        this.promptVersion = requireText(promptVersion, "promptVersion");
         this.payloadJson = AiJsonStorageGuard.rejectRawProviderOrReferenceText(
                 requireText(payloadJson, "payloadJson"),
                 "payloadJson"
@@ -90,7 +85,6 @@ public class AiGeneratedAsset {
             AiGeneratedAssetType assetType,
             AiTargetType targetType,
             Long targetId,
-            String promptVersion,
             String payloadJson,
             String sourceLabel,
             OffsetDateTime createdAt
@@ -100,7 +94,6 @@ public class AiGeneratedAsset {
                 assetType,
                 targetType,
                 targetId,
-                promptVersion,
                 payloadJson,
                 sourceLabel,
                 createdAt
@@ -145,10 +138,6 @@ public class AiGeneratedAsset {
         return targetId;
     }
 
-    public String getPromptVersion() {
-        return promptVersion;
-    }
-
     public String getPayloadJson() {
         return payloadJson;
     }
@@ -172,6 +161,13 @@ public class AiGeneratedAsset {
     private static String requireText(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value;
+    }
+
+    private static Long requirePositive(Long value, String fieldName) {
+        if (value == null || value <= 0) {
+            throw new IllegalArgumentException(fieldName + " must be positive");
         }
         return value;
     }

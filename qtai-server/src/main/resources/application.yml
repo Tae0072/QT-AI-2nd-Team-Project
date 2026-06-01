@@ -43,6 +43,22 @@ kakao:
   api:
     user-info-url: https://kapi.kakao.com/v2/user/me
 
+external:
+  llm:
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY:}
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+      model: ${DEEPSEEK_MODEL:deepseek-v4-flash}
+      connect-timeout-ms: ${DEEPSEEK_CONNECT_TIMEOUT_MS:3000}
+      read-timeout-ms: ${DEEPSEEK_READ_TIMEOUT_MS:30000}
+
+ai:
+  generation:
+    worker:
+      enabled: ${AI_GENERATION_WORKER_ENABLED:true}
+      fixed-delay-ms: ${AI_GENERATION_WORKER_FIXED_DELAY_MS:10000}
+      batch-size: ${AI_GENERATION_WORKER_BATCH_SIZE:5}
+
 server:
   servlet:
     encoding:

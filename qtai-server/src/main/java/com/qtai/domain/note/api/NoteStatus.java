@@ -10,5 +10,6 @@ package com.qtai.domain.note.api;
  */
 public enum NoteStatus {
     DRAFT,
-    SAVED
+    SAVED,
+    DELETED
 }

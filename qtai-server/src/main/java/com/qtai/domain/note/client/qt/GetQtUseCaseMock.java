@@ -1,13 +1,16 @@
 package com.qtai.domain.note.client.qt;
 
-/**
- * qt.GetQtUseCase 임시 구현체 (Mock).
- *
- * note 도메인이 종속 QT의 존재/소유자 검증할 때 사용.
- */
-// TODO: @Component
-// TODO: implements GetQtUseCase
-public class GetQtUseCaseMock {
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
+import org.springframework.stereotype.Component;
 
-    // TODO: getQt(viewerId, qtId) → 더미 QtResponse
+@Component("noteGetQtUseCaseMock")
+public class GetQtUseCaseMock implements NoteQtClient {
+
+    @Override
+    public void validateReadable(Long memberId, Long qtPassageId) {
+        if (memberId == null || qtPassageId == null || qtPassageId < 1) {
+            throw new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND);
+        }
+    }
 }

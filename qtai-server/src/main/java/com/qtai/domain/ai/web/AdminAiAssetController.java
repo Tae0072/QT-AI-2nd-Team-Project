@@ -2,6 +2,7 @@ package com.qtai.domain.ai.web;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -14,16 +15,24 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.ai.api.GetAdminAiAssetUseCase;
+import com.qtai.domain.ai.api.ListAdminAiAssetsUseCase;
 import com.qtai.domain.ai.api.RegenerateAiAssetUseCase;
+import com.qtai.domain.ai.api.dto.AdminAiAssetDetailResponse;
+import com.qtai.domain.ai.api.dto.AdminAiAssetListResponse;
+import com.qtai.domain.ai.api.dto.GetAdminAiAssetQuery;
+import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetCommand;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
 
@@ -32,20 +41,78 @@ import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
 public class AdminAiAssetController {
 
     private final RegenerateAiAssetUseCase regenerateAiAssetUseCase;
+    private final ListAdminAiAssetsUseCase listAdminAiAssetsUseCase;
+    private final GetAdminAiAssetUseCase getAdminAiAssetUseCase;
     private final Clock clock;
 
-    public AdminAiAssetController(RegenerateAiAssetUseCase regenerateAiAssetUseCase) {
-        this(regenerateAiAssetUseCase, Clock.systemDefaultZone());
+    @org.springframework.beans.factory.annotation.Autowired
+    public AdminAiAssetController(
+            RegenerateAiAssetUseCase regenerateAiAssetUseCase,
+            ListAdminAiAssetsUseCase listAdminAiAssetsUseCase,
+            GetAdminAiAssetUseCase getAdminAiAssetUseCase
+    ) {
+        this(regenerateAiAssetUseCase, listAdminAiAssetsUseCase, getAdminAiAssetUseCase, Clock.systemDefaultZone());
     }
 
-    AdminAiAssetController(RegenerateAiAssetUseCase regenerateAiAssetUseCase, Clock clock) {
+    AdminAiAssetController(
+            RegenerateAiAssetUseCase regenerateAiAssetUseCase,
+            ListAdminAiAssetsUseCase listAdminAiAssetsUseCase,
+            GetAdminAiAssetUseCase getAdminAiAssetUseCase,
+            Clock clock
+    ) {
         this.regenerateAiAssetUseCase = regenerateAiAssetUseCase;
+        this.listAdminAiAssetsUseCase = listAdminAiAssetsUseCase;
+        this.getAdminAiAssetUseCase = getAdminAiAssetUseCase;
         this.clock = clock;
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<AdminAiAssetListResponse>> listAssets(
+            Authentication authentication,
+            @RequestParam(required = false) String assetType,
+            @RequestParam(required = false) String targetType,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long promptVersionId,
+            @RequestParam(required = false) Long checklistVersionId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        AdminAuthentication adminAuthentication = requireAdminAuthentication(authentication);
+        AdminAiAssetListResponse response = listAdminAiAssetsUseCase.listAdminAiAssets(new ListAdminAiAssetsQuery(
+                adminAuthentication.adminId(),
+                adminAuthentication.memberRole(),
+                adminAuthentication.adminRole(),
+                assetType,
+                targetType,
+                status,
+                promptVersionId,
+                checklistVersionId,
+                page,
+                size
+        ));
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/{assetId}")
+    public ResponseEntity<ApiResponse<AdminAiAssetDetailResponse>> getAsset(
+            @PathVariable("assetId") Long assetId,
+            Authentication authentication
+    ) {
+        AdminAuthentication adminAuthentication = requireAdminAuthentication(authentication);
+        AdminAiAssetDetailResponse response = getAdminAiAssetUseCase.getAdminAiAsset(new GetAdminAiAssetQuery(
+                adminAuthentication.adminId(),
+                adminAuthentication.memberRole(),
+                adminAuthentication.adminRole(),
+                assetId
+        ));
+
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PostMapping("/{assetId}/regenerate")
     public ResponseEntity<ApiResponse<RegenerateAiAssetResponse>> regenerate(
-            @PathVariable Long assetId,
+            @PathVariable("assetId") Long assetId,
             Authentication authentication,
             @Valid @RequestBody RegenerateAiAssetRequest request
     ) {
@@ -132,7 +199,7 @@ public class AdminAiAssetController {
     }
 
     private static String resolveAdminRole(Set<String> authorities) {
-        for (String adminRole : Set.of("REVIEWER", "SUPER_ADMIN")) {
+        for (String adminRole : List.of("REVIEWER", "SUPER_ADMIN")) {
             if (authorities.contains("ADMIN_ROLE_" + adminRole)) {
                 return adminRole;
             }

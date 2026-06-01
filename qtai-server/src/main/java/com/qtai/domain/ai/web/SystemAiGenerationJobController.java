@@ -37,6 +37,7 @@ public class SystemAiGenerationJobController {
     private final CreateAiGenerationJobUseCase createAiGenerationJobUseCase;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public SystemAiGenerationJobController(CreateAiGenerationJobUseCase createAiGenerationJobUseCase) {
         this(createAiGenerationJobUseCase, Clock.systemDefaultZone());
     }
@@ -59,7 +60,7 @@ public class SystemAiGenerationJobController {
                         mapJobType(request.jobType()),
                         requireQtPassageTargetType(request.targetType()),
                         request.targetId(),
-                        request.promptVersion(),
+                        request.promptVersionId(),
                         REQUESTED_BY,
                         requestedAt
                 )

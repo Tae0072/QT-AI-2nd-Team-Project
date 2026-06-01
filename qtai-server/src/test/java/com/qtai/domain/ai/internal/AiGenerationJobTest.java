@@ -17,6 +17,19 @@ class AiGenerationJobTest {
     private static final OffsetDateTime FINISHED_AT = OffsetDateTime.parse("2026-05-20T04:02:00+09:00");
 
     @Test
+    void queuedJobCanRunAndSucceed() {
+        AiGenerationJob job = newJob();
+
+        job.markRunning(STARTED_AT);
+        job.markSucceeded(FINISHED_AT);
+
+        assertThat(job.getStatus()).isEqualTo(AiGenerationJobStatus.SUCCEEDED);
+        assertThat(job.getStartedAt()).isEqualTo(STARTED_AT);
+        assertThat(job.getFinishedAt()).isEqualTo(FINISHED_AT);
+        assertThat(job.getActiveUniqueKey()).isNull();
+    }
+
+    @Test
     void failedJobCannotSucceed() {
         AiGenerationJob job = newJob();
         job.markFailed("LLM_TIMEOUT", FINISHED_AT);
@@ -87,12 +100,24 @@ class AiGenerationJobTest {
         assertThat(job.getActiveUniqueKey()).isNull();
     }
 
+    @Test
+    void promptVersionIdMustBePositive() {
+        assertThatThrownBy(() -> AiGenerationJob.queue(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.QT_PASSAGE,
+                35L,
+                0L,
+                CREATED_AT
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promptVersionId must be positive");
+    }
+
     private static AiGenerationJob newJob() {
         return AiGenerationJob.queue(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "2026.05.1",
+                3L,
                 CREATED_AT
         );
     }
