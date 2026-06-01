@@ -69,13 +69,15 @@
 
 ## 6. 고정 제품 결정
 
-- QT 범위 공개 시각은 00:00 KST, 수집 배치는 04:00 KST다.
+- QT 범위 공개 시각은 00:00 KST, 사용자 노출/cache refresh 기준 시각은 04:00 KST다.
 - 00:00부터 04:00 전까지는 이전에 준비된 QT cache를 제공한다.
+- AI 해설 generation job 시딩은 오늘 QT passage가 존재한다는 전제에서 00:05 KST 내부 배치로 수행할 수 있다. 이 시딩은 `EXPLANATION + BIBLE_VERSE` job 생성만 의미하며 승인본 사용자 노출을 보장하지 않는다.
+- 해설 승인본, 시뮬레이터 상태, Today QT cache의 사용자 노출 갱신은 04:00 KST 기준으로 처리한다.
 - "Today QT 100%"는 본문, 해설 진입점, 노트 진입점, 시뮬레이터 상태가 반환된다는 뜻이다.
 - 모든 본문에 실제 시뮬레이터 clip이 있다는 뜻이 아니다.
 - 시뮬레이터 상태는 `READY`, `MISSING`, `FAILED`, `DISABLED`만 사용한다.
 - 시뮬레이터 버튼은 `READY`일 때만 활성화한다.
-- 해설과 시뮬레이터 콘텐츠는 batch 또는 admin trigger로 사전 생성·검증한다.
+- 해설과 시뮬레이터 콘텐츠는 batch 또는 admin trigger로 사전 생성·검증한다. 단, SIMULATOR는 00:05 내부 해설 job 시딩 범위에 포함하지 않는다.
 - 사용자 요청 경로에서 해설·시뮬레이터를 즉시 생성하지 않는다.
 
 ## 7. AI 구현 규칙
@@ -120,7 +122,7 @@
 
 변경 범위에 맞춰 단위 테스트, slice/integration test, ArchUnit/Spring Modulith 경계 테스트를 추가한다. 특히 아래 영역은 테스트 누락을 허용하지 않는다.
 
-- 00:00/04:00 Today QT cache 동작
+- 00:00 공개, 00:05 내부 AI 해설 job 시딩, 04:00 Today QT cache/user exposure 동작
 - simulator status와 버튼 활성화 조건
 - AI 자유 챗봇/SSE 부재
 - F-15 Q&A 차단·검증·실패 처리
