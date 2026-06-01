@@ -11,12 +11,14 @@
 
 ## 성경 JSON 출처 검토표
 
-현재 승인된 후보 없음.
+현재 승인된 후보는 아래와 같다. 실제 본문 텍스트, 원본 JSON, 가공 JSON, SQLite DB, seed SQL, fixture 파일은 이 디렉터리에 커밋하지 않는다.
 
 후보를 추가할 때는 아래 컬럼을 모두 채운다. 빈 미정 행은 두지 않으며, 라이선스나 재배포 조건이 불명확한 후보는 `NEEDS_LEAD_REVIEW`로 남기고 seed, fixture, 관리자 등록 데이터로 적재하지 않는다.
 
 | reviewStatus | language | translationName | repoUrl | license | attribution | redistributionAllowed | appBundleAllowed | serverMasterAllowed | prohibitedReason | reviewedAt | reviewer | notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| APPROVED | ko | KorRV | https://github.com/scrollmapper/bible_databases/blob/master/formats/json/KorRV.json | MIT License | scrollmapper/bible_databases KorRV | true | true | true |  | 2026-06-01 | 이지윤 | `2nd-Team-Project` 기준 한글 본문 후보를 `88.json`에서 `KorRV`로 정리. 실제 본문 파일은 별도 보관 후 적재 workflow에서 처리한다. |
+| APPROVED | en | KJV | https://github.com/scrollmapper/bible_databases/blob/master/formats/json/KJV.json | MIT License | scrollmapper/bible_databases KJV | true | false | true |  | 2026-06-01 | 이지윤 | 영어 본문 후보. F-01 정책상 앱 로컬 번들 대상이 아니라 서버 마스터/온라인 조회 기준으로 사용한다. |
 
 ### 컬럼 기준
 
