@@ -64,6 +64,30 @@ class AiGenerationJobRepositoryTest {
         assertThat(repository.findByIdAndStatus(failed.getId(), AiGenerationJobStatus.QUEUED)).isEmpty();
     }
 
+    @Test
+    void findActiveExplanationBibleVerseTargetIdsFiltersActiveVerseExplanationJobs() {
+        AiPromptVersion explanationPrompt = persistPromptVersion(AiPromptType.EXPLANATION);
+        AiPromptVersion simulatorPrompt = persistPromptVersion(AiPromptType.SIMULATOR);
+        persistJob(explanationPrompt, AiGenerationJobStatus.QUEUED, BASE_TIME, AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE, 101L);
+        persistJob(explanationPrompt, AiGenerationJobStatus.RUNNING, BASE_TIME.plusMinutes(1),
+                AiGenerationJobType.EXPLANATION, AiTargetType.BIBLE_VERSE, 102L);
+        persistJob(explanationPrompt, AiGenerationJobStatus.SUCCEEDED, BASE_TIME.plusMinutes(2),
+                AiGenerationJobType.EXPLANATION, AiTargetType.BIBLE_VERSE, 103L);
+        persistJob(explanationPrompt, AiGenerationJobStatus.FAILED, BASE_TIME.plusMinutes(3),
+                AiGenerationJobType.EXPLANATION, AiTargetType.BIBLE_VERSE, 104L);
+        persistJob(explanationPrompt, AiGenerationJobStatus.QUEUED, BASE_TIME.plusMinutes(4),
+                AiGenerationJobType.EXPLANATION, AiTargetType.QT_PASSAGE, 105L);
+        persistJob(simulatorPrompt, AiGenerationJobStatus.QUEUED, BASE_TIME.plusMinutes(5),
+                AiGenerationJobType.SIMULATOR, AiTargetType.BIBLE_VERSE, 106L);
+        flushAndClear();
+
+        List<Long> targetIds = repository.findActiveExplanationBibleVerseTargetIds(
+                List.of(101L, 102L, 103L, 104L, 105L, 106L));
+
+        assertThat(targetIds).containsExactlyInAnyOrder(101L, 102L);
+    }
+
     private AiPromptVersion persistPromptVersion(AiPromptType promptType) {
         AiPromptVersion promptVersion = new AiPromptVersion();
         setField(promptVersion, "promptType", promptType);
@@ -79,10 +103,28 @@ class AiGenerationJobRepositoryTest {
             AiGenerationJobStatus status,
             OffsetDateTime createdAt
     ) {
-        AiGenerationJob job = AiGenerationJob.queue(
+        return persistJob(
+                promptVersion,
+                status,
+                createdAt,
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
-                nextTargetId(),
+                nextTargetId()
+        );
+    }
+
+    private AiGenerationJob persistJob(
+            AiPromptVersion promptVersion,
+            AiGenerationJobStatus status,
+            OffsetDateTime createdAt,
+            AiGenerationJobType jobType,
+            AiTargetType targetType,
+            Long targetId
+    ) {
+        AiGenerationJob job = AiGenerationJob.queue(
+                jobType,
+                targetType,
+                targetId,
                 promptVersion.getId(),
                 createdAt
         );

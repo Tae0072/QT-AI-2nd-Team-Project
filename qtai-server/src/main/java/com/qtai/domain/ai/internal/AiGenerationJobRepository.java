@@ -29,6 +29,19 @@ public interface AiGenerationJobRepository extends JpaRepository<AiGenerationJob
             """)
     List<Long> findQueuedJobIds(AiGenerationJobStatus status, Pageable pageable);
 
+    @Query("""
+            select distinct job.targetId
+            from AiGenerationJob job
+            where job.jobType = com.qtai.domain.ai.internal.AiGenerationJobType.EXPLANATION
+              and job.targetType = com.qtai.domain.ai.internal.AiTargetType.BIBLE_VERSE
+              and job.targetId in :targetIds
+              and job.status in (
+                com.qtai.domain.ai.internal.AiGenerationJobStatus.QUEUED,
+                com.qtai.domain.ai.internal.AiGenerationJobStatus.RUNNING
+              )
+            """)
+    List<Long> findActiveExplanationBibleVerseTargetIds(Collection<Long> targetIds);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<AiGenerationJob> findByIdAndStatus(Long id, AiGenerationJobStatus status);
 }
