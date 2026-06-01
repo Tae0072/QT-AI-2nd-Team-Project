@@ -1,8 +1,14 @@
 package com.qtai.domain.ai.internal;
 
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,11 +21,16 @@ import com.qtai.domain.ai.api.dto.CreateAiGenerationJobCommand;
 import com.qtai.domain.ai.api.dto.CreateAiGenerationJobResult;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetCommand;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
+import com.qtai.domain.audit.api.WriteAuditLogUseCase;
+import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 
 @Service
 public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAssetUseCase {
 
     private static final String ACTIVE_JOB_UNIQUE_CONSTRAINT = "uk_ai_generation_jobs_active_target_prompt";
+    private static final String ACTOR_TYPE_ADMIN = "ADMIN";
+    private static final String ACTION_AI_REGENERATE_REQUEST = "AI_REGENERATE_REQUEST";
+    private static final String TARGET_TYPE_AI_GENERATED_ASSET = "AI_GENERATED_ASSET";
 
     private static final List<AiGenerationJobStatus> ACTIVE_GENERATION_STATUSES = List.of(
             AiGenerationJobStatus.QUEUED,
@@ -29,15 +40,22 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
     private final AiGenerationJobRepository generationJobRepository;
     private final AiGeneratedAssetRepository generatedAssetRepository;
     private final AiPromptVersionRepository promptVersionRepository;
+    private final WriteAuditLogUseCase auditLogUseCase;
+    private final ObjectMapper objectMapper;
 
+    @Autowired
     public AiService(
             AiGenerationJobRepository generationJobRepository,
             AiGeneratedAssetRepository generatedAssetRepository,
-            AiPromptVersionRepository promptVersionRepository
+            AiPromptVersionRepository promptVersionRepository,
+            WriteAuditLogUseCase auditLogUseCase,
+            ObjectMapper objectMapper
     ) {
         this.generationJobRepository = generationJobRepository;
         this.generatedAssetRepository = generatedAssetRepository;
         this.promptVersionRepository = promptVersionRepository;
+        this.auditLogUseCase = auditLogUseCase;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -69,7 +87,6 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
                 command.requestedAt()
         );
         AiGenerationJob savedJob = saveQueuedJob(job);
-
         return new CreateAiGenerationJobResult(
                 savedJob.getId(),
                 savedJob.getStatus().name()
@@ -110,7 +127,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
                 command.requestedAt()
         );
         AiGenerationJob savedJob = saveQueuedJob(job);
-        // TODO: audit 도메인 소유자가 WriteAuditLogUseCase 계약을 확정하면 AI_REGENERATE_REQUEST 기록을 연결한다.
+        writeRegenerateAudit(command, asset, savedJob);
 
         return new RegenerateAiAssetResult(
                 savedJob.getId(),
@@ -253,5 +270,53 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
             case SIMULATOR -> AiGenerationJobType.SIMULATOR;
             case QA_RESPONSE -> AiGenerationJobType.QA;
         };
+    }
+
+    private void writeRegenerateAudit(
+            RegenerateAiAssetCommand command,
+            AiGeneratedAsset asset,
+            AiGenerationJob savedJob
+    ) {
+        auditLogUseCase.write(new AuditLogWriteRequest(
+                null,
+                ACTOR_TYPE_ADMIN,
+                command.adminId(),
+                ACTOR_TYPE_ADMIN + ":" + command.adminId(),
+                ACTION_AI_REGENERATE_REQUEST,
+                TARGET_TYPE_AI_GENERATED_ASSET,
+                command.assetId(),
+                assetSnapshot(command.assetId(), asset),
+                jobSnapshot(savedJob)
+        ));
+    }
+
+    private String assetSnapshot(Long assetId, AiGeneratedAsset asset) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", assetId);
+        payload.put("assetType", asset.getAssetType().name());
+        payload.put("status", asset.getStatus().name());
+        payload.put("targetType", asset.getTargetType().name());
+        payload.put("targetId", asset.getTargetId());
+        return toAuditJson(payload);
+    }
+
+    private String jobSnapshot(AiGenerationJob job) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", job.getId());
+        payload.put("status", job.getStatus().name());
+        payload.put("jobType", job.getJobType().name());
+        payload.put("targetType", job.getTargetType().name());
+        payload.put("targetId", job.getTargetId());
+        payload.put("promptVersionId", job.getPromptVersionId());
+        payload.put("requestedAt", DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(job.getCreatedAt()));
+        return toAuditJson(payload);
+    }
+
+    private String toAuditJson(Map<String, Object> payload) {
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "audit snapshot serialization failed");
+        }
     }
 }
