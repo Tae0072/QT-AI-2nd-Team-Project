@@ -31,10 +31,15 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.qtai.domain.member.api.GetMemberUseCase;
+import com.qtai.domain.note.api.GetNoteUseCase;
+
 class SharingPostServiceTest {
 
     private SharingPostRepository sharingPostRepository;
     private PostLikeRepository postLikeRepository;
+    private GetNoteUseCase getNoteUseCase;
+    private GetMemberUseCase getMemberUseCase;
     private SharingPostService sharingPostService;
     private Pageable pageable;
 
@@ -42,7 +47,9 @@ class SharingPostServiceTest {
     void setUp() {
         sharingPostRepository = mock(SharingPostRepository.class);
         postLikeRepository = mock(PostLikeRepository.class);
-        sharingPostService = new SharingPostService(sharingPostRepository, postLikeRepository);
+        getNoteUseCase = mock(GetNoteUseCase.class);
+        getMemberUseCase = mock(GetMemberUseCase.class);
+        sharingPostService = new SharingPostService(sharingPostRepository, postLikeRepository, getNoteUseCase, getMemberUseCase);
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishedAt"));
     }
 
@@ -230,5 +237,102 @@ class SharingPostServiceTest {
             }
         }
         throw new NoSuchFieldException(fieldName);
+    }
+
+    // ── publish 테스트 ──
+
+    @Test
+    @DisplayName("publish — 정상 공유 시 스냅샷 생성")
+    void publish_정상_공유() {
+        Long memberId = 1L;
+        Long noteId = 10L;
+
+        com.qtai.domain.note.api.dto.NoteDetailResponse note =
+                new com.qtai.domain.note.api.dto.NoteDetailResponse(
+                        noteId, memberId,
+                        com.qtai.domain.note.api.NoteCategory.MEDITATION,
+                        1L, "제목", "본문", null, null, null, null,
+                        com.qtai.domain.note.api.NoteStatus.SAVED,
+                        com.qtai.domain.note.api.NoteVisibility.PRIVATE,
+                        java.time.LocalDate.of(2026, 6, 1),
+                        "창세기 1:1-5", false, null, null, null, List.of());
+
+        com.qtai.domain.member.api.dto.MemberResponse member =
+                new com.qtai.domain.member.api.dto.MemberResponse(
+                        memberId, "테스트닉", null, null, "ACTIVE", "USER", null, null);
+
+        when(getNoteUseCase.get(memberId, noteId)).thenReturn(note);
+        when(getMemberUseCase.getMember(memberId)).thenReturn(member);
+        when(sharingPostRepository.findByNoteId(noteId)).thenReturn(Optional.empty());
+        when(sharingPostRepository.saveAndFlush(any(SharingPost.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        com.qtai.domain.sharing.api.dto.PublishNoteRequest request =
+                new com.qtai.domain.sharing.api.dto.PublishNoteRequest(true, true);
+
+        com.qtai.domain.sharing.api.dto.SharingPostResponse response =
+                sharingPostService.publish(memberId, noteId, request);
+
+        assertThat(response.titleSnapshot()).isEqualTo("제목");
+        assertThat(response.nicknameSnapshot()).isEqualTo("테스트닉");
+        assertThat(response.category()).isEqualTo("MEDITATION");
+    }
+
+    @Test
+    @DisplayName("publish — 중복 공유 시 DUPLICATE_SHARING_POST 예외")
+    void publish_중복_공유_예외() {
+        Long memberId = 1L;
+        Long noteId = 10L;
+
+        com.qtai.domain.note.api.dto.NoteDetailResponse note =
+                new com.qtai.domain.note.api.dto.NoteDetailResponse(
+                        noteId, memberId,
+                        com.qtai.domain.note.api.NoteCategory.MEDITATION,
+                        1L, "제목", "본문", null, null, null, null,
+                        com.qtai.domain.note.api.NoteStatus.SAVED,
+                        com.qtai.domain.note.api.NoteVisibility.PRIVATE,
+                        null, null, false, null, null, null, List.of());
+
+        when(getNoteUseCase.get(memberId, noteId)).thenReturn(note);
+        when(sharingPostRepository.findByNoteId(noteId)).thenReturn(Optional.of(mock(SharingPost.class)));
+
+        com.qtai.domain.sharing.api.dto.PublishNoteRequest request =
+                new com.qtai.domain.sharing.api.dto.PublishNoteRequest(true, true);
+
+        assertThatThrownBy(() -> sharingPostService.publish(memberId, noteId, request))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("publish — race condition 시 DataIntegrityViolationException → DUPLICATE_SHARING_POST")
+    void publish_race_condition_UK위반() {
+        Long memberId = 1L;
+        Long noteId = 10L;
+
+        com.qtai.domain.note.api.dto.NoteDetailResponse note =
+                new com.qtai.domain.note.api.dto.NoteDetailResponse(
+                        noteId, memberId,
+                        com.qtai.domain.note.api.NoteCategory.MEDITATION,
+                        1L, "제목", "본문", null, null, null, null,
+                        com.qtai.domain.note.api.NoteStatus.SAVED,
+                        com.qtai.domain.note.api.NoteVisibility.PRIVATE,
+                        java.time.LocalDate.of(2026, 6, 1),
+                        "창세기 1:1-5", false, null, null, null, List.of());
+
+        com.qtai.domain.member.api.dto.MemberResponse member =
+                new com.qtai.domain.member.api.dto.MemberResponse(
+                        memberId, "테스트닉", null, null, "ACTIVE", "USER", null, null);
+
+        when(getNoteUseCase.get(memberId, noteId)).thenReturn(note);
+        when(getMemberUseCase.getMember(memberId)).thenReturn(member);
+        when(sharingPostRepository.findByNoteId(noteId)).thenReturn(Optional.empty());
+        when(sharingPostRepository.saveAndFlush(any(SharingPost.class)))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("UK violation"));
+
+        com.qtai.domain.sharing.api.dto.PublishNoteRequest request =
+                new com.qtai.domain.sharing.api.dto.PublishNoteRequest(true, true);
+
+        assertThatThrownBy(() -> sharingPostService.publish(memberId, noteId, request))
+                .isInstanceOf(BusinessException.class);
     }
 }

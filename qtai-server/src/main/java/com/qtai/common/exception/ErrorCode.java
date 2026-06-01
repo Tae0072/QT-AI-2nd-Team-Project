@@ -61,6 +61,7 @@ public enum ErrorCode {
     // 나눔
     SHARING_POST_NOT_FOUND("S0001", "나눔 게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     COMMENT_NOT_FOUND("S0002", "댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    DUPLICATE_SHARING_POST("S0003", "이미 공유된 노트입니다.", HttpStatus.CONFLICT),
 
     // 신고
     DUPLICATE_REPORT("R0001", "이미 신고한 대상입니다.", HttpStatus.CONFLICT),

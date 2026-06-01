@@ -56,6 +56,10 @@ dependencies {
 
     // ArchUnit — 도메인 경계 자동 검증 (CLAUDE.md §3, §4)
     testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
+
+    // Testcontainers — 실 MySQL 기반 Flyway migrate + Hibernate validate 가드 (버전은 Spring Boot BOM 관리)
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:mysql")
 }
 
 tasks.withType<JavaCompile> {
