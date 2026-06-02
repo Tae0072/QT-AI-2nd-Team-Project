@@ -10,10 +10,14 @@ import static org.mockito.Mockito.when;
 import java.lang.reflect.Field;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 
 import com.qtai.common.exception.BusinessException;
@@ -125,12 +129,8 @@ class AiAssetReviewServiceTest {
 
     @Test
     void approveWithActivateFalseDoesNotPublishVerseExplanation() {
-        AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
-        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        when(checklistVersionRepository.findById(4L))
-                .thenReturn(Optional.of(activeChecklist(AiValidationChecklistType.EXPLANATION)));
-        when(validationLogRepository.findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(500L, 4L))
-                .thenReturn(Optional.of(validationLog(AiValidationResult.PASSED)));
+        AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L, "not-json");
+        stubPassedApproval(asset);
 
         ReviewAiAssetResult result = service.reviewAiAsset(approveCommand(false));
 
@@ -141,18 +141,48 @@ class AiAssetReviewServiceTest {
 
     @Test
     void approveQtPassageExplanationDoesNotPublishVerseExplanation() {
-        AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.QT_PASSAGE, 9001L);
-        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        when(checklistVersionRepository.findById(4L))
-                .thenReturn(Optional.of(activeChecklist(AiValidationChecklistType.EXPLANATION)));
-        when(validationLogRepository.findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(500L, 4L))
-                .thenReturn(Optional.of(validationLog(AiValidationResult.PASSED)));
+        AiGeneratedAsset asset = explanationVerseAsset(
+                AiTargetType.QT_PASSAGE,
+                9001L,
+                """
+                        {
+                          "explanations": [
+                            {
+                              "verseId": 1001,
+                              "summary": "first summary",
+                              "explanation": "first explanation"
+                            },
+                            {
+                              "verseId": 1002,
+                              "summary": "second summary",
+                              "explanation": "second explanation"
+                            }
+                          ]
+                        }
+                        """
+        );
+        stubPassedApproval(asset);
 
         ReviewAiAssetResult result = service.reviewAiAsset(approveCommand(true));
 
         assertThat(result.status()).isEqualTo("APPROVED");
         verify(publishApprovedVerseExplanationUseCase, never())
                 .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidPublishPayloads")
+    void approvePublishTargetRejectsInvalidPayloadBeforeStatusTransition(String payloadJson) {
+        AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L, payloadJson);
+        stubPassedApproval(asset);
+
+        assertThatThrownBy(() -> service.reviewAiAsset(approveCommand(true)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        verify(publishApprovedVerseExplanationUseCase, never())
+                .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
     }
 
     @Test
@@ -339,9 +369,7 @@ class AiAssetReviewServiceTest {
     }
 
     private static AiGeneratedAsset explanationVerseAsset(AiTargetType targetType, Long targetId) {
-        AiGeneratedAsset asset = AiGeneratedAsset.create(
-                1L,
-                AiGeneratedAssetType.EXPLANATION,
+        return explanationVerseAsset(
                 targetType,
                 targetId,
                 """
@@ -354,12 +382,104 @@ class AiAssetReviewServiceTest {
                             }
                           ]
                         }
-                        """,
+                        """
+        );
+    }
+
+    private static AiGeneratedAsset explanationVerseAsset(AiTargetType targetType, Long targetId, String payloadJson) {
+        AiGeneratedAsset asset = AiGeneratedAsset.create(
+                1L,
+                AiGeneratedAssetType.EXPLANATION,
+                targetType,
+                targetId,
+                payloadJson,
                 "QT-AI DeepSeek",
                 CREATED_AT
         );
         setId(asset, 500L);
         return asset;
+    }
+
+    private void stubPassedApproval(AiGeneratedAsset asset) {
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+        when(checklistVersionRepository.findById(4L))
+                .thenReturn(Optional.of(activeChecklist(AiValidationChecklistType.EXPLANATION)));
+        when(validationLogRepository.findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(500L, 4L))
+                .thenReturn(Optional.of(validationLog(AiValidationResult.PASSED)));
+    }
+
+    private static Stream<Arguments> invalidPublishPayloads() {
+        return Stream.of(
+                Arguments.of("not-json"),
+                Arguments.of("[]"),
+                Arguments.of("""
+                        {
+                          "summary": "missing explanations"
+                        }
+                        """),
+                Arguments.of("""
+                        {
+                          "explanations": {
+                            "verseId": 1001
+                          }
+                        }
+                        """),
+                Arguments.of("""
+                        {
+                          "explanations": [
+                            {
+                              "verseId": 2002,
+                              "summary": "other summary",
+                              "explanation": "other explanation"
+                            }
+                          ]
+                        }
+                        """),
+                Arguments.of("""
+                        {
+                          "explanations": [
+                            {
+                              "verseId": 1001,
+                              "summary": " ",
+                              "explanation": "validated explanation"
+                            }
+                          ]
+                        }
+                        """),
+                Arguments.of("""
+                        {
+                          "explanations": [
+                            {
+                              "verseId": 1001,
+                              "summary": null,
+                              "explanation": "validated explanation"
+                            }
+                          ]
+                        }
+                        """),
+                Arguments.of("""
+                        {
+                          "explanations": [
+                            {
+                              "verseId": 1001,
+                              "summary": "validated summary",
+                              "explanation": " "
+                            }
+                          ]
+                        }
+                        """),
+                Arguments.of("""
+                        {
+                          "explanations": [
+                            {
+                              "verseId": 1001,
+                              "summary": "validated summary",
+                              "explanation": null
+                            }
+                          ]
+                        }
+                        """)
+        );
     }
 
     private static AiValidationLog validationLog(AiValidationResult result) {
