@@ -56,6 +56,31 @@
 | `git diff --check` | PASS, CRLF 변환 경고만 출력 |
 | `rg -n "^import .*domain\.[a-z]+\.(internal\|web\|repository)" qtai-server/src/main/java/com/qtai/domain/ai` | match 없음 |
 
+## REQUEST_CHANGES 2차 대응
+
+- 멀티라인 stacktrace에 `Authorization: Bearer ...`가 포함될 때도 `errorMessage`가 마스킹되도록 보강했다.
+- `AiBatchRunLogTest.redactsMultilineBearerAuthorizationHeader`를 먼저 추가해 기존 구현의 실패를 확인했다.
+  - RED: `.\gradlew.bat test --tests "*AiBatchRunLogTest"` 실패 확인.
+  - 원인: `matches()`와 `.*` 기반 패턴이 개행 포함 문자열 전체 매칭에서 Bearer 토큰을 탐지하지 못함.
+- production 변경은 `AiBatchRunLog.containsSensitiveKeyword`의 탐지 방식을 전체 매칭에서 패턴 `find()`로 변경하는 데 제한했다.
+  - `Authorization: Bearer ...`, `token=...` 같은 민감 패턴은 메시지 어느 줄에 있어도 마스킹한다.
+  - `tokenizer failed...` 같은 정상 단어 회귀 테스트는 유지한다.
+- 리뷰의 코드 중복 정리, 시각 타입 통일은 운영 동작 변경이 없는 권장 사항으로 보고 이번 BLOCK 대응 범위에서는 제외했다.
+
+### REQUEST_CHANGES 2차 추가 검증
+
+| 명령 | 결과 |
+| --- | --- |
+| `.\gradlew.bat test --tests "*AiBatchRunLogTest"` | RED 실패 확인 후 GREEN PASS |
+| `.\gradlew.bat test --tests "*AiBatchRun*"` | PASS |
+| `.\gradlew.bat test --tests "*AiDailyQtVerseExplanationSeedSchedulerTest"` | PASS |
+| `.\gradlew.bat test --tests "*AiGenerationJobWorkerTest"` | PASS |
+| `.\gradlew.bat test --tests "*MigrationCoverageTest"` | PASS |
+| `.\gradlew.bat test --tests "com.qtai.MysqlMigrationValidationTest"` | Gradle PASS, Docker 부재로 1건 skip |
+| `.\gradlew.bat build` | PASS |
+| `git diff --check` | PASS, CRLF 변환 경고만 출력 |
+| `rg -n "^import .*domain\.[a-z]+\.(internal\|web\|repository)" qtai-server/src/main/java/com/qtai/domain/ai` | match 없음 |
+
 ## Assumptions
 
 - 이번 PR의 "알림"은 외부 발송이 아니라 운영자가 추적 가능한 DB 실행 요약과 warn 로그를 의미한다.

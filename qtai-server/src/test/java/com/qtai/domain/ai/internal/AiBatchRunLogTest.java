@@ -29,6 +29,17 @@ class AiBatchRunLogTest {
         assertThat(log.getErrorMessage()).isEqualTo("REDACTED_SENSITIVE_ERROR_MESSAGE");
     }
 
+    @Test
+    void redactsMultilineBearerAuthorizationHeader() {
+        AiBatchRunLog log = AiBatchRunLog.create(command("""
+                handler failed while polling jobs
+                Authorization: Bearer abc.def.ghi
+                at com.qtai.domain.ai.internal.AiGenerationJobWorker.poll(AiGenerationJobWorker.java:42)
+                """));
+
+        assertThat(log.getErrorMessage()).isEqualTo("REDACTED_SENSITIVE_ERROR_MESSAGE");
+    }
+
     private static AiBatchRunLogCommand command(String errorMessage) {
         OffsetDateTime now = OffsetDateTime.parse("2026-06-02T00:05:00+09:00");
         return new AiBatchRunLogCommand(

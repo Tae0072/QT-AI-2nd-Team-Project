@@ -2,7 +2,6 @@ package com.qtai.domain.ai.internal;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -35,12 +34,12 @@ class AiBatchRunLog {
     private static final int ERROR_MESSAGE_MAX_LENGTH = 1_000;
     private static final String REDACTED_ERROR_MESSAGE = "REDACTED_SENSITIVE_ERROR_MESSAGE";
     private static final Pattern SENSITIVE_KEY_VALUE_PATTERN = Pattern.compile(
-            "(?i).*(?:^|[^a-z0-9_-])"
+            "(?i)(?:^|[^a-z0-9_-])"
                     + "(password|secret|private\\s+key|token|access[_-]?token|refresh[_-]?token|authorization|"
                     + "api[-_ ]?key|apikey)"
-                    + "\\s*[:=].*"
+                    + "\\s*[:=]"
     );
-    private static final Pattern BEARER_TOKEN_PATTERN = Pattern.compile("(?i).*\\bbearer\\s+\\S+.*");
+    private static final Pattern BEARER_TOKEN_PATTERN = Pattern.compile("(?i)\\bbearer\\s+\\S+");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -154,9 +153,8 @@ class AiBatchRunLog {
     }
 
     private static boolean containsSensitiveKeyword(String value) {
-        String lowerValue = value.toLowerCase(Locale.ROOT);
-        return SENSITIVE_KEY_VALUE_PATTERN.matcher(lowerValue).matches()
-                || BEARER_TOKEN_PATTERN.matcher(lowerValue).matches();
+        return SENSITIVE_KEY_VALUE_PATTERN.matcher(value).find()
+                || BEARER_TOKEN_PATTERN.matcher(value).find();
     }
 
     private static String blankToNull(String value) {
