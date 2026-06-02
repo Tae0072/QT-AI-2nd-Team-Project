@@ -1727,7 +1727,40 @@
 - **Method + URL:** `GET /api/v1/admin/audit-logs?actorType=ADMIN&actionType=AI_ASSET_APPROVE&from=2026-05-01&to=2026-05-17&page=0&size=50`
 - **인증:** ADMIN + OPERATOR/REVIEWER/SUPER_ADMIN
 - **ERD:** `audit_logs`, `admin_users`, `service_accounts`
-- **주의:** 수정/삭제 API를 제공하지 않는다.
+- **범위:** 이번 API는 AI 검수/재생성 감사 로그 조회만 지원한다. `actionType`은 `AI_ASSET_APPROVE`, `AI_ASSET_REJECT`, `AI_ASSET_HIDE`, `AI_REGENERATE_REQUEST`만 허용하고, `targetType`은 `AI_GENERATED_ASSET`만 허용한다. `actionType` 또는 `targetType`이 없으면 위 AI 범위로 기본 조회한다.
+- **필터:** `actorType`, `actorId`, `actionType`, `targetType`, `targetId`, `from`, `to`, `page`, `size`
+- **기간:** `from`, `to`는 KST 기준 `yyyy-MM-dd`이며 `from`은 inclusive, `to`는 해당 날짜의 다음 날 00:00 exclusive로 적용한다.
+- **정렬:** `createdAt desc, id desc` 고정
+- **응답:** 기존 관리자 목록 API와 같은 page envelope를 사용한다. `content[]`는 `id`, `adminUserId`, `actorType`, `actorId`, `actorLabel`, `actionType`, `targetType`, `targetId`, `beforeJson`, `afterJson`, `createdAt`을 반환한다.
+- **보안:** `beforeJson`, `afterJson`은 저장 단계에서 sanitize된 snapshot만 반환한다. reason 원문, payload 원문, prompt/provider 원문, secret/token/password 계열 값은 새로 생성하거나 복원하지 않는다.
+- **주의:** 수정/삭제 API를 제공하지 않는다. 전체 도메인 audit 조회, export, 상세 diff viewer, audit 조회 자체 감사 로그 기록은 별도 PR에서 다룬다.
+
+```json
+{
+  "content": [
+    {
+      "id": 11,
+      "adminUserId": null,
+      "actorType": "ADMIN",
+      "actorId": 7,
+      "actorLabel": "ADMIN:7",
+      "actionType": "AI_ASSET_HIDE",
+      "targetType": "AI_GENERATED_ASSET",
+      "targetId": 500,
+      "beforeJson": "{\"status\":\"APPROVED\"}",
+      "afterJson": "{\"status\":\"HIDDEN\"}",
+      "createdAt": "2026-06-02T10:30:00+09:00"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "sort": "createdAt,desc,id,desc"
+}
+```
 
 ### 4.7.9 AI 운영 모니터링 집계
 
