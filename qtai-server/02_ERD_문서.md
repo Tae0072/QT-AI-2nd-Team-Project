@@ -901,6 +901,7 @@ erDiagram
 | target_id | BIGINT | N | - | | 대상 ID |
 | prompt_version_id | BIGINT | N | - | FK | 사용한 지시 버전 |
 | status | VARCHAR(20) | N | 'QUEUED' | | QUEUED, RUNNING, SUCCEEDED, FAILED, CANCELLED |
+| active_unique_key | VARCHAR(20) | Y | NULL | UK | 진행 중 작업 중복 방지용 키 |
 | requested_by_admin_id | BIGINT | Y | NULL | FK | 수동 트리거 관리자 |
 | started_at | DATETIME(6) | Y | NULL | | 시작 시각 |
 | finished_at | DATETIME(6) | Y | NULL | | 종료 시각 |
@@ -911,6 +912,14 @@ erDiagram
 **인덱스**
 - `idx_ai_jobs_status_created` ON (status, created_at)
 - `idx_ai_jobs_target` ON (target_type, target_id)
+- `idx_ai_jobs_prompt_version` ON (prompt_version_id)
+- `uk_ai_generation_jobs_active_target_prompt` UNIQUE ON (job_type, target_type, target_id, prompt_version_id, active_unique_key)
+- `uk_ai_generation_jobs_active_target` UNIQUE ON (job_type, target_type, target_id, active_unique_key)
+
+**제약 정책**
+- `QUEUED`, `RUNNING` 작업은 `active_unique_key = 'ACTIVE'`로 관리해 같은 target의 진행 중 작업을 중복 생성하지 않는다.
+- `SUCCEEDED`, `FAILED`로 종료된 작업은 `active_unique_key = NULL`로 변경해 같은 target의 후속 재생성을 허용한다.
+- `uk_ai_generation_jobs_active_target`은 promptVersion이 달라도 같은 `job_type + target_type + target_id`의 active 작업을 1건만 허용한다.
 
 > Q&A 응답도 실시간 단발 요청이지만 AI 생성 실행 이력이므로 `job_type = QA`, `target_type = QA_REQUEST`, `target_id = ai_qa_requests.id`인 생성 작업을 반드시 생성한다. 이를 통해 모든 AI 산출물이 `ai_generation_jobs.prompt_version_id`를 거쳐 생성 지시 버전을 추적할 수 있다.
 

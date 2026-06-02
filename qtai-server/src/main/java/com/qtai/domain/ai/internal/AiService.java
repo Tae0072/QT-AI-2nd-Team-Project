@@ -28,6 +28,7 @@ import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAssetUseCase {
 
     private static final String ACTIVE_JOB_UNIQUE_CONSTRAINT = "uk_ai_generation_jobs_active_target_prompt";
+    private static final String ACTIVE_TARGET_UNIQUE_CONSTRAINT = "uk_ai_generation_jobs_active_target";
     private static final String ACTOR_TYPE_ADMIN = "ADMIN";
     private static final String ACTION_AI_REGENERATE_REQUEST = "AI_REGENERATE_REQUEST";
     private static final String TARGET_TYPE_AI_GENERATED_ASSET = "AI_GENERATED_ASSET";
@@ -66,11 +67,10 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         AiGenerationJobType jobType = parseJobType(command.jobType());
         AiTargetType targetType = parseTargetType(command.targetType());
         AiPromptVersion promptVersionEntity = requireUsablePromptVersion(command.promptVersionId(), jobType);
-        if (generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
+        if (generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
                 jobType,
                 targetType,
                 command.targetId(),
-                promptVersionEntity.getId(),
                 ACTIVE_GENERATION_STATUSES
         )) {
             throw new BusinessException(
@@ -106,11 +106,10 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
 
         AiGenerationJobType jobType = jobTypeOf(asset.getAssetType());
         AiPromptVersion promptVersionEntity = requireUsablePromptVersion(command.promptVersionId(), jobType);
-        if (generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
+        if (generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
                 jobType,
                 asset.getTargetType(),
                 asset.getTargetId(),
-                promptVersionEntity.getId(),
                 ACTIVE_GENERATION_STATUSES
         )) {
             throw new BusinessException(
@@ -207,8 +206,9 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         if (message == null) {
             return false;
         }
-        return message.toLowerCase(Locale.ROOT)
-                .contains(ACTIVE_JOB_UNIQUE_CONSTRAINT.toLowerCase(Locale.ROOT));
+        String lowerCaseMessage = message.toLowerCase(Locale.ROOT);
+        return lowerCaseMessage.contains(ACTIVE_JOB_UNIQUE_CONSTRAINT.toLowerCase(Locale.ROOT))
+                || lowerCaseMessage.contains(ACTIVE_TARGET_UNIQUE_CONSTRAINT.toLowerCase(Locale.ROOT));
     }
 
     private static AiGenerationJobType parseJobType(String value) {
