@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import com.qtai.domain.ai.api.dto.AdminAiBatchRunLogItem;
 import com.qtai.domain.ai.api.dto.AdminAiBatchRunLogListResponse;
+import com.qtai.domain.ai.api.dto.AdminAiMonitoringResponse;
 import com.qtai.domain.ai.api.dto.AdminAiAssetDetailResponse;
 import com.qtai.domain.ai.api.dto.AdminAiAssetListItem;
 import com.qtai.domain.ai.api.dto.AdminAiAssetListResponse;
@@ -24,6 +25,7 @@ import com.qtai.domain.ai.api.dto.CreateAiGenerationJobResult;
 import com.qtai.domain.ai.api.dto.CreateAdminAiValidationChecklistCommand;
 import com.qtai.domain.ai.api.dto.ExpireValidationReferenceJobCommand;
 import com.qtai.domain.ai.api.dto.GetAdminAiAssetQuery;
+import com.qtai.domain.ai.api.dto.GetAdminAiMonitoringQuery;
 import com.qtai.domain.ai.api.dto.GetAiQaResultCommand;
 import com.qtai.domain.ai.api.dto.GetAiQaResultResult;
 import com.qtai.domain.ai.api.dto.GetValidationReferenceJobQuery;
@@ -59,6 +61,7 @@ class AiUseCaseContractTest {
             ActivateAdminAiValidationChecklistUseCase.class,
             RetireAdminAiValidationChecklistUseCase.class,
             ListAdminAiBatchRunLogsUseCase.class,
+            GetAdminAiMonitoringUseCase.class,
             CreateValidationReferenceJobUseCase.class,
             GetValidationReferenceJobUseCase.class,
             ExpireValidationReferenceJobUseCase.class
@@ -93,6 +96,8 @@ class AiUseCaseContractTest {
             ListAdminAiBatchRunLogsQuery.class,
             AdminAiBatchRunLogItem.class,
             AdminAiBatchRunLogListResponse.class,
+            GetAdminAiMonitoringQuery.class,
+            AdminAiMonitoringResponse.class,
             CreateValidationReferenceJobCommand.class,
             GetValidationReferenceJobQuery.class,
             ExpireValidationReferenceJobCommand.class,
@@ -207,6 +212,16 @@ class AiUseCaseContractTest {
         assertThat(List.of(AdminAiBatchRunLogListResponse.class.getRecordComponents()))
                 .extracting(RecordComponent::getName)
                 .contains("content", "page", "size", "totalElements", "totalPages", "first", "last", "sort");
+    }
+
+    @Test
+    void adminAiMonitoringDtosIncludeAdminAuthorizationContextAndSummarySections() {
+        assertThat(List.of(GetAdminAiMonitoringQuery.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("adminId", "memberRole", "adminRole", "from", "to");
+        assertThat(List.of(AdminAiMonitoringResponse.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("period", "generationJobs", "validation", "batchRuns", "qa", "checklists");
     }
 
     @Test

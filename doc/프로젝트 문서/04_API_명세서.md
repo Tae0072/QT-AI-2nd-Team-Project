@@ -1727,19 +1727,24 @@
 - **ERD:** `audit_logs`, `admin_users`, `service_accounts`
 - **주의:** 수정/삭제 API를 제공하지 않는다.
 
-### 4.7.9 AI 운영 모니터링
+### 4.7.9 AI 운영 모니터링 집계
 
-- **Method + URL:** `GET /api/v1/admin/ai/monitoring?from=2026-05-01&to=2026-05-17`
+- **Method + URL:** `GET /api/v1/admin/ai/monitoring?from=2026-06-01&to=2026-06-02`
 - **인증:** ADMIN + OPERATOR/REVIEWER/SUPER_ADMIN
 - **연결 화면:** AD-08
-- **ERD:** `ai_generation_jobs`, `ai_generated_assets`, `ai_validation_logs`, `ai_qa_requests`, `ai_validation_checklist_versions`
-- **권한 상세:** `OPERATOR`는 실패율, 대기 건수, 차단 건수 같은 운영 집계만 조회한다. AI 산출물 목록/상세 원문 조회는 `/api/v1/admin/ai/assets/**`에서 `REVIEWER/SUPER_ADMIN`만 수행한다.
+- **ERD:** `ai_generation_jobs`, `ai_generated_assets`, `ai_validation_logs`, `ai_validation_checklist_versions`, `ai_batch_run_logs`
+- **기간:** `from`, `to`는 KST 기준 `yyyy-MM-dd`이며 `from`은 inclusive, `to`는 다음 날 00:00 exclusive로 집계한다. 둘 다 없으면 KST 오늘 날짜를 기본 기간으로 사용한다.
+- **권한 상세:** `OPERATOR`는 운영 집계만 조회할 수 있다. AI 산출물 목록/상세 원문 조회는 `/api/v1/admin/ai/assets/**`에서 `REVIEWER/SUPER_ADMIN`만 수행한다.
+- **집계 기준:** `queued/running`은 현재 active backlog 기준, `succeeded/failed`는 기간 내 `finishedAt` 기준이다. `waitingAssets`는 현재 `VALIDATING` asset 수이며, validation/batch run 집계는 기간 기준이다.
+- **Q&A:** `ai_qa_requests`가 아직 구현되지 않았으므로 이번 API에서는 `qa`를 0값과 빈 목록으로 반환한다.
+- **보안:** raw prompt, provider raw response, asset payload/content, secret/token/password 계열 값은 반환하지 않는다. batch error message는 저장 단계에서 redaction/truncate된 값만 반환한다.
 
 ```json
 {
   "period": {
-    "from": "2026-05-01",
-    "to": "2026-05-17"
+    "from": "2026-06-01",
+    "to": "2026-06-02",
+    "timezone": "Asia/Seoul"
   },
   "generationJobs": {
     "queued": 3,
@@ -1751,6 +1756,7 @@
     "waitingAssets": 8,
     "passCount": 110,
     "failCount": 10,
+    "needsReviewCount": 2,
     "failureReasons": [
       {
         "resultCode": "SOURCE_MISSING",
@@ -1758,22 +1764,32 @@
       }
     ]
   },
-  "qa": {
-    "requested": 90,
-    "answered": 70,
-    "blocked": 12,
-    "failed": 8,
-    "blockedReasons": [
+  "batchRuns": {
+    "succeeded": 5,
+    "partialFailed": 1,
+    "failed": 2,
+    "latestFailures": [
       {
-        "blockedReason": "VALUE_JUDGMENT",
-        "count": 6
+        "id": 12,
+        "batchName": "AI_DAILY_QT_VERSE_EXPLANATION_SEED",
+        "status": "FAILED",
+        "errorType": "ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND",
+        "errorMessage": "active prompt not found",
+        "createdAt": "2026-06-02T00:05:02+09:00"
       }
     ]
   },
+  "qa": {
+    "requested": 0,
+    "answered": 0,
+    "blocked": 0,
+    "failed": 0,
+    "blockedReasons": []
+  },
   "checklists": [
     {
-      "checklistType": "QA",
-      "activeVersion": "2026.05.1",
+      "checklistType": "EXPLANATION",
+      "activeVersion": "2026.06.1",
       "passRate": 0.91
     }
   ]
@@ -1786,7 +1802,7 @@
 - **인증:** ADMIN + OPERATOR/REVIEWER/SUPER_ADMIN
 - **연결 화면:** AD-08
 - **ERD:** `ai_batch_run_logs`
-- **주의:** 이 API는 DB에 저장된 batch 실행 로그 목록만 반환한다. 운영 집계 API인 `GET /api/v1/admin/ai/monitoring`은 별도 PR에서 구현한다.
+- **주의:** 이 API는 DB에 저장된 batch 실행 로그 목록만 반환한다. 운영 집계는 `GET /api/v1/admin/ai/monitoring`에서 조회한다.
 - **필터:** `batchName`, `status`, `from`, `to`, `page`, `size`
 - **정렬:** `createdAt desc, id desc` 고정
 - **보안:** `errorMessage`는 저장 단계에서 redaction/truncate된 값만 반환하며 provider raw response, prompt 원문, secret/token/password 계열 값을 새로 저장하거나 복원하지 않는다.
@@ -2300,7 +2316,7 @@
 | 63 | POST | `/api/v1/admin/ai/assets/{assetId}/evaluation-candidates` | REVIEWER/SUPER_ADMIN | 평가 케이스 후보 등록 |
 | 64 | POST | `/api/v1/admin/members/{memberId}/suspend` | OPERATOR | 회원 제재 |
 | 65 | POST | `/api/v1/admin/members/{memberId}/activate` | OPERATOR | 회원 제재 해제 |
-| 66 | GET | `/api/v1/admin/ai/monitoring` | OPERATOR/REVIEWER/SUPER_ADMIN | AI 운영 모니터링 |
+| 66 | GET | `/api/v1/admin/ai/monitoring` | OPERATOR/REVIEWER/SUPER_ADMIN | AI 운영 모니터링 집계 |
 | 67 | GET | `/api/v1/admin/ai/validation-checklists` | REVIEWER/SUPER_ADMIN | 검증 체크리스트 목록 |
 | 68 | POST | `/api/v1/admin/ai/validation-checklists` | REVIEWER/SUPER_ADMIN | 검증 체크리스트 생성 |
 | 69 | POST | `/api/v1/admin/ai/validation-checklists/{id}/activate` | REVIEWER/SUPER_ADMIN | 검증 체크리스트 활성화 |
