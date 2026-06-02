@@ -227,9 +227,53 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     }
 
     @Test
+    void seedTodayReturnsZeroWhenTodayQtHasNoPassage() {
+        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt(null));
+
+        AiDailyQtVerseExplanationSeedResult result = service.seedToday();
+
+        assertThat(result.createdCount()).isZero();
+        assertThat(result.failedCount()).isZero();
+        verifyNoInteractions(
+                getQtPassageContentContextUseCase,
+                promptVersionRepository,
+                listApprovedVerseExplanationUseCase,
+                generatedAssetRepository,
+                generationJobRepository,
+                createAiGenerationJobUseCase
+        );
+    }
+
+    @Test
+    void seedTodayReturnsZeroWhenEveryVerseAlreadyHasApprovedExplanation() {
+        List<Long> verseIds = List.of(101L, 102L);
+        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
+        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(verseIds));
+        when(listApprovedVerseExplanationUseCase.listApprovedByVerseIds(verseIds))
+                .thenReturn(List.of(
+                        new ApprovedVerseExplanationResponse(101L, "summary-101", "explanation-101", "source", 901L),
+                        new ApprovedVerseExplanationResponse(102L, "summary-102", "explanation-102", "source", 902L)
+                ));
+        when(generatedAssetRepository.findReadyExplanationBibleVerseTargetIds(verseIds)).thenReturn(List.of());
+        when(generationJobRepository.findActiveExplanationBibleVerseTargetIds(verseIds)).thenReturn(List.of());
+
+        AiDailyQtVerseExplanationSeedResult result = service.seedToday();
+
+        assertThat(result.createdCount()).isZero();
+        assertThat(result.failedCount()).isZero();
+        verifyNoInteractions(promptVersionRepository, createAiGenerationJobUseCase);
+    }
+
+    @Test
     void seedTodayDoesNotCreateJobsWhenActiveExplanationPromptVersionIsMissing(CapturedOutput output) {
         when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
         when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context());
+        when(listApprovedVerseExplanationUseCase.listApprovedByVerseIds(List.of(101L, 102L, 103L, 104L)))
+                .thenReturn(List.of());
+        when(generatedAssetRepository.findReadyExplanationBibleVerseTargetIds(List.of(101L, 102L, 103L, 104L)))
+                .thenReturn(List.of());
+        when(generationJobRepository.findActiveExplanationBibleVerseTargetIds(List.of(101L, 102L, 103L, 104L)))
+                .thenReturn(List.of());
         when(promptVersionRepository.findFirstByPromptTypeAndStatusOrderByCreatedAtDescIdDesc(
                 AiPromptType.EXPLANATION,
                 AiPromptVersionStatus.ACTIVE
@@ -241,18 +285,12 @@ class AiDailyQtVerseExplanationSeedServiceTest {
         assertThat(result.failedCount()).isZero();
         assertThat(result.failureReason()).isEqualTo("ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
         assertThat(output).contains("ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
-        verifyNoInteractions(
-                listApprovedVerseExplanationUseCase,
-                generatedAssetRepository,
-                generationJobRepository
-        );
         verify(createAiGenerationJobUseCase, never())
                 .createAiGenerationJob(any(CreateAiGenerationJobCommand.class));
     }
 
     @Test
     void seedTodayRejectsInvalidQtPassageId() {
-        assertInvalidQtPassageId(null);
         assertInvalidQtPassageId(0L);
         assertInvalidQtPassageId(-1L);
     }
