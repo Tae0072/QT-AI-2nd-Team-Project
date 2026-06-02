@@ -1,12 +1,20 @@
 package com.qtai.domain.audit.api.dto;
 
-/** 감사 로그 조회 응답 DTO. */
+import java.time.OffsetDateTime;
+
+/**
+ * 감사 로그 조회 응답 DTO.
+ *
+ * <p>변경 전/후 원문(before/after json)은 목록 응답에서 제외한다(로그 양이 크고 상세 영역 자료).
+ */
 public record AuditLogResponse(
-        // TODO: Long id
-        // TODO: Long actorId          — 행위자 (시스템 작업이면 null)
-        // TODO: String action         — LOGIN / CREATE_QT / DELETE_NOTE ...
-        // TODO: String targetType     — QT / NOTE / MEMBER ...
-        // TODO: Long targetId
-        // TODO: String metadata       — JSON 문자열 (IP, UA 등 부가 정보)
-        // TODO: LocalDateTime createdAt
+        Long id,
+        Long adminUserId,
+        String actorType,
+        Long actorId,
+        String actorLabel,
+        String actionType,
+        String targetType,
+        Long targetId,
+        OffsetDateTime createdAt
 ) {}
