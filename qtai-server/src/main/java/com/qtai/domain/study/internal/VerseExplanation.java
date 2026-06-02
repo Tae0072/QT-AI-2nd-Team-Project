@@ -82,6 +82,11 @@ public class VerseExplanation extends BaseEntity {
         this.activeUniqueKey = null;
     }
 
+    public void hide() {
+        this.status = VerseExplanationStatus.HIDDEN;
+        this.activeUniqueKey = null;
+    }
+
     private static Long requirePositive(Long value, String fieldName) {
         if (value == null || value <= 0) {
             throw new IllegalArgumentException(fieldName + " must be positive");

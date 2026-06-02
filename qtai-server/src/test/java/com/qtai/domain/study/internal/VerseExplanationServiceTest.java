@@ -1,6 +1,8 @@
 package com.qtai.domain.study.internal;
 
 import com.qtai.domain.study.api.dto.ApprovedVerseExplanationResponse;
+import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
+import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationResult;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationResult;
 import org.junit.jupiter.api.DisplayName;
@@ -100,5 +102,38 @@ class VerseExplanationServiceTest {
         assertThat(saved.getStatus()).isEqualTo(VerseExplanationStatus.APPROVED);
         assertThat(saved.getActiveUniqueKey()).isEqualTo("ACTIVE");
         assertThat(saved.getAiAssetId()).isEqualTo(500L);
+    }
+
+    @Test
+    void hidePublishedVerseExplanation_hidesActiveExplanationLinkedToAiAsset() {
+        VerseExplanation existing = verseExplanation(
+                10L,
+                VerseExplanationStatus.APPROVED,
+                "ACTIVE",
+                "old summary"
+        );
+        when(verseExplanationRepository.findActiveApprovedByAiAssetIdForUpdate(500L))
+                .thenReturn(List.of(existing));
+
+        HidePublishedVerseExplanationResult result =
+                verseExplanationService.hidePublishedVerseExplanation(new HidePublishedVerseExplanationCommand(500L));
+
+        assertThat(existing.getStatus()).isEqualTo(VerseExplanationStatus.HIDDEN);
+        assertThat(existing.getActiveUniqueKey()).isNull();
+        assertThat(result.aiAssetId()).isEqualTo(500L);
+        assertThat(result.hiddenCount()).isEqualTo(1);
+        verify(verseExplanationRepository).flush();
+    }
+
+    @Test
+    void hidePublishedVerseExplanation_whenNoLinkedActiveExplanation_returnsZero() {
+        when(verseExplanationRepository.findActiveApprovedByAiAssetIdForUpdate(500L))
+                .thenReturn(List.of());
+
+        HidePublishedVerseExplanationResult result =
+                verseExplanationService.hidePublishedVerseExplanation(new HidePublishedVerseExplanationCommand(500L));
+
+        assertThat(result.aiAssetId()).isEqualTo(500L);
+        assertThat(result.hiddenCount()).isZero();
     }
 }

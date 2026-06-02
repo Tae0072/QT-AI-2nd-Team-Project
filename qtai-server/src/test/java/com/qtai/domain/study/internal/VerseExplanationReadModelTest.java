@@ -1,6 +1,7 @@
 package com.qtai.domain.study.internal;
 
 import com.qtai.config.JpaAuditingConfig;
+import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -97,5 +98,48 @@ class VerseExplanationReadModelTest {
         assertThat(verseExplanationRepository.findAll())
                 .filteredOn(explanation -> bibleVerseId.equals(explanation.getBibleVerseId()))
                 .hasSize(2);
+    }
+
+    @Test
+    void hidePublishedVerseExplanation_removesVisibleExplanationAndAllowsRepublish() {
+        Long bibleVerseId = 30L;
+        verseExplanationService.publishApprovedVerseExplanation(new PublishApprovedVerseExplanationCommand(
+                bibleVerseId,
+                "first summary",
+                "first approved explanation",
+                "QT-AI DeepSeek",
+                700L,
+                OffsetDateTime.parse("2026-05-21T10:30:00+09:00")
+        ));
+        verseExplanationRepository.flush();
+
+        verseExplanationService.hidePublishedVerseExplanation(new HidePublishedVerseExplanationCommand(700L));
+        verseExplanationRepository.flush();
+
+        assertThat(verseExplanationService.listApprovedByVerseIds(List.of(bibleVerseId))).isEmpty();
+        assertThat(verseExplanationRepository.findAll())
+                .filteredOn(explanation -> Long.valueOf(700L).equals(explanation.getAiAssetId()))
+                .singleElement()
+                .satisfies(explanation -> {
+                    assertThat(explanation.getStatus()).isEqualTo(VerseExplanationStatus.HIDDEN);
+                    assertThat(explanation.getActiveUniqueKey()).isNull();
+                });
+
+        verseExplanationService.publishApprovedVerseExplanation(new PublishApprovedVerseExplanationCommand(
+                bibleVerseId,
+                "second summary",
+                "second approved explanation",
+                "QT-AI DeepSeek",
+                701L,
+                OffsetDateTime.parse("2026-05-22T10:30:00+09:00")
+        ));
+        verseExplanationRepository.flush();
+
+        assertThat(verseExplanationService.listApprovedByVerseIds(List.of(bibleVerseId)))
+                .singleElement()
+                .satisfies(response -> {
+                    assertThat(response.summary()).isEqualTo("second summary");
+                    assertThat(response.aiAssetId()).isEqualTo(701L);
+                });
     }
 }

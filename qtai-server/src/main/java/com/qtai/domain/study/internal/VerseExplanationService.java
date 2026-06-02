@@ -6,9 +6,12 @@ import java.util.List;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.study.api.HidePublishedVerseExplanationUseCase;
 import com.qtai.domain.study.api.ListApprovedVerseExplanationUseCase;
 import com.qtai.domain.study.api.PublishApprovedVerseExplanationUseCase;
 import com.qtai.domain.study.api.dto.ApprovedVerseExplanationResponse;
+import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
+import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationResult;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationResult;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class VerseExplanationService
-        implements ListApprovedVerseExplanationUseCase, PublishApprovedVerseExplanationUseCase {
+        implements ListApprovedVerseExplanationUseCase,
+        PublishApprovedVerseExplanationUseCase,
+        HidePublishedVerseExplanationUseCase {
 
     private static final String ACTIVE_UNIQUE_KEY = "ACTIVE";
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -69,6 +74,23 @@ public class VerseExplanationService
         );
     }
 
+    @Override
+    @Transactional
+    public HidePublishedVerseExplanationResult hidePublishedVerseExplanation(
+            HidePublishedVerseExplanationCommand command
+    ) {
+        requireValidCommand(command);
+
+        List<VerseExplanation> explanations =
+                verseExplanationRepository.findActiveApprovedByAiAssetIdForUpdate(command.aiAssetId());
+        explanations.forEach(VerseExplanation::hide);
+        if (!explanations.isEmpty()) {
+            verseExplanationRepository.flush();
+        }
+
+        return new HidePublishedVerseExplanationResult(command.aiAssetId(), explanations.size());
+    }
+
     private ApprovedVerseExplanationResponse toResponse(VerseExplanation explanation) {
         return new ApprovedVerseExplanationResponse(
                 explanation.getBibleVerseId(),
@@ -91,6 +113,13 @@ public class VerseExplanationService
         if (command.approvedAt() == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "approvedAt must not be null");
         }
+    }
+
+    private static void requireValidCommand(HidePublishedVerseExplanationCommand command) {
+        if (command == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "command must not be null");
+        }
+        requirePositive(command.aiAssetId(), "aiAssetId");
     }
 
     private static void requirePositive(Long value, String fieldName) {

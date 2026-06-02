@@ -17,7 +17,9 @@ import com.qtai.domain.ai.api.dto.ReviewAiAssetCommand;
 import com.qtai.domain.ai.api.dto.ReviewAiAssetResult;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
+import com.qtai.domain.study.api.HidePublishedVerseExplanationUseCase;
 import com.qtai.domain.study.api.PublishApprovedVerseExplanationUseCase;
+import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 
 @Service
@@ -33,6 +35,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     private final AiValidationChecklistVersionRepository checklistVersionRepository;
     private final AiValidationLogRepository validationLogRepository;
     private final PublishApprovedVerseExplanationUseCase publishApprovedVerseExplanationUseCase;
+    private final HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase;
     private final WriteAuditLogUseCase auditLogUseCase;
     private final ObjectMapper objectMapper;
 
@@ -41,6 +44,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             AiValidationChecklistVersionRepository checklistVersionRepository,
             AiValidationLogRepository validationLogRepository,
             PublishApprovedVerseExplanationUseCase publishApprovedVerseExplanationUseCase,
+            HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase,
             WriteAuditLogUseCase auditLogUseCase,
             ObjectMapper objectMapper
     ) {
@@ -48,6 +52,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         this.checklistVersionRepository = checklistVersionRepository;
         this.validationLogRepository = validationLogRepository;
         this.publishApprovedVerseExplanationUseCase = publishApprovedVerseExplanationUseCase;
+        this.hidePublishedVerseExplanationUseCase = hidePublishedVerseExplanationUseCase;
         this.auditLogUseCase = auditLogUseCase;
         this.objectMapper = objectMapper;
     }
@@ -66,7 +71,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         switch (action) {
             case APPROVE -> approve(command, asset);
             case REJECT -> asset.reject(command.reviewedAt());
-            case HIDE -> asset.hide(command.reviewedAt());
+            case HIDE -> hide(command, asset);
         }
 
         writeReviewAudit(command, action, beforeJson, asset);
@@ -100,7 +105,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         }
 
         asset.approve(command.reviewedAt());
-        if (command.activateForTarget() && shouldPublishVerseExplanation(asset)) {
+        if (command.activateForTarget() && isVerseExplanationBibleVerseAsset(asset)) {
             ExplanationItem explanationItem = explanationItemForTarget(asset);
             publishApprovedVerseExplanationUseCase.publishApprovedVerseExplanation(
                     new PublishApprovedVerseExplanationCommand(
@@ -115,6 +120,15 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         }
     }
 
+    private void hide(ReviewAiAssetCommand command, AiGeneratedAsset asset) {
+        asset.hide(command.reviewedAt());
+        if (isVerseExplanationBibleVerseAsset(asset)) {
+            hidePublishedVerseExplanationUseCase.hidePublishedVerseExplanation(
+                    new HidePublishedVerseExplanationCommand(asset.getId())
+            );
+        }
+    }
+
     private static void requireValidatingAsset(AiGeneratedAsset asset) {
         if (asset.getStatus() != AiGeneratedAssetStatus.VALIDATING) {
             throw new BusinessException(
@@ -124,7 +138,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         }
     }
 
-    private static boolean shouldPublishVerseExplanation(AiGeneratedAsset asset) {
+    private static boolean isVerseExplanationBibleVerseAsset(AiGeneratedAsset asset) {
         return asset.getAssetType() == AiGeneratedAssetType.EXPLANATION
                 && asset.getTargetType() == AiTargetType.BIBLE_VERSE;
     }
