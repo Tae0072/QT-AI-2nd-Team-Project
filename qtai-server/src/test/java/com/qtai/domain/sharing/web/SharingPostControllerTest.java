@@ -3,9 +3,11 @@ package com.qtai.domain.sharing.web;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.sharing.api.DeleteSharingPostUseCase;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
 import com.qtai.domain.sharing.api.PublishNoteUseCase;
+import com.qtai.domain.sharing.api.SharingPostVisibilityUseCase;
 import com.qtai.domain.sharing.api.ToggleLikeUseCase;
 import com.qtai.domain.sharing.api.dto.LikeResponse;
 import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
@@ -36,6 +38,8 @@ class SharingPostControllerTest {
     private GetSharingPostUseCase getSharingPostUseCase;
     private PublishNoteUseCase publishNoteUseCase;
     private ToggleLikeUseCase toggleLikeUseCase;
+    private DeleteSharingPostUseCase deleteSharingPostUseCase;
+    private SharingPostVisibilityUseCase sharingPostVisibilityUseCase;
     private SharingPostController controller;
     private Pageable pageable;
 
@@ -45,8 +49,11 @@ class SharingPostControllerTest {
         getSharingPostUseCase = mock(GetSharingPostUseCase.class);
         publishNoteUseCase = mock(PublishNoteUseCase.class);
         toggleLikeUseCase = mock(ToggleLikeUseCase.class);
+        deleteSharingPostUseCase = mock(DeleteSharingPostUseCase.class);
+        sharingPostVisibilityUseCase = mock(SharingPostVisibilityUseCase.class);
         controller = new SharingPostController(
-                listSharingPostsUseCase, getSharingPostUseCase, publishNoteUseCase, toggleLikeUseCase);
+                listSharingPostsUseCase, getSharingPostUseCase, publishNoteUseCase, toggleLikeUseCase,
+                deleteSharingPostUseCase, sharingPostVisibilityUseCase);
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishedAt"));
     }
 
@@ -159,5 +166,62 @@ class SharingPostControllerTest {
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
 
         verify(toggleLikeUseCase, never()).unlike(any(), any());
+    }
+
+    @Test
+    @DisplayName("삭제는 인증된 memberId·postId를 UseCase로 위임한다(void/204)")
+    void delete_delegates() {
+        controller.delete(1L, 300L);
+
+        verify(deleteSharingPostUseCase).delete(eq(1L), eq(300L));
+    }
+
+    @Test
+    @DisplayName("삭제도 memberId가 없으면 UNAUTHORIZED로 거부한다")
+    void delete_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.delete(null, 300L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(deleteSharingPostUseCase, never()).delete(any(), any());
+    }
+
+    @Test
+    @DisplayName("숨김은 인증된 memberId·postId를 UseCase로 위임한다(void/204)")
+    void hide_delegates() {
+        controller.hide(1L, 300L);
+
+        verify(sharingPostVisibilityUseCase).hide(eq(1L), eq(300L));
+    }
+
+    @Test
+    @DisplayName("숨김도 memberId가 없으면 UNAUTHORIZED로 거부한다")
+    void hide_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.hide(null, 300L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(sharingPostVisibilityUseCase, never()).hide(any(), any());
+    }
+
+    @Test
+    @DisplayName("되돌리기는 인증된 memberId·postId를 UseCase로 위임한다(void/204)")
+    void show_delegates() {
+        controller.show(1L, 300L);
+
+        verify(sharingPostVisibilityUseCase).show(eq(1L), eq(300L));
+    }
+
+    @Test
+    @DisplayName("되돌리기도 memberId가 없으면 UNAUTHORIZED로 거부한다")
+    void show_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.show(null, 300L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(sharingPostVisibilityUseCase, never()).show(any(), any());
     }
 }
