@@ -372,6 +372,133 @@ class SharingPostServiceTest {
     }
 
     // ─────────────────────────────────────────────────────
+    // 삭제 · 숨김 · 되돌리기 (F-10, 04 §4.4.6) — 헬퍼 sharingPost는 memberId=99로 글을 만든다.
+    // ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("삭제 정상: 본인 글이면 soft delete (status=DELETED, deletedAt 기록)")
+    void delete_ownSoftDeletes() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        when(sharingPostRepository.findById(1L)).thenReturn(Optional.of(post));
+
+        sharingPostService.delete(99L, 1L);
+
+        assertThat(post.getStatus()).isEqualTo(SharingPostStatus.DELETED);
+        assertThat(post.getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("삭제 거부: 남의 글이면 403 FORBIDDEN, 상태를 바꾸지 않는다")
+    void delete_notOwner_throws403() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        when(sharingPostRepository.findById(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> sharingPostService.delete(10L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.FORBIDDEN);
+        assertThat(post.getStatus()).isEqualTo(SharingPostStatus.PUBLISHED);
+    }
+
+    @Test
+    @DisplayName("삭제: 없는 글이면 404 SHARING_POST_NOT_FOUND")
+    void delete_notFound_throws404() {
+        when(sharingPostRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingPostService.delete(99L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.SHARING_POST_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("삭제 멱등: 이미 DELETED면 조용히 통과한다")
+    void delete_idempotent_alreadyDeleted() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        setField(post, "status", SharingPostStatus.DELETED);
+        when(sharingPostRepository.findById(1L)).thenReturn(Optional.of(post));
+
+        sharingPostService.delete(99L, 1L); // 예외 없이 통과
+
+        assertThat(post.getStatus()).isEqualTo(SharingPostStatus.DELETED);
+    }
+
+    @Test
+    @DisplayName("숨김 정상: PUBLISHED 본인 글 → HIDDEN, hiddenAt 기록")
+    void hide_publishedOwn_toHidden() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        when(sharingPostRepository.findById(1L)).thenReturn(Optional.of(post));
+
+        sharingPostService.hide(99L, 1L);
+
+        assertThat(post.getStatus()).isEqualTo(SharingPostStatus.HIDDEN);
+        assertThat(post.getHiddenAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("숨김 멱등: 이미 HIDDEN이면 조용히 통과한다")
+    void hide_idempotent_alreadyHidden() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        setField(post, "status", SharingPostStatus.HIDDEN);
+        when(sharingPostRepository.findById(1L)).thenReturn(Optional.of(post));
+
+        sharingPostService.hide(99L, 1L);
+
+        assertThat(post.getStatus()).isEqualTo(SharingPostStatus.HIDDEN);
+    }
+
+    @Test
+    @DisplayName("숨김 거부: 삭제된 글은 409 INVALID_STATUS_TRANSITION")
+    void hide_deleted_throws409() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        setField(post, "status", SharingPostStatus.DELETED);
+        when(sharingPostRepository.findById(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> sharingPostService.hide(99L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION);
+    }
+
+    @Test
+    @DisplayName("되돌리기 정상: HIDDEN 본인 글 → PUBLISHED, hiddenAt 비움")
+    void show_hiddenOwn_toPublished() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        setField(post, "status", SharingPostStatus.HIDDEN);
+        setField(post, "hiddenAt", LocalDateTime.now());
+        when(sharingPostRepository.findById(1L)).thenReturn(Optional.of(post));
+
+        sharingPostService.show(99L, 1L);
+
+        assertThat(post.getStatus()).isEqualTo(SharingPostStatus.PUBLISHED);
+        assertThat(post.getHiddenAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("되돌리기 멱등: 이미 PUBLISHED면 조용히 통과한다")
+    void show_idempotent_alreadyPublished() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        when(sharingPostRepository.findById(1L)).thenReturn(Optional.of(post));
+
+        sharingPostService.show(99L, 1L);
+
+        assertThat(post.getStatus()).isEqualTo(SharingPostStatus.PUBLISHED);
+    }
+
+    @Test
+    @DisplayName("되돌리기 거부: 삭제된 글은 409 INVALID_STATUS_TRANSITION")
+    void show_deleted_throws409() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        setField(post, "status", SharingPostStatus.DELETED);
+        when(sharingPostRepository.findById(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> sharingPostService.show(99L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION);
+    }
+
+    // ─────────────────────────────────────────────────────
     // 헬퍼 — SharingPost는 빌더/팩토리가 없어 reflection으로 필드를 채운다.
     // ─────────────────────────────────────────────────────
 
