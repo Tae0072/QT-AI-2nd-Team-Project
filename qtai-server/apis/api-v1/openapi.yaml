@@ -773,7 +773,10 @@ paths:
         - Admin AI
       operationId: hideAdminAiAsset
       summary: Hide admin AI asset
-      description: Hides a VALIDATING or APPROVED AI asset. This action does not modify exposure tables.
+      description: >
+        Hides a VALIDATING or APPROVED AI asset. When the asset is EXPLANATION + BIBLE_VERSE,
+        the published verse_explanations row linked to the asset is hidden and removed
+        from the active user-visible set.
       security:
         - bearerAuth: []
       parameters:

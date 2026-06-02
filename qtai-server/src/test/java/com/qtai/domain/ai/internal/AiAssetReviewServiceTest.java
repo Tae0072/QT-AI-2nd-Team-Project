@@ -23,7 +23,9 @@ import com.qtai.domain.ai.api.dto.ReviewAiAssetCommand;
 import com.qtai.domain.ai.api.dto.ReviewAiAssetResult;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
+import com.qtai.domain.study.api.HidePublishedVerseExplanationUseCase;
 import com.qtai.domain.study.api.PublishApprovedVerseExplanationUseCase;
+import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 
 class AiAssetReviewServiceTest {
@@ -35,6 +37,7 @@ class AiAssetReviewServiceTest {
     private AiValidationChecklistVersionRepository checklistVersionRepository;
     private AiValidationLogRepository validationLogRepository;
     private PublishApprovedVerseExplanationUseCase publishApprovedVerseExplanationUseCase;
+    private HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase;
     private WriteAuditLogUseCase auditLogUseCase;
     private AiAssetReviewService service;
 
@@ -45,12 +48,15 @@ class AiAssetReviewServiceTest {
         validationLogRepository = org.mockito.Mockito.mock(AiValidationLogRepository.class);
         publishApprovedVerseExplanationUseCase =
                 org.mockito.Mockito.mock(PublishApprovedVerseExplanationUseCase.class);
+        hidePublishedVerseExplanationUseCase =
+                org.mockito.Mockito.mock(HidePublishedVerseExplanationUseCase.class);
         auditLogUseCase = org.mockito.Mockito.mock(WriteAuditLogUseCase.class);
         service = new AiAssetReviewService(
                 generatedAssetRepository,
                 checklistVersionRepository,
                 validationLogRepository,
                 publishApprovedVerseExplanationUseCase,
+                hidePublishedVerseExplanationUseCase,
                 auditLogUseCase,
                 new ObjectMapper()
         );
@@ -253,7 +259,7 @@ class AiAssetReviewServiceTest {
     }
 
     @Test
-    void hideApprovedAssetWritesHideAuditOnly() {
+    void hideApprovedExplanationVerseAssetHidesPublishedVerseExplanationAndWritesAudit() {
         AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
         asset.approve(REVIEWED_AT.minusMinutes(1));
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
@@ -264,9 +270,27 @@ class AiAssetReviewServiceTest {
         assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.HIDDEN);
         verify(publishApprovedVerseExplanationUseCase, never())
                 .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+        ArgumentCaptor<HidePublishedVerseExplanationCommand> hideCaptor =
+                ArgumentCaptor.forClass(HidePublishedVerseExplanationCommand.class);
+        verify(hidePublishedVerseExplanationUseCase).hidePublishedVerseExplanation(hideCaptor.capture());
+        assertThat(hideCaptor.getValue().aiAssetId()).isEqualTo(500L);
         ArgumentCaptor<AuditLogWriteRequest> auditCaptor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
         verify(auditLogUseCase).write(auditCaptor.capture());
         assertThat(auditCaptor.getValue().actionType()).isEqualTo("AI_ASSET_HIDE");
+    }
+
+    @Test
+    void hideApprovedQtPassageExplanationDoesNotHidePublishedVerseExplanation() {
+        AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.QT_PASSAGE, 9001L);
+        asset.approve(REVIEWED_AT.minusMinutes(1));
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+
+        ReviewAiAssetResult result = service.reviewAiAsset(command("HIDE", false));
+
+        assertThat(result.status()).isEqualTo("HIDDEN");
+        verify(hidePublishedVerseExplanationUseCase, never())
+                .hidePublishedVerseExplanation(any(HidePublishedVerseExplanationCommand.class));
+        verify(auditLogUseCase).write(any(AuditLogWriteRequest.class));
     }
 
     @Test

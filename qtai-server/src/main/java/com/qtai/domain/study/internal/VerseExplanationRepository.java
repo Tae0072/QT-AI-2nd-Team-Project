@@ -26,4 +26,14 @@ public interface VerseExplanationRepository extends JpaRepository<VerseExplanati
               and explanation.activeUniqueKey = 'ACTIVE'
             """)
     List<VerseExplanation> findActiveApprovedByBibleVerseIdForUpdate(@Param("bibleVerseId") Long bibleVerseId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select explanation
+            from VerseExplanation explanation
+            where explanation.aiAssetId = :aiAssetId
+              and explanation.status = com.qtai.domain.study.internal.VerseExplanationStatus.APPROVED
+              and explanation.activeUniqueKey = 'ACTIVE'
+            """)
+    List<VerseExplanation> findActiveApprovedByAiAssetIdForUpdate(@Param("aiAssetId") Long aiAssetId);
 }
