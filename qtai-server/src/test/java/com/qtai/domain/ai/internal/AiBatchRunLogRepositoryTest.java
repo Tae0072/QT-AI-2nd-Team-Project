@@ -7,11 +7,15 @@ import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.qtai.config.JpaAuditingConfig;
+
 @DataJpaTest
 @ActiveProfiles("test")
+@Import(JpaAuditingConfig.class)
 class AiBatchRunLogRepositoryTest {
 
     @Autowired
@@ -43,6 +47,10 @@ class AiBatchRunLogRepositoryTest {
                 secondStartedAt,
                 secondStartedAt
         )));
+        repository.flush();
+
+        assertThat(first.getCreatedAt()).isNotNull();
+        assertThat(first.getCreatedAt()).isNotEqualTo(first.getFinishedAt().toLocalDateTime());
         repository.save(AiBatchRunLog.create(new AiBatchRunLogCommand(
                 AiBatchName.AI_GENERATION_WORKER_POLL,
                 AiBatchRunStatus.FAILED,
@@ -55,7 +63,7 @@ class AiBatchRunLogRepositoryTest {
                 secondStartedAt
         )));
 
-        assertThat(repository.findByBatchNameOrderByCreatedAtDesc(
+        assertThat(repository.findByBatchNameOrderByCreatedAtDescIdDesc(
                 AiBatchName.AI_DAILY_QT_VERSE_EXPLANATION_SEED,
                 PageRequest.of(0, 2)
         ))
@@ -89,7 +97,7 @@ class AiBatchRunLogRepositoryTest {
                 now
         )));
 
-        assertThat(repository.findByStatusOrderByCreatedAtDesc(
+        assertThat(repository.findByStatusOrderByCreatedAtDescIdDesc(
                 AiBatchRunStatus.FAILED,
                 PageRequest.of(0, 10)
         ))

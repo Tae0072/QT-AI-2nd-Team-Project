@@ -100,8 +100,8 @@ class AiDailyQtVerseExplanationSeedScheduler {
                 result.createdCount(),
                 result.failedCount(),
                 0,
-                result.hasFailureReason() ? "BATCH_FAILURE_REASON" : null,
                 result.failureReason(),
+                result.hasFailureReason() ? "AI daily QT verse explanation seed failed: " + result.failureReason() : null,
                 startedAt,
                 finishedAt
         );

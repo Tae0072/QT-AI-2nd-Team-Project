@@ -1,11 +1,14 @@
 package com.qtai.domain.ai.internal;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
@@ -14,7 +17,11 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 @Entity
+@EntityListeners(AuditingEntityListener.class)
 @Table(
         name = "ai_batch_run_logs",
         indexes = {
@@ -27,6 +34,13 @@ class AiBatchRunLog {
     private static final int ERROR_TYPE_MAX_LENGTH = 100;
     private static final int ERROR_MESSAGE_MAX_LENGTH = 1_000;
     private static final String REDACTED_ERROR_MESSAGE = "REDACTED_SENSITIVE_ERROR_MESSAGE";
+    private static final Pattern SENSITIVE_KEY_VALUE_PATTERN = Pattern.compile(
+            "(?i).*(?:^|[^a-z0-9_-])"
+                    + "(password|secret|private\\s+key|token|access[_-]?token|refresh[_-]?token|authorization|"
+                    + "api[-_ ]?key|apikey)"
+                    + "\\s*[:=].*"
+    );
+    private static final Pattern BEARER_TOKEN_PATTERN = Pattern.compile("(?i).*\\bbearer\\s+\\S+.*");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -61,8 +75,9 @@ class AiBatchRunLog {
     @Column(name = "finished_at", nullable = false)
     private OffsetDateTime finishedAt;
 
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt;
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
     protected AiBatchRunLog() {
     }
@@ -77,7 +92,6 @@ class AiBatchRunLog {
         this.errorMessage = normalizeErrorMessage(command.errorMessage());
         this.startedAt = Objects.requireNonNull(command.startedAt(), "startedAt must not be null");
         this.finishedAt = Objects.requireNonNull(command.finishedAt(), "finishedAt must not be null");
-        this.createdAt = this.finishedAt;
     }
 
     static AiBatchRunLog create(AiBatchRunLogCommand command) {
@@ -124,7 +138,7 @@ class AiBatchRunLog {
         return finishedAt;
     }
 
-    OffsetDateTime getCreatedAt() {
+    LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
@@ -141,13 +155,8 @@ class AiBatchRunLog {
 
     private static boolean containsSensitiveKeyword(String value) {
         String lowerValue = value.toLowerCase(Locale.ROOT);
-        return lowerValue.contains("password")
-                || lowerValue.contains("token")
-                || lowerValue.contains("secret")
-                || lowerValue.contains("private key")
-                || lowerValue.contains("authorization")
-                || lowerValue.contains("api-key")
-                || lowerValue.contains("apikey");
+        return SENSITIVE_KEY_VALUE_PATTERN.matcher(lowerValue).matches()
+                || BEARER_TOKEN_PATTERN.matcher(lowerValue).matches();
     }
 
     private static String blankToNull(String value) {

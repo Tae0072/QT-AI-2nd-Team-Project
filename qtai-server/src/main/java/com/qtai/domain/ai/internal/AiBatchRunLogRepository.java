@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 interface AiBatchRunLogRepository extends JpaRepository<AiBatchRunLog, Long> {
 
-    List<AiBatchRunLog> findByBatchNameOrderByCreatedAtDesc(AiBatchName batchName, Pageable pageable);
+    List<AiBatchRunLog> findByBatchNameOrderByCreatedAtDescIdDesc(AiBatchName batchName, Pageable pageable);
 
-    List<AiBatchRunLog> findByStatusOrderByCreatedAtDesc(AiBatchRunStatus status, Pageable pageable);
+    List<AiBatchRunLog> findByStatusOrderByCreatedAtDescIdDesc(AiBatchRunStatus status, Pageable pageable);
 }

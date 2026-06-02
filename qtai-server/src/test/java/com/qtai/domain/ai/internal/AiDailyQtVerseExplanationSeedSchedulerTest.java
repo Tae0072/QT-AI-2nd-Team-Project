@@ -100,8 +100,9 @@ class AiDailyQtVerseExplanationSeedSchedulerTest {
 
         AiBatchRunLogCommand command = captureMonitoringCommand(monitoringService);
         assertThat(command.status()).isEqualTo(AiBatchRunStatus.FAILED);
-        assertThat(command.errorType()).isEqualTo("BATCH_FAILURE_REASON");
-        assertThat(command.errorMessage()).isEqualTo("ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
+        assertThat(command.errorType()).isEqualTo("ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
+        assertThat(command.errorMessage())
+                .isEqualTo("AI daily QT verse explanation seed failed: ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
         assertThat(output).contains(
                 "AI daily QT verse explanation seed failed",
                 "reason=ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND"
