@@ -6,9 +6,11 @@ import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.note.api.GetNoteUseCase;
 import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
+import com.qtai.domain.sharing.api.DeleteSharingPostUseCase;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
 import com.qtai.domain.sharing.api.PublishNoteUseCase;
+import com.qtai.domain.sharing.api.SharingPostVisibilityUseCase;
 import com.qtai.domain.sharing.api.ToggleLikeUseCase;
 import com.qtai.domain.sharing.api.dto.LikeResponse;
 import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
@@ -25,6 +27,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -35,7 +38,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SharingPostService
-        implements ListSharingPostsUseCase, GetSharingPostUseCase, PublishNoteUseCase, ToggleLikeUseCase {
+        implements ListSharingPostsUseCase, GetSharingPostUseCase, PublishNoteUseCase, ToggleLikeUseCase,
+        DeleteSharingPostUseCase, SharingPostVisibilityUseCase {
 
     private static final int PREVIEW_LENGTH = 100;
 
@@ -163,6 +167,61 @@ public class SharingPostService
         postLikeRepository.deleteBySharingPostIdAndMemberId(postId, memberId);
         long count = postLikeRepository.countBySharingPostId(postId);
         post.syncLikeCount(count);
+    }
+
+    /**
+     * 나눔 게시글 삭제(F-10, 04 §4.4.6). 작성자 본인만, soft delete(status=DELETED), 멱등.
+     */
+    @Override
+    @Transactional
+    public void delete(Long memberId, Long postId) {
+        SharingPost post = findOwnedPost(memberId, postId);
+        if (post.getStatus() == SharingPostStatus.DELETED) {
+            return; // 이미 삭제됨 — 멱등
+        }
+        post.delete(LocalDateTime.now());
+    }
+
+    /**
+     * 나눔 게시글 공개 중단(F-10, 04 §4.4.6). 작성자 본인만, PUBLISHED→HIDDEN, 멱등.
+     * 삭제된 글이면 엔티티 hide()가 INVALID_STATUS_TRANSITION을 던진다.
+     */
+    @Override
+    @Transactional
+    public void hide(Long memberId, Long postId) {
+        SharingPost post = findOwnedPost(memberId, postId);
+        if (post.getStatus() == SharingPostStatus.HIDDEN) {
+            return; // 이미 숨김 — 멱등
+        }
+        post.hide(LocalDateTime.now());
+    }
+
+    /**
+     * 나눔 게시글 되돌리기(F-10, 04 §4.4.6). 작성자 본인만, HIDDEN→PUBLISHED, 멱등.
+     * 삭제된 글이면 엔티티 show()가 INVALID_STATUS_TRANSITION을 던진다.
+     */
+    @Override
+    @Transactional
+    public void show(Long memberId, Long postId) {
+        SharingPost post = findOwnedPost(memberId, postId);
+        if (post.getStatus() == SharingPostStatus.PUBLISHED) {
+            return; // 이미 공개 — 멱등
+        }
+        post.show();
+    }
+
+    /**
+     * 삭제·숨김·되돌리기 공통: 상태 무관 조회 + 작성자 본인 검증.
+     * 없는 글은 404(SHARING_POST_NOT_FOUND), 남의 글은 403(FORBIDDEN).
+     * PUBLISHED 한정 조회가 아니라 findById를 쓴다 — 숨김·삭제 상태도 본인 조작 대상이기 때문.
+     */
+    private SharingPost findOwnedPost(Long memberId, Long postId) {
+        SharingPost post = sharingPostRepository.findById(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHARING_POST_NOT_FOUND));
+        if (!post.getMemberId().equals(memberId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        return post;
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.qtai.domain.sharing.internal;
 
 import com.qtai.common.entity.BaseEntity;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -116,5 +118,38 @@ public class SharingPost extends BaseEntity {
      */
     public void syncCommentCount(long count) {
         this.commentCount = (int) count;
+    }
+
+    /**
+     * 나눔 게시글을 삭제한다(soft delete, 04 §4.4.6). {@code status=DELETED} + {@code deletedAt} 기록.
+     * PUBLISHED·HIDDEN 어느 상태에서도 삭제 가능하다. 이미 삭제된 글의 멱등 처리는 서비스가 담당한다.
+     */
+    public void delete(LocalDateTime now) {
+        this.status = SharingPostStatus.DELETED;
+        markDeletedAt(now);
+    }
+
+    /**
+     * 나눔 게시글을 숨긴다(공개 중단, 04 §4.4.6). PUBLISHED → HIDDEN, {@code hiddenAt} 기록.
+     * 삭제된(DELETED) 글은 숨길 수 없다. 이미 숨겨진 글의 멱등 처리는 서비스가 담당한다.
+     */
+    public void hide(LocalDateTime now) {
+        if (this.status == SharingPostStatus.DELETED) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
+        }
+        this.status = SharingPostStatus.HIDDEN;
+        this.hiddenAt = now;
+    }
+
+    /**
+     * 숨긴 게시글을 다시 공개한다(되돌리기, 04 §4.4.6). HIDDEN → PUBLISHED, {@code hiddenAt}을 비운다.
+     * 삭제된(DELETED) 글은 되돌릴 수 없다. 이미 공개 상태인 글의 멱등 처리는 서비스가 담당한다.
+     */
+    public void show() {
+        if (this.status == SharingPostStatus.DELETED) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
+        }
+        this.status = SharingPostStatus.PUBLISHED;
+        this.hiddenAt = null;
     }
 }
