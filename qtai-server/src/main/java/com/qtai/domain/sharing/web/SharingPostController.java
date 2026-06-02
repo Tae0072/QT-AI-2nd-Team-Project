@@ -3,9 +3,11 @@ package com.qtai.domain.sharing.web;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.sharing.api.DeleteSharingPostUseCase;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
 import com.qtai.domain.sharing.api.PublishNoteUseCase;
+import com.qtai.domain.sharing.api.SharingPostVisibilityUseCase;
 import com.qtai.domain.sharing.api.ToggleLikeUseCase;
 import com.qtai.domain.sharing.api.dto.LikeResponse;
 import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
@@ -21,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,6 +44,8 @@ public class SharingPostController {
     private final GetSharingPostUseCase getSharingPostUseCase;
     private final PublishNoteUseCase publishNoteUseCase;
     private final ToggleLikeUseCase toggleLikeUseCase;
+    private final DeleteSharingPostUseCase deleteSharingPostUseCase;
+    private final SharingPostVisibilityUseCase sharingPostVisibilityUseCase;
 
     @GetMapping("/api/v1/sharing-posts")
     public ApiResponse<SharingPostListResponse> list(
@@ -87,6 +92,38 @@ public class SharingPostController {
             @PathVariable("postId") Long postId) {
         Long authenticatedMemberId = requireMemberId(memberId);
         toggleLikeUseCase.unlike(authenticatedMemberId, postId);
+    }
+
+    // TODO: 관리자(ADMIN+OPERATOR) 강제 삭제·hide는 04 §4.4.6 — v1 범위 밖. 이후 admin 도메인에서 확장.
+
+    /** DELETE /api/v1/sharing-posts/{postId} — 작성자 본인이 나눔 글을 삭제(soft delete). */
+    @DeleteMapping("/api/v1/sharing-posts/{postId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable("postId") Long postId) {
+        Long authenticatedMemberId = requireMemberId(memberId);
+        deleteSharingPostUseCase.delete(authenticatedMemberId, postId);
+    }
+
+    /** PATCH /api/v1/sharing-posts/{postId}/hide — 작성자 본인이 나눔 글을 공개 중단(숨김). */
+    @PatchMapping("/api/v1/sharing-posts/{postId}/hide")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void hide(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable("postId") Long postId) {
+        Long authenticatedMemberId = requireMemberId(memberId);
+        sharingPostVisibilityUseCase.hide(authenticatedMemberId, postId);
+    }
+
+    /** PATCH /api/v1/sharing-posts/{postId}/show — 작성자 본인이 숨긴 글을 되돌리기(공개). */
+    @PatchMapping("/api/v1/sharing-posts/{postId}/show")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void show(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable("postId") Long postId) {
+        Long authenticatedMemberId = requireMemberId(memberId);
+        sharingPostVisibilityUseCase.show(authenticatedMemberId, postId);
     }
 
     private Long requireMemberId(Long memberId) {

@@ -3,12 +3,24 @@
 > **목표**: 나눔 쓰기(공개·좋아요·댓글) 백엔드 API 완성
 > **브랜치**: `feature/sharing-write` (최신 dev 기반, 한 브랜치 = 나눔 쓰기 묶음, 기능별 커밋)
 > **완료 기준**: 기능별 커밋 + 테스트 3종 + dev-console로 동작 눈 확인 → PR 1개
-> **최종 업데이트**: 2026-06-01 (공개·좋아요·댓글 3기능 코드+테스트+dev-console 완료 → 마무리·PR)
+> **최종 업데이트**: 2026-06-02 (공개·좋아요·댓글 #191 dev 머지 / 공유글 삭제·숨김·되돌리기 신규 완료 → PR)
 > **상세**: [workflows/2026-W3_상세-워크플로우.md](../workflows/2026-W3_상세-워크플로우.md) · [진행현황](../김지민_작업_진행현황.md)
 
 ---
 
-## ✅ 오늘(2026-06-01) 한 일 — 나눔 쓰기 3기능 완성
+## ✅ 오늘(2026-06-02) 한 일 — 공유글 삭제·숨김·되돌리기 (`feature/sharing-post-delete`)
+
+- **삭제** `DELETE /sharing-posts/{id}`: 작성자 본인만 soft delete(status=DELETED, deletedAt), 멱등.
+- **숨김** `PATCH /sharing-posts/{id}/hide`: PUBLISHED→HIDDEN(hiddenAt), 멱등.
+- **되돌리기** `PATCH /sharing-posts/{id}/show`: HIDDEN→PUBLISHED(hiddenAt=null), 멱등. **04에 없던 신규 API**(팀 상의로 v1 포함, §4.4.6에 추가).
+- **설계**: 엔티티 delete/hide/show(전이+검증, DELETED는 409) + 서비스 멱등 + `findOwnedPost` 헬퍼(조회+본인검증). 관리자 권한은 admin 도메인 이후(TODO).
+- **테스트** 16개(서비스10·컨트롤러6) + dev-console "나눔 글 관리" 섹션 + **Docker(MySQL)로 스모크 통과**(숨김/되돌리기/삭제 204, 타인 403, 없음 404, 삭제후숨김 409).
+- **착수 점검**: 어제 작업이 #191로 dev 머지됨 확인 → `feature/sharing-write`(21커밋 stale) 대신 origin/dev 최신 기반 새 브랜치.
+- **후속**: 04 SSoT는 gitignore 로컬 캐시만 갱신 → 문서저장소 별도 반영 필요(Lead). ERD `deleted_at` 불일치 02/04 정합 후보.
+
+---
+
+## ✅ 이전(2026-06-01) — 나눔 쓰기 3기능 (#191 dev 머지 완료)
 
 - **공개** `POST /notes/{id}/share`: ⑤ NoteController 배선 + 테스트 3종 + dev-console. (①~④는 5/29)
 - **좋아요** `POST·DELETE /sharing-posts/{id}/like`: COUNT 재계산·중복 409·취소 멱등 204. 컨트롤러 **지민 직접**. 테스트 11개. (화→월 당겨옴)
@@ -32,7 +44,9 @@
 
 | 작업 | 비고 |
 | --- | --- |
-| 공유글 삭제 `DELETE /sharing-posts/{id}` | W3 범위 밖 → 별도 작업으로 이월 |
+| ~~공유글 삭제~~ | ✅ 2026-06-02 완료 (삭제·숨김·되돌리기, `feature/sharing-post-delete`) |
+| 04 SSoT 문서저장소 반영 (show 추가) | Lead 상의 — gitignore 로컬 캐시만 갱신됨 |
+| 관리자(ADMIN+OPERATOR) 강제 삭제·숨김 | admin 도메인 담당 이후 (코드 TODO) |
 | 토큰공유(Share) 죽은코드 정리 | 강태오 결정 대기 |
 | 외부공유(Flutter, share_plus) | W4·디자인 확정 후 |
 
