@@ -15,6 +15,8 @@ tags:
     description: QT 본문에 연결된 승인 해설, 용어, 시뮬레이터 조회 API
   - name: Admin AI
     description: 관리자 웹이 AI 산출물과 검증 로그를 검토하는 운영 API
+  - name: Admin Audit
+    description: Admin audit log lookup API
   - name: System AI
     description: 시스템 배치가 AI 생성 작업, 산출물, 검증 로그를 접수하는 내부 운영 API
 paths:
@@ -526,6 +528,218 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/batch-run-logs:
+    get:
+      tags:
+        - Admin AI
+      operationId: listAdminAiBatchRunLogs
+      summary: Admin AI batch run log list
+      description: >
+        Lists stored AI batch run logs for the admin web. Requires ROLE_ADMIN and
+        one of ADMIN_ROLE_OPERATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+        This endpoint returns stored redacted error messages only and does not expose
+        raw provider responses or prompt text.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: batchName
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiBatchName"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiBatchRunStatus"
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2026-06-01"
+          description: KST date. Inclusive createdAt lower bound.
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2026-06-02"
+          description: KST date. Inclusive date converted to exclusive next-day boundary.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Admin AI batch run log list returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiBatchRunLogListApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/audit-logs:
+    get:
+      tags:
+        - Admin Audit
+      operationId: listAdminAuditLogs
+      summary: Admin AI review audit log list
+      description: >
+        Lists audit_logs rows for AI review and regeneration actions only. Requires
+        ROLE_ADMIN and one of ADMIN_ROLE_OPERATOR, ADMIN_ROLE_REVIEWER, or
+        ADMIN_ROLE_SUPER_ADMIN. If actionType or targetType is omitted, the query
+        defaults to the supported AI audit scope. This endpoint returns stored
+        sanitized beforeJson/afterJson snapshots only and does not create raw
+        prompt, provider response, payload, reason, secret, token, or password data.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: actorType
+          in: query
+          required: false
+          schema:
+            type: string
+            example: ADMIN
+        - name: actorId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: actionType
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiAuditActionType"
+        - name: targetType
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiAuditTargetType"
+        - name: targetId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2026-06-01"
+          description: KST date. Inclusive createdAt lower bound.
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2026-06-02"
+          description: KST date. Inclusive date converted to exclusive next-day boundary.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Admin audit log list returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogListApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/monitoring:
+    get:
+      tags:
+        - Admin AI
+      operationId: getAdminAiMonitoring
+      summary: Admin AI operational monitoring summary
+      description: >
+        Returns aggregated AI operational monitoring metrics for the admin web.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_OPERATOR, ADMIN_ROLE_REVIEWER,
+        or ADMIN_ROLE_SUPER_ADMIN. If from/to are omitted, the KST current date
+        is used as the default period. This endpoint does not expose raw asset
+        payloads, prompt text, provider responses, or unredacted secret values.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2026-06-02"
+          description: KST date. Inclusive lower bound. Defaults to KST today when omitted.
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2026-06-02"
+          description: KST date. Inclusive date converted to exclusive next-day boundary.
+      responses:
+        "200":
+          description: Admin AI monitoring summary returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiMonitoringApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/admin/ai/assets/{assetId}:
     get:
       tags:
@@ -559,6 +773,139 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/assets/{assetId}/approve:
+    post:
+      tags:
+        - Admin AI
+      operationId: approveAdminAiAsset
+      summary: Approve admin AI asset
+      description: >
+        Approves a VALIDATING AI asset after checking an ACTIVE validation checklist
+        and latest PASSED validation log. When activateForTarget is true and the asset
+        is EXPLANATION + BIBLE_VERSE, the approved explanation is published to
+        verse_explanations as the active user-visible row.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiAssetReviewRequest"
+      responses:
+        "200":
+          description: Admin AI asset approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiAssetReviewApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/assets/{assetId}/reject:
+    post:
+      tags:
+        - Admin AI
+      operationId: rejectAdminAiAsset
+      summary: Reject admin AI asset
+      description: Rejects a VALIDATING AI asset. This action does not publish user-visible content.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiAssetReviewRequest"
+      responses:
+        "200":
+          description: Admin AI asset rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiAssetReviewApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/assets/{assetId}/hide:
+    post:
+      tags:
+        - Admin AI
+      operationId: hideAdminAiAsset
+      summary: Hide admin AI asset
+      description: >
+        Hides a VALIDATING or APPROVED AI asset. When the asset is EXPLANATION + BIBLE_VERSE,
+        the published verse_explanations row linked to the asset is hidden and removed
+        from the active user-visible set.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiAssetReviewRequest"
+      responses:
+        "200":
+          description: Admin AI asset hidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiAssetReviewApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalServerError"
   /api/v1/admin/ai/validation-checklists:
@@ -1233,6 +1580,102 @@ components:
           format: date-time
         traceId:
           type: string
+    AdminAiAssetReviewApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/ReviewAiAssetResult"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiBatchRunLogListApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiBatchRunLogListResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AuditLogListApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AuditLogListResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiMonitoringApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiMonitoringResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
     AdminAiValidationChecklistListApiResponse:
       type: object
       required:
@@ -1322,6 +1765,422 @@ components:
           type: string
           enum:
             - createdAt,desc
+    AdminAiBatchRunLogListResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiBatchRunLogItem"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          enum:
+            - createdAt,desc,id,desc
+    AdminAiBatchRunLogItem:
+      type: object
+      required:
+        - id
+        - batchName
+        - status
+        - createdCount
+        - failedCount
+        - processedCount
+        - errorType
+        - errorMessage
+        - startedAt
+        - finishedAt
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        batchName:
+          $ref: "#/components/schemas/AiBatchName"
+        status:
+          $ref: "#/components/schemas/AiBatchRunStatus"
+        createdCount:
+          type: integer
+          format: int32
+          minimum: 0
+        failedCount:
+          type: integer
+          format: int32
+          minimum: 0
+        processedCount:
+          type: integer
+          format: int32
+          minimum: 0
+        errorType:
+          type: string
+          nullable: true
+          maxLength: 100
+          example: ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND
+        errorMessage:
+          type: string
+          nullable: true
+          maxLength: 1000
+          example: REDACTED_SENSITIVE_ERROR_MESSAGE
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    AuditLogListResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLogItem"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          enum:
+            - createdAt,desc,id,desc
+    AuditLogItem:
+      type: object
+      required:
+        - id
+        - adminUserId
+        - actorType
+        - actorId
+        - actorLabel
+        - actionType
+        - targetType
+        - targetId
+        - beforeJson
+        - afterJson
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        adminUserId:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 1
+        actorType:
+          type: string
+          example: ADMIN
+        actorId:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 1
+        actorLabel:
+          type: string
+          example: ADMIN:7
+        actionType:
+          $ref: "#/components/schemas/AiAuditActionType"
+        targetType:
+          $ref: "#/components/schemas/AiAuditTargetType"
+        targetId:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 1
+        beforeJson:
+          type: string
+          nullable: true
+          description: Stored sanitized audit snapshot.
+        afterJson:
+          type: string
+          nullable: true
+          description: Stored sanitized audit snapshot.
+        createdAt:
+          type: string
+          format: date-time
+    AdminAiMonitoringResponse:
+      type: object
+      required:
+        - period
+        - generationJobs
+        - validation
+        - batchRuns
+        - qa
+        - checklists
+      properties:
+        period:
+          $ref: "#/components/schemas/AdminAiMonitoringPeriod"
+        generationJobs:
+          $ref: "#/components/schemas/AdminAiMonitoringGenerationJobs"
+        validation:
+          $ref: "#/components/schemas/AdminAiMonitoringValidation"
+        batchRuns:
+          $ref: "#/components/schemas/AdminAiMonitoringBatchRuns"
+        qa:
+          $ref: "#/components/schemas/AdminAiMonitoringQa"
+        checklists:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiMonitoringChecklist"
+    AdminAiMonitoringPeriod:
+      type: object
+      required:
+        - from
+        - to
+        - timezone
+      properties:
+        from:
+          type: string
+          format: date
+          example: "2026-06-02"
+        to:
+          type: string
+          format: date
+          example: "2026-06-02"
+        timezone:
+          type: string
+          enum:
+            - Asia/Seoul
+    AdminAiMonitoringGenerationJobs:
+      type: object
+      required:
+        - queued
+        - running
+        - succeeded
+        - failed
+      properties:
+        queued:
+          type: integer
+          format: int64
+          minimum: 0
+        running:
+          type: integer
+          format: int64
+          minimum: 0
+        succeeded:
+          type: integer
+          format: int64
+          minimum: 0
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+    AdminAiMonitoringValidation:
+      type: object
+      required:
+        - waitingAssets
+        - passCount
+        - failCount
+        - needsReviewCount
+        - failureReasons
+      properties:
+        waitingAssets:
+          type: integer
+          format: int64
+          minimum: 0
+        passCount:
+          type: integer
+          format: int64
+          minimum: 0
+        failCount:
+          type: integer
+          format: int64
+          minimum: 0
+        needsReviewCount:
+          type: integer
+          format: int64
+          minimum: 0
+        failureReasons:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/AdminAiMonitoringFailureReason"
+    AdminAiMonitoringFailureReason:
+      type: object
+      required:
+        - resultCode
+        - count
+      properties:
+        resultCode:
+          type: string
+          example: SOURCE_MISSING
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+    AdminAiMonitoringBatchRuns:
+      type: object
+      required:
+        - succeeded
+        - partialFailed
+        - failed
+        - latestFailures
+      properties:
+        succeeded:
+          type: integer
+          format: int64
+          minimum: 0
+        partialFailed:
+          type: integer
+          format: int64
+          minimum: 0
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+        latestFailures:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/AdminAiMonitoringBatchRunFailure"
+    AdminAiMonitoringBatchRunFailure:
+      type: object
+      required:
+        - id
+        - batchName
+        - status
+        - errorType
+        - errorMessage
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        batchName:
+          $ref: "#/components/schemas/AiBatchName"
+        status:
+          $ref: "#/components/schemas/AiBatchRunStatus"
+        errorType:
+          type: string
+          nullable: true
+          maxLength: 100
+          example: ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND
+        errorMessage:
+          type: string
+          nullable: true
+          maxLength: 1000
+          example: REDACTED_SENSITIVE_ERROR_MESSAGE
+        createdAt:
+          type: string
+          format: date-time
+    AdminAiMonitoringQa:
+      type: object
+      required:
+        - requested
+        - answered
+        - blocked
+        - failed
+        - blockedReasons
+      properties:
+        requested:
+          type: integer
+          format: int64
+          minimum: 0
+        answered:
+          type: integer
+          format: int64
+          minimum: 0
+        blocked:
+          type: integer
+          format: int64
+          minimum: 0
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+        blockedReasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiMonitoringBlockedReason"
+    AdminAiMonitoringBlockedReason:
+      type: object
+      required:
+        - blockedReason
+        - count
+      properties:
+        blockedReason:
+          type: string
+          example: VALUE_JUDGMENT
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+    AdminAiMonitoringChecklist:
+      type: object
+      required:
+        - checklistType
+        - activeVersion
+        - passRate
+      properties:
+        checklistType:
+          $ref: "#/components/schemas/AiValidationChecklistType"
+        activeVersion:
+          type: string
+          example: "2026.06.1"
+        passRate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
     AdminAiValidationChecklistListResponse:
       type: object
       required:
@@ -1517,6 +2376,37 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminAiValidationLogItem"
+    AdminAiAssetReviewRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        checklistVersionId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+          description: Required for approve. Must point to an ACTIVE checklist matching the asset type.
+        reason:
+          type: string
+          minLength: 1
+          example: Verified against the active checklist.
+        activateForTarget:
+          type: boolean
+          nullable: true
+          default: false
+          description: Only approve uses this flag. true publishes EXPLANATION + BIBLE_VERSE assets.
+    ReviewAiAssetResult:
+      type: object
+      required:
+        - assetId
+        - status
+      properties:
+        assetId:
+          type: integer
+          format: int64
+        status:
+          $ref: "#/components/schemas/AiAssetStatus"
     AdminAiGenerationJobSummary:
       type: object
       required:
@@ -1675,6 +2565,28 @@ components:
         - DRAFT
         - ACTIVE
         - RETIRED
+    AiBatchName:
+      type: string
+      enum:
+        - AI_DAILY_QT_VERSE_EXPLANATION_SEED
+        - AI_GENERATION_WORKER_POLL
+    AiBatchRunStatus:
+      type: string
+      enum:
+        - SUCCEEDED
+        - PARTIAL_FAILED
+        - FAILED
+    AiAuditActionType:
+      type: string
+      enum:
+        - AI_ASSET_APPROVE
+        - AI_ASSET_REJECT
+        - AI_ASSET_HIDE
+        - AI_REGENERATE_REQUEST
+    AiAuditTargetType:
+      type: string
+      enum:
+        - AI_GENERATED_ASSET
     ValidationReferenceJobStatus:
       type: string
       enum:

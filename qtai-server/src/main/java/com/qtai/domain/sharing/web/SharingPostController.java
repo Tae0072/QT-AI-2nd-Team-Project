@@ -6,6 +6,8 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
 import com.qtai.domain.sharing.api.PublishNoteUseCase;
+import com.qtai.domain.sharing.api.ToggleLikeUseCase;
+import com.qtai.domain.sharing.api.dto.LikeResponse;
 import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.SharingPostResponse;
@@ -17,12 +19,13 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -37,6 +40,7 @@ public class SharingPostController {
     private final ListSharingPostsUseCase listSharingPostsUseCase;
     private final GetSharingPostUseCase getSharingPostUseCase;
     private final PublishNoteUseCase publishNoteUseCase;
+    private final ToggleLikeUseCase toggleLikeUseCase;
 
     @GetMapping("/api/v1/sharing-posts")
     public ApiResponse<SharingPostListResponse> list(
@@ -65,6 +69,24 @@ public class SharingPostController {
         Long authenticatedMemberId = requireMemberId(memberId);
         SharingPostResponse response = publishNoteUseCase.publish(authenticatedMemberId, noteId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
+    }
+
+    @PostMapping("/api/v1/sharing-posts/{postId}/like")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<LikeResponse> like(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable("postId") Long postId) {
+        Long authenticatedMemberId = requireMemberId(memberId);
+        return ApiResponse.success(toggleLikeUseCase.like(authenticatedMemberId, postId));
+    }
+
+    @DeleteMapping("/api/v1/sharing-posts/{postId}/like")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unlike(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable("postId") Long postId) {
+        Long authenticatedMemberId = requireMemberId(memberId);
+        toggleLikeUseCase.unlike(authenticatedMemberId, postId);
     }
 
     private Long requireMemberId(Long memberId) {

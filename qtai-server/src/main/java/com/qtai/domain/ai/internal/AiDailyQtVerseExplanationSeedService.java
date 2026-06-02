@@ -28,6 +28,7 @@ import com.qtai.domain.study.api.dto.ApprovedVerseExplanationResponse;
 class AiDailyQtVerseExplanationSeedService {
 
     private static final String SYSTEM_BATCH = "SYSTEM_BATCH";
+    private static final String ACTIVE_PROMPT_NOT_FOUND = "ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND";
 
     private final GetTodayQtUseCase getTodayQtUseCase;
     private final GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
@@ -76,8 +77,8 @@ class AiDailyQtVerseExplanationSeedService {
 
         AiPromptVersion promptVersion = latestActiveExplanationPromptVersion();
         if (promptVersion == null) {
-            log.warn("AI daily QT verse explanation seed skipped. reason=ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
-            return new AiDailyQtVerseExplanationSeedResult(0, 0);
+            log.warn("AI daily QT verse explanation seed skipped. reason={}", ACTIVE_PROMPT_NOT_FOUND);
+            return new AiDailyQtVerseExplanationSeedResult(0, 0, ACTIVE_PROMPT_NOT_FOUND);
         }
 
         Set<Long> skippedVerseIds = skippedVerseIds(verseIds);
@@ -97,6 +98,22 @@ class AiDailyQtVerseExplanationSeedService {
                         OffsetDateTime.now(clock)
                 ));
                 createdCount++;
+            } catch (BusinessException exception) {
+                if (exception.getErrorCode() == ErrorCode.INVALID_STATUS_TRANSITION) {
+                    log.info(
+                            "AI daily QT verse explanation seed skipped for verse. verseId={}, reason={}",
+                            verseId,
+                            "DUPLICATE_ACTIVE_GENERATION_JOB"
+                    );
+                    continue;
+                }
+                failedCount++;
+                log.warn(
+                        "AI daily QT verse explanation seed failed for verse. verseId={}, errorType={}, errorMessage={}",
+                        verseId,
+                        exception.getClass().getSimpleName(),
+                        exception.getMessage()
+                );
             } catch (RuntimeException exception) {
                 failedCount++;
                 log.warn(

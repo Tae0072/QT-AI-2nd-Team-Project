@@ -1,107 +1,78 @@
-# 진행 중 Todo — W2 목요일 마감 (B4까지 완료)
+# 진행 중 Todo — W3 나눔 쓰기 (공개·좋아요·댓글 완료 → PR)
 
-> **현재 브랜치**: `feature/sharing-posts`
-> **목표**: 나눔 조회(B3+B4) PR 생성 + 공지 발송 → 금요일 W3 시작
-> **최종 업데이트**: 2026-05-28 (목요일 마감, B4까지 완료)
+> **목표**: 나눔 쓰기(공개·좋아요·댓글) 백엔드 API 완성
+> **브랜치**: `feature/sharing-write` (최신 dev 기반, 한 브랜치 = 나눔 쓰기 묶음, 기능별 커밋)
+> **완료 기준**: 기능별 커밋 + 테스트 3종 + dev-console로 동작 눈 확인 → PR 1개
+> **최종 업데이트**: 2026-06-01 (공개·좋아요·댓글 3기능 코드+테스트+dev-console 완료 → 마무리·PR)
+> **상세**: [workflows/2026-W3_상세-워크플로우.md](../workflows/2026-W3_상세-워크플로우.md) · [진행현황](../김지민_작업_진행현황.md)
 
 ---
 
-## 진행 상황 한눈에
+## ✅ 오늘(2026-06-01) 한 일 — 나눔 쓰기 3기능 완성
 
-```
-[██████████████████████████████████████] W2 백엔드 B1~B4 완료 (49/49 = 100%)
+- **공개** `POST /notes/{id}/share`: ⑤ NoteController 배선 + 테스트 3종 + dev-console. (①~④는 5/29)
+- **좋아요** `POST·DELETE /sharing-posts/{id}/like`: COUNT 재계산·중복 409·취소 멱등 204. 컨트롤러 **지민 직접**. 테스트 11개. (화→월 당겨옴)
+- **댓글** `POST·GET /sharing-posts/{id}/comments` + `DELETE /comments/{id}`: 평면 댓글·body·댓글OFF 409·본인만 403·soft delete 멱등. CommentService/CommentController(**지민 직접**)/CommentRepository 신규. 테스트 16개. (목→월 당겨옴)
+- **공통**: dev-console에 공개/좋아요/댓글 3섹션. `ErrorCode.DUPLICATE_LIKE`(S0004). bootJar·compileTestJava 통과.
+- **⚠️ 테스트 로컬 CLI 실행 불가**(한글경로 인코딩) → CI 검증. 부팅은 `java -jar`로만.
 
-✅ 완료     ⏳ 대기     ⬜ 예정
-```
+---
 
-| W2 | 상태 |
+## ✅ 완료 — 나눔 쓰기 3기능 (`feature/sharing-write`)
+
+- [x] **공개** — PublishNoteRequest·existsByNoteId·SharingPost.publish·PublishNoteUseCase+publish·NoteController 배선 + 테스트 3종
+- [x] **좋아요** — ToggleLikeUseCase·LikeResponse·like/unlike·PostLike.of·syncLikeCount·레포 보강·SharingPostController + DUPLICATE_LIKE + 테스트 11
+- [x] **댓글** — Comment.of/markDeleted·syncCommentCount·CommentRepository·DTO 3·CommentUseCase·CommentService·CommentController + 테스트 16
+- [x] dev-console 3섹션(공개·좋아요·댓글)
+- [ ] (지민) dev-console로 공개·좋아요·댓글 눈 확인 (새 jar로 서버 재기동 후) — PR은 CI 검증이라 눈 확인이 막지 않음
+
+---
+
+## ⬜ 남은 작업 (별도)
+
+| 작업 | 비고 |
 | --- | --- |
-| 월(공휴일) | — |
-| 화(B1 GET /notes) | ✅ 완료 (PR #94 머지) |
-| 수(B2 POST /notes + 에러코드 개선) | ✅ 완료 (PR #123 머지) |
-| 목(04 반영 + B3 목록 + B4 상세) | ✅ 구현+테스트 완료, PR 대기 |
-| 금(원래 B4 계획) | ✅ 목요일에 당겨 완료 → 금요일은 PR·공지·W3 |
+| 공유글 삭제 `DELETE /sharing-posts/{id}` | W3 범위 밖 → 별도 작업으로 이월 |
+| 토큰공유(Share) 죽은코드 정리 | 강태오 결정 대기 |
+| 외부공유(Flutter, share_plus) | W4·디자인 확정 후 |
+
+> ❌ 신고(`POST /reports`)는 dev에 이미 완료(#140).
 
 ---
 
-## 오늘 완료한 항목
+## 매일 검증 루틴
 
-### ✅ 에러코드/DTO 분리 PR dev 머지 (#123)
-- 봇 리뷰 BLOCK 2회 대응(OpenAPI 분리 / 04 API 명세 에러코드 반영)
+1. 앱 dev 실행 (`spring.profiles.active=dev`)
+2. `http://localhost:8080/dev-console.html` → X-Dev-User-Id 입력 → 그날 버튼 → 응답 status·JSON
+3. `http://localhost:8080/h2-console` → 테이블 행 확인 (JDBC `jdbc:h2:mem:qtai;...;MODE=MYSQL`, sa, pw 빈값)
 
-### ✅ 04 API 명세 에러코드 반영 (강태오 협의)
-- §6.2 + §4.3.4 + §4.3.6에 N0004~N0007 반영
-- 리포트: `reports/2026-05-28_04-api-error-code-reflection_report.md`
-
-### ✅ B3 나눔 피드 목록 (GET /api/v1/sharing-posts, F-10)
-- 이승욱 협의 후 V13: `nickname_snapshot` + `snapshot_verse_label` 추가
-- DTO + Repository 2개 + Service + Controller
-- N+1 방지(likedByMe 배치) + 정렬 화이트리스트 + q 이스케이프 + category/q 필터
-- 테스트 11건
-
-### ✅ B4 나눔 상세 (GET /api/v1/sharing-posts/{postId}, F-10)
-- GetSharingPostUseCase + getDetail (404 + likedByMe + ownedByMe)
-- 상세 DTO(SharingPostResponse + VerseSnapshotDetail + VerseLine)
-- findByIdAndStatus(PUBLISHED만) → HIDDEN/DELETED/없는 글 404
-- verses[]는 빈 배열(v2 이관 — 07 §19.2, 이지윤·이승욱 영역)
-- 테스트 +6건 → 나눔 조회 전체 17건
-- 리포트: `reports/2026-05-28_B3-나눔피드-조회_리포트.md` (B3+B4)
+> ✅ dev-console.html 생성됨(공개·좋아요·댓글 3섹션). **`.gitignore` 처리**(개인 dev 도구라 PR 제외). dev 부팅은 `java -jar build/libs/*.jar --spring.profiles.active=dev` + JWT env(테스트 키).
 
 ---
 
-## 대기 항목
+## ⏸️ 막힌 것 / 의존성
 
-### ⏳ 나눔 조회 PR 생성 (B3+B4 한 PR)
-- 코드·테스트 완료. PR 본문 보강 후 생성. `feature/sharing-posts` 한 브랜치 = 나눔 조회 기능
-
-### ⏳ 팀 공지 3건 (미발송)
-- V13 DB 변경(#decisions) / 이승욱 발행로직 / 이지윤 신규파일 — 초안은 B3 리포트에 있음
-
----
-
-## 내일 (금요일) Quick Start
-
-### 1️⃣ 첫 명령
-
-```
-오늘 W3 금요일 시작
-```
-(W2 B1~B4는 끝. 금요일부터 W3)
-
-### 2️⃣ 내일 작업 목록
-
-| # | 작업 | 예상 |
-| --- | --- | --- |
-| 1 | 나눔 조회 PR(B3+B4) 본문 보강 + 생성 | 30분 |
-| 2 | 공지 3건 발송 | 10분 |
-| 3 | W2 마무리 자기 점검 + 주간 회고 | 30분 |
-| 4 | **W3 시작 — 브랜치 분리** | 본작업 |
-
-### 3️⃣ W3 브랜치 분리 계획 (한 브랜치 = 한 기능)
-
-| 브랜치 | 못다한 기능 |
+| 항목 | 상태 |
 | --- | --- |
-| `feature/note-*` | 노트 미완: 노트→나눔 공유(POST /notes/{id}/share §4.3.8), JournalEvent(이벤트 이력) 등 |
-| `feature/sharing-*` | 나눔 쓰기: publish / 좋아요(like) / 댓글(comment) — 전부 스켈레톤 |
-| (보류) | 토큰 공유(Share) 갈래 — 담당·우선순위 협의 필요 |
-
-> 인벤토리 상세는 B3 리포트 + 2026-05-28 스캔 결과 참조.
+| git 커밋/push/PR | 마무리 단계 — **push 전 dev pull→merge**(origin/dev 4커밋 뒤) 후 PR 1개. 사용자 동의 후 |
+| Flutter 디자인 확정 | 대기 — 확정돼야 화면 착수(외부공유 포함) |
+| 토큰공유(Share) 죽은코드 | 강태오 결정 대기 |
+| verses[] 다중 절 | v2 이관 |
 
 ---
 
-## 막힌 부분 / 다른 사람 의존성
+## 다음 세션 Quick Start
 
-### 1. 발행 로직(PublishNoteUseCase) 미구현
-- 나눔 피드에 실제 데이터가 쌓이려면 발행 흐름 필요 (W3 sharing 브랜치)
-- nickname_snapshot은 발행 시 반드시 채워야 함 (이승욱과 책임 공유)
-
-### 2. verses[] 다중 절 = v2
-- 절 본문 스냅샷 저장 구조 없음. 다중 절 선택은 v2(07 §19.2). 이지윤(절 데이터)·이승욱(설정) 협의 필요
+```
+오늘 W3 [요일] 시작
+```
+→ 나눔 쓰기 3기능 완료. 다음: **PR 처리** 또는 **공유글 삭제**(별도) 또는 **W4 Flutter**(디자인 확정 시).
 
 ---
 
 ## 참고 문서
-
-- 오늘 리포트(B3+B4): [reports/2026-05-28_B3-나눔피드-조회_리포트.md](../reports/2026-05-28_B3-나눔피드-조회_리포트.md)
-- 오늘 리포트(04 반영): [reports/2026-05-28_04-api-error-code-reflection_report.md](../reports/2026-05-28_04-api-error-code-reflection_report.md)
-- W2 워크플로우: [workflows/2026-W2_상세-워크플로우.md](../workflows/2026-W2_상세-워크플로우.md)
+- W3 워크플로우: [workflows/2026-W3_상세-워크플로우.md](../workflows/2026-W3_상세-워크플로우.md)
+- 진행현황: [김지민_작업_진행현황.md](../김지민_작업_진행현황.md)
+- 오늘 리포트: [reports/2026-05-29_W3착수-나눔공개-publish-문서정리_리포트.md](../reports/2026-05-29_W3착수-나눔공개-publish-문서정리_리포트.md)
+- 파일 레퍼런스: [reports/2026-05-28_note-sharing-파일레퍼런스_report.md](../reports/2026-05-28_note-sharing-파일레퍼런스_report.md)
+- API 계약: `doc/standards/04_API_명세서.md` §4.3.8·§4.4

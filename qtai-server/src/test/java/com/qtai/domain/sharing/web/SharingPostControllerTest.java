@@ -5,6 +5,10 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
+import com.qtai.domain.sharing.api.PublishNoteUseCase;
+import com.qtai.domain.sharing.api.ToggleLikeUseCase;
+import com.qtai.domain.sharing.api.dto.LikeResponse;
+import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.SharingPostResponse;
 import com.qtai.domain.sharing.api.dto.VerseSnapshotDetail;
@@ -30,7 +34,8 @@ class SharingPostControllerTest {
 
     private ListSharingPostsUseCase listSharingPostsUseCase;
     private GetSharingPostUseCase getSharingPostUseCase;
-    private com.qtai.domain.sharing.api.PublishNoteUseCase publishNoteUseCase;
+    private PublishNoteUseCase publishNoteUseCase;
+    private ToggleLikeUseCase toggleLikeUseCase;
     private SharingPostController controller;
     private Pageable pageable;
 
@@ -38,8 +43,10 @@ class SharingPostControllerTest {
     void setUp() {
         listSharingPostsUseCase = mock(ListSharingPostsUseCase.class);
         getSharingPostUseCase = mock(GetSharingPostUseCase.class);
-        publishNoteUseCase = mock(com.qtai.domain.sharing.api.PublishNoteUseCase.class);
-        controller = new SharingPostController(listSharingPostsUseCase, getSharingPostUseCase, publishNoteUseCase);
+        publishNoteUseCase = mock(PublishNoteUseCase.class);
+        toggleLikeUseCase = mock(ToggleLikeUseCase.class);
+        controller = new SharingPostController(
+                listSharingPostsUseCase, getSharingPostUseCase, publishNoteUseCase, toggleLikeUseCase);
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishedAt"));
     }
 
@@ -96,39 +103,61 @@ class SharingPostControllerTest {
         verify(getSharingPostUseCase, never()).getDetail(any(), any());
     }
 
-    // ── publish 테스트 ──
-
     @Test
-    @DisplayName("publish — 정상 요청 시 201 반환")
-    void publish_정상() {
-        Long memberId = 1L;
-        Long noteId = 10L;
-        com.qtai.domain.sharing.api.dto.PublishNoteRequest request =
-                new com.qtai.domain.sharing.api.dto.PublishNoteRequest(true, true);
+    @DisplayName("공개는 인증된 memberId·noteId·요청을 UseCase로 위임하고 201로 응답한다")
+    void publish_delegates() {
+        SharingPostResponse stub = new SharingPostResponse(
+                300L, 200L, 1L, "하늘QT", "오늘의 묵상", "본문", "MEDITATION",
+                null, true, null, "PUBLISHED", 0, 0, false, true, null, null, null);
+        when(publishNoteUseCase.publish(eq(1L), eq(200L), any())).thenReturn(stub);
 
-        SharingPostResponse expected = new SharingPostResponse(
-                1L, noteId, memberId, "닉네임", "제목", "본문", "MEDITATION",
-                new com.qtai.domain.sharing.api.dto.VerseSnapshotDetail(null, List.of()),
-                true, null, "PUBLISHED", 0, 0, false, true, null, null, null);
-
-        when(publishNoteUseCase.publish(memberId, noteId, request)).thenReturn(expected);
-
-        org.springframework.http.ResponseEntity<com.qtai.common.dto.ApiResponse<SharingPostResponse>> response =
-                controller.publish(memberId, noteId, request);
+        var response = controller.publish(1L, 200L, new PublishNoteRequest(true, true));
 
         assertThat(response.getStatusCode().value()).isEqualTo(201);
-        assertThat(response.getBody().data().titleSnapshot()).isEqualTo("제목");
+        assertThat(response.getBody().data()).isSameAs(stub);
+        verify(publishNoteUseCase).publish(eq(1L), eq(200L), any());
     }
 
     @Test
-    @DisplayName("publish — memberId null이면 UNAUTHORIZED")
-    void publish_memberIdNull_rejected() {
-        com.qtai.domain.sharing.api.dto.PublishNoteRequest request =
-                new com.qtai.domain.sharing.api.dto.PublishNoteRequest(true, true);
+    @DisplayName("좋아요는 인증된 memberId·postId를 UseCase로 위임하고 LikeResponse를 감싸 반환한다(201)")
+    void like_delegates() {
+        LikeResponse expected = new LikeResponse(1L, true);
+        when(toggleLikeUseCase.like(eq(1L), eq(300L))).thenReturn(expected);
 
-        assertThatThrownBy(() -> controller.publish(null, 10L, request))
+        ApiResponse<LikeResponse> response = controller.like(1L, 300L);
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.data()).isSameAs(expected);
+        verify(toggleLikeUseCase).like(eq(1L), eq(300L));
+    }
+
+    @Test
+    @DisplayName("좋아요는 memberId가 없으면 UNAUTHORIZED로 거부한다")
+    void like_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.like(null, 300L))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(toggleLikeUseCase, never()).like(any(), any());
+    }
+
+    @Test
+    @DisplayName("좋아요 취소는 인증된 memberId·postId를 UseCase로 위임한다(void/204)")
+    void unlike_delegates() {
+        controller.unlike(1L, 300L);
+
+        verify(toggleLikeUseCase).unlike(eq(1L), eq(300L));
+    }
+
+    @Test
+    @DisplayName("좋아요 취소도 memberId가 없으면 UNAUTHORIZED로 거부한다")
+    void unlike_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.unlike(null, 300L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(toggleLikeUseCase, never()).unlike(any(), any());
     }
 }

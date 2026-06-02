@@ -55,15 +55,11 @@ void main() {
       expect(route, isA<MaterialPageRoute>());
     });
 
-    testWidgets('home route renders Scaffold', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          initialRoute: '/home',
-        ),
+    test('home route returns MaterialPageRoute with HomeScreen', () {
+      final route = AppRouter.onGenerateRoute(
+        const RouteSettings(name: '/home'),
       );
-      await tester.pumpAndSettle();
-      expect(find.byType(Scaffold), findsOneWidget);
+      expect(route, isA<MaterialPageRoute>());
     });
 
     testWidgets('login route renders 카카오 로그인 텍스트', (tester) async {

@@ -65,11 +65,10 @@ class AiServiceTest {
     @Test
     void createAiGenerationJobCreatesQueuedJobWithPromptVersionId() {
         when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                3L,
                 ACTIVE_STATUSES
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class))).thenAnswer(invocation -> {
@@ -96,11 +95,10 @@ class AiServiceTest {
     @Test
     void createAiGenerationJobBlocksQueuedOrRunningDuplicateByPromptVersionId() {
         when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                3L,
                 ACTIVE_STATUSES
         )).thenReturn(true);
 
@@ -111,13 +109,28 @@ class AiServiceTest {
     }
 
     @Test
-    void createAiGenerationJobMapsUniqueConstraintRaceToStatusTransitionError() {
-        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
+    void createAiGenerationJobBlocksQueuedOrRunningDuplicateByTargetRegardlessOfPromptVersionId() {
+        when(promptVersionRepository.findById(4L)).thenReturn(Optional.of(promptVersion(4L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                3L,
+                ACTIVE_STATUSES
+        )).thenReturn(true);
+
+        assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand(4L)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
+    }
+
+    @Test
+    void createAiGenerationJobMapsUniqueConstraintRaceToStatusTransitionError() {
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.QT_PASSAGE,
+                35L,
                 ACTIVE_STATUSES
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class)))
@@ -130,13 +143,30 @@ class AiServiceTest {
     }
 
     @Test
-    void createAiGenerationJobDoesNotMapUnrelatedDataIntegrityViolation() {
+    void createAiGenerationJobMapsActiveTargetUniqueConstraintRaceToStatusTransitionError() {
         when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                3L,
+                ACTIVE_STATUSES
+        )).thenReturn(false);
+        when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "Duplicate entry for key 'uk_ai_generation_jobs_active_target'"));
+
+        assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand()))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+    }
+
+    @Test
+    void createAiGenerationJobDoesNotMapUnrelatedDataIntegrityViolation() {
+        when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.QT_PASSAGE,
+                35L,
                 ACTIVE_STATUSES
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class)))
@@ -253,11 +283,10 @@ class AiServiceTest {
         AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.REJECTED);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
         when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                3L,
                 ACTIVE_STATUSES
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class))).thenAnswer(invocation -> {
@@ -287,11 +316,10 @@ class AiServiceTest {
         setId(asset, 500L);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
         when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                3L,
                 ACTIVE_STATUSES
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class))).thenAnswer(invocation -> {
@@ -380,11 +408,10 @@ class AiServiceTest {
         AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.REJECTED);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
         when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                3L,
                 ACTIVE_STATUSES
         )).thenReturn(true);
 
@@ -396,15 +423,33 @@ class AiServiceTest {
     }
 
     @Test
+    void existingQueuedOrRunningJobBlocksDuplicateRegenerationRegardlessOfPromptVersionId() {
+        AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.REJECTED);
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+        when(promptVersionRepository.findById(4L)).thenReturn(Optional.of(promptVersion(4L, AiPromptType.EXPLANATION)));
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                1001L,
+                ACTIVE_STATUSES
+        )).thenReturn(true);
+
+        assertThatThrownBy(() -> aiService.regenerateAiAsset(adminCommand("REVIEWER", 4L)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
+    }
+
+    @Test
     void regenerateAiAssetMapsUniqueConstraintRaceToStatusTransitionError() {
         AiGeneratedAsset asset = assetWithStatus(AiGeneratedAssetStatus.REJECTED);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
         when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
-        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndPromptVersionIdAndStatusIn(
+        when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.BIBLE_VERSE,
                 1001L,
-                3L,
                 ACTIVE_STATUSES
         )).thenReturn(false);
         when(generationJobRepository.saveAndFlush(any(AiGenerationJob.class)))
@@ -483,6 +528,17 @@ class AiServiceTest {
         return createJobCommand("EXPLANATION", "QT_PASSAGE");
     }
 
+    private static CreateAiGenerationJobCommand createJobCommand(Long promptVersionId) {
+        return new CreateAiGenerationJobCommand(
+                "EXPLANATION",
+                "QT_PASSAGE",
+                35L,
+                promptVersionId,
+                "SYSTEM_BATCH",
+                CREATED_AT
+        );
+    }
+
     private static CreateAiGenerationJobCommand createJobCommand(String jobType, String targetType) {
         return new CreateAiGenerationJobCommand(
                 jobType,
@@ -495,13 +551,21 @@ class AiServiceTest {
     }
 
     private static RegenerateAiAssetCommand command(String memberRole, String adminRole) {
+        return command(memberRole, adminRole, 3L);
+    }
+
+    private static RegenerateAiAssetCommand adminCommand(String adminRole, Long promptVersionId) {
+        return command("ADMIN", adminRole, promptVersionId);
+    }
+
+    private static RegenerateAiAssetCommand command(String memberRole, String adminRole, Long promptVersionId) {
         return new RegenerateAiAssetCommand(
                 7L,
                 500L,
                 memberRole,
                 adminRole,
                 "regenerate reason",
-                3L,
+                promptVersionId,
                 CREATED_AT
         );
     }
