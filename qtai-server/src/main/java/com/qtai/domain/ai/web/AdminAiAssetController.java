@@ -29,12 +29,15 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.ai.api.GetAdminAiAssetUseCase;
 import com.qtai.domain.ai.api.ListAdminAiAssetsUseCase;
 import com.qtai.domain.ai.api.RegenerateAiAssetUseCase;
+import com.qtai.domain.ai.api.ReviewAiAssetUseCase;
 import com.qtai.domain.ai.api.dto.AdminAiAssetDetailResponse;
 import com.qtai.domain.ai.api.dto.AdminAiAssetListResponse;
 import com.qtai.domain.ai.api.dto.GetAdminAiAssetQuery;
 import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetCommand;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
+import com.qtai.domain.ai.api.dto.ReviewAiAssetCommand;
+import com.qtai.domain.ai.api.dto.ReviewAiAssetResult;
 
 @RestController
 @RequestMapping("/api/v1/admin/ai/assets")
@@ -43,26 +46,36 @@ public class AdminAiAssetController {
     private final RegenerateAiAssetUseCase regenerateAiAssetUseCase;
     private final ListAdminAiAssetsUseCase listAdminAiAssetsUseCase;
     private final GetAdminAiAssetUseCase getAdminAiAssetUseCase;
+    private final ReviewAiAssetUseCase reviewAiAssetUseCase;
     private final Clock clock;
 
     @org.springframework.beans.factory.annotation.Autowired
     public AdminAiAssetController(
             RegenerateAiAssetUseCase regenerateAiAssetUseCase,
             ListAdminAiAssetsUseCase listAdminAiAssetsUseCase,
-            GetAdminAiAssetUseCase getAdminAiAssetUseCase
+            GetAdminAiAssetUseCase getAdminAiAssetUseCase,
+            ReviewAiAssetUseCase reviewAiAssetUseCase
     ) {
-        this(regenerateAiAssetUseCase, listAdminAiAssetsUseCase, getAdminAiAssetUseCase, Clock.systemDefaultZone());
+        this(
+                regenerateAiAssetUseCase,
+                listAdminAiAssetsUseCase,
+                getAdminAiAssetUseCase,
+                reviewAiAssetUseCase,
+                Clock.systemDefaultZone()
+        );
     }
 
     AdminAiAssetController(
             RegenerateAiAssetUseCase regenerateAiAssetUseCase,
             ListAdminAiAssetsUseCase listAdminAiAssetsUseCase,
             GetAdminAiAssetUseCase getAdminAiAssetUseCase,
+            ReviewAiAssetUseCase reviewAiAssetUseCase,
             Clock clock
     ) {
         this.regenerateAiAssetUseCase = regenerateAiAssetUseCase;
         this.listAdminAiAssetsUseCase = listAdminAiAssetsUseCase;
         this.getAdminAiAssetUseCase = getAdminAiAssetUseCase;
+        this.reviewAiAssetUseCase = reviewAiAssetUseCase;
         this.clock = clock;
     }
 
@@ -92,6 +105,54 @@ public class AdminAiAssetController {
         ));
 
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/{assetId}/approve")
+    public ResponseEntity<ApiResponse<ReviewAiAssetResult>> approve(
+            @PathVariable("assetId") Long assetId,
+            Authentication authentication,
+            @RequestBody(required = false) AdminAiAssetReviewRequest request
+    ) {
+        ReviewAiAssetResult result = reviewAiAssetUseCase.reviewAiAsset(reviewCommand(
+                assetId,
+                authentication,
+                "APPROVE",
+                request,
+                request != null && Boolean.TRUE.equals(request.activateForTarget())
+        ));
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @PostMapping("/{assetId}/reject")
+    public ResponseEntity<ApiResponse<ReviewAiAssetResult>> reject(
+            @PathVariable("assetId") Long assetId,
+            Authentication authentication,
+            @RequestBody(required = false) AdminAiAssetReviewRequest request
+    ) {
+        ReviewAiAssetResult result = reviewAiAssetUseCase.reviewAiAsset(reviewCommand(
+                assetId,
+                authentication,
+                "REJECT",
+                request,
+                false
+        ));
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @PostMapping("/{assetId}/hide")
+    public ResponseEntity<ApiResponse<ReviewAiAssetResult>> hide(
+            @PathVariable("assetId") Long assetId,
+            Authentication authentication,
+            @RequestBody(required = false) AdminAiAssetReviewRequest request
+    ) {
+        ReviewAiAssetResult result = reviewAiAssetUseCase.reviewAiAsset(reviewCommand(
+                assetId,
+                authentication,
+                "HIDE",
+                request,
+                false
+        ));
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     @GetMapping("/{assetId}")
@@ -138,7 +199,7 @@ public class AdminAiAssetController {
     ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
         HttpStatus status = switch (exception.getErrorCode()) {
             case FORBIDDEN -> HttpStatus.FORBIDDEN;
-            case AI_ASSET_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case AI_ASSET_NOT_FOUND, CHECKLIST_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case INVALID_STATUS_TRANSITION -> HttpStatus.CONFLICT;
             case INVALID_INPUT -> HttpStatus.BAD_REQUEST;
             case UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
@@ -148,6 +209,27 @@ public class AdminAiAssetController {
         return ResponseEntity
                 .status(status)
                 .body(ApiResponse.error(errorCode.getCode(), errorCode.getMessage()));
+    }
+
+    private ReviewAiAssetCommand reviewCommand(
+            Long assetId,
+            Authentication authentication,
+            String action,
+            AdminAiAssetReviewRequest request,
+            boolean activateForTarget
+    ) {
+        AdminAuthentication adminAuthentication = requireAdminAuthentication(authentication);
+        return new ReviewAiAssetCommand(
+                adminAuthentication.adminId(),
+                assetId,
+                adminAuthentication.memberRole(),
+                adminAuthentication.adminRole(),
+                action,
+                request == null ? null : request.checklistVersionId(),
+                request == null ? null : request.reason(),
+                activateForTarget,
+                OffsetDateTime.now(clock)
+        );
     }
 
     private static AdminAuthentication requireAdminAuthentication(Authentication requestAuthentication) {
@@ -211,6 +293,13 @@ public class AdminAiAssetController {
             Long adminId,
             String memberRole,
             String adminRole
+    ) {
+    }
+
+    record AdminAiAssetReviewRequest(
+            Long checklistVersionId,
+            String reason,
+            Boolean activateForTarget
     ) {
     }
 }

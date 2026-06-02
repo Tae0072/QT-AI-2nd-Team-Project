@@ -20,14 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>GET /passages/{id}      → 특정 QT 본문 조회 (GetTodayQtUseCase) — F-01</li>
  * </ul>
  *
- * <p>TODO (후속 PR):
- * <ul>
- *   <li>POST   /        → 작성 (CreateQtUseCase)</li>
- *   <li>GET    /{id}    → 사용자 QT 단건 조회 (GetQtUseCase)</li>
- *   <li>GET    /my      → 내 목록 (ListMyQtUseCase)</li>
- *   <li>PUT    /{id}    → 수정 (UpdateQtUseCase)</li>
- *   <li>DELETE /{id}    → 삭제 (DeleteQtUseCase)</li>
- * </ul>
+ * <p>참고: 사용자 묵상 기록(작성/수정/삭제)은 note 도메인(MEDITATION 등 /api/v1/notes)이 담당한다.
  */
 @RestController
 @RequestMapping("/api/v1/qt")
@@ -35,8 +28,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class QtController {
 
     private final GetTodayQtUseCase getTodayQtUseCase;
-
-    // TODO: CreateQtUseCase, GetQtUseCase, ListMyQtUseCase, UpdateQtUseCase, DeleteQtUseCase (후속 PR)
 
     /**
      * 오늘의 QT 본문 조회. (F-01)

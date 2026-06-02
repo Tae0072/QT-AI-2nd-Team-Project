@@ -1,0 +1,180 @@
+package com.qtai.domain.audit.internal;
+
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
+import java.util.List;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.audit.api.ListAuditUseCase;
+import com.qtai.domain.audit.api.dto.AuditLogItem;
+import com.qtai.domain.audit.api.dto.AuditLogListResponse;
+import com.qtai.domain.audit.api.dto.ListAuditQuery;
+
+@Service
+class AuditQueryService implements ListAuditUseCase {
+
+    private static final ZoneId SEOUL_ZONE = ZoneId.of("Asia/Seoul");
+    private static final String SORT = "createdAt,desc,id,desc";
+    private static final String AI_TARGET_TYPE = "AI_GENERATED_ASSET";
+    private static final List<String> AI_ACTION_TYPES = List.of(
+            "AI_ASSET_APPROVE",
+            "AI_ASSET_REJECT",
+            "AI_ASSET_HIDE",
+            "AI_REGENERATE_REQUEST"
+    );
+    private static final int MAX_PAGE_SIZE = 100;
+
+    private final AuditQueryRepository repository;
+
+    AuditQueryService(AuditQueryRepository repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AuditLogListResponse listAuditLogs(ListAuditQuery query) {
+        requireValidBaseQuery(query);
+        requireAuthorizedAuditRole(query.memberRole(), query.adminRole());
+
+        String targetType = resolveTargetType(query.targetType());
+        List<String> actionTypes = resolveActionTypes(query.actionType());
+        LocalDate fromDate = parseDate(query.from(), "from");
+        LocalDate toDate = parseDate(query.to(), "to");
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "from must not be after to");
+        }
+        OffsetDateTime fromCreatedAt = fromDate == null
+                ? null
+                : fromDate.atStartOfDay(SEOUL_ZONE).toOffsetDateTime();
+        OffsetDateTime toCreatedAtExclusive = toDate == null
+                ? null
+                : toDate.plusDays(1).atStartOfDay(SEOUL_ZONE).toOffsetDateTime();
+
+        AuditQueryRepository.AuditLogPage page = repository.findAll(
+                new AuditQueryRepository.Filter(
+                        blankToNull(query.actorType()),
+                        query.actorId(),
+                        actionTypes,
+                        targetType,
+                        query.targetId(),
+                        fromCreatedAt,
+                        toCreatedAtExclusive
+                ),
+                PageRequest.of(query.page(), query.size(), Sort.by(Sort.Direction.DESC, "createdAt", "id"))
+        );
+        int totalPages = totalPages(page.totalElements(), query.size());
+
+        return new AuditLogListResponse(
+                page.content().stream()
+                        .map(AuditQueryService::toItem)
+                        .toList(),
+                query.page(),
+                query.size(),
+                page.totalElements(),
+                totalPages,
+                query.page() == 0,
+                totalPages == 0 || query.page() >= totalPages - 1,
+                SORT
+        );
+    }
+
+    private static AuditLogItem toItem(AuditQueryRepository.AuditLogRow row) {
+        return new AuditLogItem(
+                row.id(),
+                row.adminUserId(),
+                row.actorType(),
+                row.actorId(),
+                row.actorLabel(),
+                row.actionType(),
+                row.targetType(),
+                row.targetId(),
+                row.beforeJson(),
+                row.afterJson(),
+                row.createdAt().atZoneSameInstant(SEOUL_ZONE).toOffsetDateTime()
+        );
+    }
+
+    private static void requireValidBaseQuery(ListAuditQuery query) {
+        if (query == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "query must not be null");
+        }
+        requirePositive(query.adminId(), "adminId");
+        requireText(query.memberRole(), "memberRole");
+        requireText(query.adminRole(), "adminRole");
+        if (query.page() < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "page must not be negative");
+        }
+        if (query.size() < 1 || query.size() > MAX_PAGE_SIZE) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "size must be between 1 and 100");
+        }
+    }
+
+    private static void requireAuthorizedAuditRole(String memberRole, String adminRole) {
+        if (!"ADMIN".equals(memberRole)
+                || !List.of("OPERATOR", "REVIEWER", "SUPER_ADMIN").contains(adminRole)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    private static List<String> resolveActionTypes(String actionType) {
+        if (actionType == null || actionType.isBlank()) {
+            return AI_ACTION_TYPES;
+        }
+        if (!AI_ACTION_TYPES.contains(actionType)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "actionType is not supported");
+        }
+        return List.of(actionType);
+    }
+
+    private static String resolveTargetType(String targetType) {
+        if (targetType == null || targetType.isBlank()) {
+            return AI_TARGET_TYPE;
+        }
+        if (!AI_TARGET_TYPE.equals(targetType)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "targetType is not supported");
+        }
+        return targetType;
+    }
+
+    private static LocalDate parseDate(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(value);
+        } catch (DateTimeParseException exception) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, fieldName + " must be yyyy-MM-dd");
+        }
+    }
+
+    private static int totalPages(long totalElements, int size) {
+        if (totalElements == 0) {
+            return 0;
+        }
+        return (int) Math.ceil((double) totalElements / size);
+    }
+
+    private static void requirePositive(Long value, String fieldName) {
+        if (value == null || value <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, fieldName + " must be positive");
+        }
+    }
+
+    private static void requireText(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, fieldName + " must not be blank");
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+}
