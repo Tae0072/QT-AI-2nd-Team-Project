@@ -9,9 +9,12 @@ import jakarta.validation.constraints.Positive;
 public record ReviewAiAssetCommand(
         @NotNull @Positive Long reviewerId,
         @NotNull @Positive Long assetId,
+        @NotBlank String memberRole,
+        @NotBlank String adminRole,
         @NotBlank String action,
         Long checklistVersionId,
         String reason,
+        boolean activateForTarget,
         @NotNull OffsetDateTime reviewedAt
 ) {
 }
