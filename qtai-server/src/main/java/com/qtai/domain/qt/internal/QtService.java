@@ -90,7 +90,8 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 "MISSING",    // simulatorStatus: 시뮬레이터 도메인 연동 전 기본값
                 false,        // hasExplanation: AI 해설 도메인 연동 전 기본값
                 draftNoteId,
-                "HIT"
+                "HIT",
+                resolveRange(passage)
         );
     }
 
@@ -157,7 +158,36 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 base.simulatorStatus(),
                 base.hasExplanation(),
                 draftNoteId,
-                base.cacheStatus()
+                base.cacheStatus(),
+                base.range()
         );
+    }
+
+    private com.qtai.domain.qt.api.dto.TodayQtRangeResponse resolveRange(QtPassage passage) {
+        var range = qtPassageRepository.findRangeByQtPassageId(passage.getId());
+        if (range == null) {
+            return null;
+        }
+        return range
+                .map(view -> {
+                    Integer chapter = toInteger(view.getChapter());
+                    Integer verseFrom = toInteger(view.getVerseFrom());
+                    Integer verseTo = toInteger(view.getVerseTo());
+                    return new com.qtai.domain.qt.api.dto.TodayQtRangeResponse(
+                            view.getTestament(),
+                            view.getBookCode(),
+                            view.getKoreanBookName(),
+                            view.getEnglishBookName(),
+                            chapter,
+                            verseFrom,
+                            verseTo,
+                            view.getKoreanBookName() + " " + chapter + ":" + verseFrom + "-" + verseTo
+                    );
+                })
+                .orElse(null);
+    }
+
+    private Integer toInteger(Short value) {
+        return value == null ? null : value.intValue();
     }
 }

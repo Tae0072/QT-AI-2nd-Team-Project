@@ -1,6 +1,7 @@
 package com.qtai.domain.qt.internal;
 
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
+import com.qtai.domain.qt.api.dto.TodayQtRangeResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -81,7 +82,8 @@ class QtPassageLookup {
                 "MISSING",    // simulatorStatus: 시뮬레이터 도메인 연동 전 기본값
                 false,        // hasExplanation: AI 해설 도메인 연동 전 기본값
                 null,         // draftNoteId: QtService에서 enrich
-                cacheStatus
+                cacheStatus,
+                resolveRange(passage)
         );
     }
 
@@ -91,5 +93,36 @@ class QtPassageLookup {
 
     private TodayQtResponse emptyResponse(String cacheStatus) {
         return new TodayQtResponse(null, null, null, "DISABLED", false, null, cacheStatus);
+    }
+
+    private TodayQtRangeResponse resolveRange(QtPassage passage) {
+        var range = qtPassageRepository.findRangeByQtPassageId(passage.getId());
+        if (range == null) {
+            return null;
+        }
+        return range
+                .map(this::toRangeResponse)
+                .orElse(null);
+    }
+
+    private TodayQtRangeResponse toRangeResponse(QtPassageRangeView view) {
+        Integer chapter = toInteger(view.getChapter());
+        Integer verseFrom = toInteger(view.getVerseFrom());
+        Integer verseTo = toInteger(view.getVerseTo());
+        String displayText = view.getKoreanBookName() + " " + chapter + ":" + verseFrom + "-" + verseTo;
+        return new TodayQtRangeResponse(
+                view.getTestament(),
+                view.getBookCode(),
+                view.getKoreanBookName(),
+                view.getEnglishBookName(),
+                chapter,
+                verseFrom,
+                verseTo,
+                displayText
+        );
+    }
+
+    private Integer toInteger(Short value) {
+        return value == null ? null : value.intValue();
     }
 }

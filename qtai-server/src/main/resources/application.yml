@@ -63,6 +63,12 @@ qtai:
   validation:
     restricted-storage-root: ${QTAI_RESTRICTED_STORAGE_ROOT:./restricted}
 
+qt:
+  today-source:
+    sum:
+      enabled: ${QT_TODAY_SUM_ENABLED:true}
+      url: ${QT_TODAY_SUM_URL:https://sum.su.or.kr:8888/bible/today}
+
 server:
   servlet:
     encoding:

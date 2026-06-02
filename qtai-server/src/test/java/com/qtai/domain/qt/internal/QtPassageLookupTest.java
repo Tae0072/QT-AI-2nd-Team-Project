@@ -56,7 +56,9 @@ class QtPassageLookupTest {
 
             LocalDate today = LocalDate.of(2026, 5, 28);
             QtPassage passage = createPassage(1L, today, "하나님이 세상을 이처럼 사랑하사");
+            QtPassageRangeView range = range("OLD", "GEN", "창세기", "Genesis", (short) 1, (short) 1, (short) 5);
             when(repo.findByQtDate(today)).thenReturn(Optional.of(passage));
+            when(repo.findRangeByQtPassageId(1L)).thenReturn(Optional.of(range));
 
             // when
             TodayQtResponse response = lookup.findTodayPassage();
@@ -69,6 +71,10 @@ class QtPassageLookupTest {
             assertThat(response.simulatorStatus()).isEqualTo("MISSING");
             assertThat(response.hasExplanation()).isFalse();
             assertThat(response.draftNoteId()).isNull(); // 공용 캐시는 항상 null
+            assertThat(response.range().bookCode()).isEqualTo("GEN");
+            assertThat(response.range().chapter()).isEqualTo(1);
+            assertThat(response.range().verseFrom()).isEqualTo(1);
+            assertThat(response.range().verseTo()).isEqualTo(5);
         }
 
         @Test
@@ -157,5 +163,25 @@ class QtPassageLookupTest {
             assertThat(response.qtPassageId()).isEqualTo(3L);
             assertThat(response.cacheStatus()).isEqualTo("HIT");
         }
+    }
+
+    private static QtPassageRangeView range(
+            String testament,
+            String bookCode,
+            String koreanBookName,
+            String englishBookName,
+            Short chapter,
+            Short verseFrom,
+            Short verseTo
+    ) {
+        QtPassageRangeView view = Mockito.mock(QtPassageRangeView.class);
+        when(view.getTestament()).thenReturn(testament);
+        when(view.getBookCode()).thenReturn(bookCode);
+        when(view.getKoreanBookName()).thenReturn(koreanBookName);
+        when(view.getEnglishBookName()).thenReturn(englishBookName);
+        when(view.getChapter()).thenReturn(chapter);
+        when(view.getVerseFrom()).thenReturn(verseFrom);
+        when(view.getVerseTo()).thenReturn(verseTo);
+        return view;
     }
 }
