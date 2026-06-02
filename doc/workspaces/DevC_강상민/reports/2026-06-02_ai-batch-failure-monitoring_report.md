@@ -1,0 +1,112 @@
+# AI Batch 실패 알림/모니터링 연동 Report
+
+## Summary
+
+- 브랜치: `feature/ai-batch-failure-monitoring`
+- PR 대상: `dev`
+- workflow: `doc/workspaces/DevC_강상민/workflows/2026-06-02_ai-batch-failure-monitoring.md`
+- 목표: 외부 webhook 없이 `DB 실행 요약 + 구조화 로그`로 AI batch 실패를 추적 가능하게 만든다.
+
+## 구현 내용
+
+- `ai_batch_run_logs` 테이블을 추가했다.
+  - batch name: `AI_DAILY_QT_VERSE_EXPLANATION_SEED`, `AI_GENERATION_WORKER_POLL`
+  - status: `SUCCEEDED`, `PARTIAL_FAILED`, `FAILED`
+  - count: `createdCount`, `failedCount`, `processedCount`
+  - failure: `errorType`, `errorMessage`
+- `AiBatchRunLog`, `AiBatchRunLogRepository`, `AiBatchMonitoringService`를 `domain.ai.internal`에 추가했다.
+- `AiDailyQtVerseExplanationSeedScheduler`가 시딩 실행 결과를 batch run log로 남기도록 연결했다.
+  - `failedCount=0`: `SUCCEEDED`
+  - `failedCount>0`: `PARTIAL_FAILED`
+  - `failureReason` 또는 service 예외: `FAILED`
+- active prompt 미존재는 `AiDailyQtVerseExplanationSeedResult.failureReason`으로 반환해 정상 0건과 구분했다.
+- `AiGenerationJobWorker`는 polling 실패만 `FAILED` batch run log로 저장한다.
+- monitoring write 실패는 scheduler/worker 밖으로 전파하지 않고 warn 로그만 남긴다.
+
+## 제외한 내용
+
+- 신규 HTTP API/OpenAPI 변경 없음.
+- 사용자 앱 알림(`domain.notification`) 사용 없음.
+- Slack/Discord/webhook 연동 없음.
+- Actuator/Micrometer 의존성 추가 없음.
+- worker 성공 poll DB 저장 없음.
+- 개별 generation job 실패는 기존 `ai_generation_jobs.status/error_message`에 계속 남긴다.
+- 관리자 조회 API, retention/정리 배치, 운영 dashboard는 후속 작업으로 둔다.
+
+## TDD 기록
+
+- RED:
+  - `.\gradlew.bat test --tests "*AiDailyQtVerseExplanationSeedSchedulerTest" --tests "*AiGenerationJobWorkerTest" --tests "*AiBatchRunLogRepositoryTest"`
+  - 신규 `AiBatchRunLog*`, `AiBatchMonitoringService` 타입 미존재로 compile fail 확인.
+- GREEN:
+  - 신규 migration/entity/repository/service 추가 후 동일 테스트 통과.
+  - `failureReason` 변경 후 `*AiDailyQtVerseExplanationSeed*` 통과 확인.
+
+## 검증 결과
+
+| 명령 | 결과 |
+| --- | --- |
+| `.\gradlew.bat test --tests "*AiBatchRun*"` | PASS |
+| `.\gradlew.bat test --tests "*AiDailyQtVerseExplanationSeedSchedulerTest"` | PASS |
+| `.\gradlew.bat test --tests "*AiGenerationJobWorkerTest"` | PASS |
+| `.\gradlew.bat test --tests "*AiDailyQtVerseExplanationSeed*"` | PASS |
+| `.\gradlew.bat test --tests "*MigrationCoverageTest"` | PASS |
+| `.\gradlew.bat test --tests "com.qtai.MysqlMigrationValidationTest"` | Gradle PASS, Docker 부재로 1건 skip |
+| `.\gradlew.bat build` | PASS |
+| `git diff --check` | PASS, CRLF 변환 경고만 출력 |
+| `rg -n "^import .*domain\.[a-z]+\.(internal\|web\|repository)" qtai-server/src/main/java/com/qtai/domain/ai` | match 없음 |
+
+## REQUEST_CHANGES 2차 대응
+
+- 멀티라인 stacktrace에 `Authorization: Bearer ...`가 포함될 때도 `errorMessage`가 마스킹되도록 보강했다.
+- `AiBatchRunLogTest.redactsMultilineBearerAuthorizationHeader`를 먼저 추가해 기존 구현의 실패를 확인했다.
+  - RED: `.\gradlew.bat test --tests "*AiBatchRunLogTest"` 실패 확인.
+  - 원인: `matches()`와 `.*` 기반 패턴이 개행 포함 문자열 전체 매칭에서 Bearer 토큰을 탐지하지 못함.
+- production 변경은 `AiBatchRunLog.containsSensitiveKeyword`의 탐지 방식을 전체 매칭에서 패턴 `find()`로 변경하는 데 제한했다.
+  - `Authorization: Bearer ...`, `token=...` 같은 민감 패턴은 메시지 어느 줄에 있어도 마스킹한다.
+  - `tokenizer failed...` 같은 정상 단어 회귀 테스트는 유지한다.
+- 리뷰의 코드 중복 정리, 시각 타입 통일은 운영 동작 변경이 없는 권장 사항으로 보고 이번 BLOCK 대응 범위에서는 제외했다.
+
+### REQUEST_CHANGES 2차 추가 검증
+
+| 명령 | 결과 |
+| --- | --- |
+| `.\gradlew.bat test --tests "*AiBatchRunLogTest"` | RED 실패 확인 후 GREEN PASS |
+| `.\gradlew.bat test --tests "*AiBatchRun*"` | PASS |
+| `.\gradlew.bat test --tests "*AiDailyQtVerseExplanationSeedSchedulerTest"` | PASS |
+| `.\gradlew.bat test --tests "*AiGenerationJobWorkerTest"` | PASS |
+| `.\gradlew.bat test --tests "*MigrationCoverageTest"` | PASS |
+| `.\gradlew.bat test --tests "com.qtai.MysqlMigrationValidationTest"` | Gradle PASS, Docker 부재로 1건 skip |
+| `.\gradlew.bat build` | PASS |
+| `git diff --check` | PASS, CRLF 변환 경고만 출력 |
+| `rg -n "^import .*domain\.[a-z]+\.(internal\|web\|repository)" qtai-server/src/main/java/com/qtai/domain/ai` | match 없음 |
+
+## Assumptions
+
+- 이번 PR의 "알림"은 외부 발송이 아니라 운영자가 추적 가능한 DB 실행 요약과 warn 로그를 의미한다.
+- `ai_batch_run_logs`는 append-only 성격으로 두고, 보존 기간/정리 정책은 후속 PR에서 정한다.
+- DB 기록 실패는 원 batch 흐름을 실패시키지 않는 것이 운영 안정성에 더 적합하다.
+
+## REQUEST_CHANGES 대응
+
+- V22 migration 포함 여부를 재확인했다.
+  - `origin/dev...origin/feature/ai-batch-failure-monitoring` 기준 `qtai-server/src/main/resources/db/migration/V22__create_ai_batch_run_logs.sql` 포함 확인.
+- `failureReason` 기반 실패 기록의 `errorType`을 `BATCH_FAILURE_REASON` 리터럴이 아니라 실제 reason code로 변경했다.
+  - 예: `ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND`
+- `errorMessage` 민감정보 마스킹을 단순 substring 매칭에서 key-value, `Bearer` 패턴 기반으로 좁혔다.
+  - `token=...`, `Authorization: Bearer ...`는 마스킹한다.
+  - `tokenizer failed...` 같은 정상 단어는 마스킹하지 않는다.
+- `AiBatchRunLog.createdAt`은 `finishedAt` 복사가 아니라 JPA auditing으로 생성 시각을 채우도록 변경했다.
+- repository 조회 정렬은 동일 createdAt 충돌을 피하기 위해 `createdAt desc, id desc`로 안정화했다.
+
+### REQUEST_CHANGES 추가 검증
+
+| 명령 | 결과 |
+| --- | --- |
+| `.\gradlew.bat test --tests "*AiBatchRunLogTest" --tests "*AiBatchRunLogRepositoryTest" --tests "*AiDailyQtVerseExplanationSeedSchedulerTest"` | PASS |
+| `.\gradlew.bat test --tests "*AiBatchRun*"` | PASS |
+| `.\gradlew.bat test --tests "*AiGenerationJobWorkerTest"` | PASS |
+| `.\gradlew.bat test --tests "*MigrationCoverageTest"` | PASS |
+| `.\gradlew.bat build` | PASS |
+| `git diff --check` | PASS, CRLF 변환 경고만 출력 |
+| `rg -n "^import .*domain\.[a-z]+\.(internal\|web\|repository)" qtai-server/src/main/java/com/qtai/domain/ai` | match 없음 |

@@ -239,6 +239,7 @@ class AiDailyQtVerseExplanationSeedServiceTest {
 
         assertThat(result.createdCount()).isZero();
         assertThat(result.failedCount()).isZero();
+        assertThat(result.failureReason()).isEqualTo("ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
         assertThat(output).contains("ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
         verifyNoInteractions(
                 listApprovedVerseExplanationUseCase,
