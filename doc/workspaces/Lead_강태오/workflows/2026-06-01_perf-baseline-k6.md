@@ -19,7 +19,8 @@
 ## 3. 절차
 
 1. `chore/perf-baseline-k6` 브랜치.
-2. 대상 엔드포인트 선정: `/api/v1/bible/books`, `/api/v1/qt/passages/1`, `/api/v1/qt/1/simulator`(전부 GET, dev-bypass).
+2. 대상 엔드포인트 선정(전부 GET, dev 프로파일 dev-bypass + `X-Dev-User-Id` 헤더로 memberId 주입): `/api/v1/qt/passages/1`, `/api/v1/qt/today`, `/api/v1/qt/1/simulator`, `/api/v1/qt/1/study-content`.
+   - 초안에서 후보였던 `/api/v1/bible/books`는 점검 중 500(`BibleBook.Testament.OT` enum 불일치)으로 확인되어 대상에서 제외(bible 도메인 후속 이슈). 스크립트(`perf/k6-smoke.js`)·리포트와 이 목록을 동일하게 유지한다.
 3. k6 스크립트: stages(20 VU 램프업·유지·정리) + thresholds(p95<500ms, 실패<1%).
 4. 런북: 지표 의미·실행법(docker compose + k6 docker)·해석·한계.
 5. (선택) 로컬에서 앱 기동 후 k6 1회 실행해 baseline 캡처.
