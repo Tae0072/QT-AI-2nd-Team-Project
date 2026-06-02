@@ -1,6 +1,8 @@
 package com.qtai.domain.ai.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Field;
 import java.time.OffsetDateTime;
@@ -88,10 +90,48 @@ class AiGenerationJobRepositoryTest {
         assertThat(targetIds).containsExactlyInAnyOrder(101L, 102L);
     }
 
+    @Test
+    void activeTargetUniqueConstraintBlocksSameTargetAcrossPromptVersions() {
+        AiPromptVersion firstPrompt = persistPromptVersion(AiPromptType.EXPLANATION, "2026.06.1");
+        AiPromptVersion secondPrompt = persistPromptVersion(AiPromptType.EXPLANATION, "2026.06.2");
+        persistJob(firstPrompt, AiGenerationJobStatus.QUEUED, BASE_TIME, AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE, 201L);
+
+        assertThatThrownBy(() -> persistJob(
+                secondPrompt,
+                AiGenerationJobStatus.QUEUED,
+                BASE_TIME.plusMinutes(1),
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                201L
+        )).isInstanceOf(Exception.class);
+    }
+
+    @Test
+    void activeTargetUniqueConstraintAllowsNewJobAfterPreviousJobIsFinished() {
+        AiPromptVersion firstPrompt = persistPromptVersion(AiPromptType.EXPLANATION, "2026.06.1");
+        AiPromptVersion secondPrompt = persistPromptVersion(AiPromptType.EXPLANATION, "2026.06.2");
+        persistJob(firstPrompt, AiGenerationJobStatus.SUCCEEDED, BASE_TIME, AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE, 202L);
+
+        assertThatCode(() -> persistJob(
+                secondPrompt,
+                AiGenerationJobStatus.QUEUED,
+                BASE_TIME.plusMinutes(1),
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                202L
+        )).doesNotThrowAnyException();
+    }
+
     private AiPromptVersion persistPromptVersion(AiPromptType promptType) {
+        return persistPromptVersion(promptType, "2026.05." + promptType);
+    }
+
+    private AiPromptVersion persistPromptVersion(AiPromptType promptType, String version) {
         AiPromptVersion promptVersion = new AiPromptVersion();
         setField(promptVersion, "promptType", promptType);
-        setField(promptVersion, "version", "2026.05." + promptType);
+        setField(promptVersion, "version", version);
         setField(promptVersion, "contentHash", "hash-" + promptType);
         setField(promptVersion, "status", AiPromptVersionStatus.ACTIVE);
         setField(promptVersion, "createdAt", BASE_TIME.minusDays(1));

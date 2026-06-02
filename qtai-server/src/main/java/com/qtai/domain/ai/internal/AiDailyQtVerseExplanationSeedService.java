@@ -97,6 +97,22 @@ class AiDailyQtVerseExplanationSeedService {
                         OffsetDateTime.now(clock)
                 ));
                 createdCount++;
+            } catch (BusinessException exception) {
+                if (exception.getErrorCode() == ErrorCode.INVALID_STATUS_TRANSITION) {
+                    log.info(
+                            "AI daily QT verse explanation seed skipped for verse. verseId={}, reason={}",
+                            verseId,
+                            "DUPLICATE_ACTIVE_GENERATION_JOB"
+                    );
+                    continue;
+                }
+                failedCount++;
+                log.warn(
+                        "AI daily QT verse explanation seed failed for verse. verseId={}, errorType={}, errorMessage={}",
+                        verseId,
+                        exception.getClass().getSimpleName(),
+                        exception.getMessage()
+                );
             } catch (RuntimeException exception) {
                 failedCount++;
                 log.warn(

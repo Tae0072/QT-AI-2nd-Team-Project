@@ -167,6 +167,48 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     }
 
     @Test
+    void seedTodayTreatsDuplicateActiveJobRaceAsSkipped(CapturedOutput output) {
+        AiPromptVersion promptVersion = promptVersion(15L, "2026.06.1", REQUESTED_AT.minusDays(1));
+        List<Long> verseIds = List.of(104L, 105L);
+        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
+        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(verseIds));
+        when(promptVersionRepository.findFirstByPromptTypeAndStatusOrderByCreatedAtDescIdDesc(
+                AiPromptType.EXPLANATION,
+                AiPromptVersionStatus.ACTIVE
+        )).thenReturn(Optional.of(promptVersion));
+        when(listApprovedVerseExplanationUseCase.listApprovedByVerseIds(verseIds)).thenReturn(List.of());
+        when(generatedAssetRepository.findReadyExplanationBibleVerseTargetIds(verseIds)).thenReturn(List.of());
+        when(generationJobRepository.findActiveExplanationBibleVerseTargetIds(verseIds)).thenReturn(List.of());
+        when(createAiGenerationJobUseCase.createAiGenerationJob(any(CreateAiGenerationJobCommand.class)))
+                .thenAnswer(invocation -> {
+                    CreateAiGenerationJobCommand command = invocation.getArgument(0);
+                    if (command.targetId().equals(104L)) {
+                        throw new BusinessException(
+                                ErrorCode.INVALID_STATUS_TRANSITION,
+                                "duplicate active generation job"
+                        );
+                    }
+                    return new CreateAiGenerationJobResult(503L, "QUEUED");
+                });
+
+        AiDailyQtVerseExplanationSeedResult result = service.seedToday();
+
+        assertThat(result.createdCount()).isEqualTo(1);
+        assertThat(result.failedCount()).isZero();
+        ArgumentCaptor<CreateAiGenerationJobCommand> commandCaptor =
+                ArgumentCaptor.forClass(CreateAiGenerationJobCommand.class);
+        verify(createAiGenerationJobUseCase, times(2)).createAiGenerationJob(commandCaptor.capture());
+        assertThat(commandCaptor.getAllValues())
+                .extracting(CreateAiGenerationJobCommand::targetId)
+                .containsExactly(104L, 105L);
+        assertThat(output).contains(
+                "AI daily QT verse explanation seed skipped for verse",
+                "verseId=104",
+                "reason=DUPLICATE_ACTIVE_GENERATION_JOB"
+        );
+    }
+
+    @Test
     void seedTodayReturnsZeroWhenVerseIdsAreEmpty() {
         when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
         when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(List.of()));

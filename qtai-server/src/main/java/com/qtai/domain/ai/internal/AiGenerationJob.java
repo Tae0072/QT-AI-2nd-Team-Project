@@ -19,10 +19,17 @@ import com.qtai.common.exception.ErrorCode;
 @Entity
 @Table(
         name = "ai_generation_jobs",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_ai_generation_jobs_active_target_prompt",
-                columnNames = {"job_type", "target_type", "target_id", "prompt_version_id", "active_unique_key"}
-        )
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_ai_generation_jobs_active_target_prompt",
+                        columnNames = {"job_type", "target_type", "target_id", "prompt_version_id",
+                                "active_unique_key"}
+                ),
+                @UniqueConstraint(
+                        name = "uk_ai_generation_jobs_active_target",
+                        columnNames = {"job_type", "target_type", "target_id", "active_unique_key"}
+                )
+        }
 )
 public class AiGenerationJob {
 
