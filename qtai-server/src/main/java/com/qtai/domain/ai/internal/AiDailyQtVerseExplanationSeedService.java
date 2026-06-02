@@ -28,6 +28,7 @@ import com.qtai.domain.study.api.dto.ApprovedVerseExplanationResponse;
 class AiDailyQtVerseExplanationSeedService {
 
     private static final String SYSTEM_BATCH = "SYSTEM_BATCH";
+    private static final String ACTIVE_PROMPT_NOT_FOUND = "ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND";
 
     private final GetTodayQtUseCase getTodayQtUseCase;
     private final GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
@@ -76,8 +77,8 @@ class AiDailyQtVerseExplanationSeedService {
 
         AiPromptVersion promptVersion = latestActiveExplanationPromptVersion();
         if (promptVersion == null) {
-            log.warn("AI daily QT verse explanation seed skipped. reason=ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND");
-            return new AiDailyQtVerseExplanationSeedResult(0, 0);
+            log.warn("AI daily QT verse explanation seed skipped. reason={}", ACTIVE_PROMPT_NOT_FOUND);
+            return new AiDailyQtVerseExplanationSeedResult(0, 0, ACTIVE_PROMPT_NOT_FOUND);
         }
 
         Set<Long> skippedVerseIds = skippedVerseIds(verseIds);
