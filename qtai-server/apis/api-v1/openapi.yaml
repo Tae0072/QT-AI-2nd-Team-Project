@@ -598,6 +598,52 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/monitoring:
+    get:
+      tags:
+        - Admin AI
+      operationId: getAdminAiMonitoring
+      summary: Admin AI operational monitoring summary
+      description: >
+        Returns aggregated AI operational monitoring metrics for the admin web.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_OPERATOR, ADMIN_ROLE_REVIEWER,
+        or ADMIN_ROLE_SUPER_ADMIN. If from/to are omitted, the KST current date
+        is used as the default period. This endpoint does not expose raw asset
+        payloads, prompt text, provider responses, or unredacted secret values.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2026-06-02"
+          description: KST date. Inclusive lower bound. Defaults to KST today when omitted.
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2026-06-02"
+          description: KST date. Inclusive date converted to exclusive next-day boundary.
+      responses:
+        "200":
+          description: Admin AI monitoring summary returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiMonitoringApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/admin/ai/assets/{assetId}:
     get:
       tags:
@@ -1329,6 +1375,30 @@ components:
           format: date-time
         traceId:
           type: string
+    AdminAiMonitoringApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiMonitoringResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
     AdminAiValidationChecklistListApiResponse:
       type: object
       required:
@@ -1513,6 +1583,231 @@ components:
         createdAt:
           type: string
           format: date-time
+    AdminAiMonitoringResponse:
+      type: object
+      required:
+        - period
+        - generationJobs
+        - validation
+        - batchRuns
+        - qa
+        - checklists
+      properties:
+        period:
+          $ref: "#/components/schemas/AdminAiMonitoringPeriod"
+        generationJobs:
+          $ref: "#/components/schemas/AdminAiMonitoringGenerationJobs"
+        validation:
+          $ref: "#/components/schemas/AdminAiMonitoringValidation"
+        batchRuns:
+          $ref: "#/components/schemas/AdminAiMonitoringBatchRuns"
+        qa:
+          $ref: "#/components/schemas/AdminAiMonitoringQa"
+        checklists:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiMonitoringChecklist"
+    AdminAiMonitoringPeriod:
+      type: object
+      required:
+        - from
+        - to
+        - timezone
+      properties:
+        from:
+          type: string
+          format: date
+          example: "2026-06-02"
+        to:
+          type: string
+          format: date
+          example: "2026-06-02"
+        timezone:
+          type: string
+          enum:
+            - Asia/Seoul
+    AdminAiMonitoringGenerationJobs:
+      type: object
+      required:
+        - queued
+        - running
+        - succeeded
+        - failed
+      properties:
+        queued:
+          type: integer
+          format: int64
+          minimum: 0
+        running:
+          type: integer
+          format: int64
+          minimum: 0
+        succeeded:
+          type: integer
+          format: int64
+          minimum: 0
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+    AdminAiMonitoringValidation:
+      type: object
+      required:
+        - waitingAssets
+        - passCount
+        - failCount
+        - needsReviewCount
+        - failureReasons
+      properties:
+        waitingAssets:
+          type: integer
+          format: int64
+          minimum: 0
+        passCount:
+          type: integer
+          format: int64
+          minimum: 0
+        failCount:
+          type: integer
+          format: int64
+          minimum: 0
+        needsReviewCount:
+          type: integer
+          format: int64
+          minimum: 0
+        failureReasons:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/AdminAiMonitoringFailureReason"
+    AdminAiMonitoringFailureReason:
+      type: object
+      required:
+        - resultCode
+        - count
+      properties:
+        resultCode:
+          type: string
+          example: SOURCE_MISSING
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+    AdminAiMonitoringBatchRuns:
+      type: object
+      required:
+        - succeeded
+        - partialFailed
+        - failed
+        - latestFailures
+      properties:
+        succeeded:
+          type: integer
+          format: int64
+          minimum: 0
+        partialFailed:
+          type: integer
+          format: int64
+          minimum: 0
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+        latestFailures:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/AdminAiMonitoringBatchRunFailure"
+    AdminAiMonitoringBatchRunFailure:
+      type: object
+      required:
+        - id
+        - batchName
+        - status
+        - errorType
+        - errorMessage
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        batchName:
+          $ref: "#/components/schemas/AiBatchName"
+        status:
+          $ref: "#/components/schemas/AiBatchRunStatus"
+        errorType:
+          type: string
+          nullable: true
+          maxLength: 100
+          example: ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND
+        errorMessage:
+          type: string
+          nullable: true
+          maxLength: 1000
+          example: REDACTED_SENSITIVE_ERROR_MESSAGE
+        createdAt:
+          type: string
+          format: date-time
+    AdminAiMonitoringQa:
+      type: object
+      required:
+        - requested
+        - answered
+        - blocked
+        - failed
+        - blockedReasons
+      properties:
+        requested:
+          type: integer
+          format: int64
+          minimum: 0
+        answered:
+          type: integer
+          format: int64
+          minimum: 0
+        blocked:
+          type: integer
+          format: int64
+          minimum: 0
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+        blockedReasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiMonitoringBlockedReason"
+    AdminAiMonitoringBlockedReason:
+      type: object
+      required:
+        - blockedReason
+        - count
+      properties:
+        blockedReason:
+          type: string
+          example: VALUE_JUDGMENT
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+    AdminAiMonitoringChecklist:
+      type: object
+      required:
+        - checklistType
+        - activeVersion
+        - passRate
+      properties:
+        checklistType:
+          $ref: "#/components/schemas/AiValidationChecklistType"
+        activeVersion:
+          type: string
+          example: "2026.06.1"
+        passRate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
     AdminAiValidationChecklistListResponse:
       type: object
       required:
