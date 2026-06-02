@@ -138,6 +138,63 @@ class AiGenerationJobRunnerIntegrationTest {
     }
 
     @Test
+    void bibleVerseExplanationJobStoresValidatingAssetAndSucceeds() throws Exception {
+        AiPromptVersion promptVersion = persistPromptVersion(AiPromptType.EXPLANATION);
+        AiValidationChecklistVersion checklistVersion = persistActiveChecklistVersion();
+        AiGenerationJob job = persistJob(
+                AiGenerationJobType.EXPLANATION,
+                promptVersion,
+                AiTargetType.BIBLE_VERSE,
+                1001L
+        );
+        givenBibleVerses(List.of(1001L));
+        when(llmClient.complete(any())).thenReturn(completionResponse("""
+                {
+                  "explanations": [
+                    {"verseId": 1001, "summary": "summary one", "explanation": "explanation one"}
+                  ],
+                  "glossaryTerms": []
+                }
+                """));
+        AiGenerationJobRunner runner = runner(explanationHandler(), new SimulatorGenerationJobHandler());
+
+        assertThat(runner.runJob(job.getId())).isTrue();
+        flushAndClear();
+
+        AiGenerationJob foundJob = generationJobRepository.findById(job.getId()).orElseThrow();
+        List<AiGeneratedAsset> assets = generatedAssetRepository.findAll();
+        List<AiValidationLog> validationLogs = validationLogRepository.findAll();
+        assertThat(foundJob.getStatus()).isEqualTo(AiGenerationJobStatus.SUCCEEDED);
+        assertThat(foundJob.getErrorMessage()).isNull();
+        assertThat(assets).hasSize(1);
+        AiGeneratedAsset asset = assets.get(0);
+        assertThat(asset.getGenerationJobId()).isEqualTo(job.getId());
+        assertThat(asset.getAssetType()).isEqualTo(AiGeneratedAssetType.EXPLANATION);
+        assertThat(asset.getTargetType()).isEqualTo(AiTargetType.BIBLE_VERSE);
+        assertThat(asset.getTargetId()).isEqualTo(1001L);
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+
+        JsonNode payload = objectMapper.readTree(asset.getPayloadJson());
+        assertThat(payload.path("explanations")).hasSize(1);
+        assertThat(payload.path("explanations").get(0).path("verseId").asLong()).isEqualTo(1001L);
+        assertThat(payload.path("glossaryTerms")).isEmpty();
+        assertThat(payload.path("sourceMetadata").path("targetType").asText()).isEqualTo("BIBLE_VERSE");
+        assertThat(payload.path("sourceMetadata").path("targetId").asLong()).isEqualTo(1001L);
+        assertThat(payload.path("sourceMetadata").path("verseIds")).hasSize(1);
+        assertThat(payload.path("sourceMetadata").path("verseIds").get(0).asLong()).isEqualTo(1001L);
+        assertThat(validationLogs).hasSize(1);
+        AiValidationLog validationLog = validationLogs.get(0);
+        assertThat(validationLog.getAiAssetId()).isEqualTo(asset.getId());
+        assertThat(validationLog.getResult()).isEqualTo(AiValidationResult.PASSED);
+        assertThat(validationLog.getReviewerType()).isEqualTo(AiValidationReviewerType.AUTO);
+        assertThat(validationLog.getLayer()).isEqualTo(1);
+        assertThat(validationLog.getChecklistVersionId()).isEqualTo(checklistVersion.getId());
+
+        verify(getQtPassageContentContextUseCase, never()).getContentContext(any());
+        verify(getBibleVerseUseCase).getVerses(List.of(1001L));
+    }
+
+    @Test
     void autoValidationFailureRejectsAssetAndSucceedsJob() {
         AiPromptVersion promptVersion = persistPromptVersion(AiPromptType.EXPLANATION);
         AiValidationChecklistVersion checklistVersion = persistActiveChecklistVersion();
@@ -310,6 +367,20 @@ class AiGenerationJobRunnerIntegrationTest {
                         .toList());
     }
 
+    private void givenBibleVerses(List<Long> verseIds) {
+        when(getBibleVerseUseCase.getVerses(verseIds))
+                .thenReturn(verseIds.stream()
+                        .map(verseId -> new BibleVerseResponse(
+                                verseId,
+                                "TST",
+                                1,
+                                verseId.intValue(),
+                                "neutral text " + verseId,
+                                null
+                        ))
+                        .toList());
+    }
+
     private AiGenerationJobHandler payloadHandler(String payloadJson) {
         return new AiGenerationJobHandler() {
             @Override
@@ -343,10 +414,19 @@ class AiGenerationJobRunnerIntegrationTest {
     }
 
     private AiGenerationJob persistJob(AiGenerationJobType jobType, AiPromptVersion promptVersion) {
+        return persistJob(jobType, promptVersion, AiTargetType.QT_PASSAGE, 35L);
+    }
+
+    private AiGenerationJob persistJob(
+            AiGenerationJobType jobType,
+            AiPromptVersion promptVersion,
+            AiTargetType targetType,
+            Long targetId
+    ) {
         return testEntityManager.persistAndFlush(AiGenerationJob.queue(
                 jobType,
-                AiTargetType.QT_PASSAGE,
-                35L,
+                targetType,
+                targetId,
                 promptVersion.getId(),
                 BASE_TIME
         ));
