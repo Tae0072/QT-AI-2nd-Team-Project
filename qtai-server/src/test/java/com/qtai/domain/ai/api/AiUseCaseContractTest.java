@@ -9,6 +9,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.qtai.domain.ai.api.dto.AdminAiBatchRunLogItem;
+import com.qtai.domain.ai.api.dto.AdminAiBatchRunLogListResponse;
 import com.qtai.domain.ai.api.dto.AdminAiAssetDetailResponse;
 import com.qtai.domain.ai.api.dto.AdminAiAssetListItem;
 import com.qtai.domain.ai.api.dto.AdminAiAssetListResponse;
@@ -25,6 +27,7 @@ import com.qtai.domain.ai.api.dto.GetAdminAiAssetQuery;
 import com.qtai.domain.ai.api.dto.GetAiQaResultCommand;
 import com.qtai.domain.ai.api.dto.GetAiQaResultResult;
 import com.qtai.domain.ai.api.dto.GetValidationReferenceJobQuery;
+import com.qtai.domain.ai.api.dto.ListAdminAiBatchRunLogsQuery;
 import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
 import com.qtai.domain.ai.api.dto.ListAdminAiValidationChecklistsQuery;
 import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetCommand;
@@ -55,6 +58,7 @@ class AiUseCaseContractTest {
             CreateAdminAiValidationChecklistUseCase.class,
             ActivateAdminAiValidationChecklistUseCase.class,
             RetireAdminAiValidationChecklistUseCase.class,
+            ListAdminAiBatchRunLogsUseCase.class,
             CreateValidationReferenceJobUseCase.class,
             GetValidationReferenceJobUseCase.class,
             ExpireValidationReferenceJobUseCase.class
@@ -86,6 +90,9 @@ class AiUseCaseContractTest {
             ChangeAdminAiValidationChecklistStatusCommand.class,
             AdminAiValidationChecklistResponse.class,
             AdminAiValidationChecklistListResponse.class,
+            ListAdminAiBatchRunLogsQuery.class,
+            AdminAiBatchRunLogItem.class,
+            AdminAiBatchRunLogListResponse.class,
             CreateValidationReferenceJobCommand.class,
             GetValidationReferenceJobQuery.class,
             ExpireValidationReferenceJobCommand.class,
@@ -175,6 +182,31 @@ class AiUseCaseContractTest {
         assertThat(List.of(ChangeAdminAiValidationChecklistStatusCommand.class.getRecordComponents()))
                 .extracting(RecordComponent::getName)
                 .contains("adminId", "memberRole", "adminRole", "checklistId");
+    }
+
+    @Test
+    void adminAiBatchRunLogDtosIncludeAdminAuthorizationContextAndFilters() {
+        assertThat(List.of(ListAdminAiBatchRunLogsQuery.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("adminId", "memberRole", "adminRole", "batchName", "status", "from", "to", "page", "size");
+        assertThat(List.of(AdminAiBatchRunLogItem.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains(
+                        "id",
+                        "batchName",
+                        "status",
+                        "createdCount",
+                        "failedCount",
+                        "processedCount",
+                        "errorType",
+                        "errorMessage",
+                        "startedAt",
+                        "finishedAt",
+                        "createdAt"
+                );
+        assertThat(List.of(AdminAiBatchRunLogListResponse.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("content", "page", "size", "totalElements", "totalPages", "first", "last", "sort");
     }
 
     @Test

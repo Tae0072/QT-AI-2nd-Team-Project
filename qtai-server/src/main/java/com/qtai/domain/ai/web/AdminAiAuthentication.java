@@ -19,6 +19,14 @@ record AdminAiAuthentication(
 ) {
 
     static AdminAiAuthentication requireReviewer(Authentication requestAuthentication) {
+        return requireAdminRole(requestAuthentication, List.of("REVIEWER", "SUPER_ADMIN"));
+    }
+
+    static AdminAiAuthentication requireMonitoring(Authentication requestAuthentication) {
+        return requireAdminRole(requestAuthentication, List.of("OPERATOR", "REVIEWER", "SUPER_ADMIN"));
+    }
+
+    private static AdminAiAuthentication requireAdminRole(Authentication requestAuthentication, List<String> allowedRoles) {
         Authentication authentication = requestAuthentication != null
                 ? requestAuthentication
                 : SecurityContextHolder.getContext().getAuthentication();
@@ -35,7 +43,7 @@ record AdminAiAuthentication(
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        String adminRole = resolveReviewerRole(authorities);
+        String adminRole = resolveAdminRole(authorities, allowedRoles);
         if (adminRole == null) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
@@ -43,8 +51,8 @@ record AdminAiAuthentication(
         return new AdminAiAuthentication(resolvePrincipalId(authentication), "ADMIN", adminRole);
     }
 
-    private static String resolveReviewerRole(Set<String> authorities) {
-        for (String adminRole : List.of("REVIEWER", "SUPER_ADMIN")) {
+    private static String resolveAdminRole(Set<String> authorities, List<String> allowedRoles) {
+        for (String adminRole : allowedRoles) {
             if (authorities.contains("ADMIN_ROLE_" + adminRole)) {
                 return adminRole;
             }

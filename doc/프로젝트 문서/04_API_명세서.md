@@ -1780,6 +1780,44 @@
 }
 ```
 
+### 4.7.10 AI Batch 실행 로그 조회
+
+- **Method + URL:** `GET /api/v1/admin/ai/batch-run-logs?batchName=AI_DAILY_QT_VERSE_EXPLANATION_SEED&status=FAILED&from=2026-06-01&to=2026-06-02&page=0&size=20`
+- **인증:** ADMIN + OPERATOR/REVIEWER/SUPER_ADMIN
+- **연결 화면:** AD-08
+- **ERD:** `ai_batch_run_logs`
+- **주의:** 이 API는 DB에 저장된 batch 실행 로그 목록만 반환한다. 운영 집계 API인 `GET /api/v1/admin/ai/monitoring`은 별도 PR에서 구현한다.
+- **필터:** `batchName`, `status`, `from`, `to`, `page`, `size`
+- **정렬:** `createdAt desc, id desc` 고정
+- **보안:** `errorMessage`는 저장 단계에서 redaction/truncate된 값만 반환하며 provider raw response, prompt 원문, secret/token/password 계열 값을 새로 저장하거나 복원하지 않는다.
+
+```json
+{
+  "content": [
+    {
+      "id": 12,
+      "batchName": "AI_DAILY_QT_VERSE_EXPLANATION_SEED",
+      "status": "FAILED",
+      "createdCount": 0,
+      "failedCount": 1,
+      "processedCount": 0,
+      "errorType": "ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND",
+      "errorMessage": "active prompt not found",
+      "startedAt": "2026-06-02T00:05:00+09:00",
+      "finishedAt": "2026-06-02T00:05:01+09:00",
+      "createdAt": "2026-06-02T00:05:02+09:00"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "sort": "createdAt,desc,id,desc"
+}
+```
+
 ---
 
 ## 4.8 시스템/배치 API
@@ -2285,6 +2323,7 @@
 | 86 | PATCH | `/api/v1/admin/notices/{id}` | OPERATOR | 공지 수정 |
 | 87 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
 | 88 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
+| 89 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
 
 ---
 
