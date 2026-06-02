@@ -1497,9 +1497,11 @@
 }
 ```
 
-- **승인 조건:** `checklistVersionId`는 활성 체크리스트여야 하며, 산출물의 최신 검증 로그가 해당 버전으로 존재해야 한다. 누락 시 `409 CHECKLIST_VERSION_REQUIRED` 또는 `422 AI_VALIDATION_FAILED`를 반환한다.
+- **승인 조건:** `checklistVersionId`는 산출물 타입과 일치하는 활성 체크리스트여야 하며, 산출물의 최신 검증 로그가 해당 버전의 `PASSED` 결과여야 한다. 체크리스트가 없으면 `404 CHECKLIST_NOT_FOUND`, 비활성/타입 불일치는 `400 INVALID_INPUT`, 검증 로그 누락 또는 `PASSED`가 아니면 `409 INVALID_STATUS_TRANSITION`을 반환한다.
+- **노출본 연결:** `activateForTarget=true`이고 산출물이 `EXPLANATION + BIBLE_VERSE`이면 기존 `verse_explanations` ACTIVE 해설을 비활성화하고, 해당 asset payload의 `explanations[]`에서 `verseId == targetId`인 항목을 새 `APPROVED + ACTIVE` 해설로 연결한다. `QT_PASSAGE`, `SIMULATOR`, glossary term 연결은 별도 PR 범위다.
+- **반려/숨김 요청:** `reject`, `hide`는 `reason`만 받는다. `reason` 원문은 감사 로그 snapshot에 저장하지 않는다.
 - **상태 전이:** `VALIDATING -> APPROVED | REJECTED`, `APPROVED -> HIDDEN`, `REJECTED -> 재생성 요청 가능`
-- **감사 로그:** 승인/반려/숨김/재생성/평가 후보 등록은 모두 `audit_logs`에 기록한다.
+- **감사 로그:** 승인/반려/숨김/재생성/평가 후보 등록은 모두 `audit_logs`에 기록한다. AI 산출물 검수 감사 snapshot에는 asset 식별자, 상태, 대상 정보만 저장하고 payload 원문, prompt/provider 원문, reason 원문은 저장하지 않는다.
 
 재생성 요청:
 

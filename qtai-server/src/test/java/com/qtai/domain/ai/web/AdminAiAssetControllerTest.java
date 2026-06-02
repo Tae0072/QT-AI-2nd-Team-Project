@@ -41,6 +41,7 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.ai.api.GetAdminAiAssetUseCase;
 import com.qtai.domain.ai.api.ListAdminAiAssetsUseCase;
 import com.qtai.domain.ai.api.RegenerateAiAssetUseCase;
+import com.qtai.domain.ai.api.ReviewAiAssetUseCase;
 import com.qtai.domain.ai.api.dto.AdminAiAssetDetailResponse;
 import com.qtai.domain.ai.api.dto.AdminAiAssetListItem;
 import com.qtai.domain.ai.api.dto.AdminAiAssetListResponse;
@@ -49,12 +50,15 @@ import com.qtai.domain.ai.api.dto.GetAdminAiAssetQuery;
 import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetCommand;
 import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
+import com.qtai.domain.ai.api.dto.ReviewAiAssetCommand;
+import com.qtai.domain.ai.api.dto.ReviewAiAssetResult;
 
 class AdminAiAssetControllerTest {
 
     private RegenerateAiAssetUseCase regenerateAiAssetUseCase;
     private ListAdminAiAssetsUseCase listAdminAiAssetsUseCase;
     private GetAdminAiAssetUseCase getAdminAiAssetUseCase;
+    private ReviewAiAssetUseCase reviewAiAssetUseCase;
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
@@ -63,11 +67,13 @@ class AdminAiAssetControllerTest {
         regenerateAiAssetUseCase = org.mockito.Mockito.mock(RegenerateAiAssetUseCase.class);
         listAdminAiAssetsUseCase = org.mockito.Mockito.mock(ListAdminAiAssetsUseCase.class);
         getAdminAiAssetUseCase = org.mockito.Mockito.mock(GetAdminAiAssetUseCase.class);
+        reviewAiAssetUseCase = org.mockito.Mockito.mock(ReviewAiAssetUseCase.class);
         Clock clock = Clock.fixed(Instant.parse("2026-05-21T01:30:00Z"), ZoneId.of("Asia/Seoul"));
         AdminAiAssetController controller = new AdminAiAssetController(
                 regenerateAiAssetUseCase,
                 listAdminAiAssetsUseCase,
                 getAdminAiAssetUseCase,
+                reviewAiAssetUseCase,
                 clock
         );
         objectMapper = Jackson2ObjectMapperBuilder.json()
@@ -276,6 +282,124 @@ class AdminAiAssetControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("A0002"));
+    }
+
+    @Test
+    void approveMapsRequestAndReturnsApprovedStatus() throws Exception {
+        when(reviewAiAssetUseCase.reviewAiAsset(any(ReviewAiAssetCommand.class)))
+                .thenReturn(new ReviewAiAssetResult(500L, "APPROVED"));
+
+        mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/approve", 500L)
+                        .principal(adminPrincipal(7L, "ADMIN_ROLE_REVIEWER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "checklistVersionId": 4,
+                                  "reason": "검증 기준을 충족합니다.",
+                                  "activateForTarget": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.assetId").value(500))
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+
+        ArgumentCaptor<ReviewAiAssetCommand> commandCaptor =
+                ArgumentCaptor.forClass(ReviewAiAssetCommand.class);
+        verify(reviewAiAssetUseCase).reviewAiAsset(commandCaptor.capture());
+        ReviewAiAssetCommand command = commandCaptor.getValue();
+        assertThat(command.reviewerId()).isEqualTo(7L);
+        assertThat(command.assetId()).isEqualTo(500L);
+        assertThat(command.memberRole()).isEqualTo("ADMIN");
+        assertThat(command.adminRole()).isEqualTo("REVIEWER");
+        assertThat(command.action()).isEqualTo("APPROVE");
+        assertThat(command.checklistVersionId()).isEqualTo(4L);
+        assertThat(command.reason()).isEqualTo("검증 기준을 충족합니다.");
+        assertThat(command.activateForTarget()).isTrue();
+        assertThat(command.reviewedAt()).isEqualTo(OffsetDateTime.parse("2026-05-21T10:30:00+09:00"));
+    }
+
+    @Test
+    void rejectMapsRequestAndReturnsRejectedStatus() throws Exception {
+        when(reviewAiAssetUseCase.reviewAiAsset(any(ReviewAiAssetCommand.class)))
+                .thenReturn(new ReviewAiAssetResult(500L, "REJECTED"));
+
+        mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/reject", 500L)
+                        .principal(adminPrincipal(7L, "ADMIN_ROLE_SUPER_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "출처 표기가 부족합니다."
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("REJECTED"));
+
+        ArgumentCaptor<ReviewAiAssetCommand> commandCaptor =
+                ArgumentCaptor.forClass(ReviewAiAssetCommand.class);
+        verify(reviewAiAssetUseCase).reviewAiAsset(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().action()).isEqualTo("REJECT");
+        assertThat(commandCaptor.getValue().adminRole()).isEqualTo("SUPER_ADMIN");
+        assertThat(commandCaptor.getValue().activateForTarget()).isFalse();
+    }
+
+    @Test
+    void hideMapsRequestAndReturnsHiddenStatus() throws Exception {
+        when(reviewAiAssetUseCase.reviewAiAsset(any(ReviewAiAssetCommand.class)))
+                .thenReturn(new ReviewAiAssetResult(500L, "HIDDEN"));
+
+        mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/hide", 500L)
+                        .principal(adminPrincipal(7L, "ADMIN_ROLE_REVIEWER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "승인 후 숨김 처리합니다."
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("HIDDEN"));
+
+        ArgumentCaptor<ReviewAiAssetCommand> commandCaptor =
+                ArgumentCaptor.forClass(ReviewAiAssetCommand.class);
+        verify(reviewAiAssetUseCase).reviewAiAsset(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().action()).isEqualTo("HIDE");
+        assertThat(commandCaptor.getValue().activateForTarget()).isFalse();
+    }
+
+    @Test
+    void approveReturnsForbiddenForOperatorAdminRole() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/approve", 500L)
+                        .principal(adminPrincipal(7L, "ADMIN_ROLE_OPERATOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "checklistVersionId": 4,
+                                  "reason": "권한 확인",
+                                  "activateForTarget": true
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("M0003"));
+        verify(reviewAiAssetUseCase, never()).reviewAiAsset(any(ReviewAiAssetCommand.class));
+    }
+
+    @Test
+    void approveMapsInvalidStatusTransitionToConflict() throws Exception {
+        when(reviewAiAssetUseCase.reviewAiAsset(any(ReviewAiAssetCommand.class)))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION));
+
+        mockMvc.perform(post("/api/v1/admin/ai/assets/{assetId}/approve", 500L)
+                        .principal(adminPrincipal(7L, "ADMIN_ROLE_REVIEWER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "checklistVersionId": 4,
+                                  "reason": "상태 전이 확인",
+                                  "activateForTarget": true
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("C0003"));
     }
 
     @Test

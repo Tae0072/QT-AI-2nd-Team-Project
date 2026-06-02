@@ -13,6 +13,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(
@@ -29,6 +30,8 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class VerseExplanation extends BaseEntity {
+
+    private static final String ACTIVE_UNIQUE_KEY = "ACTIVE";
 
     @Column(name = "bible_verse_id", nullable = false)
     private Long bibleVerseId;
@@ -54,4 +57,42 @@ public class VerseExplanation extends BaseEntity {
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
+
+    public static VerseExplanation approvedFromAiAsset(
+            Long bibleVerseId,
+            String summary,
+            String explanation,
+            String sourceLabel,
+            Long aiAssetId,
+            LocalDateTime approvedAt
+    ) {
+        VerseExplanation verseExplanation = new VerseExplanation();
+        verseExplanation.bibleVerseId = requirePositive(bibleVerseId, "bibleVerseId");
+        verseExplanation.summary = requireText(summary, "summary");
+        verseExplanation.explanation = requireText(explanation, "explanation");
+        verseExplanation.sourceLabel = requireText(sourceLabel, "sourceLabel");
+        verseExplanation.aiAssetId = requirePositive(aiAssetId, "aiAssetId");
+        verseExplanation.approvedAt = Objects.requireNonNull(approvedAt, "approvedAt must not be null");
+        verseExplanation.status = VerseExplanationStatus.APPROVED;
+        verseExplanation.activeUniqueKey = ACTIVE_UNIQUE_KEY;
+        return verseExplanation;
+    }
+
+    public void deactivate() {
+        this.activeUniqueKey = null;
+    }
+
+    private static Long requirePositive(Long value, String fieldName) {
+        if (value == null || value <= 0) {
+            throw new IllegalArgumentException(fieldName + " must be positive");
+        }
+        return value;
+    }
+
+    private static String requireText(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value;
+    }
 }

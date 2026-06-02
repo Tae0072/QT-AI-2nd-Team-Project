@@ -174,6 +174,19 @@ class AiUseCaseContractTest {
         assertThat(List.of(GetAdminAiAssetQuery.class.getRecordComponents()))
                 .extracting(RecordComponent::getName)
                 .contains("adminId", "memberRole", "adminRole", "assetId");
+        assertThat(List.of(ReviewAiAssetCommand.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains(
+                        "reviewerId",
+                        "assetId",
+                        "memberRole",
+                        "adminRole",
+                        "action",
+                        "checklistVersionId",
+                        "reason",
+                        "activateForTarget",
+                        "reviewedAt"
+                );
     }
 
     @Test

@@ -679,6 +679,136 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/assets/{assetId}/approve:
+    post:
+      tags:
+        - Admin AI
+      operationId: approveAdminAiAsset
+      summary: Approve admin AI asset
+      description: >
+        Approves a VALIDATING AI asset after checking an ACTIVE validation checklist
+        and latest PASSED validation log. When activateForTarget is true and the asset
+        is EXPLANATION + BIBLE_VERSE, the approved explanation is published to
+        verse_explanations as the active user-visible row.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiAssetReviewRequest"
+      responses:
+        "200":
+          description: Admin AI asset approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiAssetReviewApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/assets/{assetId}/reject:
+    post:
+      tags:
+        - Admin AI
+      operationId: rejectAdminAiAsset
+      summary: Reject admin AI asset
+      description: Rejects a VALIDATING AI asset. This action does not publish user-visible content.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiAssetReviewRequest"
+      responses:
+        "200":
+          description: Admin AI asset rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiAssetReviewApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/assets/{assetId}/hide:
+    post:
+      tags:
+        - Admin AI
+      operationId: hideAdminAiAsset
+      summary: Hide admin AI asset
+      description: Hides a VALIDATING or APPROVED AI asset. This action does not modify exposure tables.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiAssetReviewRequest"
+      responses:
+        "200":
+          description: Admin AI asset hidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiAssetReviewApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/admin/ai/validation-checklists:
     get:
       tags:
@@ -1351,6 +1481,30 @@ components:
           format: date-time
         traceId:
           type: string
+    AdminAiAssetReviewApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/ReviewAiAssetResult"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
     AdminAiBatchRunLogListApiResponse:
       type: object
       required:
@@ -2003,6 +2157,37 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminAiValidationLogItem"
+    AdminAiAssetReviewRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        checklistVersionId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+          description: Required for approve. Must point to an ACTIVE checklist matching the asset type.
+        reason:
+          type: string
+          minLength: 1
+          example: Verified against the active checklist.
+        activateForTarget:
+          type: boolean
+          nullable: true
+          default: false
+          description: Only approve uses this flag. true publishes EXPLANATION + BIBLE_VERSE assets.
+    ReviewAiAssetResult:
+      type: object
+      required:
+        - assetId
+        - status
+      properties:
+        assetId:
+          type: integer
+          format: int64
+        status:
+          $ref: "#/components/schemas/AiAssetStatus"
     AdminAiGenerationJobSummary:
       type: object
       required:
