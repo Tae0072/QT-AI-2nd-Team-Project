@@ -104,20 +104,30 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             );
         }
 
+        PublishApprovedVerseExplanationCommand publishCommand = publishCommandForTarget(command, asset);
         asset.approve(command.reviewedAt());
-        if (command.activateForTarget() && isVerseExplanationBibleVerseAsset(asset)) {
-            ExplanationItem explanationItem = explanationItemForTarget(asset);
-            publishApprovedVerseExplanationUseCase.publishApprovedVerseExplanation(
-                    new PublishApprovedVerseExplanationCommand(
-                            asset.getTargetId(),
-                            explanationItem.summary(),
-                            explanationItem.explanation(),
-                            requireText(asset.getSourceLabel(), "sourceLabel"),
-                            asset.getId(),
-                            command.reviewedAt()
-                    )
-            );
+        if (publishCommand != null) {
+            publishApprovedVerseExplanationUseCase.publishApprovedVerseExplanation(publishCommand);
         }
+    }
+
+    private PublishApprovedVerseExplanationCommand publishCommandForTarget(
+            ReviewAiAssetCommand command,
+            AiGeneratedAsset asset
+    ) {
+        if (!command.activateForTarget() || !isVerseExplanationBibleVerseAsset(asset)) {
+            return null;
+        }
+
+        ExplanationItem explanationItem = explanationItemForTarget(asset);
+        return new PublishApprovedVerseExplanationCommand(
+                asset.getTargetId(),
+                explanationItem.summary(),
+                explanationItem.explanation(),
+                requireText(asset.getSourceLabel(), "sourceLabel"),
+                asset.getId(),
+                command.reviewedAt()
+        );
     }
 
     private void hide(ReviewAiAssetCommand command, AiGeneratedAsset asset) {
@@ -149,6 +159,9 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             root = objectMapper.readTree(asset.getPayloadJson());
         } catch (JsonProcessingException exception) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson is not valid JSON");
+        }
+        if (root == null || !root.isObject()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson must be a JSON object");
         }
         JsonNode explanations = root.get("explanations");
         if (explanations == null || !explanations.isArray()) {
