@@ -19,6 +19,8 @@ class DummyBibleSeedContractTest {
         assertThat(migration).contains("이승욱님 seed 실제데이터입력시 해당 더미데이터 삭제바람");
         assertThat(migration).contains("한글 테스트 본문 10", "English dummy verse 10");
         assertThat(migration).contains("2026-06-02", "1CO", "1 Corinthians");
-        assertThat(migration).doesNotContain("개역개정", "ESV", "NIV");
+        assertThat(migration)
+                .as("금지 번역본 본문은 더미 seed에 포함하지 않는다")
+                .doesNotContain("개역개정", "ESV", "NIV"); // 금지 번역본 검증
     }
 }

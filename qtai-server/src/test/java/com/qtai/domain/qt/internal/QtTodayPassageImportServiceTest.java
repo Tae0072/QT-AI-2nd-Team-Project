@@ -1,6 +1,7 @@
 package com.qtai.domain.qt.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 
@@ -83,6 +84,25 @@ class QtTodayPassageImportServiceTest {
         assertThat(result.getStartVerse()).isEqualTo((short) 10);
         assertThat(result.getEndVerse()).isEqualTo((short) 17);
         assertThat(repository.findAll()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("DB에 없는 영문 권명이면 QT 본문을 저장하지 않는다")
+    void importToday_rejectsUnknownEnglishBookName() {
+        SuTodayPassage passage = new SuTodayPassage(
+                "제목",
+                "알 수 없는 권",
+                "Unknown Book",
+                (short) 1,
+                (short) 1,
+                (short) 2,
+                "알 수 없는 권(Unknown Book) 1:1-2"
+        );
+
+        assertThatThrownBy(() -> service.importToday(LocalDate.of(2026, 6, 2), passage))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("DB에 등록되지 않은 성경 권");
+        assertThat(repository.findAll()).isEmpty();
     }
 
     private void insertBibleBook() {

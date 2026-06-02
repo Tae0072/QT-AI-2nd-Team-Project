@@ -1,4 +1,5 @@
 -- 이승욱님 seed 실제데이터입력시 해당 더미데이터 삭제바람.
+-- 운영 배포 전 삭제 필수: Flutter API 연결 확인용 임시 더미 seed.
 -- Flutter 에뮬레이터에서 오늘 QT 파싱/API 연동을 확인하기 위한 임시 더미 seed.
 -- 실제 성경 번역 본문이 아니며, 금지 번역본 본문을 포함하지 않는다.
 -- 대상 범위: bookCode=1CO, englishName=1 Corinthians, chapter=1, verses=10-17.

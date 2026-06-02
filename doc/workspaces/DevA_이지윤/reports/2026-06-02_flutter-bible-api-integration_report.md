@@ -135,3 +135,11 @@
 
 - 이승욱님이 실제 `bible_verses` seed/import를 넣으면 [V23__seed_dummy_today_qt_1co_verses.sql](../../../../qtai-server/src/main/resources/db/migration/V23__seed_dummy_today_qt_1co_verses.sql)은 삭제한다.
 - 실제 seed가 들어온 뒤에는 같은 API와 에뮬레이터 화면에서 실제 본문이 표시되는지 다시 확인한다.
+
+## 2026-06-02 PR 리뷰/CI 보강
+
+- Requirements Guard 실패 원인이던 금지 번역본 부정 검증 테스트 문구를 guard 화이트리스트 기준에 맞췄다.
+- `SuTodayBibleClient` 성공, 2xx 외 응답, 네트워크 오류 단위 테스트를 추가했다.
+- `QtTodayPassageImportService`의 미등록 영문 권명 실패 경로 테스트를 추가했다.
+- `resolveRange()` 중복 로직을 `TodayQtRangeMapper`로 분리했다.
+- 더미 seed 파일에 운영 배포 전 삭제 필수 주석을 추가했다.

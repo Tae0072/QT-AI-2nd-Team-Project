@@ -8,6 +8,7 @@ import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
 import com.qtai.domain.qt.api.GetTodayQtUseCase;
 import com.qtai.domain.qt.api.dto.QtPassageContentContext;
+import com.qtai.domain.qt.api.dto.TodayQtRangeResponse;
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -163,31 +164,13 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
         );
     }
 
-    private com.qtai.domain.qt.api.dto.TodayQtRangeResponse resolveRange(QtPassage passage) {
+    private TodayQtRangeResponse resolveRange(QtPassage passage) {
         var range = qtPassageRepository.findRangeByQtPassageId(passage.getId());
         if (range == null) {
             return null;
         }
         return range
-                .map(view -> {
-                    Integer chapter = toInteger(view.getChapter());
-                    Integer verseFrom = toInteger(view.getVerseFrom());
-                    Integer verseTo = toInteger(view.getVerseTo());
-                    return new com.qtai.domain.qt.api.dto.TodayQtRangeResponse(
-                            view.getTestament(),
-                            view.getBookCode(),
-                            view.getKoreanBookName(),
-                            view.getEnglishBookName(),
-                            chapter,
-                            verseFrom,
-                            verseTo,
-                            view.getKoreanBookName() + " " + chapter + ":" + verseFrom + "-" + verseTo
-                    );
-                })
+                .map(TodayQtRangeMapper::toResponse)
                 .orElse(null);
-    }
-
-    private Integer toInteger(Short value) {
-        return value == null ? null : value.intValue();
     }
 }

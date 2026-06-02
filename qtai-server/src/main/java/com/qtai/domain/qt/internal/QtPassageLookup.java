@@ -101,28 +101,7 @@ class QtPassageLookup {
             return null;
         }
         return range
-                .map(this::toRangeResponse)
+                .map(TodayQtRangeMapper::toResponse)
                 .orElse(null);
-    }
-
-    private TodayQtRangeResponse toRangeResponse(QtPassageRangeView view) {
-        Integer chapter = toInteger(view.getChapter());
-        Integer verseFrom = toInteger(view.getVerseFrom());
-        Integer verseTo = toInteger(view.getVerseTo());
-        String displayText = view.getKoreanBookName() + " " + chapter + ":" + verseFrom + "-" + verseTo;
-        return new TodayQtRangeResponse(
-                view.getTestament(),
-                view.getBookCode(),
-                view.getKoreanBookName(),
-                view.getEnglishBookName(),
-                chapter,
-                verseFrom,
-                verseTo,
-                displayText
-        );
-    }
-
-    private Integer toInteger(Short value) {
-        return value == null ? null : value.intValue();
     }
 }
