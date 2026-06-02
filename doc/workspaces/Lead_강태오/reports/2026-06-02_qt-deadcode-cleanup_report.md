@@ -19,13 +19,15 @@
 |------|------|
 | qt | `internal/Qt.java`, `api/{CreateQt,ListMyQt,UpdateQt,DeleteQt}UseCase.java`, `api/dto/{QtCreateRequest,QtUpdateRequest}.java`, `api/{GetQtSimulatorUseCase,GetQtStudyContentUseCase}.java`(데드, 진짜는 study.api) |
 | member | `api/{GetMemberSettingsUseCase,UpdateMemberSettingsUseCase}.java`(실사용은 GetSettingsUseCase) |
-| report | `api/GetReportUseCase.java`(미참조) |
 
 + `qt/web/QtController.java` TODO 주석 정리(묵상 작성은 note 담당 명시).
 
+> 본 PR은 강태오 단독 소유 경로(qt·member)만 건드려 CODEOWNERS 타인 리뷰 없이 머지되도록 범위를 한정했다.
+
 ## 4. 보류 (타 도메인 조율 필요)
 
-`GetQtUseCase`·`QtResponse`·`QtVisibility` — ai/note/sharing의 `client/qt/GetQtUseCaseMock`와 `AiDailyQtVerseExplanationSeedService`가 참조. 제거 시 그쪽 빌드 영향 → 소유자(강상민·김지민·이승욱) 조율 후 별도 정리.
+- `report.api/GetReportUseCase`(미참조 데드) — report 도메인은 김지민·이승욱·이지윤 공동 소유(CODEOWNERS)라, 이 PR에서 빼고 report 소유자와 별도 정리.
+- `GetQtUseCase`·`QtResponse`·`QtVisibility` — ai/note/sharing의 `client/qt/GetQtUseCaseMock`와 `AiDailyQtVerseExplanationSeedService`가 참조. 제거 시 그쪽 빌드 영향 → 소유자(강상민·김지민·이승욱) 조율 후 별도 정리.
 
 ## 5. 검증
 
