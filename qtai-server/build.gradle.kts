@@ -84,3 +84,10 @@ tasks.register<JavaExec>("aiReviewReferencePromoteCandidateIndex") {
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.qtai.domain.ai.internal.AiReviewReferenceCandidatePromotionTool")
 }
+
+tasks.register<JavaExec>("aiReviewReferenceBookSectionMapCandidate") {
+    group = "ai"
+    description = "Generate AI review reference book section map candidates from a PDF."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.qtai.domain.ai.internal.AiReviewReferenceBookSectionMapCandidateTool")
+}
