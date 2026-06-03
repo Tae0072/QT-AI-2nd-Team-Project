@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,6 +35,7 @@ class AiReviewValidationServiceTest {
     private AiGeneratedAssetRepository generatedAssetRepository;
     private AiValidationChecklistVersionRepository checklistVersionRepository;
     private AiValidationLogRepository validationLogRepository;
+    private AiReviewReferenceService reviewReferenceService;
     private LlmClient llmClient;
     private AiReviewValidationService service;
     private ObjectMapper objectMapper;
@@ -44,6 +46,7 @@ class AiReviewValidationServiceTest {
         generatedAssetRepository = mock(AiGeneratedAssetRepository.class);
         checklistVersionRepository = mock(AiValidationChecklistVersionRepository.class);
         validationLogRepository = mock(AiValidationLogRepository.class);
+        reviewReferenceService = mock(AiReviewReferenceService.class);
         llmClient = mock(LlmClient.class);
         objectMapper = new ObjectMapper();
         AiLogService aiLogService = new AiLogService(
@@ -54,6 +57,7 @@ class AiReviewValidationServiceTest {
         service = new AiReviewValidationService(
                 generatedAssetRepository,
                 checklistVersionRepository,
+                reviewReferenceService,
                 aiLogService,
                 llmClient,
                 objectMapper
@@ -63,6 +67,7 @@ class AiReviewValidationServiceTest {
                 AiValidationChecklistType.EXPLANATION,
                 AiValidationChecklistStatus.ACTIVE
         )).thenReturn(List.of(checklistVersion(CHECKLIST_VERSION_ID)));
+        when(reviewReferenceService.latestActiveReference()).thenReturn(Optional.of(referenceMetadata()));
         when(validationLogRepository.save(any(AiValidationLog.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(generatedAssetRepository.save(any(AiGeneratedAsset.class)))
@@ -86,6 +91,7 @@ class AiReviewValidationServiceTest {
         assertThat(log.getReviewerType()).isEqualTo(AiValidationReviewerType.ADVISOR);
         assertThat(log.getResult()).isEqualTo(AiValidationResult.PASSED);
         assertThat(log.getChecklistVersionId()).isEqualTo(CHECKLIST_VERSION_ID);
+        assertThat(log.getValidationReferenceJobId()).isEqualTo(33L);
         assertThat(log.getErrorMessage()).isNull();
         assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
 
@@ -93,11 +99,15 @@ class AiReviewValidationServiceTest {
         assertThat(checklistJson.path("validator").asText()).isEqualTo("AI_REVIEW_VALIDATION_LAYER_V2");
         assertThat(checklistJson.path("result").asText()).isEqualTo("PASSED");
         assertThat(checklistJson.path("checklistVersionId").asLong()).isEqualTo(CHECKLIST_VERSION_ID);
+        assertThat(checklistJson.path("validationReferenceJobId").asLong()).isEqualTo(33L);
+        assertThat(checklistJson.path("referenceSourceName").asText()).isEqualTo("검증 참조 자료");
+        assertThat(checklistJson.path("referenceSourceFileHash").asText()).isEqualTo("sha256:reference-hash");
         assertThat(log.getChecklistJson()).doesNotContain(
                 "providerRawResponse",
                 "rawResponse",
                 "promptText",
                 "validationReferenceText",
+                "referenceExcerpt",
                 "secret",
                 "token",
                 "password",
@@ -107,8 +117,25 @@ class AiReviewValidationServiceTest {
         ArgumentCaptor<LlmCompletionRequest> requestCaptor = ArgumentCaptor.forClass(LlmCompletionRequest.class);
         verify(llmClient).complete(requestCaptor.capture());
         assertThat(requestCaptor.getValue().prompt())
-                .contains("\"assetId\":500", "\"checklistVersionId\":77")
-                .doesNotContain("providerRawResponse", "rawResponse", "secret", "token", "password", "privateKey");
+                .contains(
+                        "\"assetId\":500",
+                        "\"checklistVersionId\":77",
+                        "\"reference\"",
+                        "\"validationReferenceJobId\":33",
+                        "\"sourceName\":\"검증 참조 자료\"",
+                        "\"sourceFileHash\":\"sha256:reference-hash\"",
+                        "\"indexStorageUri\":\"restricted://validation/index\""
+                )
+                .doesNotContain(
+                        "providerRawResponse",
+                        "rawResponse",
+                        "validationReferenceText",
+                        "referenceExcerpt",
+                        "secret",
+                        "token",
+                        "password",
+                        "privateKey"
+                );
     }
 
     @Test
@@ -143,6 +170,22 @@ class AiReviewValidationServiceTest {
         assertThat(log.getLayer()).isEqualTo(2);
         assertThat(log.getErrorMessage()).isEqualTo("AI_REVIEW_RESPONSE_INVALID");
         assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+    }
+
+    @Test
+    void missingReferenceJobCreatesNeedsReviewLogWithoutCallingAdvisor() {
+        AiGeneratedAsset asset = givenAsset();
+        when(reviewReferenceService.latestActiveReference()).thenReturn(Optional.empty());
+
+        AiValidationLog log = service.validateExplanationAsset(ASSET_ID, VALIDATED_AT);
+
+        assertThat(log.getResult()).isEqualTo(AiValidationResult.NEEDS_REVIEW);
+        assertThat(log.getReviewerType()).isEqualTo(AiValidationReviewerType.ADVISOR);
+        assertThat(log.getLayer()).isEqualTo(2);
+        assertThat(log.getValidationReferenceJobId()).isNull();
+        assertThat(log.getErrorMessage()).isEqualTo("AI_REVIEW_REFERENCE_NOT_FOUND");
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        verify(llmClient, never()).complete(any(LlmCompletionRequest.class));
     }
 
     @Test
@@ -201,6 +244,15 @@ class AiReviewValidationServiceTest {
         version.activate(CREATED_AT.minusHours(1));
         setId(version, id);
         return version;
+    }
+
+    private static AiReviewReferenceService.ReferenceMetadata referenceMetadata() {
+        return new AiReviewReferenceService.ReferenceMetadata(
+                33L,
+                "검증 참조 자료",
+                "sha256:reference-hash",
+                "restricted://validation/index"
+        );
     }
 
     private static void setId(Object target, Long id) {
