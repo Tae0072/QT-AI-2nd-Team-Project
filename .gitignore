@@ -12,6 +12,9 @@ doc/standards/
 doc/workspaces/DevE_김지민/skills/
 doc/TalkFile_IVP*.pdf*
 **/ai-review-reference/*-candidate*.json
+**/ai-review-reference/*candidate*.json
+**/ai-review-reference/*promotion-summary*.json
+**/ai-review-reference/reference-index.json
 
 # Environment variables (로컬 개발 JWT 키 등)
 .env
