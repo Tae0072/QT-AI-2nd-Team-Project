@@ -225,7 +225,6 @@ public class AdminAiAssetController {
                 adminAuthentication.memberRole(),
                 adminAuthentication.adminRole(),
                 action,
-                request == null ? null : request.checklistVersionId(),
                 request == null ? null : request.reason(),
                 activateForTarget,
                 OffsetDateTime.now(clock)
@@ -297,7 +296,6 @@ public class AdminAiAssetController {
     }
 
     record AdminAiAssetReviewRequest(
-            Long checklistVersionId,
             String reason,
             Boolean activateForTarget
     ) {

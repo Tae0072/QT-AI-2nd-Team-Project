@@ -30,9 +30,9 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     private static final String ACTION_AI_ASSET_APPROVE = "AI_ASSET_APPROVE";
     private static final String ACTION_AI_ASSET_REJECT = "AI_ASSET_REJECT";
     private static final String ACTION_AI_ASSET_HIDE = "AI_ASSET_HIDE";
+    private static final int SERVER_AUTO_VALIDATION_LAYER = 1;
 
     private final AiGeneratedAssetRepository generatedAssetRepository;
-    private final AiValidationChecklistVersionRepository checklistVersionRepository;
     private final AiValidationLogRepository validationLogRepository;
     private final PublishApprovedVerseExplanationUseCase publishApprovedVerseExplanationUseCase;
     private final HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase;
@@ -41,7 +41,6 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
 
     AiAssetReviewService(
             AiGeneratedAssetRepository generatedAssetRepository,
-            AiValidationChecklistVersionRepository checklistVersionRepository,
             AiValidationLogRepository validationLogRepository,
             PublishApprovedVerseExplanationUseCase publishApprovedVerseExplanationUseCase,
             HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase,
@@ -49,7 +48,6 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             ObjectMapper objectMapper
     ) {
         this.generatedAssetRepository = generatedAssetRepository;
-        this.checklistVersionRepository = checklistVersionRepository;
         this.validationLogRepository = validationLogRepository;
         this.publishApprovedVerseExplanationUseCase = publishApprovedVerseExplanationUseCase;
         this.hidePublishedVerseExplanationUseCase = hidePublishedVerseExplanationUseCase;
@@ -79,23 +77,18 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     }
 
     private void approve(ReviewAiAssetCommand command, AiGeneratedAsset asset) {
-        requirePositive(command.checklistVersionId(), "checklistVersionId");
         requireValidatingAsset(asset);
-        AiValidationChecklistVersion checklistVersion = checklistVersionRepository.findById(command.checklistVersionId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.CHECKLIST_NOT_FOUND));
-        if (checklistVersion.getStatus() != AiValidationChecklistStatus.ACTIVE
-                || checklistVersion.getChecklistType() != checklistTypeOf(asset.getAssetType())) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "checklistVersionId is not active for assetType");
-        }
+        requireApprovableAssetType(asset);
 
         AiValidationLog latestLog = validationLogRepository
-                .findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(
+                .findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
                         asset.getId(),
-                        checklistVersion.getId()
+                        SERVER_AUTO_VALIDATION_LAYER,
+                        AiValidationReviewerType.AUTO
                 )
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.INVALID_STATUS_TRANSITION,
-                        "AI asset has no validation log for checklistVersionId"
+                        "AI asset has no server auto validation log"
                 ));
         if (latestLog.getResult() != AiValidationResult.PASSED) {
             throw new BusinessException(
@@ -144,6 +137,17 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             throw new BusinessException(
                     ErrorCode.INVALID_STATUS_TRANSITION,
                     "AI asset must be VALIDATING to approve"
+            );
+        }
+    }
+
+    private static void requireApprovableAssetType(AiGeneratedAsset asset) {
+        switch (asset.getAssetType()) {
+            case EXPLANATION, SIMULATOR, QA_RESPONSE -> {
+            }
+            case SUMMARY, GLOSSARY -> throw new BusinessException(
+                    ErrorCode.INVALID_INPUT,
+                    "assetType does not support admin approval"
             );
         }
     }
@@ -228,18 +232,6 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         } catch (JsonProcessingException exception) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "audit snapshot serialization failed");
         }
-    }
-
-    private static AiValidationChecklistType checklistTypeOf(AiGeneratedAssetType assetType) {
-        return switch (assetType) {
-            case EXPLANATION -> AiValidationChecklistType.EXPLANATION;
-            case SIMULATOR -> AiValidationChecklistType.SIMULATOR;
-            case QA_RESPONSE -> AiValidationChecklistType.QA;
-            case SUMMARY, GLOSSARY -> throw new BusinessException(
-                    ErrorCode.INVALID_INPUT,
-                    "assetType does not support admin approval checklist"
-            );
-        };
     }
 
     private static AiAssetReviewAction parseAction(String value) {

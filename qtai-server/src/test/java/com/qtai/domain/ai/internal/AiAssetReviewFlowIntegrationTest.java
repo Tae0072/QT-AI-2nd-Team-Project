@@ -57,7 +57,6 @@ class AiAssetReviewFlowIntegrationTest {
         verseExplanationService = new VerseExplanationService(verseExplanationRepository);
         reviewService = new AiAssetReviewService(
                 generatedAssetRepository,
-                checklistVersionRepository,
                 validationLogRepository,
                 verseExplanationService,
                 verseExplanationService,
@@ -112,7 +111,6 @@ class AiAssetReviewFlowIntegrationTest {
                 "ADMIN",
                 "REVIEWER",
                 "APPROVE",
-                checklistVersion.getId(),
                 "approved reason",
                 true,
                 REVIEWED_AT
@@ -181,7 +179,6 @@ class AiAssetReviewFlowIntegrationTest {
                 "ADMIN",
                 "REVIEWER",
                 "APPROVE",
-                checklistVersion.getId(),
                 "approved reason",
                 true,
                 REVIEWED_AT
@@ -243,7 +240,6 @@ class AiAssetReviewFlowIntegrationTest {
                 "ADMIN",
                 "REVIEWER",
                 "APPROVE",
-                checklistVersion.getId(),
                 "approved reason",
                 true,
                 REVIEWED_AT
@@ -257,7 +253,6 @@ class AiAssetReviewFlowIntegrationTest {
                 "ADMIN",
                 "REVIEWER",
                 "HIDE",
-                null,
                 "hide reason",
                 false,
                 REVIEWED_AT.plusMinutes(5)
