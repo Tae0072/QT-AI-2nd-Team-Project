@@ -5,6 +5,8 @@ import java.util.List;
 
 class AiReviewReferenceTextQualityAnalyzer {
 
+    // Diagnostic thresholds are intentionally conservative because extracted text
+    // remains a human-reviewed candidate, not a production reference index.
     private static final int MIN_TEXT_LENGTH = 40;
     private static final int MAX_TEXT_LENGTH = 12_000;
     private static final double QUESTION_MARK_NEEDS_REVIEW_RATIO = 0.03;

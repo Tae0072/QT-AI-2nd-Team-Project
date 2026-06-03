@@ -39,13 +39,13 @@
 | --- | --- |
 | sourceFileName | `TalkFile_IVP성경배경주석.pdf.pdf` |
 | schemaVersion | `ai-review-reference-index-candidate.v1` |
-| totalEntryCount | 11041 |
+| totalEntryCount | 1492 |
 | usableEntryCount | 0 |
-| needsReviewEntryCount | 9402 |
-| unusableEntryCount | 1639 |
-| averageHangulRatio | 0.6219753480071318 |
-| averageSuspiciousMojibakeRatio | 0.000203135235372836 |
-| totalReplacementCharCount | 373 |
+| needsReviewEntryCount | 1487 |
+| unusableEntryCount | 5 |
+| averageHangulRatio | 0.5993944266148904 |
+| averageSuspiciousMojibakeRatio | 0.000152177713682691 |
+| totalReplacementCharCount | 491 |
 
 판단:
 
@@ -53,6 +53,22 @@
 - `bookCode`는 이번 v1에서 확정하지 않아 모든 후보가 최소 `NEEDS_REVIEW` 대상이다.
 - summary 기준으로 원문 `referenceText`는 포함되지 않았다.
 - candidate JSON은 추출 원문을 포함하므로 `qtai-server/build/ai-review-reference/` 아래에만 생성하고 Git에는 포함하지 않는다.
+
+## 리뷰 반영
+
+- generator의 페이지 텍스트 분리 로직을 `entriesFromPages()`로 추출해 단위 테스트를 추가했다.
+- heading parser는 `19:8 설명문` 같은 본문 줄을 heading으로 보지 않도록 순수 장절 heading만 허용한다.
+- 페이지 끝 heading과 다음 페이지 본문이 이어지는 경우를 보존하도록 page-spanning 상태를 유지한다.
+- CLI 출력 경로는 `build/**` 아래만 허용한다.
+- candidate JSON 커밋 실수를 줄이기 위해 `.gitignore`에 `**/ai-review-reference/*-candidate*.json`를 추가했다.
+
+리뷰 반영 후 진단 결과:
+
+| 항목 | 이전 | 반영 후 |
+| --- | ---: | ---: |
+| totalEntryCount | 11041 | 1492 |
+| needsReviewEntryCount | 9402 | 1487 |
+| unusableEntryCount | 1639 | 5 |
 
 ## 검증 결과
 

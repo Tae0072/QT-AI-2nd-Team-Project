@@ -9,7 +9,7 @@ class AiReviewReferencePdfHeadingParser {
     private static final Pattern HEADING_PATTERN = Pattern.compile(
             "^(?<startChapter>\\d{1,3})\\s*:\\s*(?<startVerse>\\d{1,3})"
                     + "(?:\\s*-\\s*(?:(?<endChapter>\\d{1,3})\\s*:\\s*)?(?<endVerse>\\d{1,3}))?"
-                    + "(?:\\s+[^\\d:-].*)?$"
+                    + "\\s*$"
     );
 
     Optional<ParsedHeading> parse(String rawLine) {

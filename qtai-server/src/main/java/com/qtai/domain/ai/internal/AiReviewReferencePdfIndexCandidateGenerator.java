@@ -26,18 +26,19 @@ class AiReviewReferencePdfIndexCandidateGenerator {
     }
 
     AiReviewReferencePdfIndexCandidateWriter.CandidateDocument generate(Path sourcePath) {
-        List<AiReviewReferencePdfIndexCandidateWriter.CandidateEntry> entries = new ArrayList<>();
+        List<PageText> pages = new ArrayList<>();
         try (PDDocument document = Loader.loadPDF(sourcePath.toFile())) {
             PDFTextStripper textStripper = new PDFTextStripper();
             int pageCount = document.getNumberOfPages();
             for (int page = 1; page <= pageCount; page++) {
                 textStripper.setStartPage(page);
                 textStripper.setEndPage(page);
-                entries.addAll(pageEntries(page, textStripper.getText(document)));
+                pages.add(new PageText(page, textStripper.getText(document)));
             }
         } catch (IOException exception) {
             throw new IllegalStateException("AI_REVIEW_REFERENCE_PDF_READ_FAILED", exception);
         }
+        List<AiReviewReferencePdfIndexCandidateWriter.CandidateEntry> entries = entriesFromPages(pages);
 
         return AiReviewReferencePdfIndexCandidateWriter.CandidateDocument.fromEntries(
                 sourcePath.getFileName().toString(),
@@ -47,32 +48,33 @@ class AiReviewReferencePdfIndexCandidateGenerator {
         );
     }
 
-    private List<AiReviewReferencePdfIndexCandidateWriter.CandidateEntry> pageEntries(
-            int page,
-            String pageText
-    ) {
+    List<AiReviewReferencePdfIndexCandidateWriter.CandidateEntry> entriesFromPages(List<PageText> pages) {
         List<AiReviewReferencePdfIndexCandidateWriter.CandidateEntry> entries = new ArrayList<>();
         AiReviewReferencePdfHeadingParser.ParsedHeading currentHeading = null;
         StringBuilder currentText = new StringBuilder();
+        int currentPageStart = 0;
 
-        String[] lines = pageText == null ? new String[0] : pageText.split("\\R");
-        for (String line : lines) {
-            Optional<AiReviewReferencePdfHeadingParser.ParsedHeading> heading = headingParser.parse(line);
-            if (heading.isPresent()) {
-                flushEntry(page, currentHeading, currentText, entries);
-                currentHeading = heading.orElseThrow();
-                currentText.setLength(0);
-                continue;
-            }
-            if (currentHeading != null && !line.isBlank()) {
-                if (!currentText.isEmpty()) {
-                    currentText.append(System.lineSeparator());
+        for (PageText page : pages) {
+            String[] lines = page.text() == null ? new String[0] : page.text().split("\\R");
+            for (String line : lines) {
+                Optional<AiReviewReferencePdfHeadingParser.ParsedHeading> heading = headingParser.parse(line);
+                if (heading.isPresent()) {
+                    flushEntry(currentPageStart, currentHeading, currentText, entries);
+                    currentHeading = heading.orElseThrow();
+                    currentPageStart = page.pageNumber();
+                    currentText.setLength(0);
+                    continue;
                 }
-                currentText.append(line.strip());
+                if (currentHeading != null && !line.isBlank()) {
+                    if (!currentText.isEmpty()) {
+                        currentText.append(System.lineSeparator());
+                    }
+                    currentText.append(line.strip());
+                }
             }
         }
 
-        flushEntry(page, currentHeading, currentText, entries);
+        flushEntry(currentPageStart, currentHeading, currentText, entries);
         return entries;
     }
 
@@ -102,5 +104,11 @@ class AiReviewReferencePdfIndexCandidateGenerator {
                 AiReviewReferencePdfIndexCandidateWriter.sha256Hex(referenceText),
                 quality
         ));
+    }
+
+    record PageText(
+            int pageNumber,
+            String text
+    ) {
     }
 }

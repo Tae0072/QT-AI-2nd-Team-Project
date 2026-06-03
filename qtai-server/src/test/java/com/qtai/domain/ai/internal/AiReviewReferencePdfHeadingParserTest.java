@@ -55,5 +55,6 @@ class AiReviewReferencePdfHeadingParserTest {
         assertThat(parser.parse("19: 1 1-15")).isEmpty();
         assertThat(parser.parse("19:11-15-16")).isEmpty();
         assertThat(parser.parse("chapter 19 verse 11")).isEmpty();
+        assertThat(parser.parse("19:8 this is body text, not a heading")).isEmpty();
     }
 }

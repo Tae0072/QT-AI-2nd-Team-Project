@@ -34,13 +34,13 @@ public final class AiReviewReferencePdfIndexDiagnosticsTool {
         System.out.printf("candidate=%s%nsummary=%s%n", arguments.output(), arguments.summary());
     }
 
-    private record Arguments(
+    record Arguments(
             Path source,
             Path output,
             Path summary
     ) {
 
-        private static Arguments parse(String[] args) {
+        static Arguments parse(String[] args) {
             Map<String, String> values = new LinkedHashMap<>();
             for (int index = 0; index < args.length; index++) {
                 String key = args[index];
@@ -58,13 +58,27 @@ public final class AiReviewReferencePdfIndexDiagnosticsTool {
                     || summary == null || summary.isBlank()) {
                 throw usage();
             }
-            return new Arguments(Path.of(source), Path.of(output), Path.of(summary));
+            Path outputPath = Path.of(output);
+            Path summaryPath = Path.of(summary);
+            requireBuildOutput(outputPath);
+            requireBuildOutput(summaryPath);
+            return new Arguments(Path.of(source), outputPath, summaryPath);
         }
 
         private static IllegalArgumentException usage() {
             return new IllegalArgumentException(
                     "Usage: --source <pdf> --output <candidate-json> --summary <summary-json>"
             );
+        }
+
+        private static void requireBuildOutput(Path outputPath) {
+            Path buildRoot = Path.of("build").toAbsolutePath().normalize();
+            Path normalizedOutput = outputPath.toAbsolutePath().normalize();
+            if (!normalizedOutput.startsWith(buildRoot)) {
+                throw new IllegalArgumentException(
+                        "AI_REVIEW_REFERENCE_PDF_OUTPUT_MUST_BE_UNDER_BUILD"
+                );
+            }
         }
     }
 }
