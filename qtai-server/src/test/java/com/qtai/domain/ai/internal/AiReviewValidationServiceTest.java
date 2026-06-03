@@ -36,6 +36,8 @@ class AiReviewValidationServiceTest {
     private AiValidationChecklistVersionRepository checklistVersionRepository;
     private AiValidationLogRepository validationLogRepository;
     private AiReviewReferenceService reviewReferenceService;
+    private AiReviewReferenceIndexReader referenceIndexReader;
+    private AiReviewReferenceExcerptSelector referenceExcerptSelector;
     private LlmClient llmClient;
     private AiReviewValidationService service;
     private ObjectMapper objectMapper;
@@ -47,8 +49,10 @@ class AiReviewValidationServiceTest {
         checklistVersionRepository = mock(AiValidationChecklistVersionRepository.class);
         validationLogRepository = mock(AiValidationLogRepository.class);
         reviewReferenceService = mock(AiReviewReferenceService.class);
+        referenceIndexReader = mock(AiReviewReferenceIndexReader.class);
         llmClient = mock(LlmClient.class);
         objectMapper = new ObjectMapper();
+        referenceExcerptSelector = new AiReviewReferenceExcerptSelector(objectMapper);
         AiLogService aiLogService = new AiLogService(
                 generationJobRepository,
                 generatedAssetRepository,
@@ -58,6 +62,8 @@ class AiReviewValidationServiceTest {
                 generatedAssetRepository,
                 checklistVersionRepository,
                 reviewReferenceService,
+                referenceIndexReader,
+                referenceExcerptSelector,
                 aiLogService,
                 llmClient,
                 objectMapper
@@ -68,6 +74,10 @@ class AiReviewValidationServiceTest {
                 AiValidationChecklistStatus.ACTIVE
         )).thenReturn(List.of(checklistVersion(CHECKLIST_VERSION_ID)));
         when(reviewReferenceService.latestActiveReference()).thenReturn(Optional.of(referenceMetadata()));
+        when(referenceIndexReader.read("restricted://validation/index", "sha256:reference-hash"))
+                .thenReturn(referenceIndex(
+                        referenceEntry("JHN", 3, 16, 3, 16, "sha256:reference-entry-hash", "선택된 검수 참고 본문")
+                ));
         when(validationLogRepository.save(any(AiValidationLog.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(generatedAssetRepository.save(any(AiGeneratedAsset.class)))
@@ -80,7 +90,7 @@ class AiReviewValidationServiceTest {
         when(llmClient.complete(any(LlmCompletionRequest.class))).thenReturn(completion("""
                 {
                   "result": "PASSED",
-                  "reason": "출처와 범위가 검수 기준을 충족합니다."
+                  "reason": "출처와 범위가 검수 기준에 충족합니다."
                 }
                 """));
 
@@ -107,7 +117,8 @@ class AiReviewValidationServiceTest {
                 "rawResponse",
                 "promptText",
                 "validationReferenceText",
-                "referenceExcerpt",
+                "referenceText",
+                "선택된 검수 참고 본문",
                 "secret",
                 "token",
                 "password",
@@ -121,21 +132,41 @@ class AiReviewValidationServiceTest {
                         "\"assetId\":500",
                         "\"checklistVersionId\":77",
                         "\"reference\"",
+                        "\"excerpts\"",
                         "\"validationReferenceJobId\":33",
                         "\"sourceName\":\"검증 참조 자료\"",
                         "\"sourceFileHash\":\"sha256:reference-hash\"",
-                        "\"indexStorageUri\":\"restricted://validation/index\""
+                        "\"indexStorageUri\":\"restricted://validation/index\"",
+                        "\"referenceHash\":\"sha256:reference-entry-hash\"",
+                        "\"referenceText\":\"선택된 검수 참고 본문\""
                 )
                 .doesNotContain(
                         "providerRawResponse",
                         "rawResponse",
                         "validationReferenceText",
-                        "referenceExcerpt",
                         "secret",
                         "token",
                         "password",
                         "privateKey"
                 );
+    }
+
+    @Test
+    void checklistJsonStoresReferenceExcerptMetadataWithoutReferenceText() throws Exception {
+        givenAsset();
+        when(llmClient.complete(any(LlmCompletionRequest.class))).thenReturn(completion("""
+                {"result": "PASSED"}
+                """));
+
+        AiValidationLog log = service.validateExplanationAsset(ASSET_ID, VALIDATED_AT);
+
+        JsonNode checklistJson = objectMapper.readTree(log.getChecklistJson());
+        assertThat(checklistJson.path("selectedReferenceExcerptCount").asInt()).isEqualTo(1);
+        assertThat(checklistJson.path("selectedReferenceHashes").get(0).asText())
+                .isEqualTo("sha256:reference-entry-hash");
+        assertThat(checklistJson.path("selectedReferenceRangeLabels").get(0).asText())
+                .isEqualTo("JHN 3:16-16");
+        assertThat(log.getChecklistJson()).doesNotContain("referenceText", "선택된 검수 참고 본문");
     }
 
     @Test
@@ -189,6 +220,57 @@ class AiReviewValidationServiceTest {
     }
 
     @Test
+    void unmatchedReferenceExcerptCreatesNeedsReviewLogWithoutCallingAdvisor() {
+        AiGeneratedAsset asset = givenAsset();
+        when(referenceIndexReader.read("restricted://validation/index", "sha256:reference-hash"))
+                .thenReturn(referenceIndex(
+                        referenceEntry("ROM", 3, 16, 3, 16, "sha256:reference-entry-hash", "다른 책 참고 본문")
+                ));
+
+        AiValidationLog log = service.validateExplanationAsset(ASSET_ID, VALIDATED_AT);
+
+        assertThat(log.getResult()).isEqualTo(AiValidationResult.NEEDS_REVIEW);
+        assertThat(log.getReviewerType()).isEqualTo(AiValidationReviewerType.ADVISOR);
+        assertThat(log.getLayer()).isEqualTo(2);
+        assertThat(log.getValidationReferenceJobId()).isEqualTo(33L);
+        assertThat(log.getErrorMessage()).isEqualTo("AI_REVIEW_REFERENCE_EXCERPT_NOT_FOUND");
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        verify(llmClient, never()).complete(any(LlmCompletionRequest.class));
+    }
+
+    @Test
+    void missingAssetVerseMetadataCreatesNeedsReviewLogWithoutCallingAdvisor() {
+        AiGeneratedAsset asset = givenAssetWithoutVerseMetadata();
+
+        AiValidationLog log = service.validateExplanationAsset(ASSET_ID, VALIDATED_AT);
+
+        assertThat(log.getResult()).isEqualTo(AiValidationResult.NEEDS_REVIEW);
+        assertThat(log.getReviewerType()).isEqualTo(AiValidationReviewerType.ADVISOR);
+        assertThat(log.getLayer()).isEqualTo(2);
+        assertThat(log.getValidationReferenceJobId()).isEqualTo(33L);
+        assertThat(log.getErrorMessage()).isEqualTo("AI_REVIEW_ASSET_VERSE_METADATA_NOT_FOUND");
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        verify(llmClient, never()).complete(any(LlmCompletionRequest.class));
+    }
+
+    @Test
+    void indexReaderFailureCreatesNeedsReviewLogWithoutCallingAdvisor() {
+        AiGeneratedAsset asset = givenAsset();
+        when(referenceIndexReader.read("restricted://validation/index", "sha256:reference-hash"))
+                .thenThrow(new BusinessException(ErrorCode.INTERNAL_ERROR, "AI_REVIEW_REFERENCE_INDEX_READ_FAILED"));
+
+        AiValidationLog log = service.validateExplanationAsset(ASSET_ID, VALIDATED_AT);
+
+        assertThat(log.getResult()).isEqualTo(AiValidationResult.NEEDS_REVIEW);
+        assertThat(log.getReviewerType()).isEqualTo(AiValidationReviewerType.ADVISOR);
+        assertThat(log.getLayer()).isEqualTo(2);
+        assertThat(log.getValidationReferenceJobId()).isEqualTo(33L);
+        assertThat(log.getErrorMessage()).isEqualTo("AI_REVIEW_REFERENCE_INDEX_READ_FAILED");
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        verify(llmClient, never()).complete(any(LlmCompletionRequest.class));
+    }
+
+    @Test
     void nonExplanationAssetIsRejectedBeforeAdvisorCall() {
         AiGeneratedAsset asset = AiGeneratedAsset.create(
                 1L,
@@ -208,6 +290,33 @@ class AiReviewValidationServiceTest {
     }
 
     private AiGeneratedAsset givenAsset() {
+        AiGeneratedAsset asset = AiGeneratedAsset.create(
+                1L,
+                AiGeneratedAssetType.EXPLANATION,
+                AiTargetType.QT_PASSAGE,
+                35L,
+                """
+                        {
+                          "explanations": [
+                            {"verseId": 1001, "summary": "summary", "explanation": "explanation"}
+                          ],
+                          "sourceMetadata": {
+                            "verseIds": [1001],
+                            "verses": [
+                              {"verseId": 1001, "bookCode": "JHN", "chapterNo": 3, "verseNo": 16}
+                            ]
+                          }
+                        }
+                        """,
+                "QT-AI DeepSeek",
+                CREATED_AT
+        );
+        setId(asset, ASSET_ID);
+        when(generatedAssetRepository.findById(ASSET_ID)).thenReturn(Optional.of(asset));
+        return asset;
+    }
+
+    private AiGeneratedAsset givenAssetWithoutVerseMetadata() {
         AiGeneratedAsset asset = AiGeneratedAsset.create(
                 1L,
                 AiGeneratedAssetType.EXPLANATION,
@@ -252,6 +361,38 @@ class AiReviewValidationServiceTest {
                 "검증 참조 자료",
                 "sha256:reference-hash",
                 "restricted://validation/index"
+        );
+    }
+
+    private static AiReviewReferenceIndexReader.ReferenceIndex referenceIndex(
+            AiReviewReferenceIndexReader.ReferenceIndexEntry... entries
+    ) {
+        return new AiReviewReferenceIndexReader.ReferenceIndex(
+                "ai-review-reference-index.v1",
+                "sha256:reference-hash",
+                CREATED_AT,
+                List.of(entries)
+        );
+    }
+
+    private static AiReviewReferenceIndexReader.ReferenceIndexEntry referenceEntry(
+            String bookCode,
+            int chapterStart,
+            int verseStart,
+            int chapterEnd,
+            int verseEnd,
+            String referenceHash,
+            String referenceText
+    ) {
+        return new AiReviewReferenceIndexReader.ReferenceIndexEntry(
+                bookCode,
+                chapterStart,
+                verseStart,
+                chapterEnd,
+                verseEnd,
+                bookCode + " " + chapterStart + ":" + verseStart + "-" + verseEnd,
+                referenceText,
+                referenceHash
         );
     }
 
