@@ -25,10 +25,12 @@ class AiReviewValidationService {
     private static final int MAX_TOKENS = 800;
     private static final double TEMPERATURE = 0.0;
     private static final String REVIEW_VALIDATION_CONFIGURATION_ERROR = "REVIEW_VALIDATION_CONFIGURATION_ERROR";
+    private static final String REVIEW_REFERENCE_NOT_FOUND = "AI_REVIEW_REFERENCE_NOT_FOUND";
     private static final String VALIDATOR_NAME = "AI_REVIEW_VALIDATION_LAYER_V2";
 
     private final AiGeneratedAssetRepository generatedAssetRepository;
     private final AiValidationChecklistVersionRepository checklistVersionRepository;
+    private final AiReviewReferenceService reviewReferenceService;
     private final AiLogService aiLogService;
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper;
@@ -36,12 +38,14 @@ class AiReviewValidationService {
     AiReviewValidationService(
             AiGeneratedAssetRepository generatedAssetRepository,
             AiValidationChecklistVersionRepository checklistVersionRepository,
+            AiReviewReferenceService reviewReferenceService,
             AiLogService aiLogService,
             LlmClient llmClient,
             ObjectMapper objectMapper
     ) {
         this.generatedAssetRepository = generatedAssetRepository;
         this.checklistVersionRepository = checklistVersionRepository;
+        this.reviewReferenceService = reviewReferenceService;
         this.aiLogService = aiLogService;
         this.llmClient = llmClient;
         this.objectMapper = objectMapper;
@@ -57,16 +61,20 @@ class AiReviewValidationService {
         AiGeneratedAsset asset = findAsset(assetId);
         requireExplanationAsset(asset);
         AiValidationChecklistVersion checklistVersion = activeExplanationChecklistVersion();
-        ReviewOutcome outcome = review(asset, checklistVersion);
+        AiReviewReferenceService.ReferenceMetadata referenceMetadata =
+                reviewReferenceService.latestActiveReference().orElse(null);
+        ReviewOutcome outcome = referenceMetadata == null
+                ? new ReviewOutcome(AiValidationResult.NEEDS_REVIEW, REVIEW_REFERENCE_NOT_FOUND)
+                : review(asset, checklistVersion, referenceMetadata);
 
         return aiLogService.registerValidationLog(
                 asset.getId(),
-                null,
+                referenceMetadata == null ? null : referenceMetadata.validationReferenceJobId(),
                 REVIEW_VALIDATION_LAYER,
                 outcome.result(),
                 AiValidationReviewerType.ADVISOR,
                 checklistVersion.getId(),
-                checklistJson(checklistVersion, outcome),
+                checklistJson(checklistVersion, referenceMetadata, outcome),
                 outcome.errorMessage(),
                 validatedAt
         );
@@ -88,12 +96,16 @@ class AiReviewValidationService {
         return activeVersions.get(0);
     }
 
-    private ReviewOutcome review(AiGeneratedAsset asset, AiValidationChecklistVersion checklistVersion) {
+    private ReviewOutcome review(
+            AiGeneratedAsset asset,
+            AiValidationChecklistVersion checklistVersion,
+            AiReviewReferenceService.ReferenceMetadata referenceMetadata
+    ) {
         try {
             LlmCompletionResponse response = llmClient.complete(new LlmCompletionRequest(
                     null,
                     systemPrompt(),
-                    userPrompt(asset, checklistVersion),
+                    userPrompt(asset, checklistVersion, referenceMetadata),
                     MAX_TOKENS,
                     TEMPERATURE
             ));
@@ -132,7 +144,11 @@ class AiReviewValidationService {
                 """;
     }
 
-    private String userPrompt(AiGeneratedAsset asset, AiValidationChecklistVersion checklistVersion) {
+    private String userPrompt(
+            AiGeneratedAsset asset,
+            AiValidationChecklistVersion checklistVersion,
+            AiReviewReferenceService.ReferenceMetadata referenceMetadata
+    ) {
         Map<String, Object> prompt = new LinkedHashMap<>();
         prompt.put("assetId", asset.getId());
         prompt.put("assetType", asset.getAssetType().name());
@@ -142,12 +158,22 @@ class AiReviewValidationService {
         prompt.put("checklistType", checklistVersion.getChecklistType().name());
         prompt.put("checklistVersion", checklistVersion.getVersion());
         prompt.put("checklistContentHash", checklistVersion.getContentHash());
+        prompt.put("reference", referenceMetadataNode(referenceMetadata));
         prompt.put("assetPayload", payloadNode(asset.getPayloadJson()));
         try {
             return objectMapper.writeValueAsString(prompt);
         } catch (JsonProcessingException exception) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "AI_REVIEW_PROMPT_SERIALIZATION_FAILED");
         }
+    }
+
+    private Map<String, Object> referenceMetadataNode(AiReviewReferenceService.ReferenceMetadata referenceMetadata) {
+        Map<String, Object> reference = new LinkedHashMap<>();
+        reference.put("validationReferenceJobId", referenceMetadata.validationReferenceJobId());
+        reference.put("sourceName", referenceMetadata.sourceName());
+        reference.put("sourceFileHash", referenceMetadata.sourceFileHash());
+        reference.put("indexStorageUri", referenceMetadata.indexStorageUri());
+        return reference;
     }
 
     private JsonNode payloadNode(String payloadJson) {
@@ -158,7 +184,11 @@ class AiReviewValidationService {
         }
     }
 
-    private String checklistJson(AiValidationChecklistVersion checklistVersion, ReviewOutcome outcome) {
+    private String checklistJson(
+            AiValidationChecklistVersion checklistVersion,
+            AiReviewReferenceService.ReferenceMetadata referenceMetadata,
+            ReviewOutcome outcome
+    ) {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("validator", VALIDATOR_NAME);
         root.put("result", outcome.result().name());
@@ -166,6 +196,12 @@ class AiReviewValidationService {
         root.put("checklistType", checklistVersion.getChecklistType().name());
         root.put("checklistVersion", checklistVersion.getVersion());
         root.put("checklistContentHash", checklistVersion.getContentHash());
+        if (referenceMetadata != null) {
+            root.put("validationReferenceJobId", referenceMetadata.validationReferenceJobId());
+            root.put("referenceSourceName", referenceMetadata.sourceName());
+            root.put("referenceSourceFileHash", referenceMetadata.sourceFileHash());
+            root.put("referenceIndexStorageUri", referenceMetadata.indexStorageUri());
+        }
         if (outcome.errorMessage() != null) {
             root.put("errorCode", outcome.errorMessage());
         }
