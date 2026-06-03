@@ -10,6 +10,7 @@
 CLAUDE.local.md
 doc/standards/
 doc/workspaces/DevE_김지민/skills/
+doc/TalkFile_IVP*.pdf*
 
 # Environment variables (로컬 개발 JWT 키 등)
 .env
