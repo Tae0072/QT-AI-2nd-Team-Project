@@ -13,9 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.GetAdminAiMonitoringUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiMonitoringResponse;
-import com.qtai.domain.ai.api.dto.GetAdminAiMonitoringQuery;
+import com.qtai.domain.ai.api.admin.monitoring.GetAdminAiMonitoringUseCase;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiMonitoringResponse;
+import com.qtai.domain.ai.api.admin.monitoring.dto.GetAdminAiMonitoringQuery;
 
 @Service
 class AdminAiMonitoringQueryService implements GetAdminAiMonitoringUseCase {

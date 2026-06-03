@@ -21,8 +21,8 @@ import org.mockito.ArgumentCaptor;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.dto.AdminAiMonitoringResponse;
-import com.qtai.domain.ai.api.dto.GetAdminAiMonitoringQuery;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiMonitoringResponse;
+import com.qtai.domain.ai.api.admin.monitoring.dto.GetAdminAiMonitoringQuery;
 
 class AdminAiMonitoringQueryServiceTest {
 

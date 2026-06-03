@@ -27,10 +27,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import com.qtai.domain.ai.api.ListAdminAiBatchRunLogsUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiBatchRunLogItem;
-import com.qtai.domain.ai.api.dto.AdminAiBatchRunLogListResponse;
-import com.qtai.domain.ai.api.dto.ListAdminAiBatchRunLogsQuery;
+import com.qtai.domain.ai.api.admin.monitoring.ListAdminAiBatchRunLogsUseCase;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiBatchRunLogItem;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiBatchRunLogListResponse;
+import com.qtai.domain.ai.api.admin.monitoring.dto.ListAdminAiBatchRunLogsQuery;
 
 class AdminAiBatchRunLogControllerTest {
 
