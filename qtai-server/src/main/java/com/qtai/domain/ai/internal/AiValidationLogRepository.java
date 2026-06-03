@@ -10,4 +10,10 @@ public interface AiValidationLogRepository extends JpaRepository<AiValidationLog
             Long aiAssetId,
             Long checklistVersionId
     );
+
+    Optional<AiValidationLog> findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+            Long aiAssetId,
+            Integer layer,
+            AiValidationReviewerType reviewerType
+    );
 }

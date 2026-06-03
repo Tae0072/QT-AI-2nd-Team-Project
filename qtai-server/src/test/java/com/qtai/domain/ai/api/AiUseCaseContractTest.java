@@ -239,7 +239,6 @@ class AiUseCaseContractTest {
                         "memberRole",
                         "adminRole",
                         "action",
-                        "checklistVersionId",
                         "reason",
                         "activateForTarget",
                         "reviewedAt"

@@ -12,7 +12,6 @@ public record ReviewAiAssetCommand(
         @NotBlank String memberRole,
         @NotBlank String adminRole,
         @NotBlank String action,
-        Long checklistVersionId,
         String reason,
         boolean activateForTarget,
         @NotNull OffsetDateTime reviewedAt

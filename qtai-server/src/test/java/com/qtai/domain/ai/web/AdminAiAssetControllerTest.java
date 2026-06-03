@@ -294,7 +294,6 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "checklistVersionId": 4,
                                   "reason": "검증 기준을 충족합니다.",
                                   "activateForTarget": true
                                 }
@@ -313,7 +312,6 @@ class AdminAiAssetControllerTest {
         assertThat(command.memberRole()).isEqualTo("ADMIN");
         assertThat(command.adminRole()).isEqualTo("REVIEWER");
         assertThat(command.action()).isEqualTo("APPROVE");
-        assertThat(command.checklistVersionId()).isEqualTo(4L);
         assertThat(command.reason()).isEqualTo("검증 기준을 충족합니다.");
         assertThat(command.activateForTarget()).isTrue();
         assertThat(command.reviewedAt()).isEqualTo(OffsetDateTime.parse("2026-05-21T10:30:00+09:00"));
@@ -373,7 +371,6 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "checklistVersionId": 4,
                                   "reason": "권한 확인",
                                   "activateForTarget": true
                                 }
@@ -393,7 +390,6 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "checklistVersionId": 4,
                                   "reason": "상태 전이 확인",
                                   "activateForTarget": true
                                 }
