@@ -78,6 +78,12 @@ class AiAssetReviewServiceTest {
                 AiValidationReviewerType.AUTO
         ))
                 .thenReturn(Optional.of(validationLog(AiValidationResult.PASSED)));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                2,
+                AiValidationReviewerType.ADVISOR
+        ))
+                .thenReturn(Optional.of(advisorValidationLog(AiValidationResult.PASSED)));
 
         ReviewAiAssetResult result = service.reviewAiAsset(approveCommand(true));
 
@@ -232,6 +238,58 @@ class AiAssetReviewServiceTest {
                 500L,
                 1,
                 AiValidationReviewerType.AUTO
+        ))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.reviewAiAsset(approveCommand(true)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        verify(publishApprovedVerseExplanationUseCase, never())
+                .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
+    }
+
+    @Test
+    void approveRequiresPassedLatestAdvisorValidationLog() {
+        AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                1,
+                AiValidationReviewerType.AUTO
+        ))
+                .thenReturn(Optional.of(validationLog(AiValidationResult.PASSED)));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                2,
+                AiValidationReviewerType.ADVISOR
+        ))
+                .thenReturn(Optional.of(advisorValidationLog(AiValidationResult.NEEDS_REVIEW)));
+
+        assertThatThrownBy(() -> service.reviewAiAsset(approveCommand(true)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        verify(publishApprovedVerseExplanationUseCase, never())
+                .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
+    }
+
+    @Test
+    void approveRequiresAdvisorValidationLogWithoutPublishing() {
+        AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                1,
+                AiValidationReviewerType.AUTO
+        ))
+                .thenReturn(Optional.of(validationLog(AiValidationResult.PASSED)));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                2,
+                AiValidationReviewerType.ADVISOR
         ))
                 .thenReturn(Optional.empty());
 
@@ -417,6 +475,12 @@ class AiAssetReviewServiceTest {
                 AiValidationReviewerType.AUTO
         ))
                 .thenReturn(Optional.of(validationLog(AiValidationResult.PASSED)));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                2,
+                AiValidationReviewerType.ADVISOR
+        ))
+                .thenReturn(Optional.of(advisorValidationLog(AiValidationResult.PASSED)));
     }
 
     private static Stream<Arguments> invalidPublishPayloads() {
@@ -504,6 +568,20 @@ class AiAssetReviewServiceTest {
                 "{\"validator\":\"test\"}",
                 null,
                 REVIEWED_AT.minusMinutes(10)
+        );
+    }
+
+    private static AiValidationLog advisorValidationLog(AiValidationResult result) {
+        return AiValidationLog.create(
+                500L,
+                null,
+                2,
+                result,
+                AiValidationReviewerType.ADVISOR,
+                4L,
+                "{\"validator\":\"advisor-test\"}",
+                null,
+                REVIEWED_AT.minusMinutes(5)
         );
     }
 

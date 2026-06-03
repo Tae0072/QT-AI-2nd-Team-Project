@@ -240,6 +240,7 @@ class AiGenerationTriggerFlowIntegrationTest {
                 generatedAssetRepository,
                 checklistVersionRepository,
                 aiLogService,
+                mock(AiReviewValidationService.class),
                 objectMapper
         );
     }
