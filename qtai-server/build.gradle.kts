@@ -31,6 +31,7 @@ dependencies {
 
     // Caffeine — 로컬 캐시 (bible_books 등 불변 데이터)
     implementation("com.github.ben-manes.caffeine:caffeine")
+    implementation("org.apache.pdfbox:pdfbox:3.0.3")
 
     // Flyway — DB 마이그레이션
     implementation("org.flywaydb:flyway-core")
@@ -68,4 +69,11 @@ tasks.withType<JavaCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.register<JavaExec>("aiReviewReferencePdfIndexDiagnostics") {
+    group = "ai"
+    description = "Generate AI review reference PDF index candidates and quality diagnostics."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.qtai.domain.ai.internal.AiReviewReferencePdfIndexDiagnosticsTool")
 }
