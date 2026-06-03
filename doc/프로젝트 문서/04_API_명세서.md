@@ -1496,7 +1496,7 @@
 }
 ```
 
-- **승인 조건:** 관리자는 `checklistVersionId`를 입력하지 않는다. 서버는 `assetId` 기준 최신 `layer = 1`, `reviewerType = AUTO` 검증 로그를 조회하고, 해당 최신 로그가 `PASSED`일 때만 승인한다. 최신 자동 검증 로그가 없거나 결과가 `PASSED`가 아니면 `409 INVALID_STATUS_TRANSITION`을 반환한다. 관리자 승인 대상이 아닌 `SUMMARY`, `GLOSSARY` 산출물은 `400 INVALID_INPUT`으로 차단한다.
+- **승인 조건:** 관리자는 `checklistVersionId`를 입력하지 않는다. 서버는 `assetId` 기준 최신 `layer = 1`, `reviewerType = AUTO` 검증 로그와 최신 `layer = 2`, `reviewerType = ADVISOR` 검증 로그를 조회하고, 두 최신 로그가 모두 `PASSED`일 때만 승인한다. 두 검증 로그 중 하나라도 없거나 결과가 `PASSED`가 아니면 `409 INVALID_STATUS_TRANSITION`을 반환한다. 관리자 승인 대상이 아닌 `SUMMARY`, `GLOSSARY` 산출물은 `400 INVALID_INPUT`으로 차단한다.
 - **노출본 연결:** `activateForTarget=true`이고 산출물이 `EXPLANATION + BIBLE_VERSE`이면 기존 `verse_explanations` ACTIVE 해설을 비활성화하고, 해당 asset payload의 `explanations[]`에서 `verseId == targetId`인 항목을 새 `APPROVED + ACTIVE` 해설로 연결한다. `QT_PASSAGE`, `SIMULATOR`, glossary term 연결은 별도 PR 범위다.
 - **반려/숨김 요청:** `reject`, `hide`는 `reason`만 받는다. `reason` 원문은 감사 로그 snapshot에 저장하지 않는다. `EXPLANATION + BIBLE_VERSE` 산출물 hide 시 해당 asset이 게시한 `verse_explanations` 노출본은 `HIDDEN + activeUniqueKey=NULL`로 전환해 사용자 조회에서 제외한다.
 - **상태 전이:** `VALIDATING -> APPROVED | REJECTED`, `APPROVED -> HIDDEN`, `REJECTED -> 재생성 요청 가능`

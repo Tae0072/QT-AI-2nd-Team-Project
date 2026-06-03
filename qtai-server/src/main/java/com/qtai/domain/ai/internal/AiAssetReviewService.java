@@ -31,6 +31,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     private static final String ACTION_AI_ASSET_REJECT = "AI_ASSET_REJECT";
     private static final String ACTION_AI_ASSET_HIDE = "AI_ASSET_HIDE";
     private static final int SERVER_AUTO_VALIDATION_LAYER = 1;
+    private static final int AI_REVIEW_VALIDATION_LAYER = 2;
 
     private final AiGeneratedAssetRepository generatedAssetRepository;
     private final AiValidationLogRepository validationLogRepository;
@@ -80,22 +81,20 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         requireValidatingAsset(asset);
         requireApprovableAssetType(asset);
 
-        AiValidationLog latestLog = validationLogRepository
-                .findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
-                        asset.getId(),
-                        SERVER_AUTO_VALIDATION_LAYER,
-                        AiValidationReviewerType.AUTO
-                )
-                .orElseThrow(() -> new BusinessException(
-                        ErrorCode.INVALID_STATUS_TRANSITION,
-                        "AI asset has no server auto validation log"
-                ));
-        if (latestLog.getResult() != AiValidationResult.PASSED) {
-            throw new BusinessException(
-                    ErrorCode.INVALID_STATUS_TRANSITION,
-                    "AI asset latest validation log must be PASSED"
-            );
-        }
+        requirePassedValidationLog(
+                asset.getId(),
+                SERVER_AUTO_VALIDATION_LAYER,
+                AiValidationReviewerType.AUTO,
+                "AI asset has no server auto validation log",
+                "AI asset latest server auto validation log must be PASSED"
+        );
+        requirePassedValidationLog(
+                asset.getId(),
+                AI_REVIEW_VALIDATION_LAYER,
+                AiValidationReviewerType.ADVISOR,
+                "AI asset has no advisor validation log",
+                "AI asset latest advisor validation log must be PASSED"
+        );
 
         PublishApprovedVerseExplanationCommand publishCommand = publishCommandForTarget(command, asset);
         asset.approve(command.reviewedAt());
@@ -149,6 +148,25 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
                     ErrorCode.INVALID_INPUT,
                     "assetType does not support admin approval"
             );
+        }
+    }
+
+    private void requirePassedValidationLog(
+            Long assetId,
+            int layer,
+            AiValidationReviewerType reviewerType,
+            String missingMessage,
+            String failedMessage
+    ) {
+        AiValidationLog latestLog = validationLogRepository
+                .findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                        assetId,
+                        layer,
+                        reviewerType
+                )
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION, missingMessage));
+        if (latestLog.getResult() != AiValidationResult.PASSED) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION, failedMessage);
         }
     }
 

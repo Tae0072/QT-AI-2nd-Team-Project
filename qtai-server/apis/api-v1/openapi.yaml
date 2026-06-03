@@ -783,8 +783,9 @@ paths:
       summary: Approve admin AI asset
       description: >
         Approves a VALIDATING AI asset after checking that the latest layer 1 AUTO
-        validation log is PASSED. When activateForTarget is true and the asset is
-        EXPLANATION + BIBLE_VERSE, the approved explanation is published to
+        validation log and latest layer 2 ADVISOR validation log are both PASSED.
+        When activateForTarget is true and the asset is EXPLANATION + BIBLE_VERSE,
+        the approved explanation is published to
         verse_explanations as the active user-visible row.
       security:
         - bearerAuth: []
@@ -2384,7 +2385,7 @@ components:
         reason:
           type: string
           minLength: 1
-          example: Verified against the latest server auto validation log.
+          example: Verified against the latest server auto and advisor validation logs.
         activateForTarget:
           type: boolean
           nullable: true

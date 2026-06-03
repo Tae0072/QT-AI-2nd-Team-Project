@@ -331,6 +331,7 @@ class AiGenerationJobRunnerIntegrationTest {
                 generatedAssetRepository,
                 checklistVersionRepository,
                 aiLogService,
+                mock(AiReviewValidationService.class),
                 objectMapper
         );
     }
