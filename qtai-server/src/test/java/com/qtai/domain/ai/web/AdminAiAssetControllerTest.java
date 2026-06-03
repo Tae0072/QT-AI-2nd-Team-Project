@@ -217,7 +217,7 @@ class AdminAiAssetControllerTest {
                         100L,
                         "VALIDATING",
                         payloadJson(),
-                        "QT-AI 寃?좎슜 異쒖쿂",
+                        "QT-AI 검토용 출처",
                         OffsetDateTime.parse("2026-05-21T10:30:00+09:00"),
                         null,
                         new AdminAiAssetDetailResponse.GenerationJobSummary(
@@ -245,7 +245,7 @@ class AdminAiAssetControllerTest {
                                 2,
                                 "NEEDS_REVIEW",
                                 "ADMIN",
-                                "異쒖쿂 ?쒖떆 ?뺤씤 ?꾩슂",
+                                "출처 표시 확인 필요",
                                 OffsetDateTime.parse("2026-05-21T10:40:00+09:00")
                         ))
                 ));
@@ -255,7 +255,7 @@ class AdminAiAssetControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(500))
-                .andExpect(jsonPath("$.data.payloadJson.summary").value("寃?좎슜 ?붿빟"))
+                .andExpect(jsonPath("$.data.payloadJson.summary").value("검토용 요약"))
                 .andExpect(jsonPath("$.data.generationJob.id").value(101))
                 .andExpect(jsonPath("$.data.promptVersion.id").value(3))
                 .andExpect(jsonPath("$.data.validationLogs[0].validationLogId").value(900))
@@ -295,7 +295,7 @@ class AdminAiAssetControllerTest {
                         .content("""
                                 {
                                   "checklistVersionId": 4,
-                                  "reason": "寃利?湲곗???異⑹”?⑸땲??",
+                                  "reason": "검증 기준을 충족합니다.",
                                   "activateForTarget": true
                                 }
                                 """))
@@ -314,7 +314,7 @@ class AdminAiAssetControllerTest {
         assertThat(command.adminRole()).isEqualTo("REVIEWER");
         assertThat(command.action()).isEqualTo("APPROVE");
         assertThat(command.checklistVersionId()).isEqualTo(4L);
-        assertThat(command.reason()).isEqualTo("寃利?湲곗???異⑹”?⑸땲??");
+        assertThat(command.reason()).isEqualTo("검증 기준을 충족합니다.");
         assertThat(command.activateForTarget()).isTrue();
         assertThat(command.reviewedAt()).isEqualTo(OffsetDateTime.parse("2026-05-21T10:30:00+09:00"));
     }
@@ -329,7 +329,7 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "reason": "異쒖쿂 ?쒓린媛 遺議깊빀?덈떎."
+                                  "reason": "출처 표기가 부족합니다."
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -353,7 +353,7 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "reason": "?뱀씤 ???④? 泥섎━?⑸땲??"
+                                  "reason": "승인 후 숨김 처리합니다."
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -374,7 +374,7 @@ class AdminAiAssetControllerTest {
                         .content("""
                                 {
                                   "checklistVersionId": 4,
-                                  "reason": "沅뚰븳 ?뺤씤",
+                                  "reason": "권한 확인",
                                   "activateForTarget": true
                                 }
                                 """))
@@ -394,7 +394,7 @@ class AdminAiAssetControllerTest {
                         .content("""
                                 {
                                   "checklistVersionId": 4,
-                                  "reason": "?곹깭 ?꾩씠 ?뺤씤",
+                                  "reason": "상태 전이 확인",
                                   "activateForTarget": true
                                 }
                                 """))
@@ -416,7 +416,7 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "reason": "異쒖쿂 ?쒓린媛 遺議깊빀?덈떎.",
+                                  "reason": "출처 표기가 부족합니다.",
                                   "promptVersionId": 3
                                 }
                                 """))
@@ -448,7 +448,7 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "reason": "寃??沅뚰븳 ?뺤씤",
+                                  "reason": "검토 권한 확인",
                                   "promptVersionId": 3
                                 }
                                 """))
@@ -470,7 +470,7 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "reason": "寃利?以??곹깭 ?뺤씤",
+                                  "reason": "검증 중 상태 확인",
                                   "promptVersionId": 3
                                 }
                                 """))
@@ -496,7 +496,7 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "reason": "異쒖쿂 ?쒓린媛 遺議깊빀?덈떎.",
+                                  "reason": "출처 표기가 부족합니다.",
                                   "promptVersionId": 3
                                 }
                                 """))
@@ -518,7 +518,7 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "reason": "異쒖쿂 ?쒓린媛 遺議깊빀?덈떎.",
+                                  "reason": "출처 표기가 부족합니다.",
                                   "promptVersionId": 3
                                 }
                                 """))
@@ -540,7 +540,7 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "reason": "?ㅻ뜑 ?꾩“ ?쒕룄",
+                                  "reason": "헤더 위조 시도",
                                   "promptVersionId": 3
                                 }
                                 """))
@@ -559,7 +559,7 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "reason": "沅뚰븳 ?ㅻ뜑 ?꾩“ ?쒕룄",
+                                  "reason": "권한 헤더 위조 시도",
                                   "promptVersionId": 3
                                 }
                                 """))
@@ -576,7 +576,7 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "reason": "principal ?뺤떇 ?뺤씤",
+                                  "reason": "principal 형식 확인",
                                   "promptVersionId": 3
                                 }
                                 """))
@@ -616,8 +616,8 @@ class AdminAiAssetControllerTest {
     private JsonNode payloadJson() throws Exception {
         return objectMapper.readTree("""
                 {
-                  "summary": "寃?좎슜 ?붿빟",
-                  "sourceLabel": "QT-AI 寃?좎슜 異쒖쿂"
+                  "summary": "검토용 요약",
+                  "sourceLabel": "QT-AI 검토용 출처"
                 }
                 """);
     }

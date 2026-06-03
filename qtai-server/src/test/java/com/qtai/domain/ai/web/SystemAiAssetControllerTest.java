@@ -86,7 +86,7 @@ class SystemAiAssetControllerTest {
                                   "targetType": "QT_PASSAGE",
                                   "targetId": 35,
                                   "payloadJson": {
-                                    "summary": "寃利??湲??댁꽕",
+                                    "summary": "검증 대기 해설",
                                     "sources": [{"label": "curated"}]
                                   },
                                   "sourceLabel": "QT-AI curated content",
@@ -109,7 +109,7 @@ class SystemAiAssetControllerTest {
         assertThat(command.targetType()).isEqualTo("QT_PASSAGE");
         assertThat(command.targetId()).isEqualTo(35L);
         assertThat(command.payloadJson())
-                .isEqualTo("{\"summary\":\"寃利??湲??댁꽕\",\"sources\":[{\"label\":\"curated\"}]}");
+                .isEqualTo("{\"summary\":\"검증 대기 해설\",\"sources\":[{\"label\":\"curated\"}]}");
         assertThat(command.sourceLabel()).isEqualTo("QT-AI curated content");
         assertThat(command.createdAt()).isEqualTo(OffsetDateTime.parse("2026-05-26T10:30:00+09:00"));
     }
@@ -205,7 +205,7 @@ class SystemAiAssetControllerTest {
                                   "assetType": "EXPLANATION",
                                   "targetType": "QT_PASSAGE",
                                   "targetId": 35,
-                                  "payloadJson": {"summary": "寃利??湲??댁꽕"}
+                                  "payloadJson": {"summary": "검증 대기 해설"}
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -237,7 +237,7 @@ class SystemAiAssetControllerTest {
                   "assetType": "EXPLANATION",
                   "targetType": "QT_PASSAGE",
                   "targetId": 35,
-                  "payloadJson": {"summary": "寃利??湲??댁꽕"},
+                  "payloadJson": {"summary": "검증 대기 해설"},
                   "sourceLabel": "QT-AI curated content"
                 }
                 """;
@@ -250,7 +250,7 @@ class SystemAiAssetControllerTest {
                   "assetType": "EXPLANATION",
                   "targetType": "QT_PASSAGE",
                   "targetId": 35,
-                  "payloadJson": {"summary": "寃利??湲??댁꽕"},
+                  "payloadJson": {"summary": "검증 대기 해설"},
                   "sourceLabel": "QT-AI curated content",
                   "status": "%s"
                 }

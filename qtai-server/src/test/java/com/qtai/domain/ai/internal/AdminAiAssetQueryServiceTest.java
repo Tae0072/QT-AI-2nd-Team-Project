@@ -94,7 +94,7 @@ class AdminAiAssetQueryServiceTest {
                                 AiTargetType.QT_PASSAGE,
                                 100L,
                                 AiGeneratedAssetStatus.VALIDATING,
-                                "QT-AI 寃?좎슜 異쒖쿂",
+                                "QT-AI 검토용 출처",
                                 CREATED_AT,
                                 3L,
                                 AiPromptType.EXPLANATION,
@@ -151,13 +151,13 @@ class AdminAiAssetQueryServiceTest {
                 2,
                 AiValidationResult.NEEDS_REVIEW,
                 AiValidationReviewerType.ADMIN,
-                "異쒖쿂 ?쒖떆 ?뺤씤 ?꾩슂",
+                "출처 표시 확인 필요",
                 CREATED_AT.plusMinutes(10)
         )));
 
         AdminAiAssetDetailResponse response = service.getAdminAiAsset(detailQuery("SUPER_ADMIN"));
 
-        assertThat(response.payloadJson().get("summary").asText()).isEqualTo("寃?좎슜 ?붿빟");
+        assertThat(response.payloadJson().get("summary").asText()).isEqualTo("검토용 요약");
         assertThat(response.payloadJson().has("providerRawResponse")).isFalse();
         assertThat(response.payloadJson().has("rawResponse")).isFalse();
         assertThat(response.payloadJson().has("validationReferenceText")).isFalse();
@@ -200,8 +200,8 @@ class AdminAiAssetQueryServiceTest {
                 AiTargetType.QT_PASSAGE,
                 100L,
                 AiGeneratedAssetStatus.VALIDATING,
-                "{\"summary\":\"寃?좎슜 ?붿빟\",\"sourceLabel\":\"QT-AI 寃?좎슜 異쒖쿂\"}",
-                "QT-AI 寃?좎슜 異쒖쿂",
+                "{\"summary\":\"검토용 요약\",\"sourceLabel\":\"QT-AI 검토용 출처\"}",
+                "QT-AI 검토용 출처",
                 CREATED_AT,
                 null,
                 101L,

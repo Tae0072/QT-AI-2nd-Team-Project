@@ -123,7 +123,7 @@ class AdminAiAssetQueryRepositoryTest {
                 repository.findValidationLogs(asset.getId());
 
         assertThat(detail.id()).isEqualTo(asset.getId());
-        assertThat(detail.payloadJson()).contains("\"summary\":\"寃?좎슜 ?붿빟\"");
+        assertThat(detail.payloadJson()).contains("\"summary\":\"검토용 요약\"");
         assertThat(detail.promptVersionRowId()).isEqualTo(promptVersion.getId());
         assertThat(logs)
                 .extracting(AdminAiAssetQueryRepository.AdminAiValidationLogRow::validationLogId)
@@ -190,8 +190,8 @@ class AdminAiAssetQueryRepositoryTest {
                 assetType,
                 targetType,
                 targetId,
-                "{\"summary\":\"寃?좎슜 ?붿빟\",\"sourceLabel\":\"QT-AI 寃?좎슜 異쒖쿂\"}",
-                "QT-AI 寃?좎슜 異쒖쿂",
+                "{\"summary\":\"검토용 요약\",\"sourceLabel\":\"QT-AI 검토용 출처\"}",
+                "QT-AI 검토용 출처",
                 createdAt
         );
         return testEntityManager.persistAndFlush(asset);
@@ -211,7 +211,7 @@ class AdminAiAssetQueryRepositoryTest {
                 AiValidationReviewerType.ADMIN,
                 checklistVersionId,
                 "{\"checks\":[\"sourceLabel\"]}",
-                "異쒖쿂 ?쒖떆 ?뺤씤 ?꾩슂",
+                "출처 표시 확인 필요",
                 createdAt
         );
         return testEntityManager.persistAndFlush(log);

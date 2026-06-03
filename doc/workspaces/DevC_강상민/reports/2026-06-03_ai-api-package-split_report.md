@@ -134,7 +134,14 @@ cd qtai-server
 
 - 패키지 이동 폭이 커서 Git status에는 delete/add가 많이 표시된다. PR 전 rename 인식 여부는 `git diff --summary` 또는 IDE diff로 확인한다.
 - Gradle 검증에는 `C:\Users\HSystem\.jdks\temurin-21` portable JDK를 사용했다. User scope 환경변수에 등록했으므로 새 터미널부터 기본 Java로 사용할 수 있다.
-- 필요하면 `AiUseCaseContractTest`에 하위 패키지별 UseCase 그룹 기대값을 더 명시해 패키지 구조 회귀를 막는다.
+- Jacoco/coverage 태스크 미등록은 본 리팩터링과 별개 이슈이므로 후속 PR에서 Gradle 설정 기준을 정리한다.
+
+## 리뷰 반영
+
+- `REQUEST_CHANGES` 사유였던 Java 한글 리터럴 mojibake를 `dev` 기준 원문으로 복구했다.
+- `AiService.java`의 BusinessException 메시지는 최종 `dev` 대비 diff에서 import 변경만 남도록 정리했다.
+- 한글 리터럴이 포함된 테스트 파일도 `dev` 기준 원문으로 복구한 뒤 import 변경만 다시 적용했다.
+- `AiUseCaseContractTest`에 하위 패키지별 UseCase 분류 기대값을 추가해 `qa`, `generation`, `admin.asset`, `admin.monitoring`, `admin.checklist`, `validation` 배치 회귀를 막는다.
 
 ## 참고
 

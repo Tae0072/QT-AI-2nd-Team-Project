@@ -40,7 +40,7 @@ class AiLogUseCaseServiceTest {
                 AiGeneratedAssetType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "{\"summary\":\"寃利??湲??댁꽕\"}",
+                "{\"summary\":\"검증 대기 해설\"}",
                 "QT-AI curated content",
                 createdAt
         )).thenReturn(savedAsset);
@@ -51,7 +51,7 @@ class AiLogUseCaseServiceTest {
                         "EXPLANATION",
                         "QT_PASSAGE",
                         35L,
-                        "{\"summary\":\"寃利??湲??댁꽕\"}",
+                        "{\"summary\":\"검증 대기 해설\"}",
                         "QT-AI curated content",
                         createdAt
                 )
@@ -64,7 +64,7 @@ class AiLogUseCaseServiceTest {
                 AiGeneratedAssetType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "{\"summary\":\"寃利??湲??댁꽕\"}",
+                "{\"summary\":\"검증 대기 해설\"}",
                 "QT-AI curated content",
                 createdAt
         );
@@ -143,7 +143,7 @@ class AiLogUseCaseServiceTest {
                 "UNKNOWN",
                 "QT_PASSAGE",
                 35L,
-                "{\"summary\":\"寃利??湲??댁꽕\"}",
+                "{\"summary\":\"검증 대기 해설\"}",
                 null,
                 OffsetDateTime.parse("2026-05-26T10:30:00+09:00")
         );
