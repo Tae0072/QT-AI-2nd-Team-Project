@@ -18,9 +18,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.RegisterAiGeneratedAssetUseCase;
-import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetCommand;
-import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetResult;
+import com.qtai.domain.ai.api.generation.RegisterAiGeneratedAssetUseCase;
+import com.qtai.domain.ai.api.generation.dto.RegisterAiGeneratedAssetCommand;
+import com.qtai.domain.ai.api.generation.dto.RegisterAiGeneratedAssetResult;
 
 @RestController
 @RequestMapping("/api/v1/system/ai/assets")

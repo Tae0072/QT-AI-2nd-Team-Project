@@ -33,13 +33,13 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.CreateValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.ExpireValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.GetValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.dto.CreateValidationReferenceJobCommand;
-import com.qtai.domain.ai.api.dto.ExpireValidationReferenceJobCommand;
-import com.qtai.domain.ai.api.dto.GetValidationReferenceJobQuery;
-import com.qtai.domain.ai.api.dto.ValidationReferenceJobResponse;
+import com.qtai.domain.ai.api.validation.CreateValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.ExpireValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.GetValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.dto.CreateValidationReferenceJobCommand;
+import com.qtai.domain.ai.api.validation.dto.ExpireValidationReferenceJobCommand;
+import com.qtai.domain.ai.api.validation.dto.GetValidationReferenceJobQuery;
+import com.qtai.domain.ai.api.validation.dto.ValidationReferenceJobResponse;
 
 class SystemValidationReferenceJobControllerTest {
 
@@ -89,7 +89,7 @@ class SystemValidationReferenceJobControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(33))
-                .andExpect(jsonPath("$.data.sourceName").value("검증 참조 자료"))
+                .andExpect(jsonPath("$.data.sourceName").value("寃利?李몄“ ?먮즺"))
                 .andExpect(jsonPath("$.data.sourceFileName").value("reference-notes.pdf"))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.expiresAt").value("2026-05-29T04:00:00+09:00"))
@@ -104,7 +104,7 @@ class SystemValidationReferenceJobControllerTest {
                 ArgumentCaptor.forClass(CreateValidationReferenceJobCommand.class);
         verify(createUseCase).createValidationReferenceJob(commandCaptor.capture());
         CreateValidationReferenceJobCommand command = commandCaptor.getValue();
-        assertThat(command.sourceName()).isEqualTo("검증 참조 자료");
+        assertThat(command.sourceName()).isEqualTo("寃利?李몄“ ?먮즺");
         assertThat(command.sourceFileName()).isEqualTo("reference-notes.pdf");
         assertThat(command.sourceFileHash()).isEqualTo("sha256:reference-hash");
         assertThat(command.storageUri()).isEqualTo("restricted://validation/reference.pdf");
@@ -227,7 +227,7 @@ class SystemValidationReferenceJobControllerTest {
     private static String validRequestBody() {
         return """
                 {
-                  "sourceName": "검증 참조 자료",
+                  "sourceName": "寃利?李몄“ ?먮즺",
                   "sourceFileName": "reference-notes.pdf",
                   "sourceFileHash": "sha256:reference-hash",
                   "storageUri": "restricted://validation/reference.pdf",
@@ -240,7 +240,7 @@ class SystemValidationReferenceJobControllerTest {
     private static ValidationReferenceJobResponse activeResponse() {
         return new ValidationReferenceJobResponse(
                 33L,
-                "검증 참조 자료",
+                "寃利?李몄“ ?먮즺",
                 "reference-notes.pdf",
                 "ACTIVE",
                 OffsetDateTime.parse("2026-05-29T04:00:00+09:00"),
@@ -253,7 +253,7 @@ class SystemValidationReferenceJobControllerTest {
     private static ValidationReferenceJobResponse expiredResponse() {
         return new ValidationReferenceJobResponse(
                 33L,
-                "검증 참조 자료",
+                "寃利?李몄“ ?먮즺",
                 "reference-notes.pdf",
                 "EXPIRED",
                 OffsetDateTime.parse("2026-05-29T04:00:00+09:00"),

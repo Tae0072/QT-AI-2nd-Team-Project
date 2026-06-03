@@ -13,10 +13,10 @@ import org.junit.jupiter.api.Test;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetCommand;
-import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetResult;
-import com.qtai.domain.ai.api.dto.RegisterAiValidationLogCommand;
-import com.qtai.domain.ai.api.dto.RegisterAiValidationLogResult;
+import com.qtai.domain.ai.api.generation.dto.RegisterAiGeneratedAssetCommand;
+import com.qtai.domain.ai.api.generation.dto.RegisterAiGeneratedAssetResult;
+import com.qtai.domain.ai.api.validation.dto.RegisterAiValidationLogCommand;
+import com.qtai.domain.ai.api.validation.dto.RegisterAiValidationLogResult;
 
 class AiLogUseCaseServiceTest {
 
@@ -40,7 +40,7 @@ class AiLogUseCaseServiceTest {
                 AiGeneratedAssetType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "{\"summary\":\"검증 대기 해설\"}",
+                "{\"summary\":\"寃利??湲??댁꽕\"}",
                 "QT-AI curated content",
                 createdAt
         )).thenReturn(savedAsset);
@@ -51,7 +51,7 @@ class AiLogUseCaseServiceTest {
                         "EXPLANATION",
                         "QT_PASSAGE",
                         35L,
-                        "{\"summary\":\"검증 대기 해설\"}",
+                        "{\"summary\":\"寃利??湲??댁꽕\"}",
                         "QT-AI curated content",
                         createdAt
                 )
@@ -64,7 +64,7 @@ class AiLogUseCaseServiceTest {
                 AiGeneratedAssetType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
                 35L,
-                "{\"summary\":\"검증 대기 해설\"}",
+                "{\"summary\":\"寃利??湲??댁꽕\"}",
                 "QT-AI curated content",
                 createdAt
         );
@@ -143,7 +143,7 @@ class AiLogUseCaseServiceTest {
                 "UNKNOWN",
                 "QT_PASSAGE",
                 35L,
-                "{\"summary\":\"검증 대기 해설\"}",
+                "{\"summary\":\"寃利??湲??댁꽕\"}",
                 null,
                 OffsetDateTime.parse("2026-05-26T10:30:00+09:00")
         );

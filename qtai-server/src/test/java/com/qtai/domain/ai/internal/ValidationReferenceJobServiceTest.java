@@ -19,13 +19,13 @@ import org.mockito.ArgumentCaptor;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.CreateValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.ExpireValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.GetValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.dto.CreateValidationReferenceJobCommand;
-import com.qtai.domain.ai.api.dto.ExpireValidationReferenceJobCommand;
-import com.qtai.domain.ai.api.dto.GetValidationReferenceJobQuery;
-import com.qtai.domain.ai.api.dto.ValidationReferenceJobResponse;
+import com.qtai.domain.ai.api.validation.CreateValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.ExpireValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.GetValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.dto.CreateValidationReferenceJobCommand;
+import com.qtai.domain.ai.api.validation.dto.ExpireValidationReferenceJobCommand;
+import com.qtai.domain.ai.api.validation.dto.GetValidationReferenceJobQuery;
+import com.qtai.domain.ai.api.validation.dto.ValidationReferenceJobResponse;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 
@@ -97,7 +97,7 @@ class ValidationReferenceJobServiceTest {
                 service.getValidationReferenceJob(new GetValidationReferenceJobQuery(33L));
 
         assertThat(response.id()).isEqualTo(33L);
-        assertThat(response.sourceName()).isEqualTo("검증 참조 자료");
+        assertThat(response.sourceName()).isEqualTo("寃利?李몄“ ?먮즺");
         assertThatThrownBy(() -> service.getValidationReferenceJob(new GetValidationReferenceJobQuery(404L)))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_REFERENCE_JOB_NOT_FOUND));
@@ -136,7 +136,7 @@ class ValidationReferenceJobServiceTest {
 
     private static CreateValidationReferenceJobCommand createCommand() {
         return new CreateValidationReferenceJobCommand(
-                "검증 참조 자료",
+                "寃利?李몄“ ?먮즺",
                 "reference-notes.pdf",
                 "sha256:reference-hash",
                 "restricted://validation/reference.pdf",
@@ -147,7 +147,7 @@ class ValidationReferenceJobServiceTest {
 
     private static ValidationReferenceJob persistedJob(Long id) {
         ValidationReferenceJob job = ValidationReferenceJob.create(
-                "검증 참조 자료",
+                "寃利?李몄“ ?먮즺",
                 "reference-notes.pdf",
                 "sha256:reference-hash",
                 "restricted://validation/reference.pdf",
@@ -161,12 +161,12 @@ class ValidationReferenceJobServiceTest {
 
     private static void assertSanitizedSnapshot(String json) {
         assertThat(json)
-                .contains("\"id\":33", "\"sourceName\":\"검증 참조 자료\"", "\"sourceFileName\":\"reference-notes.pdf\"")
+                .contains("\"id\":33", "\"sourceName\":\"寃利?李몄“ ?먮즺\"", "\"sourceFileName\":\"reference-notes.pdf\"")
                 .contains("\"timestamp\":\"2026-05-28T10:00:00+09:00\"")
                 .doesNotContain("sourceFileHash")
                 .doesNotContain("storageUri")
                 .doesNotContain("indexStorageUri")
-                .doesNotContain("원문")
+                .doesNotContain("?먮Ц")
                 .doesNotContain("secret")
                 .doesNotContain("token")
                 .doesNotContain("password");

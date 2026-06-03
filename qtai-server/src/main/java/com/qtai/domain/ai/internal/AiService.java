@@ -15,12 +15,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.CreateAiGenerationJobUseCase;
-import com.qtai.domain.ai.api.RegenerateAiAssetUseCase;
-import com.qtai.domain.ai.api.dto.CreateAiGenerationJobCommand;
-import com.qtai.domain.ai.api.dto.CreateAiGenerationJobResult;
-import com.qtai.domain.ai.api.dto.RegenerateAiAssetCommand;
-import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
+import com.qtai.domain.ai.api.generation.CreateAiGenerationJobUseCase;
+import com.qtai.domain.ai.api.admin.asset.RegenerateAiAssetUseCase;
+import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobCommand;
+import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobResult;
+import com.qtai.domain.ai.api.admin.asset.dto.RegenerateAiAssetCommand;
+import com.qtai.domain.ai.api.admin.asset.dto.RegenerateAiAssetResult;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 
@@ -75,7 +75,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         )) {
             throw new BusinessException(
                     ErrorCode.INVALID_STATUS_TRANSITION,
-                    "같은 대상의 진행 중 AI 생성 작업이 있어 새 작업을 생성할 수 없습니다."
+                    "媛숈? ??곸쓽 吏꾪뻾 以?AI ?앹꽦 ?묒뾽???덉뼱 ???묒뾽???앹꽦?????놁뒿?덈떎."
             );
         }
 
@@ -97,7 +97,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
     @Transactional
     public RegenerateAiAssetResult regenerateAiAsset(RegenerateAiAssetCommand command) {
         requireValidCommand(command);
-        // Controller 인증 우회나 내부 호출 오용을 막기 위한 도메인 경계의 2차 권한 검증이다.
+        // Controller ?몄쬆 ?고쉶???대? ?몄텧 ?ㅼ슜??留됯린 ?꾪븳 ?꾨찓??寃쎄퀎??2李?沅뚰븳 寃利앹씠??
         requireAuthorizedReviewer(command.memberRole(), command.adminRole());
 
         AiGeneratedAsset asset = generatedAssetRepository.findById(command.assetId())
@@ -114,7 +114,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         )) {
             throw new BusinessException(
                     ErrorCode.INVALID_STATUS_TRANSITION,
-                    "같은 대상의 진행 중 AI 생성 작업이 있어 재생성을 요청할 수 없습니다."
+                    "媛숈? ??곸쓽 吏꾪뻾 以?AI ?앹꽦 ?묒뾽???덉뼱 ?ъ깮?깆쓣 ?붿껌?????놁뒿?덈떎."
             );
         }
 
@@ -144,7 +144,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
             }
             throw new BusinessException(
                     ErrorCode.INVALID_STATUS_TRANSITION,
-                    "같은 대상의 진행 중 AI 생성 작업이 있어 새 작업을 생성할 수 없습니다."
+                    "媛숈? ??곸쓽 吏꾪뻾 以?AI ?앹꽦 ?묒뾽???덉뼱 ???묒뾽???앹꽦?????놁뒿?덈떎."
             );
         }
     }
@@ -258,7 +258,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         }
         throw new BusinessException(
                 ErrorCode.INVALID_STATUS_TRANSITION,
-                "REJECTED 또는 HIDDEN 상태의 AI 산출물만 재생성을 요청할 수 있습니다."
+                "REJECTED ?먮뒗 HIDDEN ?곹깭??AI ?곗텧臾쇰쭔 ?ъ깮?깆쓣 ?붿껌?????덉뒿?덈떎."
         );
     }
 

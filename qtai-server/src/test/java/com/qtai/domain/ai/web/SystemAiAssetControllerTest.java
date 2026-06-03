@@ -37,9 +37,9 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.RegisterAiGeneratedAssetUseCase;
-import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetCommand;
-import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetResult;
+import com.qtai.domain.ai.api.generation.RegisterAiGeneratedAssetUseCase;
+import com.qtai.domain.ai.api.generation.dto.RegisterAiGeneratedAssetCommand;
+import com.qtai.domain.ai.api.generation.dto.RegisterAiGeneratedAssetResult;
 
 class SystemAiAssetControllerTest {
 
@@ -86,7 +86,7 @@ class SystemAiAssetControllerTest {
                                   "targetType": "QT_PASSAGE",
                                   "targetId": 35,
                                   "payloadJson": {
-                                    "summary": "검증 대기 해설",
+                                    "summary": "寃利??湲??댁꽕",
                                     "sources": [{"label": "curated"}]
                                   },
                                   "sourceLabel": "QT-AI curated content",
@@ -109,7 +109,7 @@ class SystemAiAssetControllerTest {
         assertThat(command.targetType()).isEqualTo("QT_PASSAGE");
         assertThat(command.targetId()).isEqualTo(35L);
         assertThat(command.payloadJson())
-                .isEqualTo("{\"summary\":\"검증 대기 해설\",\"sources\":[{\"label\":\"curated\"}]}");
+                .isEqualTo("{\"summary\":\"寃利??湲??댁꽕\",\"sources\":[{\"label\":\"curated\"}]}");
         assertThat(command.sourceLabel()).isEqualTo("QT-AI curated content");
         assertThat(command.createdAt()).isEqualTo(OffsetDateTime.parse("2026-05-26T10:30:00+09:00"));
     }
@@ -205,7 +205,7 @@ class SystemAiAssetControllerTest {
                                   "assetType": "EXPLANATION",
                                   "targetType": "QT_PASSAGE",
                                   "targetId": 35,
-                                  "payloadJson": {"summary": "검증 대기 해설"}
+                                  "payloadJson": {"summary": "寃利??湲??댁꽕"}
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -237,7 +237,7 @@ class SystemAiAssetControllerTest {
                   "assetType": "EXPLANATION",
                   "targetType": "QT_PASSAGE",
                   "targetId": 35,
-                  "payloadJson": {"summary": "검증 대기 해설"},
+                  "payloadJson": {"summary": "寃利??湲??댁꽕"},
                   "sourceLabel": "QT-AI curated content"
                 }
                 """;
@@ -250,7 +250,7 @@ class SystemAiAssetControllerTest {
                   "assetType": "EXPLANATION",
                   "targetType": "QT_PASSAGE",
                   "targetId": 35,
-                  "payloadJson": {"summary": "검증 대기 해설"},
+                  "payloadJson": {"summary": "寃利??湲??댁꽕"},
                   "sourceLabel": "QT-AI curated content",
                   "status": "%s"
                 }

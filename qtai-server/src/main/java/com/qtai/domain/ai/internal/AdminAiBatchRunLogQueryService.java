@@ -13,10 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.ListAdminAiBatchRunLogsUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiBatchRunLogItem;
-import com.qtai.domain.ai.api.dto.AdminAiBatchRunLogListResponse;
-import com.qtai.domain.ai.api.dto.ListAdminAiBatchRunLogsQuery;
+import com.qtai.domain.ai.api.admin.monitoring.ListAdminAiBatchRunLogsUseCase;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiBatchRunLogItem;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiBatchRunLogListResponse;
+import com.qtai.domain.ai.api.admin.monitoring.dto.ListAdminAiBatchRunLogsQuery;
 
 @Service
 class AdminAiBatchRunLogQueryService implements ListAdminAiBatchRunLogsUseCase {

@@ -17,15 +17,15 @@ import org.springframework.web.bind.annotation.RestController;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.ActivateAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.CreateAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.ListAdminAiValidationChecklistsUseCase;
-import com.qtai.domain.ai.api.RetireAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistListResponse;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistResponse;
-import com.qtai.domain.ai.api.dto.ChangeAdminAiValidationChecklistStatusCommand;
-import com.qtai.domain.ai.api.dto.CreateAdminAiValidationChecklistCommand;
-import com.qtai.domain.ai.api.dto.ListAdminAiValidationChecklistsQuery;
+import com.qtai.domain.ai.api.admin.checklist.ActivateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.CreateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.ListAdminAiValidationChecklistsUseCase;
+import com.qtai.domain.ai.api.admin.checklist.RetireAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistListResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.ChangeAdminAiValidationChecklistStatusCommand;
+import com.qtai.domain.ai.api.admin.checklist.dto.CreateAdminAiValidationChecklistCommand;
+import com.qtai.domain.ai.api.admin.checklist.dto.ListAdminAiValidationChecklistsQuery;
 
 @RestController
 @RequestMapping("/api/v1/admin/ai/validation-checklists")

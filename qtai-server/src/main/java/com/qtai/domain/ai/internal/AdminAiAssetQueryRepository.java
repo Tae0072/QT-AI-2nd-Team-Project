@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
+import com.qtai.domain.ai.api.admin.asset.dto.ListAdminAiAssetsQuery;
 
 @Repository
 public class AdminAiAssetQueryRepository {

@@ -18,8 +18,8 @@ import org.springframework.data.domain.Pageable;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.dto.AdminAiBatchRunLogListResponse;
-import com.qtai.domain.ai.api.dto.ListAdminAiBatchRunLogsQuery;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiBatchRunLogListResponse;
+import com.qtai.domain.ai.api.admin.monitoring.dto.ListAdminAiBatchRunLogsQuery;
 
 class AdminAiBatchRunLogQueryServiceTest {
 
