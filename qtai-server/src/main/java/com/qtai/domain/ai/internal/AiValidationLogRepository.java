@@ -6,8 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AiValidationLogRepository extends JpaRepository<AiValidationLog, Long> {
 
-    Optional<AiValidationLog> findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(
+    Optional<AiValidationLog> findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
             Long aiAssetId,
-            Long checklistVersionId
+            Integer layer,
+            AiValidationReviewerType reviewerType
     );
 }
