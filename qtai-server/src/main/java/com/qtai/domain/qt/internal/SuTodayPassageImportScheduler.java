@@ -44,14 +44,13 @@ class SuTodayPassageImportScheduler {
         if (!enabled) {
             return;
         }
+        LocalDate today = LocalDate.now(clock.withZone(KST));
         try {
-            LocalDate today = LocalDate.now(clock.withZone(KST));
             if (qtPassageRepository.existsByQtDate(today)) {
                 return;
             }
             importToday();
         } catch (RuntimeException exception) {
-            LocalDate today = LocalDate.now(clock.withZone(KST));
             log.warn(
                     "성서유니온 오늘 QT startup 보강 실패. qtDate={}, errorType={}, errorMessage={}",
                     today,

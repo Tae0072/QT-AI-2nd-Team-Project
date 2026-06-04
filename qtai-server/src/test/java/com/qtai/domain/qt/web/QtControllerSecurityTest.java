@@ -2,11 +2,14 @@ package com.qtai.domain.qt.web;
 
 import com.qtai.domain.qt.api.GetTodayQtUseCase;
 import com.qtai.security.JwtProvider;
+import com.qtai.security.SecurityConfig;
+import com.qtai.security.SecurityErrorResponseWriter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -19,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * CLAUDE.md §5 "인증되지 않은 사용자는 Kakao login 시작만 가능" 정책.
  */
 @WebMvcTest(QtController.class)
+@Import({SecurityConfig.class, SecurityErrorResponseWriter.class})
 class QtControllerSecurityTest {
 
     @Autowired
