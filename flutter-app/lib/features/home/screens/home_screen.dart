@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../bible/screens/bible_browser_screen.dart';
 import '../../bible/screens/today_qt_screen.dart';
 import '../../mypage/screens/mypage_screen.dart';
 import '../../sharing/screens/sharing_feed_screen.dart';
 
-/// 홈 화면 — 하단 탭바 (홈 / 나눔 / 마이페이지).
+/// 앱 하단 탭 화면(QT / 성경 / 나눔 / 마이).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -17,6 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _screens = const [
     TodayQtScreen(),
+    BibleBrowserScreen(),
     SharingFeedScreen(),
     MyPageScreen(),
   ];
@@ -31,11 +33,17 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: '홈',
+            icon: Icon(Icons.auto_stories_outlined),
+            activeIcon: Icon(Icons.auto_stories),
+            label: 'QT',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.menu_book_outlined),
+            activeIcon: Icon(Icons.menu_book),
+            label: '성경',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.people_outline),

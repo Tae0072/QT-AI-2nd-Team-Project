@@ -15,6 +15,8 @@ public interface QtPassageRepository extends JpaRepository<QtPassage, Long> {
     /** 특정 날짜의 QT 본문 조회 (qt_date UNIQUE). */
     Optional<QtPassage> findByQtDate(LocalDate qtDate);
 
+    boolean existsByQtDate(LocalDate qtDate);
+
     @Query(value = """
             SELECT b.id
               FROM bible_books b
