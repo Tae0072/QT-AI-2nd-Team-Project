@@ -9,6 +9,9 @@ import '../features/mypage/screens/notification_list_screen.dart';
 import '../features/mypage/screens/praise_screen.dart';
 import '../features/mypage/screens/profile_edit_screen.dart';
 import '../features/mypage/screens/settings_screen.dart';
+import '../features/note/screens/note_category_select_screen.dart';
+import '../features/note/screens/note_edit_screen.dart';
+import '../features/note/screens/note_list_screen.dart';
 import '../features/sharing/screens/sharing_detail_screen.dart';
 import '../features/sharing/screens/sharing_feed_screen.dart';
 import '../features/onboarding/providers/onboarding_providers.dart';
@@ -28,6 +31,10 @@ class AppRouter {
   static const String praise = '/praise';
   static const String sharing = '/sharing';
   static const String sharingDetail = '/sharing/detail';
+  static const String noteList = '/notes';
+  static const String noteCategorySelect = '/notes/category-select';
+  static const String noteEdit = '/notes/edit';
+  static const String noteDetail = '/notes/detail';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -36,9 +43,7 @@ class AppRouter {
           builder: (context) => Consumer(
             builder: (context, ref, _) => OnboardingScreen(
               onComplete: () async {
-                await ref
-                    .read(onboardingCompleteProvider.notifier)
-                    .complete();
+                await ref.read(onboardingCompleteProvider.notifier).complete();
                 if (context.mounted) {
                   Navigator.of(context).pushReplacementNamed(login);
                 }
@@ -86,6 +91,20 @@ class AppRouter {
         final postId = settings.arguments as int;
         return MaterialPageRoute(
           builder: (_) => SharingDetailScreen(postId: postId),
+        );
+      case noteList:
+        return MaterialPageRoute(
+          builder: (_) => const NoteListScreen(),
+        );
+      case noteCategorySelect:
+        return MaterialPageRoute(
+          builder: (_) => const NoteCategorySelectScreen(),
+        );
+      case noteEdit:
+        // N-02에서 넘긴 카테고리 코드(arguments)는 N-03이 직접 꺼내 쓴다.
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const NoteEditScreen(),
         );
       default:
         return MaterialPageRoute(
