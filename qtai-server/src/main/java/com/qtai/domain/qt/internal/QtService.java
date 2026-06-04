@@ -44,6 +44,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
     private final QtPassageLookup passageLookup;
     private final QtPassageRepository qtPassageRepository;
     private final QtPassageVerseRepository qtPassageVerseRepository;
+    private final TodayQtRangeResolver rangeResolver;
     private final GetNoteUseCase getNoteUseCase;
 
     // ------------------------------------------------------------------
@@ -90,7 +91,8 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 "MISSING",    // simulatorStatus: 시뮬레이터 도메인 연동 전 기본값
                 false,        // hasExplanation: AI 해설 도메인 연동 전 기본값
                 draftNoteId,
-                "HIT"
+                "HIT",
+                rangeResolver.resolve(passage)
         );
     }
 
@@ -157,7 +159,9 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 base.simulatorStatus(),
                 base.hasExplanation(),
                 draftNoteId,
-                base.cacheStatus()
+                base.cacheStatus(),
+                base.range()
         );
     }
+
 }

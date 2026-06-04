@@ -31,7 +31,29 @@ class SharingRepository {
     return SharingPostDetail.fromJson(data);
   }
 
-  // TODO: 좋아요 토글 — POST/DELETE /sharing-posts/{postId}/like
+  /// 좋아요.
+  Future<void> like(int postId) async {
+    await _dio.post('/sharing-posts/$postId/like');
+  }
+
+  /// 좋아요 취소.
+  Future<void> unlike(int postId) async {
+    await _dio.delete('/sharing-posts/$postId/like');
+  }
+
+  /// 나눔 글 삭제.
+  Future<void> deletePost(int postId) async {
+    await _dio.delete('/sharing-posts/$postId');
+  }
+
+  /// 노트를 나눔에 공유.
+  Future<void> publishNote(int noteId, {bool commentsEnabled = true}) async {
+    await _dio.post('/notes/$noteId/share', data: {
+      'confirmNicknamePublic': true,
+      'commentsEnabled': commentsEnabled,
+    });
+  }
+
   // TODO: 댓글 작성 — POST /sharing-posts/{postId}/comments
   // TODO: 신고 — POST /reports
 }

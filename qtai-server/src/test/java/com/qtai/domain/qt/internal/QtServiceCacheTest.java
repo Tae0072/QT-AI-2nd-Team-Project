@@ -83,7 +83,7 @@ class QtServiceCacheTest {
 
         @Bean
         QtPassageLookup qtPassageLookup(QtPassageRepository repo, Clock clock) {
-            return new QtPassageLookup(repo, clock);
+            return new QtPassageLookup(repo, clock, new TodayQtRangeResolver(repo));
         }
 
         @Bean

@@ -45,6 +45,7 @@ class QtServiceTest {
     private QtPassageLookup passageLookup;
     private QtPassageRepository qtPassageRepository;
     private QtPassageVerseRepository qtPassageVerseRepository;
+    private TodayQtRangeResolver rangeResolver;
     private GetNoteUseCase getNoteUseCase;
     private QtService qtService;
 
@@ -53,8 +54,15 @@ class QtServiceTest {
         passageLookup = Mockito.mock(QtPassageLookup.class);
         qtPassageRepository = Mockito.mock(QtPassageRepository.class);
         qtPassageVerseRepository = Mockito.mock(QtPassageVerseRepository.class);
+        rangeResolver = Mockito.mock(TodayQtRangeResolver.class);
         getNoteUseCase = Mockito.mock(GetNoteUseCase.class);
-        qtService = new QtService(passageLookup, qtPassageRepository, qtPassageVerseRepository, getNoteUseCase);
+        qtService = new QtService(
+                passageLookup,
+                qtPassageRepository,
+                qtPassageVerseRepository,
+                rangeResolver,
+                getNoteUseCase
+        );
     }
 
     /**
