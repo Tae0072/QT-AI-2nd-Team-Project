@@ -13,14 +13,24 @@ class ErrorInterceptor extends Interceptor {
       final error = data['error'];
       if (error is Map<String, dynamic>) {
         final code = '${error['code'] ?? 'UNKNOWN'}';
-        final message =
-            '${error['message'] ?? '예상치 못한 오류가 발생했습니다.'}';
+        final message = '${error['message'] ?? '예상치 못한 오류가 발생했습니다.'}';
         final traceId = data['traceId']?.toString();
         handler.next(DioException(
           requestOptions: err.requestOptions,
           response: err.response,
           type: err.type,
           error: ApiError(code: code, message: message, traceId: traceId),
+        ));
+        return;
+      }
+      if (data.containsKey('code') || data.containsKey('message')) {
+        final code = '${data['code'] ?? 'UNKNOWN'}';
+        final message = '${data['message'] ?? 'Unexpected error occurred.'}';
+        handler.next(DioException(
+          requestOptions: err.requestOptions,
+          response: err.response,
+          type: err.type,
+          error: ApiError(code: code, message: message),
         ));
         return;
       }
@@ -42,5 +52,6 @@ class ApiError {
   });
 
   @override
-  String toString() => '[$code] $message${traceId != null ? ' (trace: $traceId)' : ''}';
+  String toString() =>
+      '[$code] $message${traceId != null ? ' (trace: $traceId)' : ''}';
 }

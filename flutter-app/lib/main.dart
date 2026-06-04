@@ -4,6 +4,7 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/config/app_config.dart';
+import 'core/theme/app_theme.dart';
 import 'features/auth/providers/auth_providers.dart';
 import 'features/onboarding/providers/onboarding_providers.dart';
 import 'routes/app_router.dart';
@@ -44,13 +45,33 @@ class QTAIApp extends ConsumerWidget {
       return MaterialApp(
         title: 'QT AI',
         debugShowCheckedModeBanner: AppConfig.instance.isDev,
-        theme: ThemeData(
-          colorSchemeSeed: const Color(0xFF6750A4),
-          useMaterial3: true,
-          fontFamily: 'Pretendard',
-        ),
-        home: const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
+        theme: AppTheme.theme,
+        home: Scaffold(
+          backgroundColor: AppTheme.bgSunken,
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text.rich(
+                  TextSpan(children: [
+                    const TextSpan(text: 'QT'),
+                    TextSpan(text: '·', style: TextStyle(color: AppTheme.accent)),
+                    const TextSpan(text: 'AI'),
+                  ]),
+                  style: const TextStyle(
+                    fontFamily: 'GowunDodum',
+                    fontSize: 60,
+                    fontWeight: FontWeight.w400,
+                    color: AppTheme.text,
+                    letterSpacing: -1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text('매일, 말씀 앞에 머무는 시간',
+                    style: TextStyle(fontSize: 17, color: AppTheme.textMuted)),
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -68,11 +89,7 @@ class QTAIApp extends ConsumerWidget {
       key: ValueKey(initialRoute),
       title: 'QT AI',
       debugShowCheckedModeBanner: AppConfig.instance.isDev,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF6750A4),
-        useMaterial3: true,
-        fontFamily: 'Pretendard',
-      ),
+      theme: AppTheme.theme,
       initialRoute: initialRoute,
       onGenerateRoute: AppRouter.onGenerateRoute,
     );

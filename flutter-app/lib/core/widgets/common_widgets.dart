@@ -44,8 +44,7 @@ class ErrorView extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyLarge),
             if (onRetry != null) ...[
               const SizedBox(height: 16),
-              ElevatedButton(
-                  onPressed: onRetry, child: const Text('다시 시도')),
+              ElevatedButton(onPressed: onRetry, child: const Text('다시 시도')),
             ],
           ],
         ),
@@ -94,6 +93,7 @@ extension AsyncValueUI<T> on AsyncValue<T> {
     Widget Function(Object error, StackTrace stackTrace)? error,
   }) {
     return when(
+      skipLoadingOnRefresh: false,
       data: data,
       loading: () => loading?.call() ?? const LoadingView(),
       error: (e, st) => error?.call(e, st) ?? ErrorView(message: e.toString()),
