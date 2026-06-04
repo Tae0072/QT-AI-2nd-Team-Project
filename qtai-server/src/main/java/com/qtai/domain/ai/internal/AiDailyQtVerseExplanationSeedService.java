@@ -14,8 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.CreateAiGenerationJobUseCase;
-import com.qtai.domain.ai.api.dto.CreateAiGenerationJobCommand;
+import com.qtai.domain.ai.api.generation.CreateAiGenerationJobUseCase;
+import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobCommand;
 import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
 import com.qtai.domain.qt.api.GetTodayQtUseCase;
 import com.qtai.domain.qt.api.dto.QtPassageContentContext;
@@ -65,6 +65,9 @@ class AiDailyQtVerseExplanationSeedService {
                 getTodayQtUseCase.getToday(null),
                 "todayQt must not be null"
         );
+        if (todayQt.qtPassageId() == null) {
+            return new AiDailyQtVerseExplanationSeedResult(0, 0);
+        }
         Long qtPassageId = requirePositive(todayQt.qtPassageId(), "qtPassageId");
         QtPassageContentContext context = Objects.requireNonNull(
                 getQtPassageContentContextUseCase.getContentContext(qtPassageId),
@@ -75,19 +78,23 @@ class AiDailyQtVerseExplanationSeedService {
             return new AiDailyQtVerseExplanationSeedResult(0, 0);
         }
 
+        Set<Long> skippedVerseIds = skippedVerseIds(verseIds);
+        List<Long> targetVerseIds = verseIds.stream()
+                .filter(verseId -> !skippedVerseIds.contains(verseId))
+                .toList();
+        if (targetVerseIds.isEmpty()) {
+            return new AiDailyQtVerseExplanationSeedResult(0, 0);
+        }
+
         AiPromptVersion promptVersion = latestActiveExplanationPromptVersion();
         if (promptVersion == null) {
             log.warn("AI daily QT verse explanation seed skipped. reason={}", ACTIVE_PROMPT_NOT_FOUND);
             return new AiDailyQtVerseExplanationSeedResult(0, 0, ACTIVE_PROMPT_NOT_FOUND);
         }
 
-        Set<Long> skippedVerseIds = skippedVerseIds(verseIds);
         int createdCount = 0;
         int failedCount = 0;
-        for (Long verseId : verseIds) {
-            if (skippedVerseIds.contains(verseId)) {
-                continue;
-            }
+        for (Long verseId : targetVerseIds) {
             try {
                 createAiGenerationJobUseCase.createAiGenerationJob(new CreateAiGenerationJobCommand(
                         AiGenerationJobType.EXPLANATION.name(),

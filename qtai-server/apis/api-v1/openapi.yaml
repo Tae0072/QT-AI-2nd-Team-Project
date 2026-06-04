@@ -782,9 +782,10 @@ paths:
       operationId: approveAdminAiAsset
       summary: Approve admin AI asset
       description: >
-        Approves a VALIDATING AI asset after checking an ACTIVE validation checklist
-        and latest PASSED validation log. When activateForTarget is true and the asset
-        is EXPLANATION + BIBLE_VERSE, the approved explanation is published to
+        Approves a VALIDATING AI asset after checking that the latest layer 1 AUTO
+        validation log and latest layer 2 ADVISOR validation log are both PASSED.
+        When activateForTarget is true and the asset is EXPLANATION + BIBLE_VERSE,
+        the approved explanation is published to
         verse_explanations as the active user-visible row.
       security:
         - bearerAuth: []
@@ -2381,16 +2382,10 @@ components:
       required:
         - reason
       properties:
-        checklistVersionId:
-          type: integer
-          format: int64
-          minimum: 1
-          nullable: true
-          description: Required for approve. Must point to an ACTIVE checklist matching the asset type.
         reason:
           type: string
           minLength: 1
-          example: Verified against the active checklist.
+          example: Verified against the latest server auto and advisor validation logs.
         activateForTarget:
           type: boolean
           nullable: true

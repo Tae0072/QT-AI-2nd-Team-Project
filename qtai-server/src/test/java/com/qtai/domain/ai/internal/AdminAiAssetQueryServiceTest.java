@@ -18,12 +18,12 @@ import org.springframework.data.domain.Pageable;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.GetAdminAiAssetUseCase;
-import com.qtai.domain.ai.api.ListAdminAiAssetsUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiAssetDetailResponse;
-import com.qtai.domain.ai.api.dto.AdminAiAssetListResponse;
-import com.qtai.domain.ai.api.dto.GetAdminAiAssetQuery;
-import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
+import com.qtai.domain.ai.api.admin.asset.GetAdminAiAssetUseCase;
+import com.qtai.domain.ai.api.admin.asset.ListAdminAiAssetsUseCase;
+import com.qtai.domain.ai.api.admin.asset.dto.AdminAiAssetDetailResponse;
+import com.qtai.domain.ai.api.admin.asset.dto.AdminAiAssetListResponse;
+import com.qtai.domain.ai.api.admin.asset.dto.GetAdminAiAssetQuery;
+import com.qtai.domain.ai.api.admin.asset.dto.ListAdminAiAssetsQuery;
 
 class AdminAiAssetQueryServiceTest {
 

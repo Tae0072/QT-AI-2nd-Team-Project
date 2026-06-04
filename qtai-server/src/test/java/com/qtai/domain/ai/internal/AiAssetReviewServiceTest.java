@@ -22,9 +22,9 @@ import org.mockito.ArgumentCaptor;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.ReviewAiAssetUseCase;
-import com.qtai.domain.ai.api.dto.ReviewAiAssetCommand;
-import com.qtai.domain.ai.api.dto.ReviewAiAssetResult;
+import com.qtai.domain.ai.api.admin.asset.ReviewAiAssetUseCase;
+import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetCommand;
+import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetResult;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 import com.qtai.domain.study.api.HidePublishedVerseExplanationUseCase;
@@ -38,7 +38,6 @@ class AiAssetReviewServiceTest {
     private static final OffsetDateTime REVIEWED_AT = OffsetDateTime.parse("2026-05-21T10:30:00+09:00");
 
     private AiGeneratedAssetRepository generatedAssetRepository;
-    private AiValidationChecklistVersionRepository checklistVersionRepository;
     private AiValidationLogRepository validationLogRepository;
     private PublishApprovedVerseExplanationUseCase publishApprovedVerseExplanationUseCase;
     private HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase;
@@ -48,7 +47,6 @@ class AiAssetReviewServiceTest {
     @BeforeEach
     void setUp() {
         generatedAssetRepository = org.mockito.Mockito.mock(AiGeneratedAssetRepository.class);
-        checklistVersionRepository = org.mockito.Mockito.mock(AiValidationChecklistVersionRepository.class);
         validationLogRepository = org.mockito.Mockito.mock(AiValidationLogRepository.class);
         publishApprovedVerseExplanationUseCase =
                 org.mockito.Mockito.mock(PublishApprovedVerseExplanationUseCase.class);
@@ -57,7 +55,6 @@ class AiAssetReviewServiceTest {
         auditLogUseCase = org.mockito.Mockito.mock(WriteAuditLogUseCase.class);
         service = new AiAssetReviewService(
                 generatedAssetRepository,
-                checklistVersionRepository,
                 validationLogRepository,
                 publishApprovedVerseExplanationUseCase,
                 hidePublishedVerseExplanationUseCase,
@@ -75,10 +72,18 @@ class AiAssetReviewServiceTest {
     void approvePassedExplanationVersePublishesVerseExplanationAndWritesSafeAudit() {
         AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        AiValidationChecklistVersion checklistVersion = activeChecklist(AiValidationChecklistType.EXPLANATION);
-        when(checklistVersionRepository.findById(4L)).thenReturn(Optional.of(checklistVersion));
-        when(validationLogRepository.findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(500L, 4L))
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                1,
+                AiValidationReviewerType.AUTO
+        ))
                 .thenReturn(Optional.of(validationLog(AiValidationResult.PASSED)));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                2,
+                AiValidationReviewerType.ADVISOR
+        ))
+                .thenReturn(Optional.of(advisorValidationLog(AiValidationResult.PASSED)));
 
         ReviewAiAssetResult result = service.reviewAiAsset(approveCommand(true));
 
@@ -189,9 +194,11 @@ class AiAssetReviewServiceTest {
     void approveRequiresPassedLatestValidationLog() {
         AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        when(checklistVersionRepository.findById(4L))
-                .thenReturn(Optional.of(activeChecklist(AiValidationChecklistType.EXPLANATION)));
-        when(validationLogRepository.findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(500L, 4L))
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                1,
+                AiValidationReviewerType.AUTO
+        ))
                 .thenReturn(Optional.of(validationLog(AiValidationResult.NEEDS_REVIEW)));
 
         assertThatThrownBy(() -> service.reviewAiAsset(approveCommand(true)))
@@ -207,9 +214,11 @@ class AiAssetReviewServiceTest {
     void approveRejectsRejectedLatestValidationLogWithoutPublishing() {
         AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        when(checklistVersionRepository.findById(4L))
-                .thenReturn(Optional.of(activeChecklist(AiValidationChecklistType.EXPLANATION)));
-        when(validationLogRepository.findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(500L, 4L))
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                1,
+                AiValidationReviewerType.AUTO
+        ))
                 .thenReturn(Optional.of(validationLog(AiValidationResult.REJECTED)));
 
         assertThatThrownBy(() -> service.reviewAiAsset(approveCommand(true)))
@@ -225,9 +234,11 @@ class AiAssetReviewServiceTest {
     void approveRequiresValidationLogWithoutPublishing() {
         AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        when(checklistVersionRepository.findById(4L))
-                .thenReturn(Optional.of(activeChecklist(AiValidationChecklistType.EXPLANATION)));
-        when(validationLogRepository.findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(500L, 4L))
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                1,
+                AiValidationReviewerType.AUTO
+        ))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.reviewAiAsset(approveCommand(true)))
@@ -236,6 +247,72 @@ class AiAssetReviewServiceTest {
         assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
         verify(publishApprovedVerseExplanationUseCase, never())
                 .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
+    }
+
+    @Test
+    void approveRequiresPassedLatestAdvisorValidationLog() {
+        AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                1,
+                AiValidationReviewerType.AUTO
+        ))
+                .thenReturn(Optional.of(validationLog(AiValidationResult.PASSED)));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                2,
+                AiValidationReviewerType.ADVISOR
+        ))
+                .thenReturn(Optional.of(advisorValidationLog(AiValidationResult.NEEDS_REVIEW)));
+
+        assertThatThrownBy(() -> service.reviewAiAsset(approveCommand(true)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        verify(publishApprovedVerseExplanationUseCase, never())
+                .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
+    }
+
+    @Test
+    void approveRequiresAdvisorValidationLogWithoutPublishing() {
+        AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                1,
+                AiValidationReviewerType.AUTO
+        ))
+                .thenReturn(Optional.of(validationLog(AiValidationResult.PASSED)));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                2,
+                AiValidationReviewerType.ADVISOR
+        ))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.reviewAiAsset(approveCommand(true)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        verify(publishApprovedVerseExplanationUseCase, never())
+                .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
+    }
+
+    @Test
+    void approveRejectsUnsupportedAssetTypeBeforeValidationLogLookup() {
+        AiGeneratedAsset asset = asset(AiGeneratedAssetType.SUMMARY, AiTargetType.QT_PASSAGE, 9001L, "{}");
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+
+        assertThatThrownBy(() -> service.reviewAiAsset(approveCommand(false)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        verify(validationLogRepository, never())
+                .findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(any(), any(), any());
         verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
     }
 
@@ -249,26 +326,10 @@ class AiAssetReviewServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
         assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.APPROVED);
-        verify(checklistVersionRepository, never()).findById(any());
         verify(validationLogRepository, never())
-                .findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(any(), any());
+                .findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(any(), any(), any());
         verify(publishApprovedVerseExplanationUseCase, never())
                 .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
-        verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
-    }
-
-    @Test
-    void approveRequiresActiveMatchingChecklistVersion() {
-        AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
-        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        when(checklistVersionRepository.findById(4L))
-                .thenReturn(Optional.of(retiredChecklist(AiValidationChecklistType.EXPLANATION)));
-
-        assertThatThrownBy(() -> service.reviewAiAsset(approveCommand(true)))
-                .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
-        verify(validationLogRepository, never())
-                .findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(any(), any());
         verify(auditLogUseCase, never()).write(any(AuditLogWriteRequest.class));
     }
 
@@ -331,7 +392,6 @@ class AiAssetReviewServiceTest {
                 "USER",
                 "REVIEWER",
                 "APPROVE",
-                4L,
                 "approved reason",
                 true,
                 REVIEWED_AT
@@ -347,7 +407,6 @@ class AiAssetReviewServiceTest {
                 "ADMIN",
                 "REVIEWER",
                 "APPROVE",
-                4L,
                 "approved reason",
                 activateForTarget,
                 REVIEWED_AT
@@ -361,7 +420,6 @@ class AiAssetReviewServiceTest {
                 "ADMIN",
                 "REVIEWER",
                 action,
-                null,
                 "review reason",
                 activateForTarget,
                 REVIEWED_AT
@@ -387,9 +445,18 @@ class AiAssetReviewServiceTest {
     }
 
     private static AiGeneratedAsset explanationVerseAsset(AiTargetType targetType, Long targetId, String payloadJson) {
+        return asset(AiGeneratedAssetType.EXPLANATION, targetType, targetId, payloadJson);
+    }
+
+    private static AiGeneratedAsset asset(
+            AiGeneratedAssetType assetType,
+            AiTargetType targetType,
+            Long targetId,
+            String payloadJson
+    ) {
         AiGeneratedAsset asset = AiGeneratedAsset.create(
                 1L,
-                AiGeneratedAssetType.EXPLANATION,
+                assetType,
                 targetType,
                 targetId,
                 payloadJson,
@@ -402,10 +469,18 @@ class AiAssetReviewServiceTest {
 
     private void stubPassedApproval(AiGeneratedAsset asset) {
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-        when(checklistVersionRepository.findById(4L))
-                .thenReturn(Optional.of(activeChecklist(AiValidationChecklistType.EXPLANATION)));
-        when(validationLogRepository.findFirstByAiAssetIdAndChecklistVersionIdOrderByCreatedAtDescIdDesc(500L, 4L))
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                1,
+                AiValidationReviewerType.AUTO
+        ))
                 .thenReturn(Optional.of(validationLog(AiValidationResult.PASSED)));
+        when(validationLogRepository.findFirstByAiAssetIdAndLayerAndReviewerTypeOrderByCreatedAtDescIdDesc(
+                500L,
+                2,
+                AiValidationReviewerType.ADVISOR
+        ))
+                .thenReturn(Optional.of(advisorValidationLog(AiValidationResult.PASSED)));
     }
 
     private static Stream<Arguments> invalidPublishPayloads() {
@@ -493,6 +568,20 @@ class AiAssetReviewServiceTest {
                 "{\"validator\":\"test\"}",
                 null,
                 REVIEWED_AT.minusMinutes(10)
+        );
+    }
+
+    private static AiValidationLog advisorValidationLog(AiValidationResult result) {
+        return AiValidationLog.create(
+                500L,
+                null,
+                2,
+                result,
+                AiValidationReviewerType.ADVISOR,
+                4L,
+                "{\"validator\":\"advisor-test\"}",
+                null,
+                REVIEWED_AT.minusMinutes(5)
         );
     }
 

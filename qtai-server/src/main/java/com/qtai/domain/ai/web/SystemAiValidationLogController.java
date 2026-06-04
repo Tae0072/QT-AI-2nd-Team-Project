@@ -18,9 +18,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.RegisterAiValidationLogUseCase;
-import com.qtai.domain.ai.api.dto.RegisterAiValidationLogCommand;
-import com.qtai.domain.ai.api.dto.RegisterAiValidationLogResult;
+import com.qtai.domain.ai.api.validation.RegisterAiValidationLogUseCase;
+import com.qtai.domain.ai.api.validation.dto.RegisterAiValidationLogCommand;
+import com.qtai.domain.ai.api.validation.dto.RegisterAiValidationLogResult;
 
 @RestController
 @RequestMapping("/api/v1/system/ai/validation-logs")

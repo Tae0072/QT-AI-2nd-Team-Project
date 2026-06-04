@@ -10,9 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
-import com.qtai.domain.ai.api.ListAdminAiBatchRunLogsUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiBatchRunLogListResponse;
-import com.qtai.domain.ai.api.dto.ListAdminAiBatchRunLogsQuery;
+import com.qtai.domain.ai.api.admin.monitoring.ListAdminAiBatchRunLogsUseCase;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiBatchRunLogListResponse;
+import com.qtai.domain.ai.api.admin.monitoring.dto.ListAdminAiBatchRunLogsQuery;
 
 @RestController
 @RequestMapping("/api/v1/admin/ai/batch-run-logs")

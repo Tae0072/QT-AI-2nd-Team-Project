@@ -10,9 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
-import com.qtai.domain.ai.api.GetAdminAiMonitoringUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiMonitoringResponse;
-import com.qtai.domain.ai.api.dto.GetAdminAiMonitoringQuery;
+import com.qtai.domain.ai.api.admin.monitoring.GetAdminAiMonitoringUseCase;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiMonitoringResponse;
+import com.qtai.domain.ai.api.admin.monitoring.dto.GetAdminAiMonitoringQuery;
 
 @RestController
 @RequestMapping("/api/v1/admin/ai/monitoring")
