@@ -31,7 +31,11 @@ class _DevLogInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    dev.log('[REQ] ${options.method} ${options.path}', name: 'Dio');
+    final hasAuth = options.headers.containsKey('Authorization');
+    dev.log(
+      '[REQ] ${options.method} ${options.path} auth=${hasAuth ? 'present' : 'missing'}',
+      name: 'Dio',
+    );
     if (options.data != null) {
       final data = options.data.toString();
       dev.log('[REQ BODY] ${_maskIfAuth(options.path, data)}', name: 'Dio');
