@@ -9,24 +9,31 @@
 
 ---
 
-## ⬜ 오늘(2026-06-04~05) 할 일 — Flutter 노트 화면
+## ✅ Day1(목 2026-06-04) 완료 — Flutter 노트 화면 N-01~03
 
-**Day1(목) — 노트 수직 슬라이스 [데모 필수]**
-- [ ] note 피처 골격(models/services/providers) — sharing 복제
-- [ ] N-01 노트 목록(카테고리 탭 + `GET /notes` + 빈/에러)
-- [ ] N-02 카테고리 선택(기도/회개/감사)
-- [ ] N-03 작성(제목+본문, 저장 버튼만, `POST /notes`)
-- [ ] 라우팅 등록 + 홈 진입점 + `flutter analyze`
+- [x] note 피처 골격(models/services/providers) — sharing 복제
+- [x] N-01 노트 목록(카테고리 6칩 + `GET /notes` + 빈/에러 + DRAFT 뱃지)
+- [x] N-02 카테고리 선택(기도/회개/감사 → arguments 전달)
+- [x] N-03 작성(제목+본문, **저장+임시저장**, `POST /notes`, popUntil 목록)
+- [x] 라우팅 case + 홈 5탭 + `flutter analyze` 무경고
+- [x] 에뮬레이터 레벨1 UI 스모크(DEV_FORCE_HOME) — 화면·이동·폼·에러처리 확인
+- [x] 커밋(5a96d52) + **dev 머지**(f2e96ed): dev #233(웜파스텔 5탭+실제 성경화면) 채택 + 노트 탭에 NoteListScreen 연결, placeholder 제거
 
-**Day2(금) — 상세·달력·공유·툴바·나눔·마감**
-- [ ] N-04 상세/수정/삭제(`GET/PATCH/DELETE /notes/{id}`)
-- [ ] N-01 달력 탭(`GET /me/meditation-calendar`, 이지윤 #138)
-- [ ] 외부공유(share_plus 텍스트 + RenderRepaintBoundary 카드)
-- [ ] 서식 툴바(N-03/N-04, v1 간소화)
-- [ ] 나눔 S-01~03 검토 + 댓글/신고 보완(필요시)
-- [ ] W3 마감(리포트·회고·push)
+> 📌 실데이터·저장 왕복은 레벨2(백엔드 `docker compose up --build` + 카카오 로그인) 필요 — 추후.
 
-> ⚠️ 밀리면 뒤(서식툴바·나눔보완)부터 압축. 데모 안전선 = Day1 "작성→목록".
+## ⬜ 내일(금 2026-06-05) — Day2
+
+- [ ] **N-04 상세/수정/삭제** (`GET/PATCH/DELETE /notes/{id}`) — 수정방식 ①N-03재사용/②상세내편집 규칙1로 결정
+- [ ] **N-01 달력 탭** (`GET /me/meditation-calendar`, 이지윤 #138)
+- [ ] **외부공유** (share_plus 텍스트 + RenderRepaintBoundary 카드)
+- [ ] **서식 툴바** (N-03/N-04, v1 간소화)
+- [ ] **나눔 S-01~03 검토 + 댓글/신고 보완**(필요시)
+- [ ] 🆕 **명세 대조 점검·수정** — 04 API/07 요구사항과 다르게 구현된 부분 체크 후 수정
+- [ ] 🆕 **학습 문서** — 그날 구현 플러터 개념/위젯/속성 정리(study-notes)
+- [ ] **W3 마감**(주간회고 + push)
+
+> ⚠️ 밀리면 뒤(서식툴바·나눔보완)부터 압축.
+> 시작 명령: "오늘 W3 금요일 시작" → SKILL + 이 todo + `workflows/2026-W3_Flutter-상세-워크플로우.md` 자동 로드
 
 ---
 

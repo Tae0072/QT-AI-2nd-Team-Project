@@ -47,38 +47,49 @@
 
 ---
 
-## Day 1 (목 6/4) — 노트 수직 슬라이스 핵심 [데모 필수]
+## Day 1 (목 6/4) — 노트 수직 슬라이스 핵심 [데모 필수] ✅ 완료
 
 > 목표: **노트 작성 → 목록에서 확인** 흐름 동작 = 데모 안전선.
 
 ### 1. note 피처 골격 `flutter-app/lib/features/note/`
-- [ ] `models/note_models.dart` — `NoteListItem`·`NoteListResponse`(페이징)·`NoteDetail`·`NoteCreateResponse` (04 §4.3.1/4.3.5 필드명 준수)
-- [ ] `services/note_repository.dart` — `list/getDetail/create/update/delete` (sharing 복제, 엔벨로프 언랩)
-- [ ] `providers/note_providers.dart` — `noteRepositoryProvider`·`noteCategoryFilterProvider`·`notesProvider(autoDispose)`·`noteDetailProvider(family)`
+- [x] `models/note_models.dart` — `NoteListItem`·`NoteListResponse`(페이징)·`NoteCreateResponse` + 카테고리 라벨 헬퍼 (04 §4.3.1/4.3.4). ※ `NoteDetail`/`getDetail` 등은 Day2(N-04)로 미룸(안 쓸 코드 미리 안 만듦)
+- [x] `services/note_repository.dart` — `getNotes/create` (sharing 복제, 엔벨로프 언랩)
+- [x] `providers/note_providers.dart` — `noteRepositoryProvider`·`noteCategoryFilterProvider`·`notesProvider(autoDispose)`
 
-### 2. N-01 노트 목록 (목록 탭 먼저) `screens/note_list_screen.dart`
-- [ ] 카테고리 탭 5종(MEDITATION/SERMON/PRAYER/REPENTANCE/GRATITUDE) — `_CategoryChip` 모방
-- [ ] `GET /api/v1/notes` 연동 + 빈/에러(`whenOrDefault`)
-- [ ] 신규 작성 FAB는 **기도·회개·감사에서만** 노출
-- [ ] 달력 토글 자리(UI만, 채움은 Day2)
+### 2. N-01 노트 목록 `screens/note_list_screen.dart`
+- [x] 카테고리 탭 6칩(전체 + 5종) — `_CategoryChip`
+- [x] `GET /api/v1/notes` 연동 + 빈/에러(`whenOrDefault`) + DRAFT '임시저장' 뱃지·날짜
+- [x] 신규 작성 FAB → N-02 (사용자 선택 ①: 항상 표시)
+- [ ] 달력 토글 자리 — Day2로
 
 ### 3. N-02 카테고리 선택 `screens/note_category_select_screen.dart`
-- [ ] 기도/회개/감사 3분기 → N-03에 `category` 전달
+- [x] 기도/회개/감사 3분기 → N-03에 `category` arguments 전달
 
 ### 4. N-03 개인 노트 작성 `screens/note_edit_screen.dart`
-- [ ] 제목+본문 1섹션, **저장 버튼만**(자동저장 금지)
-- [ ] `POST /notes`(category=선택, qtPassageId=null, status=SAVED, visibility=PRIVATE) → 목록 invalidate 후 pop
+- [x] 제목+본문 1섹션, **저장 + 임시저장 둘 다**(사용자 결정) / 자동저장 없음
+- [x] `POST /notes`(category·qtPassageId=null·status·visibility) → 목록 invalidate 후 popUntil 목록
 
 ### 5. 배선 + 진입점
-- [ ] `app_router.dart`에 noteList/categorySelect/edit/detail 라우트 추가
-- [ ] 홈 진입점 — 4번째 탭 vs 마이페이지 메뉴 (규칙1로 선택)
+- [x] `app_router.dart`에 noteList/categorySelect/edit 라우트 + case 추가
+- [x] 홈 진입점 — **5탭(QT/노트/성경/나눔/마이)** (사용자 결정). ※ dev #233 머지로 최종 **오늘/성경/나눔/노트/마이** 순 채택, 노트 탭에 NoteListScreen 연결
 
 ### Day1 검증
-- [ ] `flutter analyze` 무경고 + 작성→목록 눈 확인
+- [x] `flutter analyze` 무경고
+- [x] 에뮬레이터 레벨1 UI 스모크(DEV_FORCE_HOME) — 홈 5탭·노트 탭·FAB→N-02→N-03 폼·저장 실패 안내까지 동작 확인(실데이터·저장은 로그인 필요=레벨2, 추후)
+
+### Day1 커밋·머지 (완료)
+- [x] Day1 작업 커밋(5a96d52) → **origin/dev 머지**(f2e96ed)
+- [x] 충돌 해결: dev #233(웜 파스텔 테마 + 5탭 + 실제 `BibleBrowserScreen`) 채택 + **노트 placeholder 자리에 내 NoteListScreen 연결**, 내 성경 placeholder 제거
+- [x] 수확: 성경 화면이 dev에 이미 생겨 placeholder 불필요해짐 / 노트 화면도 웜파스텔 테마 자동 적용
 
 ---
 
 ## Day 2 (금 6/5) — 상세/수정/삭제 + 달력 + 외부공유 + 서식툴바 + 나눔보완 + W3 마감
+
+> 🔖 내일 추가 요청(사용자):
+> - **A. 명세 대조 점검·수정** — 04 API/07 요구사항과 다르게 구현된 부분 체크 후 수정 (N-01~03 우선)
+> - **B. 학습 문서** — 그날 구현한 플러터 개념/위젯/속성 정리 (오늘처럼 study-notes에)
+> 💡 N-04 첫 선택(보류): 수정 방식 ① N-03 재사용(수정 모드) vs ② 상세 내 편집 — 내일 규칙1로 결정
 
 ### 6. N-04 상세/수정/삭제 `screens/note_detail_screen.dart` [데모 필수]
 - [ ] `GET /notes/{id}` 상세 / 수정(N-03 재사용·`PATCH`) / 삭제(`DELETE` → 목록·달력 invalidate)
@@ -123,8 +134,8 @@
 > 매일 마무리 시 갱신. `완료 / 총 체크박스`.
 
 - Step 0(브랜치·문서): ✅ 완료 (2026-06-04)
-- Day1(노트 슬라이스): ⬜ 미착수
-- Day2(상세·달력·공유·툴바·나눔·마감): ⬜ 미착수
+- Day1(노트 N-01~03 + 5탭 + analyze + 앱검증 + 커밋 + dev머지): ✅ 완료 (2026-06-04)
+- Day2(N-04·달력·외부공유·서식툴바·나눔보완·명세대조·학습문서·W3마감): ⬜ 미착수 (내일 6/5)
 
 ---
 
