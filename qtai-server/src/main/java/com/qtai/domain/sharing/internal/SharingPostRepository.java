@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.Optional;
 
 public interface SharingPostRepository extends JpaRepository<SharingPost, Long> {
@@ -44,4 +45,13 @@ public interface SharingPostRepository extends JpaRepository<SharingPost, Long> 
                              @Param("category") String category,
                              @Param("q") String q,
                              Pageable pageable);
+
+    /**
+     * 내 나눔 목록 조회(04 §4.4.5, 화면 M-05). 작성자 본인 글 중 statuses에 포함된 상태만 반환한다.
+     * 호출부(Service)에서 DELETED는 statuses에 넣지 않으므로 삭제본은 항상 제외된다.
+     * 정렬은 Pageable이 처리한다.
+     */
+    Page<SharingPost> findByMemberIdAndStatusIn(Long memberId,
+                                                Collection<SharingPostStatus> statuses,
+                                                Pageable pageable);
 }

@@ -8,11 +8,14 @@ import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.sharing.api.DeleteSharingPostUseCase;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
+import com.qtai.domain.sharing.api.ListMySharingPostsUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
 import com.qtai.domain.sharing.api.PublishNoteUseCase;
 import com.qtai.domain.sharing.api.SharingPostVisibilityUseCase;
 import com.qtai.domain.sharing.api.ToggleLikeUseCase;
 import com.qtai.domain.sharing.api.dto.LikeResponse;
+import com.qtai.domain.sharing.api.dto.MySharingPostListItem;
+import com.qtai.domain.sharing.api.dto.MySharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
 import com.qtai.domain.sharing.api.dto.SharingPostListItem;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
@@ -38,8 +41,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SharingPostService
-        implements ListSharingPostsUseCase, GetSharingPostUseCase, PublishNoteUseCase, ToggleLikeUseCase,
-        DeleteSharingPostUseCase, SharingPostVisibilityUseCase {
+        implements ListSharingPostsUseCase, ListMySharingPostsUseCase, GetSharingPostUseCase, PublishNoteUseCase,
+        ToggleLikeUseCase, DeleteSharingPostUseCase, SharingPostVisibilityUseCase {
 
     private static final int PREVIEW_LENGTH = 100;
 
@@ -49,6 +52,10 @@ public class SharingPostService
             "likeCount", "likeCount",
             "commentCount", "commentCount");
     private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+
+    // 내 나눔 목록(M-05) status 생략 시 기본: 공개+숨김. 삭제본(DELETED)은 항상 제외한다.
+    private static final List<SharingPostStatus> DEFAULT_MY_STATUSES =
+            List.of(SharingPostStatus.PUBLISHED, SharingPostStatus.HIDDEN);
 
     private final SharingPostRepository sharingPostRepository;
     private final PostLikeRepository postLikeRepository;
@@ -79,6 +86,67 @@ public class SharingPostService
                 page.isFirst(),
                 page.isLast(),
                 describeSort(pageable));
+    }
+
+    /**
+     * 내 나눔 목록(04 §4.4.5, 화면 M-05). 작성자 본인 글만 조회한다.
+     * status가 null이면 PUBLISHED+HIDDEN을 함께, 명시하면 해당 상태만 거른다. DELETED·이상값은 400.
+     */
+    @Override
+    public MySharingPostListResponse listMine(Long memberId, String status, Pageable pageable) {
+        List<SharingPostStatus> statuses = resolveStatuses(status);
+
+        Page<SharingPost> page = sharingPostRepository.findByMemberIdAndStatusIn(
+                memberId, statuses, translateSort(pageable));
+
+        List<MySharingPostListItem> content = page.getContent().stream()
+                .map(this::toMyItem)
+                .toList();
+
+        return new MySharingPostListResponse(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.isFirst(),
+                page.isLast(),
+                describeSort(pageable));
+    }
+
+    /**
+     * status 쿼리 파라미터를 조회 대상 상태 목록으로 변환한다.
+     * 생략(null/blank)이면 공개+숨김. PUBLISHED/HIDDEN만 단일 필터로 허용한다.
+     * DELETED나 정의되지 않은 값은 삭제본 노출·오입력 방지를 위해 400(INVALID_INPUT)으로 막는다.
+     */
+    private List<SharingPostStatus> resolveStatuses(String status) {
+        String normalized = trimToNull(status);
+        if (normalized == null) {
+            return DEFAULT_MY_STATUSES;
+        }
+        if ("PUBLISHED".equalsIgnoreCase(normalized)) {
+            return List.of(SharingPostStatus.PUBLISHED);
+        }
+        if ("HIDDEN".equalsIgnoreCase(normalized)) {
+            return List.of(SharingPostStatus.HIDDEN);
+        }
+        throw new BusinessException(ErrorCode.INVALID_INPUT);
+    }
+
+    /** SharingPost → 내 나눔 목록 항목. 공개 피드 항목보다 적은 9필드만 담는다(04 §4.4.5). */
+    private MySharingPostListItem toMyItem(SharingPost post) {
+        return new MySharingPostListItem(
+                post.getId(),
+                post.getSnapshotTitle(),
+                post.getSnapshotCategory(),
+                post.getStatus().name(),
+                post.isCommentsEnabled(),
+                post.getSourceNoteUnsharedAt(),
+                post.getLikeCount(),
+                post.getCommentCount(),
+                // publishedAt ← createdAt: 나눔글 행은 공개(publish) 시점에 생성되므로 둘이 같다.
+                // 공개 피드 toItem/toDetail과 동일 컨벤션(엔티티에 별도 publishedAt 필드 없음).
+                post.getCreatedAt());
     }
 
     @Override
