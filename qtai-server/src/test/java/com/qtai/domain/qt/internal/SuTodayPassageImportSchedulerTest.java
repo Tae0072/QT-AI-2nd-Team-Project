@@ -92,6 +92,29 @@ class SuTodayPassageImportSchedulerTest {
     }
 
     @Test
+    void startupRepositoryFailureDoesNotPropagate(CapturedOutput output) {
+        SuTodayBibleClient client = mock(SuTodayBibleClient.class);
+        QtTodayPassageImportService importService = mock(QtTodayPassageImportService.class);
+        QtPassageRepository repository = mock(QtPassageRepository.class);
+        SuTodayPassageImportScheduler scheduler = scheduler(client, importService, repository, true);
+        doThrow(new IllegalStateException("database unavailable"))
+                .when(repository)
+                .existsByQtDate(LocalDate.of(2026, 6, 2));
+
+        assertThatCode(scheduler::importTodayOnStartup)
+                .doesNotThrowAnyException();
+
+        verify(repository).existsByQtDate(LocalDate.of(2026, 6, 2));
+        verifyNoInteractions(client);
+        verifyNoInteractions(importService);
+        assertThat(output).contains(
+                "성서유니온 오늘 QT startup 보강 실패",
+                "errorType=IllegalStateException",
+                "errorMessage=database unavailable"
+        );
+    }
+
+    @Test
     void fetchFailureDoesNotPropagateToScheduler(CapturedOutput output) {
         SuTodayBibleClient client = mock(SuTodayBibleClient.class);
         QtTodayPassageImportService importService = mock(QtTodayPassageImportService.class);
