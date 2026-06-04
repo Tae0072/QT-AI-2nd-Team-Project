@@ -29,6 +29,10 @@ dependencies:
   # UI
   cupertino_icons: ^1.0.8
 
+  # TTS 오디오 재생
+  just_audio: ^0.9.42
+  path_provider: ^2.1.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
