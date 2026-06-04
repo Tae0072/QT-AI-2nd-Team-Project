@@ -15,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.lang.reflect.Field;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -170,11 +171,44 @@ class SharingPostRepositoryIntegrationTest {
         assertThat(postLikeRepository.countBySharingPostId(1L)).isEqualTo(1L);
     }
 
+    @Test
+    @DisplayName("내 나눔(findByMemberIdAndStatusIn): 본인의 PUBLISHED+HIDDEN만 조회되고 남의 글·DELETED는 제외된다")
+    void findByMemberIdAndStatusIn_ownPublishedAndHidden() {
+        persistPostFor(7L, SharingPostStatus.PUBLISHED, "내 공개글");
+        persistPostFor(7L, SharingPostStatus.HIDDEN, "내 숨김글");
+        persistPostFor(7L, SharingPostStatus.DELETED, "내 삭제글");      // statuses에 없어 제외
+        persistPostFor(8L, SharingPostStatus.PUBLISHED, "남의 공개글");  // 다른 member라 제외
+        em.flush();
+        em.clear();
+
+        Page<SharingPost> result = sharingPostRepository.findByMemberIdAndStatusIn(
+                7L, List.of(SharingPostStatus.PUBLISHED, SharingPostStatus.HIDDEN), DEFAULT_PAGE);
+
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent()).allMatch(p -> p.getMemberId().equals(7L));
+        assertThat(result.getContent()).extracting(SharingPost::getStatus)
+                .containsExactlyInAnyOrder(SharingPostStatus.PUBLISHED, SharingPostStatus.HIDDEN);
+    }
+
     // ─────────────────────────────────────────────────────
     // 헬퍼 — noteId는 UNIQUE라 매 건 다른 값을 준다.
     // ─────────────────────────────────────────────────────
 
     private long noteIdSeq = 1L;
+
+    /** memberId를 지정해 영속화한다. 내 나눔 조회의 member·status 필터 검증용. */
+    private SharingPost persistPostFor(long memberId, SharingPostStatus status, String title) {
+        SharingPost post = new SharingPost();
+        setField(post, "memberId", memberId);
+        setField(post, "noteId", noteIdSeq++);
+        setField(post, "status", status);
+        setField(post, "snapshotTitle", title);
+        setField(post, "snapshotBody", "본문");
+        setField(post, "snapshotCategory", "PRAYER");
+        setField(post, "nicknameSnapshot", "하늘QT");
+        em.persist(post);
+        return post;
+    }
 
     private SharingPost persistPost(SharingPostStatus status, String category, String title, String body) {
         SharingPost post = new SharingPost();

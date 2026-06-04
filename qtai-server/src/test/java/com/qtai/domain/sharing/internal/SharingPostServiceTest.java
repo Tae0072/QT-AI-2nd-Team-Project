@@ -10,6 +10,8 @@ import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.NoteVisibility;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.sharing.api.dto.LikeResponse;
+import com.qtai.domain.sharing.api.dto.MySharingPostListItem;
+import com.qtai.domain.sharing.api.dto.MySharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
 import com.qtai.domain.sharing.api.dto.SharingPostListItem;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
@@ -27,6 +29,7 @@ import org.springframework.data.domain.Sort;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -155,6 +158,64 @@ class SharingPostServiceTest {
 
         assertThat(response.content()).isEmpty();
         verify(postLikeRepository, never()).findLikedPostIds(any(), anyCollection());
+    }
+
+    // ─────────────────────────────────────────────────────
+    // 내 나눔 목록 (F-10, 04 §4.4.5) — listMine. 헬퍼 sharingPost는 memberId=99로 글을 만든다.
+    // ─────────────────────────────────────────────────────
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @DisplayName("내 나눔: status 생략이면 PUBLISHED+HIDDEN으로 조회하고 lean DTO 9필드로 매핑한다")
+    void listMine_omittedStatus_returnsPublishedAndHidden() {
+        SharingPost post = sharingPost(1L, "하늘QT", "내 글", "PRAYER", "본문", "창세기 1:1", 3, 2);
+        ArgumentCaptor<Collection> statusesCaptor = ArgumentCaptor.forClass(Collection.class);
+        when(sharingPostRepository.findByMemberIdAndStatusIn(eq(99L), anyCollection(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(post), pageable, 1L));
+
+        MySharingPostListResponse response = sharingPostService.listMine(99L, null, pageable);
+
+        verify(sharingPostRepository)
+                .findByMemberIdAndStatusIn(eq(99L), statusesCaptor.capture(), any(Pageable.class));
+        assertThat(statusesCaptor.getValue())
+                .containsExactlyInAnyOrder(SharingPostStatus.PUBLISHED, SharingPostStatus.HIDDEN);
+
+        assertThat(response.content()).hasSize(1);
+        MySharingPostListItem item = response.content().get(0);
+        assertThat(item.id()).isEqualTo(1L);
+        assertThat(item.titleSnapshot()).isEqualTo("내 글");
+        assertThat(item.category()).isEqualTo("PRAYER");
+        assertThat(item.status()).isEqualTo("PUBLISHED");
+        assertThat(item.commentsEnabled()).isTrue();
+        assertThat(item.likeCount()).isEqualTo(3);
+        assertThat(item.commentCount()).isEqualTo(2);
+        assertThat(item.publishedAt()).isNotNull();
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @DisplayName("내 나눔: status=PUBLISHED면 PUBLISHED 단일 상태로만 조회한다")
+    void listMine_statusPublished_singleFilter() {
+        ArgumentCaptor<Collection> statusesCaptor = ArgumentCaptor.forClass(Collection.class);
+        when(sharingPostRepository.findByMemberIdAndStatusIn(eq(99L), anyCollection(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0L));
+
+        sharingPostService.listMine(99L, "PUBLISHED", pageable);
+
+        verify(sharingPostRepository)
+                .findByMemberIdAndStatusIn(eq(99L), statusesCaptor.capture(), any(Pageable.class));
+        assertThat(statusesCaptor.getValue()).containsExactly(SharingPostStatus.PUBLISHED);
+    }
+
+    @Test
+    @DisplayName("내 나눔 거부: status=DELETED(정의 외 값)는 400 INVALID_INPUT, 조회하지 않는다")
+    void listMine_invalidStatus_throwsInvalidInput() {
+        assertThatThrownBy(() -> sharingPostService.listMine(99L, "DELETED", pageable))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+
+        verify(sharingPostRepository, never()).findByMemberIdAndStatusIn(any(), anyCollection(), any());
     }
 
     @Test

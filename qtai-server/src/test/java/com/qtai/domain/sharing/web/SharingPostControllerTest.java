@@ -5,11 +5,13 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.sharing.api.DeleteSharingPostUseCase;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
+import com.qtai.domain.sharing.api.ListMySharingPostsUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
 import com.qtai.domain.sharing.api.PublishNoteUseCase;
 import com.qtai.domain.sharing.api.SharingPostVisibilityUseCase;
 import com.qtai.domain.sharing.api.ToggleLikeUseCase;
 import com.qtai.domain.sharing.api.dto.LikeResponse;
+import com.qtai.domain.sharing.api.dto.MySharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.SharingPostResponse;
@@ -35,6 +37,7 @@ import static org.mockito.Mockito.when;
 class SharingPostControllerTest {
 
     private ListSharingPostsUseCase listSharingPostsUseCase;
+    private ListMySharingPostsUseCase listMySharingPostsUseCase;
     private GetSharingPostUseCase getSharingPostUseCase;
     private PublishNoteUseCase publishNoteUseCase;
     private ToggleLikeUseCase toggleLikeUseCase;
@@ -46,14 +49,15 @@ class SharingPostControllerTest {
     @BeforeEach
     void setUp() {
         listSharingPostsUseCase = mock(ListSharingPostsUseCase.class);
+        listMySharingPostsUseCase = mock(ListMySharingPostsUseCase.class);
         getSharingPostUseCase = mock(GetSharingPostUseCase.class);
         publishNoteUseCase = mock(PublishNoteUseCase.class);
         toggleLikeUseCase = mock(ToggleLikeUseCase.class);
         deleteSharingPostUseCase = mock(DeleteSharingPostUseCase.class);
         sharingPostVisibilityUseCase = mock(SharingPostVisibilityUseCase.class);
         controller = new SharingPostController(
-                listSharingPostsUseCase, getSharingPostUseCase, publishNoteUseCase, toggleLikeUseCase,
-                deleteSharingPostUseCase, sharingPostVisibilityUseCase);
+                listSharingPostsUseCase, listMySharingPostsUseCase, getSharingPostUseCase, publishNoteUseCase,
+                toggleLikeUseCase, deleteSharingPostUseCase, sharingPostVisibilityUseCase);
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishedAt"));
     }
 
@@ -81,6 +85,31 @@ class SharingPostControllerTest {
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
 
         verify(listSharingPostsUseCase, never()).list(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("내 나눔 목록은 인증된 memberId·status·pageable을 UseCase로 위임한다")
+    void listMine_delegates() {
+        MySharingPostListResponse expected = new MySharingPostListResponse(
+                List.of(), 0, 20, 0L, 0, true, true, "publishedAt,desc");
+        when(listMySharingPostsUseCase.listMine(eq(1L), eq("HIDDEN"), any(Pageable.class))).thenReturn(expected);
+
+        ApiResponse<MySharingPostListResponse> response = controller.listMine(1L, "HIDDEN", pageable);
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.data()).isSameAs(expected);
+        verify(listMySharingPostsUseCase).listMine(eq(1L), eq("HIDDEN"), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("내 나눔 목록도 memberId가 없으면 UNAUTHORIZED로 거부한다")
+    void listMine_memberIdNull_rejected() {
+        assertThatThrownBy(() -> controller.listMine(null, null, pageable))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(listMySharingPostsUseCase, never()).listMine(any(), any(), any());
     }
 
     @Test
