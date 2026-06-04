@@ -22,6 +22,7 @@ package com.qtai.domain.qt.api.dto;
  * @param hasExplanation  해설 진입점 제공 여부 (승인된 해설 존재 시 true)
  * @param draftNoteId     사용자 DRAFT 노트 ID (없으면 null)
  * @param cacheStatus     캐시 상태 (HIT / MISS / STALE_FALLBACK / EMPTY)
+ * @param range           Flutter 본문 조회용 권/장/절 범위
  */
 public record TodayQtResponse(
         Long qtPassageId,
@@ -30,5 +31,18 @@ public record TodayQtResponse(
         String simulatorStatus,
         boolean hasExplanation,
         Long draftNoteId,
-        String cacheStatus
-) {}
+        String cacheStatus,
+        TodayQtRangeResponse range
+) {
+    public TodayQtResponse(
+            Long qtPassageId,
+            String passageDate,
+            String title,
+            String simulatorStatus,
+            boolean hasExplanation,
+            Long draftNoteId,
+            String cacheStatus
+    ) {
+        this(qtPassageId, passageDate, title, simulatorStatus, hasExplanation, draftNoteId, cacheStatus, null);
+    }
+}

@@ -12,6 +12,7 @@ import java.util.Collections;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.qt.api.GetTodayQtUseCase;
+import com.qtai.domain.qt.api.dto.TodayQtRangeResponse;
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
 import com.qtai.security.JwtAuthenticationFilter;
 import org.junit.jupiter.api.AfterEach;
@@ -70,7 +71,8 @@ class QtControllerTest {
     void getToday_200_성공() throws Exception {
         TodayQtResponse response = new TodayQtResponse(
                 1L, "2026-05-28", "하나님이 세상을 이처럼 사랑하사",
-                "MISSING", false, null, "HIT");
+                "MISSING", false, null, "HIT",
+                new TodayQtRangeResponse("NEW", "1CO", "고린도전서", "1 Corinthians", 1, 10, 17, "고린도전서 1:10-17"));
         when(getTodayQtUseCase.getToday(any())).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/qt/today"))
@@ -81,7 +83,12 @@ class QtControllerTest {
                 .andExpect(jsonPath("$.data.title").value("하나님이 세상을 이처럼 사랑하사"))
                 .andExpect(jsonPath("$.data.simulatorStatus").value("MISSING"))
                 .andExpect(jsonPath("$.data.hasExplanation").value(false))
-                .andExpect(jsonPath("$.data.cacheStatus").value("HIT"));
+                .andExpect(jsonPath("$.data.cacheStatus").value("HIT"))
+                .andExpect(jsonPath("$.data.range.testament").value("NEW"))
+                .andExpect(jsonPath("$.data.range.bookCode").value("1CO"))
+                .andExpect(jsonPath("$.data.range.chapter").value(1))
+                .andExpect(jsonPath("$.data.range.verseFrom").value(10))
+                .andExpect(jsonPath("$.data.range.verseTo").value(17));
     }
 
     @Test

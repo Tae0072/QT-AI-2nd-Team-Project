@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../bible/screens/today_qt_screen.dart';
 import '../../mypage/screens/mypage_screen.dart';
 import '../../sharing/screens/sharing_feed_screen.dart';
 
@@ -15,7 +16,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
   final _screens = const [
-    _HomePlaceholder(),
+    TodayQtScreen(),
     SharingFeedScreen(),
     MyPageScreen(),
   ];
@@ -48,18 +49,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// 홈 탭 placeholder — QT 화면 구현 시 교체 예정.
-class _HomePlaceholder extends StatelessWidget {
-  const _HomePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('홈')),
     );
   }
 }
