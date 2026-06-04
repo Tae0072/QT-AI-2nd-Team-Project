@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/network/auth_interceptor.dart';
 import '../services/auth_repository.dart';
 
 /// AuthRepository Provider.
@@ -20,7 +21,10 @@ final authStatusProvider =
 class AuthStatusNotifier extends StateNotifier<AuthStatus> {
   final AuthRepository? _repository;
 
-  AuthStatusNotifier(AuthRepository repository) : _repository = repository, super(AuthStatus.unknown) {
+  AuthStatusNotifier(AuthRepository repository)
+      : _repository = repository,
+        super(AuthStatus.unknown) {
+    AuthInterceptor.globalOnAuthFailure = setUnauthenticated;
     _checkAuthStatus();
   }
 
@@ -35,4 +39,12 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
 
   void setAuthenticated() => state = AuthStatus.authenticated;
   void setUnauthenticated() => state = AuthStatus.unauthenticated;
+
+  @override
+  void dispose() {
+    if (AuthInterceptor.globalOnAuthFailure == setUnauthenticated) {
+      AuthInterceptor.globalOnAuthFailure = null;
+    }
+    super.dispose();
+  }
 }

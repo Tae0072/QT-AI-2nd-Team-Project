@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../bible/screens/bible_browser_screen.dart';
 import '../../bible/screens/today_qt_screen.dart';
 import '../../mypage/screens/mypage_screen.dart';
 import '../../sharing/screens/sharing_feed_screen.dart';
@@ -17,7 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _screens = const [
     TodayQtScreen(),
-    _PlaceholderScreen(title: '성경', icon: Icons.menu_book),
+    BibleBrowserScreen(),
     SharingFeedScreen(),
     _PlaceholderScreen(title: '노트', icon: Icons.edit_note),
     MyPageScreen(),
@@ -33,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.wb_sunny_outlined),
