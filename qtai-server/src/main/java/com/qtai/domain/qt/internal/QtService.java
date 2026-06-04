@@ -8,7 +8,6 @@ import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
 import com.qtai.domain.qt.api.GetTodayQtUseCase;
 import com.qtai.domain.qt.api.dto.QtPassageContentContext;
-import com.qtai.domain.qt.api.dto.TodayQtRangeResponse;
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +44,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
     private final QtPassageLookup passageLookup;
     private final QtPassageRepository qtPassageRepository;
     private final QtPassageVerseRepository qtPassageVerseRepository;
+    private final TodayQtRangeResolver rangeResolver;
     private final GetNoteUseCase getNoteUseCase;
 
     // ------------------------------------------------------------------
@@ -92,7 +92,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 false,        // hasExplanation: AI 해설 도메인 연동 전 기본값
                 draftNoteId,
                 "HIT",
-                resolveRange(passage)
+                rangeResolver.resolve(passage)
         );
     }
 
@@ -164,13 +164,4 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
         );
     }
 
-    private TodayQtRangeResponse resolveRange(QtPassage passage) {
-        var range = qtPassageRepository.findRangeByQtPassageId(passage.getId());
-        if (range == null) {
-            return null;
-        }
-        return range
-                .map(TodayQtRangeMapper::toResponse)
-                .orElse(null);
-    }
 }

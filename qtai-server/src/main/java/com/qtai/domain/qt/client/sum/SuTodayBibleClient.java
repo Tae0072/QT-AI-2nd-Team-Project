@@ -7,6 +7,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -47,14 +49,20 @@ public class SuTodayBibleClient {
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("성서유니온 오늘 본문 조회 실패. status=" + response.statusCode());
+                throw new BusinessException(
+                        ErrorCode.EXTERNAL_API_FAILURE,
+                        "성서유니온 오늘 본문 조회 실패. status=" + response.statusCode());
             }
             return parser.parseToday(response.body());
         } catch (IOException exception) {
-            throw new IllegalStateException("성서유니온 오늘 본문 조회 중 네트워크 오류가 발생했습니다.", exception);
+            throw new BusinessException(
+                    ErrorCode.EXTERNAL_API_FAILURE,
+                    "성서유니온 오늘 본문 조회 중 네트워크 오류가 발생했습니다.");
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("성서유니온 오늘 본문 조회가 중단되었습니다.", exception);
+            throw new BusinessException(
+                    ErrorCode.EXTERNAL_API_FAILURE,
+                    "성서유니온 오늘 본문 조회가 중단되었습니다.");
         }
     }
 }

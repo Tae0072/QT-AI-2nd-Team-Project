@@ -3,6 +3,8 @@ package com.qtai.domain.qt.client.sum;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +44,9 @@ class SuTodayPassageParserTest {
                 """;
 
         assertThatThrownBy(() -> parser.parseToday(html))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("같은 장");
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("같은 장")
+                .satisfies(exception ->
+                        assertThat(((BusinessException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
     }
 }

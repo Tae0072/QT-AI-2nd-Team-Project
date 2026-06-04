@@ -11,6 +11,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -56,8 +58,10 @@ class SuTodayBibleClientTest {
         );
 
         assertThatThrownBy(client::fetchToday)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("status=500");
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("status=500")
+                .satisfies(exception ->
+                        assertThat(((BusinessException) exception).getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_API_FAILURE));
     }
 
     @Test
@@ -73,9 +77,10 @@ class SuTodayBibleClientTest {
         );
 
         assertThatThrownBy(client::fetchToday)
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("네트워크 오류")
-                .hasCauseInstanceOf(IOException.class);
+                .satisfies(exception ->
+                        assertThat(((BusinessException) exception).getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_API_FAILURE));
     }
 
     private HttpResponse<String> mockResponse(int statusCode, String body) {

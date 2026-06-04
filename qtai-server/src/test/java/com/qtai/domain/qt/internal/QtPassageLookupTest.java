@@ -42,6 +42,10 @@ class QtPassageLookupTest {
         return QtPassageFixture.createPassage(id, date, title);
     }
 
+    private static QtPassageLookup lookup(QtPassageRepository repo, Clock clock) {
+        return new QtPassageLookup(repo, clock, new TodayQtRangeResolver(repo));
+    }
+
     @Nested
     @DisplayName("findTodayPassage — 오늘의 QT 본문 조회")
     class FindTodayPassageTest {
@@ -52,7 +56,7 @@ class QtPassageLookupTest {
             // given: 2026-05-28 오후 2시 (배치 이후)
             Clock clock = fixedClockKst(2026, 5, 28, 14, 0);
             QtPassageRepository repo = Mockito.mock(QtPassageRepository.class);
-            QtPassageLookup lookup = new QtPassageLookup(repo, clock);
+            QtPassageLookup lookup = lookup(repo, clock);
 
             LocalDate today = LocalDate.of(2026, 5, 28);
             QtPassage passage = createPassage(1L, today, "하나님이 세상을 이처럼 사랑하사");
@@ -83,7 +87,7 @@ class QtPassageLookupTest {
             // given: 2026-05-28 새벽 2시 (배치 이전)
             Clock clock = fixedClockKst(2026, 5, 28, 2, 0);
             QtPassageRepository repo = Mockito.mock(QtPassageRepository.class);
-            QtPassageLookup lookup = new QtPassageLookup(repo, clock);
+            QtPassageLookup lookup = lookup(repo, clock);
 
             LocalDate today = LocalDate.of(2026, 5, 28);
             LocalDate yesterday = LocalDate.of(2026, 5, 27);
@@ -107,7 +111,7 @@ class QtPassageLookupTest {
             // given: 2026-05-28 새벽 1시, 어제 데이터도 없음
             Clock clock = fixedClockKst(2026, 5, 28, 1, 0);
             QtPassageRepository repo = Mockito.mock(QtPassageRepository.class);
-            QtPassageLookup lookup = new QtPassageLookup(repo, clock);
+            QtPassageLookup lookup = lookup(repo, clock);
 
             LocalDate today = LocalDate.of(2026, 5, 28);
             LocalDate yesterday = LocalDate.of(2026, 5, 27);
@@ -130,7 +134,7 @@ class QtPassageLookupTest {
             // given: 2026-05-28 오후 5시
             Clock clock = fixedClockKst(2026, 5, 28, 17, 0);
             QtPassageRepository repo = Mockito.mock(QtPassageRepository.class);
-            QtPassageLookup lookup = new QtPassageLookup(repo, clock);
+            QtPassageLookup lookup = lookup(repo, clock);
 
             LocalDate today = LocalDate.of(2026, 5, 28);
             when(repo.findByQtDate(today)).thenReturn(Optional.empty());
@@ -145,23 +149,27 @@ class QtPassageLookupTest {
         }
 
         @Test
-        @DisplayName("00:00~04:00 사이라도 오늘 본문이 있으면 HIT 반환")
-        void 새벽_오늘_본문_있으면_HIT() {
-            // given: 2026-05-28 새벽 3시, 이미 오늘 데이터가 준비됨
+        @DisplayName("00:00~04:00 사이에는 오늘 본문이 있어도 어제 본문을 STALE_FALLBACK으로 반환")
+        void 새벽_오늘_본문_있어도_어제_본문_STALE_FALLBACK() {
+            // given: 2026-05-28 새벽 3시, 오늘 데이터가 이미 DB에 들어왔고 어제 데이터도 있음
             Clock clock = fixedClockKst(2026, 5, 28, 3, 0);
             QtPassageRepository repo = Mockito.mock(QtPassageRepository.class);
-            QtPassageLookup lookup = new QtPassageLookup(repo, clock);
+            QtPassageLookup lookup = lookup(repo, clock);
 
             LocalDate today = LocalDate.of(2026, 5, 28);
+            LocalDate yesterday = LocalDate.of(2026, 5, 27);
             QtPassage passage = createPassage(3L, today, "태초에 하나님이");
+            QtPassage yesterdayPassage = createPassage(2L, yesterday, "여호와는 나의 목자시니");
             when(repo.findByQtDate(today)).thenReturn(Optional.of(passage));
+            when(repo.findByQtDate(yesterday)).thenReturn(Optional.of(yesterdayPassage));
 
             // when
             TodayQtResponse response = lookup.findTodayPassage();
 
             // then
-            assertThat(response.qtPassageId()).isEqualTo(3L);
-            assertThat(response.cacheStatus()).isEqualTo("HIT");
+            assertThat(response.qtPassageId()).isEqualTo(2L);
+            assertThat(response.passageDate()).isEqualTo("2026-05-27");
+            assertThat(response.cacheStatus()).isEqualTo("STALE_FALLBACK");
         }
     }
 

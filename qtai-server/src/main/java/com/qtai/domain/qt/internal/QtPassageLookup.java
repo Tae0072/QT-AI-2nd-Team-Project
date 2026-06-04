@@ -1,7 +1,6 @@
 package com.qtai.domain.qt.internal;
 
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
-import com.qtai.domain.qt.api.dto.TodayQtRangeResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -36,14 +35,15 @@ class QtPassageLookup {
 
     private final QtPassageRepository qtPassageRepository;
     private final Clock clock;
+    private final TodayQtRangeResolver rangeResolver;
 
     /**
      * 오늘의 QT 본문을 캐시에서 조회한다.
      *
      * <p>캐시 정책 (CLAUDE.md §6):
      * <ul>
-     *   <li>오늘 날짜의 QT 본문이 있으면 {@code HIT}으로 반환</li>
-     *   <li>00:00~04:00 사이 오늘 본문 없으면 어제 본문을 {@code STALE_FALLBACK}으로 반환</li>
+     *   <li>00:00~04:00 사이에는 오늘 본문이 DB에 있어도 어제 본문을 {@code STALE_FALLBACK}으로 반환</li>
+     *   <li>04:00 이후 오늘 날짜의 QT 본문이 있으면 {@code HIT}으로 반환</li>
      *   <li>04:00 이후 오늘 본문 없으면 {@code MISS}로 반환 (클라이언트 재시도 권장)</li>
      *   <li>어떤 데이터도 없으면 {@code EMPTY}</li>
      * </ul>
@@ -61,14 +61,15 @@ class QtPassageLookup {
         LocalDate today = nowKst.toLocalDate();
         boolean isBeforeBatch = nowKst.toLocalTime().isBefore(BATCH_COMPLETE_TIME);
 
+        if (isBeforeBatch) {
+            return qtPassageRepository.findByQtDate(today.minusDays(1))
+                    .map(passage -> toResponse(passage, "STALE_FALLBACK"))
+                    .orElse(emptyResponse());
+        }
+
         return qtPassageRepository.findByQtDate(today)
                 .map(passage -> toResponse(passage, "HIT"))
                 .orElseGet(() -> {
-                    if (isBeforeBatch) {
-                        return qtPassageRepository.findByQtDate(today.minusDays(1))
-                                .map(passage -> toResponse(passage, "STALE_FALLBACK"))
-                                .orElse(emptyResponse());
-                    }
                     log.warn("오늘의 QT 본문이 없습니다. date={}, 배치 상태를 확인해 주세요.", today);
                     return emptyResponse("MISS");
                 });
@@ -83,7 +84,7 @@ class QtPassageLookup {
                 false,        // hasExplanation: AI 해설 도메인 연동 전 기본값
                 null,         // draftNoteId: QtService에서 enrich
                 cacheStatus,
-                resolveRange(passage)
+                rangeResolver.resolve(passage)
         );
     }
 
@@ -93,15 +94,5 @@ class QtPassageLookup {
 
     private TodayQtResponse emptyResponse(String cacheStatus) {
         return new TodayQtResponse(null, null, null, "DISABLED", false, null, cacheStatus);
-    }
-
-    private TodayQtRangeResponse resolveRange(QtPassage passage) {
-        var range = qtPassageRepository.findRangeByQtPassageId(passage.getId());
-        if (range == null) {
-            return null;
-        }
-        return range
-                .map(TodayQtRangeMapper::toResponse)
-                .orElse(null);
     }
 }

@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.config.JpaAuditingConfig;
 import com.qtai.domain.qt.client.sum.SuTodayPassage;
 import org.junit.jupiter.api.DisplayName;
@@ -100,8 +102,10 @@ class QtTodayPassageImportServiceTest {
         );
 
         assertThatThrownBy(() -> service.importToday(LocalDate.of(2026, 6, 2), passage))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("DB에 등록되지 않은 성경 권");
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("DB에 등록되지 않은 성경 권")
+                .satisfies(exception ->
+                        assertThat(((BusinessException) exception).getErrorCode()).isEqualTo(ErrorCode.BIBLE_BOOK_NOT_FOUND));
         assertThat(repository.findAll()).isEmpty();
     }
 
