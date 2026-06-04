@@ -219,6 +219,53 @@ class SharingPostServiceTest {
     }
 
     @Test
+    @DisplayName("내 나눔: 정렬 publishedAt은 엔티티 createdAt으로 변환되고 응답엔 publishedAt으로 표기된다")
+    void listMine_translatesSortField() {
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        when(sharingPostRepository.findByMemberIdAndStatusIn(eq(99L), anyCollection(), pageableCaptor.capture()))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0L));
+
+        MySharingPostListResponse response = sharingPostService.listMine(99L, null, pageable);
+
+        // 컨트롤러가 보내는 publishedAt 정렬이 엔티티 createdAt으로 매핑되는지(공개 피드와 동일 컨벤션) 검증.
+        Sort.Order order = pageableCaptor.getValue().getSort().getOrderFor("createdAt");
+        assertThat(order).isNotNull();
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("publishedAt")).isNull();
+        assertThat(response.sort()).isEqualTo("publishedAt,desc");
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @DisplayName("내 나눔: status=HIDDEN이면 HIDDEN 단일 상태로만 조회한다")
+    void listMine_statusHidden_singleFilter() {
+        ArgumentCaptor<Collection> statusesCaptor = ArgumentCaptor.forClass(Collection.class);
+        when(sharingPostRepository.findByMemberIdAndStatusIn(eq(99L), anyCollection(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0L));
+
+        sharingPostService.listMine(99L, "HIDDEN", pageable);
+
+        verify(sharingPostRepository)
+                .findByMemberIdAndStatusIn(eq(99L), statusesCaptor.capture(), any(Pageable.class));
+        assertThat(statusesCaptor.getValue()).containsExactly(SharingPostStatus.HIDDEN);
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @DisplayName("내 나눔: status는 대소문자를 무시한다 — 'published'도 PUBLISHED로 처리")
+    void listMine_statusLowercase_accepted() {
+        ArgumentCaptor<Collection> statusesCaptor = ArgumentCaptor.forClass(Collection.class);
+        when(sharingPostRepository.findByMemberIdAndStatusIn(eq(99L), anyCollection(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0L));
+
+        sharingPostService.listMine(99L, "published", pageable);
+
+        verify(sharingPostRepository)
+                .findByMemberIdAndStatusIn(eq(99L), statusesCaptor.capture(), any(Pageable.class));
+        assertThat(statusesCaptor.getValue()).containsExactly(SharingPostStatus.PUBLISHED);
+    }
+
+    @Test
     @DisplayName("상세 조회: 전체 본문·rangeLabel을 매핑하고 verses는 빈 배열(v2)이다")
     void getDetail_mapsFullDetail() {
         SharingPost post = sharingPost(1L, "하늘QT", "오늘의 묵상", "MEDITATION",

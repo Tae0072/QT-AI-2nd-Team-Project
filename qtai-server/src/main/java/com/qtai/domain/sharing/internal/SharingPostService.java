@@ -144,6 +144,8 @@ public class SharingPostService
                 post.getSourceNoteUnsharedAt(),
                 post.getLikeCount(),
                 post.getCommentCount(),
+                // publishedAt ← createdAt: 나눔글 행은 공개(publish) 시점에 생성되므로 둘이 같다.
+                // 공개 피드 toItem/toDetail과 동일 컨벤션(엔티티에 별도 publishedAt 필드 없음).
                 post.getCreatedAt());
     }
 

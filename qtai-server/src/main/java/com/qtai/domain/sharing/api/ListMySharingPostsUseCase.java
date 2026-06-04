@@ -13,7 +13,7 @@ import org.springframework.data.domain.Pageable;
  * - status가 null이면 PUBLISHED + HIDDEN을 함께 반환한다(삭제본 DELETED는 항상 제외).
  *   숨긴 글까지 보여야 M-05에서 되돌리기(show)를 누를 수 있다.
  * - status로 PUBLISHED 또는 HIDDEN을 명시하면 해당 상태만 필터링한다.
- * - status가 DELETED이거나 정의되지 않은 값이면 400(VALIDATION_ERROR)으로 막는다.
+ * - status가 DELETED이거나 정의되지 않은 값이면 400(INVALID_INPUT)으로 막는다.
  */
 public interface ListMySharingPostsUseCase {
 
