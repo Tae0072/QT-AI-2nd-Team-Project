@@ -5,11 +5,13 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.sharing.api.DeleteSharingPostUseCase;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
+import com.qtai.domain.sharing.api.ListMySharingPostsUseCase;
 import com.qtai.domain.sharing.api.ListSharingPostsUseCase;
 import com.qtai.domain.sharing.api.PublishNoteUseCase;
 import com.qtai.domain.sharing.api.SharingPostVisibilityUseCase;
 import com.qtai.domain.sharing.api.ToggleLikeUseCase;
 import com.qtai.domain.sharing.api.dto.LikeResponse;
+import com.qtai.domain.sharing.api.dto.MySharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
 import com.qtai.domain.sharing.api.dto.SharingPostListResponse;
 import com.qtai.domain.sharing.api.dto.SharingPostResponse;
@@ -41,6 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SharingPostController {
 
     private final ListSharingPostsUseCase listSharingPostsUseCase;
+    private final ListMySharingPostsUseCase listMySharingPostsUseCase;
     private final GetSharingPostUseCase getSharingPostUseCase;
     private final PublishNoteUseCase publishNoteUseCase;
     private final ToggleLikeUseCase toggleLikeUseCase;
@@ -55,6 +58,16 @@ public class SharingPostController {
             @PageableDefault(size = 20, sort = "publishedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Long authenticatedMemberId = requireMemberId(memberId);
         return ApiResponse.success(listSharingPostsUseCase.list(authenticatedMemberId, category, q, pageable));
+    }
+
+    /** GET /api/v1/me/sharing-posts — 내가 쓴 나눔 글 목록(공개+숨김, 04 §4.4.5, 화면 M-05). */
+    @GetMapping("/api/v1/me/sharing-posts")
+    public ApiResponse<MySharingPostListResponse> listMine(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam(required = false) String status,
+            @PageableDefault(size = 20, sort = "publishedAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Long authenticatedMemberId = requireMemberId(memberId);
+        return ApiResponse.success(listMySharingPostsUseCase.listMine(authenticatedMemberId, status, pageable));
     }
 
     @GetMapping("/api/v1/sharing-posts/{postId}")
