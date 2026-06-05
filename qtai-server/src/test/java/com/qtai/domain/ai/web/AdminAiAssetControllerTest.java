@@ -52,13 +52,18 @@ import com.qtai.domain.ai.api.admin.asset.dto.RegenerateAiAssetCommand;
 import com.qtai.domain.ai.api.admin.asset.dto.RegenerateAiAssetResult;
 import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetCommand;
 import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetResult;
+import com.qtai.support.StubVerifyAdminRoleUseCase;
 
 class AdminAiAssetControllerTest {
+
+    /** 스텁 규약: adminUserId = memberId + 100 (admin_users.id 기록 회귀 검증용). */
+    private static final long ADMIN_USER_ID_OFFSET = StubVerifyAdminRoleUseCase.ADMIN_USER_ID_OFFSET;
 
     private RegenerateAiAssetUseCase regenerateAiAssetUseCase;
     private ListAdminAiAssetsUseCase listAdminAiAssetsUseCase;
     private GetAdminAiAssetUseCase getAdminAiAssetUseCase;
     private ReviewAiAssetUseCase reviewAiAssetUseCase;
+    private StubVerifyAdminRoleUseCase verifyAdminRoleUseCase;
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
@@ -68,12 +73,14 @@ class AdminAiAssetControllerTest {
         listAdminAiAssetsUseCase = org.mockito.Mockito.mock(ListAdminAiAssetsUseCase.class);
         getAdminAiAssetUseCase = org.mockito.Mockito.mock(GetAdminAiAssetUseCase.class);
         reviewAiAssetUseCase = org.mockito.Mockito.mock(ReviewAiAssetUseCase.class);
+        verifyAdminRoleUseCase = new StubVerifyAdminRoleUseCase();
         Clock clock = Clock.fixed(Instant.parse("2026-05-21T01:30:00Z"), ZoneId.of("Asia/Seoul"));
         AdminAiAssetController controller = new AdminAiAssetController(
                 regenerateAiAssetUseCase,
                 listAdminAiAssetsUseCase,
                 getAdminAiAssetUseCase,
                 reviewAiAssetUseCase,
+                new AdminAiAuthentication(verifyAdminRoleUseCase),
                 clock
         );
         objectMapper = Jackson2ObjectMapperBuilder.json()
@@ -150,7 +157,8 @@ class AdminAiAssetControllerTest {
                 ArgumentCaptor.forClass(ListAdminAiAssetsQuery.class);
         verify(listAdminAiAssetsUseCase).listAdminAiAssets(queryCaptor.capture());
         ListAdminAiAssetsQuery query = queryCaptor.getValue();
-        assertThat(query.adminId()).isEqualTo(7L);
+        // DB 검증 통일 후 adminId에는 members.id가 아니라 admin_users.id가 실린다
+        assertThat(query.adminId()).isEqualTo(7L + ADMIN_USER_ID_OFFSET);
         assertThat(query.memberRole()).isEqualTo("ADMIN");
         assertThat(query.adminRole()).isEqualTo("REVIEWER");
         assertThat(query.assetType()).isEqualTo("EXPLANATION");
@@ -203,7 +211,8 @@ class AdminAiAssetControllerTest {
                         .principal(adminPrincipal(7L, "ADMIN_ROLE_OPERATOR")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("M0003"));
+                // DB 검증(admin_users.admin_role) 부족 — AD0003
+                .andExpect(jsonPath("$.error.code").value("AD0003"));
         verify(listAdminAiAssetsUseCase, never()).listAdminAiAssets(any(ListAdminAiAssetsQuery.class));
     }
 
@@ -266,7 +275,7 @@ class AdminAiAssetControllerTest {
                 ArgumentCaptor.forClass(GetAdminAiAssetQuery.class);
         verify(getAdminAiAssetUseCase).getAdminAiAsset(queryCaptor.capture());
         GetAdminAiAssetQuery query = queryCaptor.getValue();
-        assertThat(query.adminId()).isEqualTo(7L);
+        assertThat(query.adminId()).isEqualTo(7L + ADMIN_USER_ID_OFFSET);
         assertThat(query.memberRole()).isEqualTo("ADMIN");
         assertThat(query.adminRole()).isEqualTo("REVIEWER");
         assertThat(query.assetId()).isEqualTo(500L);
@@ -307,7 +316,7 @@ class AdminAiAssetControllerTest {
                 ArgumentCaptor.forClass(ReviewAiAssetCommand.class);
         verify(reviewAiAssetUseCase).reviewAiAsset(commandCaptor.capture());
         ReviewAiAssetCommand command = commandCaptor.getValue();
-        assertThat(command.reviewerId()).isEqualTo(7L);
+        assertThat(command.reviewerId()).isEqualTo(7L + ADMIN_USER_ID_OFFSET);
         assertThat(command.assetId()).isEqualTo(500L);
         assertThat(command.memberRole()).isEqualTo("ADMIN");
         assertThat(command.adminRole()).isEqualTo("REVIEWER");
@@ -376,7 +385,7 @@ class AdminAiAssetControllerTest {
                                 }
                                 """))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("M0003"));
+                .andExpect(jsonPath("$.error.code").value("AD0003"));
         verify(reviewAiAssetUseCase, never()).reviewAiAsset(any(ReviewAiAssetCommand.class));
     }
 
@@ -428,7 +437,7 @@ class AdminAiAssetControllerTest {
                 ArgumentCaptor.forClass(RegenerateAiAssetCommand.class);
         verify(regenerateAiAssetUseCase).regenerateAiAsset(commandCaptor.capture());
         RegenerateAiAssetCommand command = commandCaptor.getValue();
-        assertThat(command.adminId()).isEqualTo(7L);
+        assertThat(command.adminId()).isEqualTo(7L + ADMIN_USER_ID_OFFSET);
         assertThat(command.assetId()).isEqualTo(500L);
         assertThat(command.memberRole()).isEqualTo("ADMIN");
         assertThat(command.adminRole()).isEqualTo("REVIEWER");
@@ -450,7 +459,7 @@ class AdminAiAssetControllerTest {
                                 """))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("M0003"))
+                .andExpect(jsonPath("$.error.code").value("AD0003"))
                 .andExpect(jsonPath("$.timestamp").exists())
                 .andExpect(jsonPath("$.traceId").exists());
         verify(regenerateAiAssetUseCase, never()).regenerateAiAsset(any(RegenerateAiAssetCommand.class));
@@ -524,7 +533,7 @@ class AdminAiAssetControllerTest {
         ArgumentCaptor<RegenerateAiAssetCommand> commandCaptor =
                 ArgumentCaptor.forClass(RegenerateAiAssetCommand.class);
         verify(regenerateAiAssetUseCase).regenerateAiAsset(commandCaptor.capture());
-        assertThat(commandCaptor.getValue().adminId()).isEqualTo(7L);
+        assertThat(commandCaptor.getValue().adminId()).isEqualTo(7L + ADMIN_USER_ID_OFFSET);
     }
 
     @Test
@@ -582,11 +591,22 @@ class AdminAiAssetControllerTest {
         verify(regenerateAiAssetUseCase, never()).regenerateAiAsset(any(RegenerateAiAssetCommand.class));
     }
 
-    private static Authentication adminPrincipal(Long adminId, String... adminAuthorities) {
+    /**
+     * 관리자 인증 토큰 생성 + 스텁 admin_users 등록.
+     *
+     * <p>DB 검증 방식 전환 후 {@code ADMIN_ROLE_*} authority는 인가에 사용되지 않지만,
+     * 호출부 의도를 표현하는 역할로 스텁 등록(memberId→admin_role)에 재사용한다.
+     */
+    private Authentication adminPrincipal(Long memberId, String... adminAuthorities) {
+        for (String authority : adminAuthorities) {
+            if (authority.startsWith("ADMIN_ROLE_")) {
+                verifyAdminRoleUseCase.register(memberId, authority.substring("ADMIN_ROLE_".length()));
+            }
+        }
         String[] authorities = new String[adminAuthorities.length + 1];
         authorities[0] = "ROLE_ADMIN";
         System.arraycopy(adminAuthorities, 0, authorities, 1, adminAuthorities.length);
-        return principal(adminId, authorities);
+        return principal(memberId, authorities);
     }
 
     private static Authentication principal(Object principal, String... authorities) {

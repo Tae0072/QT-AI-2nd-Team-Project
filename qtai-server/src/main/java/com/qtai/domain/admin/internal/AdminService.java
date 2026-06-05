@@ -81,6 +81,42 @@ public class AdminService implements VerifyAdminRoleUseCase {
     }
 
     /**
+     * 허용 역할 목록 중 하나라도 충족하면 통과하는 권한 검증.
+     *
+     * <p>SUPER_ADMIN은 {@link AdminUser#hasRole}의 우월권 규칙에 따라
+     * 목록에 명시되지 않아도 항상 통과한다.
+     *
+     * @param memberId      JWT에서 추출한 회원 ID
+     * @param requiredRoles 허용 역할 문자열 목록 (예: ["OPERATOR", "REVIEWER"])
+     * @return 관리자 정보
+     * @throws BusinessException ADMIN_USER_NOT_FOUND, ADMIN_USER_DISABLED, ADMIN_ROLE_INSUFFICIENT
+     */
+    @Override
+    public AdminUserInfo verifyAnyRole(Long memberId, java.util.Collection<String> requiredRoles) {
+        AdminUser adminUser = findActiveAdminUser(memberId);
+
+        if (requiredRoles != null) {
+            for (String roleName : requiredRoles) {
+                AdminRole required;
+                try {
+                    required = AdminRole.valueOf(roleName);
+                } catch (IllegalArgumentException | NullPointerException e) {
+                    log.warn("잘못된 관리자 역할 문자열은 건너뜀 — memberId={}, requiredRole={}",
+                            memberId, roleName);
+                    continue;
+                }
+                if (adminUser.hasRole(required)) {
+                    return toAdminUserInfo(adminUser);
+                }
+            }
+        }
+
+        log.warn("관리자 권한 부족 — memberId={}, adminRole={}, requiredRoles={}",
+                memberId, adminUser.getAdminRole(), requiredRoles);
+        throw new BusinessException(ErrorCode.ADMIN_ROLE_INSUFFICIENT);
+    }
+
+    /**
      * memberId로 활성 AdminUser 엔티티를 조회한다 (내부 공통 메서드).
      *
      * @throws BusinessException ADMIN_USER_NOT_FOUND — admin_users에 레코드 없음
