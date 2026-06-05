@@ -35,12 +35,19 @@ class AdminReportServiceTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 5, 1, 0, 0);
 
     private ReportRepository reportRepository;
+    private com.qtai.domain.sharing.api.HideSharingPostForModerationUseCase hideUseCase;
+    private com.qtai.domain.notification.api.SendNotificationUseCase sendNotificationUseCase;
+    private com.qtai.domain.audit.api.WriteAuditLogUseCase writeAuditLogUseCase;
     private AdminReportService service;
 
     @BeforeEach
     void setUp() {
         reportRepository = Mockito.mock(ReportRepository.class);
-        service = new AdminReportService(reportRepository, FIXED_CLOCK);
+        hideUseCase = Mockito.mock(com.qtai.domain.sharing.api.HideSharingPostForModerationUseCase.class);
+        sendNotificationUseCase = Mockito.mock(com.qtai.domain.notification.api.SendNotificationUseCase.class);
+        writeAuditLogUseCase = Mockito.mock(com.qtai.domain.audit.api.WriteAuditLogUseCase.class);
+        service = new AdminReportService(
+                reportRepository, hideUseCase, sendNotificationUseCase, writeAuditLogUseCase, FIXED_CLOCK);
     }
 
     private Report report(Long id, ReportTargetType type, Long targetId) {
@@ -99,6 +106,47 @@ class AdminReportServiceTest {
     }
 
     @Test
+    void resolve_HIDE_TARGET이면_POST_대상_숨김_알림_감사기록까지_수행() {
+        Report r = report(900L, ReportTargetType.POST, 300L);
+        when(reportRepository.findById(900L)).thenReturn(Optional.of(r));
+
+        service.resolve(new ProcessReportCommand(9L, 900L, "HIDE_TARGET", "정책 위반", true));
+
+        // ① 대상 숨김
+        Mockito.verify(hideUseCase).hideForModeration(300L);
+        // ② 신고자 알림 — 멱등 eventKey 포함
+        var notificationCaptor = org.mockito.ArgumentCaptor.forClass(
+                com.qtai.domain.notification.api.dto.NotificationSendRequest.class);
+        Mockito.verify(sendNotificationUseCase).send(notificationCaptor.capture());
+        assertThat(notificationCaptor.getValue().memberId()).isEqualTo(1L); // 신고자
+        assertThat(notificationCaptor.getValue().type()).isEqualTo("REPORT_RESULT");
+        assertThat(notificationCaptor.getValue().eventKey()).isEqualTo("REPORT_RESULT:900");
+        // ③ 감사 기록 — adminUserId/액션/대상
+        var auditCaptor = org.mockito.ArgumentCaptor.forClass(
+                com.qtai.domain.audit.api.dto.AuditLogWriteRequest.class);
+        Mockito.verify(writeAuditLogUseCase).write(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().adminUserId()).isEqualTo(9L);
+        assertThat(auditCaptor.getValue().actionType()).isEqualTo("REPORT_RESOLVE");
+        assertThat(auditCaptor.getValue().targetType()).isEqualTo("REPORT");
+        assertThat(auditCaptor.getValue().targetId()).isEqualTo(900L);
+    }
+
+    @Test
+    void resolve_알림_실패해도_처리와_숨김은_유지된다() {
+        Report r = report(900L, ReportTargetType.POST, 300L);
+        when(reportRepository.findById(900L)).thenReturn(Optional.of(r));
+        Mockito.doThrow(new RuntimeException("notification down"))
+                .when(sendNotificationUseCase).send(any());
+
+        ProcessReportResult result = service.resolve(
+                new ProcessReportCommand(9L, 900L, "HIDE_TARGET", "정책 위반", true));
+
+        assertThat(result.status()).isEqualTo("RESOLVED");
+        Mockito.verify(hideUseCase).hideForModeration(300L);
+        Mockito.verify(writeAuditLogUseCase).write(any());
+    }
+
+    @Test
     void reject_상태_REJECTED() {
         Report r = report(901L, ReportTargetType.AI_QA_REQUEST, 700L);
         when(reportRepository.findById(901L)).thenReturn(Optional.of(r));
@@ -108,6 +156,13 @@ class AdminReportServiceTest {
 
         assertThat(result.status()).isEqualTo("REJECTED");
         assertThat(r.getStatus()).isEqualTo(ReportStatus.REJECTED);
+        // 반려는 대상 숨김 없음 + notifyReporter=false라 알림 없음, 감사 기록은 남는다
+        Mockito.verifyNoInteractions(hideUseCase);
+        Mockito.verifyNoInteractions(sendNotificationUseCase);
+        var auditCaptor = org.mockito.ArgumentCaptor.forClass(
+                com.qtai.domain.audit.api.dto.AuditLogWriteRequest.class);
+        Mockito.verify(writeAuditLogUseCase).write(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().actionType()).isEqualTo("REPORT_REJECT");
     }
 
     @Test
