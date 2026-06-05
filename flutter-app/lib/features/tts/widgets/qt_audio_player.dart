@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import '../providers/tts_providers.dart';
-import '../services/tts_repository.dart';
 
 /// QT 본문 읽기용 오디오 플레이어 위젯.
 ///
