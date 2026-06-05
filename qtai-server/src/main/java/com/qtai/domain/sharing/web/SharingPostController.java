@@ -36,7 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 나눔 피드 REST 엔드포인트. base path: /api/v1/sharing-posts
  *
- * 토큰 기반 공유({@code /api/v1/shares}, SharingController)와는 별개의 커뮤니티 피드다.
+ * 닉네임 나눔(F-10) 커뮤니티 피드 — 공유·좋아요·댓글·신고.
  */
 @RestController
 @RequiredArgsConstructor
