@@ -31,6 +31,7 @@ class AiReviewValidationServiceTest {
     private static final OffsetDateTime VALIDATED_AT = OffsetDateTime.parse("2026-06-03T09:05:00+09:00");
     private static final Long ASSET_ID = 500L;
     private static final Long CHECKLIST_VERSION_ID = 77L;
+    private static final String INDEX_STORAGE_URI = "restricted://validation/index/reference-index.json";
 
     private AiGeneratedAssetRepository generatedAssetRepository;
     private AiValidationChecklistVersionRepository checklistVersionRepository;
@@ -74,7 +75,7 @@ class AiReviewValidationServiceTest {
                 AiValidationChecklistStatus.ACTIVE
         )).thenReturn(List.of(checklistVersion(CHECKLIST_VERSION_ID)));
         when(reviewReferenceService.latestActiveReference()).thenReturn(Optional.of(referenceMetadata()));
-        when(referenceIndexReader.read("restricted://validation/index", "sha256:reference-hash"))
+        when(referenceIndexReader.read(INDEX_STORAGE_URI, "sha256:reference-hash"))
                 .thenReturn(referenceIndex(
                         referenceEntry("JHN", 3, 16, 3, 16, "sha256:reference-entry-hash", "선택된 검수 참고 본문")
                 ));
@@ -112,6 +113,7 @@ class AiReviewValidationServiceTest {
         assertThat(checklistJson.path("validationReferenceJobId").asLong()).isEqualTo(33L);
         assertThat(checklistJson.path("referenceSourceName").asText()).isEqualTo("검증 참조 자료");
         assertThat(checklistJson.path("referenceSourceFileHash").asText()).isEqualTo("sha256:reference-hash");
+        assertThat(checklistJson.path("referenceIndexStorageUri").asText()).isEqualTo(INDEX_STORAGE_URI);
         assertThat(log.getChecklistJson()).doesNotContain(
                 "providerRawResponse",
                 "rawResponse",
@@ -126,6 +128,7 @@ class AiReviewValidationServiceTest {
         );
 
         ArgumentCaptor<LlmCompletionRequest> requestCaptor = ArgumentCaptor.forClass(LlmCompletionRequest.class);
+        verify(referenceIndexReader).read(INDEX_STORAGE_URI, "sha256:reference-hash");
         verify(llmClient).complete(requestCaptor.capture());
         assertThat(requestCaptor.getValue().prompt())
                 .contains(
@@ -136,7 +139,7 @@ class AiReviewValidationServiceTest {
                         "\"validationReferenceJobId\":33",
                         "\"sourceName\":\"검증 참조 자료\"",
                         "\"sourceFileHash\":\"sha256:reference-hash\"",
-                        "\"indexStorageUri\":\"restricted://validation/index\"",
+                        "\"indexStorageUri\":\"" + INDEX_STORAGE_URI + "\"",
                         "\"referenceHash\":\"sha256:reference-entry-hash\"",
                         "\"referenceText\":\"선택된 검수 참고 본문\""
                 )
@@ -222,7 +225,7 @@ class AiReviewValidationServiceTest {
     @Test
     void unmatchedReferenceExcerptCreatesNeedsReviewLogWithoutCallingAdvisor() {
         AiGeneratedAsset asset = givenAsset();
-        when(referenceIndexReader.read("restricted://validation/index", "sha256:reference-hash"))
+        when(referenceIndexReader.read(INDEX_STORAGE_URI, "sha256:reference-hash"))
                 .thenReturn(referenceIndex(
                         referenceEntry("ROM", 3, 16, 3, 16, "sha256:reference-entry-hash", "다른 책 참고 본문")
                 ));
@@ -256,7 +259,7 @@ class AiReviewValidationServiceTest {
     @Test
     void indexReaderFailureCreatesNeedsReviewLogWithoutCallingAdvisor() {
         AiGeneratedAsset asset = givenAsset();
-        when(referenceIndexReader.read("restricted://validation/index", "sha256:reference-hash"))
+        when(referenceIndexReader.read(INDEX_STORAGE_URI, "sha256:reference-hash"))
                 .thenThrow(new BusinessException(ErrorCode.INTERNAL_ERROR, "AI_REVIEW_REFERENCE_INDEX_READ_FAILED"));
 
         AiValidationLog log = service.validateExplanationAsset(ASSET_ID, VALIDATED_AT);
@@ -360,7 +363,7 @@ class AiReviewValidationServiceTest {
                 33L,
                 "검증 참조 자료",
                 "sha256:reference-hash",
-                "restricted://validation/index"
+                INDEX_STORAGE_URI
         );
     }
 
