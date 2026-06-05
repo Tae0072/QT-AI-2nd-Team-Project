@@ -3,8 +3,13 @@ package com.qtai.domain.ai.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class AiReviewReferenceCandidatePromotionServiceTest {
 
@@ -55,6 +60,20 @@ class AiReviewReferenceCandidatePromotionServiceTest {
 
         assertThat(summaryJson).doesNotContain("referenceText");
         assertThat(summaryJson).doesNotContain("승격 대상 참고 본문");
+    }
+
+    @Test
+    void promotedIndexWriteUsesIsoGeneratedAtString(@TempDir Path tempDir) throws Exception {
+        AiReviewReferenceCandidatePromotionService.PromotionResult result =
+                service.promote(candidateJson(), sectionMap());
+        Path output = tempDir.resolve("reference-index.json");
+        Path summary = tempDir.resolve("reference-index-summary.json");
+
+        service.write(result, output, summary);
+
+        JsonNode generatedAt = objectMapper.readTree(Files.readString(output)).path("generatedAt");
+        assertThat(generatedAt.isTextual()).isTrue();
+        assertThat(generatedAt.asText()).contains("T");
     }
 
     @Test

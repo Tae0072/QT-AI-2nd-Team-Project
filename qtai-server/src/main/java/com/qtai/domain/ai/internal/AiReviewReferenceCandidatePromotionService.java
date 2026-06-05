@@ -24,6 +24,7 @@ class AiReviewReferenceCandidatePromotionService {
     AiReviewReferenceCandidatePromotionService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper.copy()
                 .findAndRegisterModules()
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .enable(SerializationFeature.INDENT_OUTPUT);
     }
 
