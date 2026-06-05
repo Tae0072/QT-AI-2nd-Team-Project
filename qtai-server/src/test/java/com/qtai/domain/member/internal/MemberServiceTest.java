@@ -93,6 +93,31 @@ class MemberServiceTest {
                 .extracting("errorCode").isEqualTo(ErrorCode.MEMBER_NOT_FOUND);
     }
 
+    // ── getActivePublicProfiles (일괄 조회) ──
+
+    @Test
+    void getActivePublicProfiles_탈퇴_회원은_예외_없이_결과에서_제외() {
+        Member active = createMember(1L, "활성회원");
+        Member withdrawn = createMember(2L, "탈퇴회원");
+        withdrawn.withdraw(FIXED_CLOCK);
+        when(memberRepository.findAllById(any()))
+                .thenReturn(java.util.List.of(active, withdrawn));
+
+        var profiles = memberService.getActivePublicProfiles(java.util.List.of(1L, 2L));
+
+        // 단건 계약(404)과 달리 일괄 계약은 누락으로 표현 — 목록 화면 폴백용
+        assertThat(profiles).hasSize(1);
+        assertThat(profiles.get(0).id()).isEqualTo(1L);
+        assertThat(profiles.get(0).nickname()).isEqualTo("활성회원");
+    }
+
+    @Test
+    void getActivePublicProfiles_빈_입력은_조회_없이_빈_결과() {
+        assertThat(memberService.getActivePublicProfiles(java.util.List.of())).isEmpty();
+        assertThat(memberService.getActivePublicProfiles(null)).isEmpty();
+        org.mockito.Mockito.verifyNoInteractions(memberRepository);
+    }
+
     // ── changeNickname ──
 
     @Test
