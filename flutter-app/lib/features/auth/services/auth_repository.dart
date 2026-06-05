@@ -17,8 +17,14 @@ class AuthRepository {
   /// 4. SecureStorage에 저장
   Future<LoginResult> loginWithKakao() async {
     // 1) 카카오 로그인
+    // 탈퇴 직후 첫 로그인은 Prompt.login으로 카카오 계정 재인증(이메일/비번 입력)을
+    // 강제한다 — '완전히 새로 가입하는' 경험 제공 (2026-06-05 Lead 결정).
+    final forceRelogin = await SecureStorage.getForceKakaoRelogin();
     OAuthToken kakaoToken;
-    if (await isKakaoTalkInstalled()) {
+    if (forceRelogin) {
+      kakaoToken = await UserApi.instance
+          .loginWithKakaoAccount(prompts: [Prompt.login]);
+    } else if (await isKakaoTalkInstalled()) {
       kakaoToken = await UserApi.instance.loginWithKakaoTalk();
     } else {
       kakaoToken = await UserApi.instance.loginWithKakaoAccount();
@@ -37,9 +43,10 @@ class AuthRepository {
     final member = data['member'] as Map<String, dynamic>?;
     final isNewMember = member?['onboardingRequired'] as bool? ?? false;
 
-    // 3) 토큰 저장
+    // 3) 토큰 저장 + 재인증 강제 플래그 해제(1회성)
     await SecureStorage.setAccessToken(accessToken);
     await SecureStorage.setRefreshToken(refreshToken);
+    await SecureStorage.clearForceKakaoRelogin();
 
     return LoginResult(
       accessToken: accessToken,
@@ -86,6 +93,8 @@ class AuthRepository {
       // 카카오 연결끊기 실패해도 로컬 정리는 계속 진행
     } finally {
       await SecureStorage.clearTokens();
+      // 다음 로그인 1회는 카카오 계정 재인증(이메일/비번 입력)부터 시작
+      await SecureStorage.setForceKakaoRelogin();
     }
   }
 
