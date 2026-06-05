@@ -1,44 +1,54 @@
-﻿# 2026-06-05 ?덊눜 ???좏겙쨌移댁뭅???몄뀡 ?뺣━ ??Flutter 寃곌낵 蹂닿퀬
+# 2026-06-05 탈퇴 시 토큰·카카오 세션 정리 — Flutter 결과 보고
 
-## ?붿빟
-?뚯썝 ?덊눜 ??stale JWT쨌移댁뭅???몄뀡쨌?몄쬆 ?곹깭媛 ?⑥븘 ?щ줈洹몄씤??濡쒓렇???붾㈃??媛뉙엳??猷⑦봽瑜??댁냼?덈떎. ?덊눜 ??移댁뭅??unlink濡??곌껐???댁젣?섍퀬, ?ㅼ쓬 濡쒓렇??1?뚮뒗 移댁뭅??怨꾩젙 ?ъ씤利??대찓??鍮꾨쾲 ?낅젰)??媛뺤젣?섎ŉ, ?덊눜 ?ㅼ씠?쇰줈洹몄뿉
-媛쒖씤?뺣낫 2??蹂닿?쨌?먮룞 ??젣 怨좎?瑜?諛섏쁺?덈떎.
+## 요약
+회원 탈퇴 후 stale JWT·카카오 세션·인증 상태가 남아 재로그인이 로그인 화면에
+갇히던 루프를 해소했다. 탈퇴 시 카카오 unlink로 연결을 해제하고, 다음 로그인
+1회는 카카오 계정 재인증(이메일/비번 입력)을 강제하며, 탈퇴 다이얼로그에
+개인정보 2년 보관·자동 삭제 고지를 반영했다 (2026-06-05 결정).
 
-## ?꾨즺???묒뾽
+## 완료된 작업
 
-### 1. ?덊눜 ?몃뱾???뺣━ (`profile_edit_screen.dart`)
-- 湲곗〈: ?쒕쾭 ?덊눜 ???쇱슦?낅쭔 蹂寃???SecureStorage ?좏겙쨌移댁뭅???몄뀡쨌
-  `authStatusProvider`(authenticated) 洹몃?濡??붿〈
-- 猷⑦봽 ?먯씤: ?щ줈洹몄씤 ?깃났 ??`setAuthenticated()`媛 ?숈씪 ?곹깭媛???  `main.dart`??`ValueKey(initialRoute)` 誘몃?寃????붾㈃ ?꾪솚 遺덈컻
-- ?섏젙: ?쒕쾭 ?덊눜 ??`cleanupAfterWithdraw()`(unlink + ?좏겙 ??젣 + ?ъ씤利??뚮옒洹?
-  ??`setUnauthenticated()` ?쒖꽌濡??뺣━
+### 1. 탈퇴 핸들러 정리 (`profile_edit_screen.dart`)
+- 기존: 서버 탈퇴 후 라우팅만 변경 → SecureStorage 토큰·카카오 세션·
+  `authStatusProvider`(authenticated) 그대로 잔존
+- 루프 원인: 재로그인 성공 시 `setAuthenticated()`가 동일 상태값 →
+  `main.dart`의 `ValueKey(initialRoute)` 미변경 → 화면 전환 불발
+- 수정: 서버 탈퇴 → `cleanupAfterWithdraw()`(unlink + 토큰 삭제 + 재인증 플래그)
+  → `setUnauthenticated()` 순서로 정리
 
-### 2. logout ?쒖꽌 踰꾧렇 ?섏젙 (`auth_repository.dart`)
-- 湲곗〈: 濡쒖뺄 ?좏겙 癒쇱? ??젣 ??`/auth/logout`??臾댁씤利??몄텧 ??Redis refresh ?먭린 ?ㅽ뙣
-- ?섏젙: ?쒕쾭 ?먭린 癒쇱? ??移댁뭅??logout ??濡쒖뺄 ?좏겙 ??젣(finally 蹂댁옣)
+### 2. logout 순서 버그 수정 (`auth_repository.dart`)
+- 기존: 로컬 토큰 먼저 삭제 → `/auth/logout`이 무인증 호출 → Redis refresh 폐기 실패
+- 수정: 서버 폐기 먼저 → 카카오 logout → 로컬 토큰 삭제(finally 보장)
 
-### 3. ?덊눜 ??泥?濡쒓렇???ъ씤利?媛뺤젣 (Lead 寃곗젙)
-- ?덊눜 ??`force_kakao_relogin` ?뚮옒洹????SecureStorage)
-- ?ㅼ쓬 濡쒓렇????`loginWithKakaoAccount(prompts: [Prompt.login])`濡?  ?대찓??鍮꾨쾲 ?낅젰遺??媛뺤젣 ??"?꾩쟾???덈줈 媛?? 寃쏀뿕
-- 濡쒓렇???깃났 ???뚮옒洹??댁젣 ???댄썑 ?됱냼 媛꾪렪濡쒓렇???좎?
+### 3. 탈퇴 후 첫 로그인 재인증 강제 (2026-06-05 결정)
+- 탈퇴 시 `force_kakao_relogin` 플래그 저장(SecureStorage)
+- 다음 로그인 시 `loginWithKakaoAccount(prompts: [Prompt.login])`로
+  이메일/비번 입력부터 강제 — "완전히 새로 가입" 경험
+- 로그인 성공 시 플래그 해제 → 이후 평소 간편로그인 유지
 
-### 4. ?덊눜 怨좎? 臾멸뎄 (`withdraw_dialog.dart`)
-- "紐⑤뱺 ?곗씠?곌? ??젣?섎ŉ 蹂듦뎄?????놁뒿?덈떎" ??2??蹂댁〈 ?뺤콉 臾멸뎄濡?援먯껜:
-  怨꾩젙 鍮꾪솢?깊솕 + 媛쒖씤?뺣낫쨌?묒꽦 湲곕줉 2??蹂닿? ???먮룞 ??젣 + 蹂닿? 湲곌컙 ??  ?щ줈洹몄씤 ??蹂듦뎄 怨좎?
+### 4. 탈퇴 고지 문구 (`withdraw_dialog.dart`)
+- "모든 데이터가 삭제되며 복구할 수 없습니다" → 2년 보존 정책 문구로 교체:
+  계정 비활성화 + 개인정보·작성 기록 2년 보관 후 자동 삭제 + 보관 기간 내
+  재로그인 시 복구 고지
 
-## 蹂寃??뚯씪
-| ?뚯씪 | 蹂寃??댁슜 |
+## 변경 파일
+| 파일 | 변경 내용 |
 |------|----------|
-| `features/auth/services/auth_repository.dart` | logout ?쒖꽌 ?섏젙 + cleanupAfterWithdraw + Prompt.login |
-| `features/mypage/screens/profile_edit_screen.dart` | ?덊눜 ?몃뱾???뺣━ ?쒖꽌 ?곸슜 |
-| `features/mypage/widgets/withdraw_dialog.dart` | 2??蹂댁〈 怨좎? 臾멸뎄 |
-| `core/storage/secure_storage.dart` | force_kakao_relogin ?뚮옒洹???μ냼 |
+| `features/auth/services/auth_repository.dart` | logout 순서 수정 + cleanupAfterWithdraw + Prompt.login |
+| `features/mypage/screens/profile_edit_screen.dart` | 탈퇴 핸들러 정리 순서 적용 |
+| `features/mypage/widgets/withdraw_dialog.dart` | 2년 보존 고지 문구 |
+| `core/storage/secure_storage.dart` | force_kakao_relogin 플래그 저장소 |
 
-## 寃利?- [x] `flutter analyze` 0嫄?- [x] `flutter test` 100嫄??듦낵
-- [x] ?먮??덉씠??E2E: ?덊눜 ??unlink ?숈옉 ?뺤씤(?щ줈洹몄씤 ???숈쓽?붾㈃ 吏꾩엯)
-- [ ] ?덊눜 ???щ줈洹몄씤 ???대찓??鍮꾨쾲 媛뺤젣 ?낅젰 ???숈쓽 ????吏꾩엯 ?꾩껜 ?ъ씠??  理쒖쥌 ?뺤씤 (吏꾪뻾 以?
+## 검증
+- [x] `flutter analyze` 0건
+- [x] `flutter test` 100건 통과
+- [x] 에뮬레이터 E2E: 탈퇴 → unlink 동작 확인(재로그인 시 동의화면 진입)
+- [ ] 탈퇴 → 재로그인 → 이메일/비번 강제 입력 → 동의 → 홈 진입 전체 사이클
+  최종 확인 (진행 중)
 
-## 李멸퀬
-- 移댁뭅??怨꾩젙 ?먯껜??湲곌린 濡쒓렇?????몄뀡)? ?쒕퉬?ㅺ? ?댁젣?????놁쓬 ??  ?덊눜 ?꾩뿉??怨꾩젙 ?대찓?쇱씠 ?먮룞 ?쒓린?섎뒗 寃껋? 移댁뭅???뺤긽 ?숈옉?대ŉ,
-  Prompt.login???대? 臾댁떆?섍퀬 ?ъ씤利앹쓣 媛뺤젣?쒕떎
-- ?쒕쾭 痢??ы솢?깊솕 濡쒖쭅? `bugfix/member-withdraw-rejoin` PR怨?吏???  ?쒕쾭 PR 癒몄? ?꾩뿉???덊눜 ???щ줈洹몄씤??M0009濡??ㅽ뙣?쒕떎 (癒몄? ?쒖꽌: ?쒕쾭 癒쇱?)
+## 참고
+- 카카오 계정 자체의 기기 로그인(웹 세션)은 서비스가 해제할 수 없음 —
+  탈퇴 후에도 계정 이메일이 자동 표기되는 것은 카카오 정상 동작이며,
+  Prompt.login이 이를 무시하고 재인증을 강제한다
+- 서버 측 재활성화 로직은 `bugfix/member-withdraw-rejoin` PR과 짝 —
+  서버 PR 머지 전에는 탈퇴 후 재로그인이 M0009로 실패한다 (머지 순서: 서버 먼저)

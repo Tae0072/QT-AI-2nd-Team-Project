@@ -82,6 +82,8 @@
 - 2차: `reactivateIfWithdrawn` 호출 위치 검증(login 메인 + login 동시가입 재조회 —
   refresh 경로 아님) + 회귀 테스트, `VerifyAdminRoleUseCase`의 DISABLED 분기 계약
   확인(`AdminService.findActiveAdminUser`) + 테스트, 문서 인코딩 복구
+- 3차: 서버 브랜치에 잘못 포함돼 있던 Flutter 보고서의 인코딩 잔존 깨짐 복구
+  (폴더 단위 git add로 혼입된 파일 — 2차 복구에서 누락), 07 문서 동기화 일정 명시
 
 ## 트러블슈팅 이력
 - **구이미지 재빌드 사고**: PR용 Flutter 브랜치(서버 수정 미포함)로 작업 트리를
@@ -95,7 +97,8 @@
   서비스가 제어할 수 없는 카카오 계정 자체 로그인 → Prompt.login 도입 배경
 
 ## 후속 과제
-- `07_요구사항_정의서.md`에 탈퇴 정책 변경 반영 (문서 저장소)
+- `07_요구사항_정의서.md`에 탈퇴 정책 변경 반영 — **2026-06-08(월)까지 별도 docs PR로
+  처리** (문서 저장소, 탈퇴/재가입/보존기간 §회원 정책 절 갱신)
 - `member_auth_providers` ON DELETE CASCADE는 Flyway 정의라 H2 테스트 미검증 —
   실 MySQL 스모크 테스트 고려
 - 탈퇴 회원 닉네임의 사용자 노출 표시 정책(나눔 글 작성자명 등)은 별도 검토
