@@ -1,6 +1,8 @@
 package com.qtai.domain.member.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -9,6 +11,7 @@ import java.time.ZoneId;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
@@ -17,14 +20,23 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.config.JpaAuditingConfig;
+import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
+import com.qtai.domain.mission.internal.MissionPurgeService;
+import com.qtai.domain.note.internal.NotePurgeService;
+import com.qtai.domain.notification.internal.NotificationPurgeService;
+import com.qtai.domain.praise.internal.PraisePurgeService;
+import com.qtai.domain.report.internal.ReportPurgeService;
+import com.qtai.domain.sharing.internal.SharingPurgeService;
 
 /**
- * MemberRetentionPurgeService 통합 테스트 (H2).
+ * MemberRetentionPurgeService(오케스트레이터) 통합 테스트 (H2).
  *
- * <p>탈퇴 후 2년(보존기간) 경과 회원의 hard delete 정책(2026-06-05 Lead 결정) 검증:
- * 회원·노트·나눔 글·댓글 트리(타인 대댓글 포함)·좋아요 연쇄 삭제,
- * 경계(정확히 2년)·미경과·활성 회원·관리자 연결 회원 보존.
+ * <p>탈퇴 후 2년(보존기간) 경과 회원의 hard delete 정책(2026-06-05 결정) 검증.
+ * 도메인 포트(Purge*UseCase)는 실제 구현으로 wiring하여 도메인 간 삭제 순서까지
+ * 함께 검증한다 (테스트 코드는 ArchUnit 경계 검사 제외 — DoNotIncludeTests).
  */
 @DataJpaTest
 @Import(JpaAuditingConfig.class)
@@ -41,12 +53,25 @@ class MemberRetentionPurgeServiceTest {
     @Autowired
     private PlatformTransactionManager txManager;
 
+    private VerifyAdminRoleUseCase verifyAdminRoleUseCase;
     private MemberRetentionPurgeService service;
 
     @BeforeEach
     void setUp() {
+        // 기본: 관리자 연결 없음 (ADMIN_USER_NOT_FOUND)
+        verifyAdminRoleUseCase = Mockito.mock(VerifyAdminRoleUseCase.class);
+        when(verifyAdminRoleUseCase.getActiveAdmin(anyLong()))
+                .thenThrow(new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND));
+
         service = new MemberRetentionPurgeService(
-                jdbc, new TransactionTemplate(txManager), FIXED_CLOCK);
+                jdbc, new TransactionTemplate(txManager), FIXED_CLOCK,
+                verifyAdminRoleUseCase,
+                new SharingPurgeService(jdbc),
+                new NotePurgeService(jdbc),
+                new PraisePurgeService(jdbc),
+                new MissionPurgeService(jdbc),
+                new NotificationPurgeService(jdbc),
+                new ReportPurgeService(jdbc));
     }
 
     @Test
@@ -62,10 +87,11 @@ class MemberRetentionPurgeServiceTest {
         long postB = insertPost(b, noteB, "B의 나눔");
 
         // 댓글 그래프: B가 A 글에 댓글(c1), A가 B 글에 댓글(c2), B가 c2에 대댓글(r1),
-        // B가 자기 글에 댓글(c3 — 보존 대상)
+        // c2 트리 3단계 — r1에 대댓글(r2, 타인), B가 자기 글에 댓글(c3 — 보존 대상)
         long c1 = insertComment(postA, b, null, "B가 A글에");
         long c2 = insertComment(postB, a, null, "A가 B글에");
         long r1 = insertComment(postB, b, c2, "B가 A댓글에 대댓글");
+        long r2 = insertComment(postB, b, r1, "3단계 대댓글");
         long c3 = insertComment(postB, b, null, "B가 자기 글에");
 
         // 좋아요: A→B글, B→A글(글 따라 삭제), B→B글(보존)
@@ -82,10 +108,11 @@ class MemberRetentionPurgeServiceTest {
         assertThat(countWhere("members", "id = " + b)).isOne();
         assertThat(countWhere("members", "id = " + c)).isOne();
 
-        // A의 콘텐츠 + A 글에 달린 타인 댓글/좋아요 + A 댓글의 타인 대댓글까지 삭제
+        // A의 콘텐츠 + A 글의 타인 댓글/좋아요 + A 댓글의 대댓글 트리(3단계 포함) 삭제
         assertThat(countWhere("notes", "id = " + noteA)).isZero();
         assertThat(countWhere("sharing_posts", "id = " + postA)).isZero();
-        assertThat(countWhere("comments", "id IN (" + c1 + "," + c2 + "," + r1 + ")")).isZero();
+        assertThat(countWhere("comments",
+                "id IN (" + c1 + "," + c2 + "," + r1 + "," + r2 + ")")).isZero();
         assertThat(countWhere("post_likes", "member_id = " + a)).isZero();
         assertThat(countWhere("post_likes", "sharing_post_id = " + postA)).isZero();
 
@@ -109,8 +136,8 @@ class MemberRetentionPurgeServiceTest {
     @Test
     void purgeExpired_관리자_연결_회원은_자동삭제_제외() {
         long e = insertMember("adminE", 105L, "WITHDRAWN", LocalDateTime.parse("2023-01-01T00:00:00"));
-        jdbc.update("INSERT INTO admin_users (member_id, admin_role, status, created_at, updated_at) "
-                + "VALUES (?, 'OPERATOR', 'ACTIVE', NOW(), NOW())", e);
+        Mockito.reset(verifyAdminRoleUseCase);
+        when(verifyAdminRoleUseCase.getActiveAdmin(e)).thenReturn(null); // 연결 존재
 
         int purged = service.purgeExpired();
 
@@ -119,8 +146,31 @@ class MemberRetentionPurgeServiceTest {
     }
 
     @Test
+    void purgeExpired_댓글_cycle_데이터는_해당_회원만_건너뛰고_계속() {
+        // given — F: 자기 글에 댓글 2개가 서로 부모(cycle, FK상 update로만 만들 수 있는 이상 데이터)
+        long f = insertMember("cycleF", 106L, "WITHDRAWN", LocalDateTime.parse("2023-01-01T00:00:00"));
+        long noteF = insertNote(f, "F의 노트");
+        long postF = insertPost(f, noteF, "F의 나눔");
+        long x = insertComment(postF, f, null, "cycle-x");
+        long y = insertComment(postF, f, x, "cycle-y");
+        jdbc.update("UPDATE comments SET parent_id = ? WHERE id = ?", y, x);
+
+        // 정상 만료 회원 G도 함께 — cycle 실패가 배치 전체를 막지 않는지 검증
+        long g = insertMember("normalG", 107L, "WITHDRAWN", LocalDateTime.parse("2023-06-01T00:00:00"));
+
+        // when — 예외가 전파되지 않아야 한다
+        int purged = service.purgeExpired();
+
+        // then — G만 삭제, F는 보존(수동 처리 대상으로 로그 기록)
+        assertThat(purged).isEqualTo(1);
+        assertThat(countWhere("members", "id = " + g)).isZero();
+        assertThat(countWhere("members", "id = " + f)).isOne();
+        assertThat(countWhere("comments", "id IN (" + x + "," + y + ")")).isEqualTo(2);
+    }
+
+    @Test
     void purgeExpired_대상없음_0건() {
-        insertMember("onlyActive", 106L, "ACTIVE", null);
+        insertMember("onlyActive", 108L, "ACTIVE", null);
 
         assertThat(service.purgeExpired()).isZero();
     }

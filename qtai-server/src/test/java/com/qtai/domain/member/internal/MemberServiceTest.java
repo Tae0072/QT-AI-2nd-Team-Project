@@ -15,7 +15,9 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import com.qtai.common.exception.BusinessException;
@@ -36,14 +38,14 @@ class MemberServiceTest {
             Clock.fixed(Instant.parse("2026-05-26T12:00:00Z"), ZoneId.of("Asia/Seoul"));
 
     private MemberRepository memberRepository;
-    private RefreshTokenStore refreshTokenStore;
+    private ApplicationEventPublisher eventPublisher;
     private MemberService memberService;
 
     @BeforeEach
     void setUp() {
         memberRepository = Mockito.mock(MemberRepository.class);
-        refreshTokenStore = Mockito.mock(RefreshTokenStore.class);
-        memberService = new MemberService(memberRepository, refreshTokenStore, FIXED_CLOCK);
+        eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
+        memberService = new MemberService(memberRepository, eventPublisher, FIXED_CLOCK);
     }
 
     // ── getMember ──
@@ -232,7 +234,7 @@ class MemberServiceTest {
     // ── withdraw ──
 
     @Test
-    void withdraw_성공_상태전환_개인정보보존_세션무효화() {
+    void withdraw_성공_상태전환_개인정보보존_세션무효화_이벤트발행() {
         Member member = createMember(1L, "toWithdraw");
         when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
 
@@ -244,8 +246,12 @@ class MemberServiceTest {
         assertThat(member.getNickname()).isEqualTo("toWithdraw");
         assertThat(member.getEmail()).isEqualTo("toWithdraw@test.com");
         assertThat(member.getKakaoId()).isEqualTo(101L);
-        // 탈퇴 즉시 세션 무효화 — 남은 refresh token으로 갱신 차단
-        verify(refreshTokenStore).delete(1L);
+        // 세션 무효화는 AFTER_COMMIT 이벤트로 분리 — 발행 여부와 대상 회원 검증
+        ArgumentCaptor<MemberWithdrawnEvent> captor =
+                ArgumentCaptor.forClass(MemberWithdrawnEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().memberId()).isEqualTo(1L);
+        assertThat(captor.getValue().eventId()).isNotBlank();
     }
 
     @Test

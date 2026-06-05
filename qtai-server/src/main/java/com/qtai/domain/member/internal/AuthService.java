@@ -152,6 +152,9 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
         }
 
         // 3. 회원 존재/상태 확인 — 상태별 에러코드를 구분하여 클라이언트가 적절히 처리 가능
+        //    정책: 재활성화는 명시적 재로그인(login)에서만 수행한다. refresh 경로는
+        //    탈퇴 회원을 재활성화하지 않고 차단한다 — 탈퇴 후 남은 토큰으로
+        //    사용자가 모르는 사이 계정이 복구되는 것을 방지(2026-06-05 결정).
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
         if (member.getStatus() != MemberStatus.ACTIVE) {

@@ -12,11 +12,13 @@ import com.qtai.domain.member.api.dto.NicknameChangeRequest;
 import com.qtai.domain.member.api.dto.ProfileUpdateRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.UUID;
 
 /**
  * 회원 도메인 서비스. Phase 3(mypage-api) 범위.
@@ -31,7 +33,7 @@ import java.time.Clock;
 public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, WithdrawUseCase, ChangeNicknameUseCase {
 
     private final MemberRepository memberRepository;
-    private final RefreshTokenStore refreshTokenStore;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     // ── GetMemberUseCase ──
@@ -102,8 +104,11 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
     public void withdraw(Long memberId, String reason) {
         Member member = findActiveMemberOrThrow(memberId);
         member.withdraw(clock);
-        // 탈퇴 즉시 세션 무효화 — 남은 refresh token으로 토큰 갱신 차단
-        refreshTokenStore.delete(memberId);
+        // 세션(refresh token) 무효화는 AFTER_COMMIT 이벤트로 분리 —
+        // 트랜잭션 롤백 시 토큰 유지, Redis 실패가 탈퇴를 깨지 않음
+        // (MemberWithdrawnEventHandler 참조)
+        eventPublisher.publishEvent(
+                new MemberWithdrawnEvent(UUID.randomUUID().toString(), memberId));
         // TODO: reason 은 감사(audit) 전용 채널로 분리 — 일반 로그에 개인정보 포함 방지
         log.info("회원 탈퇴: memberId={}", memberId);
         // AuditLog 연동은 audit 도메인 구현 후 추가 예정 (reason 포함)
