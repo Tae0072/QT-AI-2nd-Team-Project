@@ -33,6 +33,7 @@ import java.util.UUID;
  *   <li>POST /api/v1/auth/kakao로 전달</li>
  *   <li>KakaoOAuthClient로 사용자 정보 조회 (트랜잭션 밖)</li>
  *   <li>Member 조회 또는 자동 가입 — TransactionTemplate으로 프로그래매틱 트랜잭션 관리</li>
+ *   <li>탈퇴(WITHDRAWN) 회원이면 재활성화 — 개인정보 2년 보존 정책에 따른 계정 복구</li>
  *   <li>JWT access/refresh token 발급 + Redis 저장</li>
  * </ol>
  *
@@ -93,6 +94,7 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
                         Member found = memberRepository.findByKakaoId(kakaoId)
                                 .orElseGet(() -> registerNewMember(kakaoUser));
 
+                        reactivateIfWithdrawn(found, kakaoUser);
                         validateMemberStatus(found);
                         return found;
                     }),
@@ -106,6 +108,7 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
                     transactionTemplate.execute(status -> {
                         Member found = memberRepository.findByKakaoId(kakaoUser.id())
                                 .orElseThrow(() -> new BusinessException(ErrorCode.KAKAO_AUTH_FAILED));
+                        reactivateIfWithdrawn(found, kakaoUser);
                         validateMemberStatus(found);
                         return found;
                     }),
@@ -175,12 +178,26 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
     // -------------------------------------------------------------------------
 
     /**
-     * 회원 상태 검증 — 탈퇴/정지 회원은 로그인 차단.
+     * 탈퇴 회원 재활성화 — 개인정보 2년 보존 정책에 따라 보존 중 재로그인 시 기존 계정을 복구한다.
+     *
+     * <p>member_auth_providers 연동 row가 보존되어 있으므로 신규 가입 경로를 타지 않는다
+     * (신규 insert 시 (provider, provider_user_id) UNIQUE 충돌 — M0009 원인).
+     */
+    private void reactivateIfWithdrawn(Member member, KakaoUserInfo kakaoUser) {
+        if (member.getStatus() == MemberStatus.WITHDRAWN) {
+            member.reactivate(kakaoUser.getEmail(), kakaoUser.getProfileImageUrl());
+            log.info("탈퇴 회원 재활성화: memberId={}", member.getId());
+        }
+    }
+
+    /**
+     * 회원 상태 검증 — 정지 회원은 로그인 차단.
+     *
+     * <p>탈퇴 회원은 차단하지 않는다 — 2년 보존 정책에 따라
+     * {@link #reactivateIfWithdrawn(Member, KakaoUserInfo)}가 먼저 재활성화한다.
+     * (refresh 경로는 재활성화 없이 MEMBER_ALREADY_WITHDRAWN을 유지한다)
      */
     private void validateMemberStatus(Member member) {
-        if (member.getStatus() == MemberStatus.WITHDRAWN) {
-            throw new BusinessException(ErrorCode.MEMBER_ALREADY_WITHDRAWN);
-        }
         if (member.getStatus() == MemberStatus.SUSPENDED) {
             throw new BusinessException(ErrorCode.MEMBER_SUSPENDED);
         }

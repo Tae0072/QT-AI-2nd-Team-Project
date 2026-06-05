@@ -31,6 +31,7 @@ import java.time.Clock;
 public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, WithdrawUseCase, ChangeNicknameUseCase {
 
     private final MemberRepository memberRepository;
+    private final RefreshTokenStore refreshTokenStore;
     private final Clock clock;
 
     // ── GetMemberUseCase ──
@@ -101,6 +102,8 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
     public void withdraw(Long memberId, String reason) {
         Member member = findActiveMemberOrThrow(memberId);
         member.withdraw(clock);
+        // 탈퇴 즉시 세션 무효화 — 남은 refresh token으로 토큰 갱신 차단
+        refreshTokenStore.delete(memberId);
         // TODO: reason 은 감사(audit) 전용 채널로 분리 — 일반 로그에 개인정보 포함 방지
         log.info("회원 탈퇴: memberId={}", memberId);
         // AuditLog 연동은 audit 도메인 구현 후 추가 예정 (reason 포함)
