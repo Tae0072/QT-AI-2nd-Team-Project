@@ -200,30 +200,22 @@ class _QtAudioPlayerState extends ConsumerState<QtAudioPlayer> {
 
               const Spacer(),
 
-              // 정지 (처음으로)
-              if (hasAudio)
-                IconButton(
-                  onPressed: () {
-                    _player.stop();
-                    _player.seek(Duration.zero);
-                  },
-                  icon: const Icon(Icons.stop_rounded),
-                  iconSize: 28,
-                ),
-
-              // 재생/일시정지/생성
+              // TTS 시작/정지 토글 — 누르면 재생, 다시 누르면 정지
               _isGenerating
                   ? const SizedBox(
-                      width: 48, height: 48,
+                      width: 52, height: 52,
                       child: Padding(
-                        padding: EdgeInsets.all(12),
+                        padding: EdgeInsets.all(13),
                         child: CircularProgressIndicator(strokeWidth: 2.5),
                       ),
                     )
                   : IconButton.filled(
+                      tooltip: playing ? 'TTS 정지' : 'TTS 시작',
                       onPressed: () {
-                        if (hasAudio && playing) {
-                          _player.pause();
+                        if (playing) {
+                          // 한 번 더 누르면 정지 (처음으로 되감기)
+                          _player.stop();
+                          _player.seek(Duration.zero);
                         } else if (hasAudio) {
                           // 미리 준비된 음성을 바로 재생
                           _player.play();
@@ -232,15 +224,16 @@ class _QtAudioPlayerState extends ConsumerState<QtAudioPlayer> {
                           _prepareAudio(autoPlay: true);
                         }
                       },
-                      icon: Icon(
-                        hasAudio && playing
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
+                      icon: const ImageIcon(
+                        AssetImage('assets/icons/tts_voice.png'),
                       ),
-                      iconSize: 32,
+                      iconSize: 34,
                       style: IconButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
+                        backgroundColor: playing
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.primary,
                         foregroundColor: theme.colorScheme.onPrimary,
+                        minimumSize: const Size(52, 52),
                       ),
                     ),
 
