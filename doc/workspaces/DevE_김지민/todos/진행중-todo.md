@@ -1,10 +1,43 @@
-# 진행 중 Todo — W3 나눔 쓰기 (공개·좋아요·댓글 완료 → PR)
+# 진행 중 Todo — W3 Flutter 노트 화면 (목·금)
 
-> **목표**: 나눔 쓰기(공개·좋아요·댓글) 백엔드 API 완성
-> **브랜치**: `feature/sharing-write` (최신 dev 기반, 한 브랜치 = 나눔 쓰기 묶음, 기능별 커밋)
-> **완료 기준**: 기능별 커밋 + 테스트 3종 + dev-console로 동작 눈 확인 → PR 1개
-> **최종 업데이트**: 2026-06-04 (내 나눔 목록 조회 API 신규 완료 → PR 준비. `feature/sharing-my-posts`)
-> **상세**: [workflows/2026-W3_상세-워크플로우.md](../workflows/2026-W3_상세-워크플로우.md) · [진행현황](../김지민_작업_진행현황.md)
+> **목표**: 본인 담당 V1 Flutter 화면 전체 — 노트(N-01~04) 중심 + 달력·외부공유·서식툴바 + 나눔(S-01~03) 검토·보완
+> **브랜치**: `feature/note-flutter-screens` (origin/dev 최신 기반)
+> **완료 기준**: 노트 작성→목록→상세→수정→삭제 동작 + 달력/외부공유 연결 + `flutter analyze` 무경고
+> **구현 방식**: 학습 모드(SKILL 🟢 강 모드)
+> **최종 업데이트**: 2026-06-04 (백엔드 W3 완료 → Flutter 화면 착수. 브랜치·워크플로우 문서 셋업 완료)
+> **상세**: [workflows/2026-W3_Flutter-상세-워크플로우.md](../workflows/2026-W3_Flutter-상세-워크플로우.md)
+
+---
+
+## ✅ Day1(목 2026-06-04) 완료 — Flutter 노트 화면 N-01~03
+
+- [x] note 피처 골격(models/services/providers) — sharing 복제
+- [x] N-01 노트 목록(카테고리 6칩 + `GET /notes` + 빈/에러 + DRAFT 뱃지)
+- [x] N-02 카테고리 선택(기도/회개/감사 → arguments 전달)
+- [x] N-03 작성(제목+본문, **저장+임시저장**, `POST /notes`, popUntil 목록)
+- [x] 라우팅 case + 홈 5탭 + `flutter analyze` 무경고
+- [x] 에뮬레이터 레벨1 UI 스모크(DEV_FORCE_HOME) — 화면·이동·폼·에러처리 확인
+- [x] 커밋(5a96d52) + **dev 머지**(f2e96ed): dev #233(웜파스텔 5탭+실제 성경화면) 채택 + 노트 탭에 NoteListScreen 연결, placeholder 제거
+
+> 📌 실데이터·저장 왕복은 레벨2(백엔드 `docker compose up --build` + 카카오 로그인) 필요 — 추후.
+
+## ✅ Day2(금 2026-06-05) 완료 — 전 항목 + `flutter analyze` 전체 무경고
+
+- [x] **N-04 상세/수정/삭제** — 수정=N-03 편집모드 재사용(설계 A) + 전달 i(noteId 재조회) + `NoteEditArgs`. 묵상은 [수정] 숨김(화면 부재→회의)
+- [x] **N-01 달력 탭** — `table_calendar` 점 표시 + 월이동 재조회 + 토글
+- [x] **외부공유** — `note_share_sheet`(텍스트/카드이미지 RepaintBoundary), share_plus 12.x
+- [x] **서식 툴바** — 마크다운 마커(설계 A, body=평문 유지). 색/크기/하이라이트는 회의 안건
+- [x] **나눔 댓글/신고 보완** — `sharing_detail` placeholder 제거, 댓글 CRUD + 신고 시트 연결
+- [x] 🆕 **명세 대조** — 설교노트 PATCH 절 손실 버그 차단([수정] 게이트 `writableNoteCategories`로)
+- [x] 🆕 **학습 문서** — `study-notes/2026-06-05_W3-Day2-Flutter개념정리`, `..._table_calendar-초보자-완전가이드`
+- [x] **W3 마감** — 리포트·워크플로우·todo·회고·**커밋 완료** (push·PR은 김지민 직접)
+
+> 📌 패키지 3종(table_calendar/share_plus/path_provider) pubspec 추가 → 팀원 pull 후 `flutter pub get`(+cold restart).
+> 🗣️ 회의 안건 6건 정리: `workflows/2026-06-05_회의-안건-목록.md`
+
+---
+
+## (백엔드 완료 기록) W3 나눔 쓰기 — 아카이브
 
 ---
 

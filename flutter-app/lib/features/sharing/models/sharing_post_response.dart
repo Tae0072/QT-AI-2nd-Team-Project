@@ -55,6 +55,35 @@ class SharingPostListResponse {
   }
 }
 
+/// 나눔 댓글 1건 (GET /sharing-posts/{id}/comments, 04 §4.4.4).
+class CommentItem {
+  final int id;
+  final String nickname;
+  final String body;
+  final bool ownedByMe; // 내 댓글이면 삭제 버튼 노출
+  final DateTime? createdAt;
+
+  CommentItem({
+    required this.id,
+    required this.nickname,
+    required this.body,
+    required this.ownedByMe,
+    this.createdAt,
+  });
+
+  factory CommentItem.fromJson(Map<String, dynamic> json) {
+    return CommentItem(
+      id: json['id'] as int,
+      nickname: json['nickname'] as String? ?? '',
+      body: json['body'] as String? ?? '',
+      ownedByMe: json['ownedByMe'] as bool? ?? false,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : null,
+    );
+  }
+}
+
 /// 나눔 글 상세 응답.
 class SharingPostDetail {
   final int id;
