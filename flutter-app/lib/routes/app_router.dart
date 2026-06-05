@@ -9,6 +9,7 @@ import '../features/mypage/screens/notification_list_screen.dart';
 import '../features/mypage/screens/praise_screen.dart';
 import '../features/mypage/screens/profile_edit_screen.dart';
 import '../features/mypage/screens/settings_screen.dart';
+import '../features/mypage/screens/tts_settings_screen.dart';
 import '../features/note/screens/note_category_select_screen.dart';
 import '../features/note/screens/note_detail_screen.dart';
 import '../features/note/screens/note_edit_screen.dart';
@@ -29,6 +30,7 @@ class AppRouter {
   static const String profileEdit = '/my-page/profile';
   static const String notifications = '/notifications';
   static const String appSettings = '/settings';
+  static const String ttsSettings = '/settings/tts';
   static const String praise = '/praise';
   static const String sharing = '/sharing';
   static const String sharingDetail = '/sharing/detail';
@@ -79,6 +81,10 @@ class AppRouter {
       case appSettings:
         return MaterialPageRoute(
           builder: (_) => const SettingsScreen(),
+        );
+      case ttsSettings:
+        return MaterialPageRoute(
+          builder: (_) => const TtsSettingsScreen(),
         );
       case praise:
         return MaterialPageRoute(

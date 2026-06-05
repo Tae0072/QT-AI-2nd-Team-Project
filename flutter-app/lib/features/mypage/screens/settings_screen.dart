@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/common_widgets.dart';
+import '../../../routes/app_router.dart';
 import '../providers/mypage_providers.dart';
 
 /// 설정 화면 (M-06).
 ///
 /// - 알림 수신: Switch
 /// - 폰트 크기: DropdownButton (SMALL/MEDIUM/LARGE)
+/// - TTS 읽기 설정: 전용 화면으로 이동 (목소리/본문/해설)
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -58,6 +60,18 @@ class SettingsScreen extends ConsumerWidget {
                     ref.invalidate(settingsProvider);
                   },
                 ),
+              ),
+
+              const Divider(),
+
+              // TTS 읽기 설정 — 전용 화면 (목소리, 본문/해설 읽기 범위)
+              ListTile(
+                leading: const Icon(Icons.record_voice_over_outlined),
+                title: const Text('TTS 읽기 설정'),
+                subtitle: const Text('읽기 목소리와 읽기 범위(본문/해설)를 설정합니다'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    Navigator.of(context).pushNamed(AppRouter.ttsSettings),
               ),
             ],
           );

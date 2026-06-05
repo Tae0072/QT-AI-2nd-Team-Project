@@ -5,9 +5,17 @@ import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/models/bible_reference.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/screens/today_qt_screen.dart';
+import 'package:qtai_app/features/onboarding/providers/onboarding_providers.dart';
+import 'package:qtai_app/features/tts/widgets/qt_tts_button.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('오늘 QT 화면은 파싱된 본문 범위와 절 목록을 표시한다', (tester) async {
+    // TTS 버튼(QtTtsButton)이 목소리/읽기 범위 설정을 읽으므로
+    // sharedPreferencesProvider를 테스트용 mock 인스턴스로 override한다.
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
     const passage = TodayQtPassage(
       reference: BibleReference(
         koreanBookName: '고린도전서',
@@ -38,6 +46,7 @@ void main() {
       ProviderScope(
         overrides: [
           todayQtPassageProvider.overrideWith((ref) async => passage),
+          sharedPreferencesProvider.overrideWithValue(prefs),
         ],
         child: const MaterialApp(home: TodayQtScreen()),
       ),
@@ -49,5 +58,7 @@ void main() {
     expect(find.text('1 Corinthians'), findsOneWidget);
     expect(find.text('더미 한글 본문 10'), findsOneWidget);
     expect(find.text('Dummy English verse 10'), findsOneWidget);
+    // TTS 읽기 버튼이 앱바에 표시된다 (토큰 미설정이라 준비는 건너뜀)
+    expect(find.byType(QtTtsButton), findsOneWidget);
   });
 }
