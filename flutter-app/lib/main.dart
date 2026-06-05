@@ -44,7 +44,7 @@ class QTAIApp extends ConsumerWidget {
     if (authStatus == AuthStatus.unknown && !forceHome) {
       return MaterialApp(
         title: 'QT AI',
-        debugShowCheckedModeBanner: AppConfig.instance.isDev,
+        debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
         home: Scaffold(
           backgroundColor: AppTheme.bgSunken,
@@ -88,7 +88,7 @@ class QTAIApp extends ConsumerWidget {
       // key를 initialRoute에 연동 — authStatus 변경 시 Navigator를 새로 생성
       key: ValueKey(initialRoute),
       title: 'QT AI',
-      debugShowCheckedModeBanner: AppConfig.instance.isDev,
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
       initialRoute: initialRoute,
       onGenerateRoute: AppRouter.onGenerateRoute,
