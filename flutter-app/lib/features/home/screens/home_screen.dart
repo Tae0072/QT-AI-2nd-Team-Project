@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../../bible/screens/bible_browser_screen.dart';
 import '../../bible/screens/today_qt_screen.dart';
 import '../../mypage/screens/mypage_screen.dart';
+import '../../note/screens/note_list_screen.dart';
 import '../../sharing/screens/sharing_feed_screen.dart';
 
-/// 홈 화면 — 하단 탭바 5탭 (오늘/성경/나눔/노트/마이).
+/// 홈 화면 — 하단 탭바 5탭 (오늘 / 성경 / 나눔 / 노트 / 마이).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -16,11 +17,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
+  // 탭 순서는 아래 BottomNavigationBar items와 동일해야 한다.
   final _screens = const [
     TodayQtScreen(),
     BibleBrowserScreen(),
     SharingFeedScreen(),
-    _PlaceholderScreen(title: '노트', icon: Icons.edit_note),
+    NoteListScreen(),
     MyPageScreen(),
   ];
 
@@ -34,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        // 탭이 4개 이상이면 type: fixed를 줘야 라벨이 항상 보인다.
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
@@ -62,31 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
             label: '마이',
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// placeholder — 성경/노트 화면 구현 전 임시.
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _PlaceholderScreen({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: Colors.grey),
-            const SizedBox(height: 12),
-            Text('$title 화면 준비 중', style: const TextStyle(color: Colors.grey)),
-          ],
-        ),
       ),
     );
   }

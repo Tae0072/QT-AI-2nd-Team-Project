@@ -54,6 +54,40 @@ class SharingRepository {
     });
   }
 
-  // TODO: 댓글 작성 — POST /sharing-posts/{postId}/comments
-  // TODO: 신고 — POST /reports
+  /// 댓글 목록 조회 (GET /sharing-posts/{postId}/comments, 04 §4.4.4).
+  Future<List<CommentItem>> getComments(int postId) async {
+    final response = await _dio.get('/sharing-posts/$postId/comments');
+    final data = response.data['data'] as Map<String, dynamic>;
+    final content = data['content'] as List<dynamic>? ?? [];
+    return content
+        .map((e) => CommentItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// 댓글 작성 (POST /sharing-posts/{postId}/comments, 04 §4.4.4).
+  Future<void> createComment(int postId, String body) async {
+    await _dio.post('/sharing-posts/$postId/comments', data: {'body': body});
+  }
+
+  /// 댓글 삭제 (DELETE /comments/{commentId}, 04 §4.4.4).
+  Future<void> deleteComment(int commentId) async {
+    await _dio.delete('/comments/$commentId');
+  }
+
+  /// 신고 접수 (POST /reports, 04 §4.4.7).
+  ///
+  /// targetType: POST/COMMENT, reason: 자유 코드(SPAM/HATE/SEXUAL/ETC 등).
+  Future<void> report({
+    required String targetType,
+    required int targetId,
+    required String reason,
+    String? detail,
+  }) async {
+    await _dio.post('/reports', data: {
+      'targetType': targetType,
+      'targetId': targetId,
+      'reason': reason,
+      if (detail != null && detail.isNotEmpty) 'detail': detail,
+    });
+  }
 }
