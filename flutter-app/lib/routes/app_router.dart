@@ -10,6 +10,7 @@ import '../features/mypage/screens/praise_screen.dart';
 import '../features/mypage/screens/profile_edit_screen.dart';
 import '../features/mypage/screens/settings_screen.dart';
 import '../features/note/screens/note_category_select_screen.dart';
+import '../features/note/screens/note_detail_screen.dart';
 import '../features/note/screens/note_edit_screen.dart';
 import '../features/note/screens/note_list_screen.dart';
 import '../features/sharing/screens/sharing_detail_screen.dart';
@@ -101,10 +102,16 @@ class AppRouter {
           builder: (_) => const NoteCategorySelectScreen(),
         );
       case noteEdit:
-        // N-02에서 넘긴 카테고리 코드(arguments)는 N-03이 직접 꺼내 쓴다.
+        // N-02(작성)·N-04(수정)에서 넘긴 NoteEditArgs를 N-03이 직접 꺼내 쓴다.
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const NoteEditScreen(),
+        );
+      case noteDetail:
+        // N-01 목록에서 넘긴 noteId(int)로 상세 화면을 연다.
+        final noteId = settings.arguments as int;
+        return MaterialPageRoute(
+          builder: (_) => NoteDetailScreen(noteId: noteId),
         );
       default:
         return MaterialPageRoute(

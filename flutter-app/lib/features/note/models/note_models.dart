@@ -90,6 +90,201 @@ class NoteListResponse {
   }
 }
 
+/// 노트에 인용된 성경 절 1건 (상세 응답의 verses[], 04 §4.3.5).
+///
+/// V1 노트 화면에서는 "표시만" 한다(작성 중 절 추가는 v2 @멘션 범위).
+class NoteVerseRef {
+  final int bibleVerseId;
+  final String bookCode;
+  final int? chapterNo;
+  final int? verseNo;
+  final int? displayOrder;
+
+  NoteVerseRef({
+    required this.bibleVerseId,
+    required this.bookCode,
+    this.chapterNo,
+    this.verseNo,
+    this.displayOrder,
+  });
+
+  // 왜 이렇게 짰냐면:
+  // verses는 묵상/설교 노트에만 있고 자유노트엔 빈 배열이라,
+  // 숫자 필드도 null 안전(int?)으로 두어 어떤 카테고리든 깨지지 않게 했다.
+  factory NoteVerseRef.fromJson(Map<String, dynamic> json) {
+    return NoteVerseRef(
+      bibleVerseId: json['bibleVerseId'] as int,
+      bookCode: json['bookCode'] as String? ?? '',
+      chapterNo: json['chapterNo'] as int?,
+      verseNo: json['verseNo'] as int?,
+      displayOrder: json['displayOrder'] as int?,
+    );
+  }
+}
+
+/// 노트 상세 (GET /api/v1/notes/{id}, 04 §4.3.5).
+///
+/// 전 카테고리를 한 모델로 받는다(설계 결정 A, 2026-06-05):
+/// - 자유노트(기도/회개/감사): `body`에 내용
+/// - 묵상(QT)노트: `rememberSection`~`praySection` 4섹션에 내용
+/// 화면은 카테고리를 보고 "있는 것만" 표시한다.
+class NoteDetail {
+  final int id;
+  final String category;
+  final int? qtPassageId;
+  final String title;
+  final String? body;
+  // 묵상 노트 4섹션 (자유노트에선 null)
+  final String? rememberSection;
+  final String? interpretSection;
+  final String? applySection;
+  final String? praySection;
+  final String status; // DRAFT/SAVED
+  final String visibility; // PRIVATE/PUBLIC
+  final String? qtDate;
+  final String? rangeLabel;
+  final bool shared;
+  final DateTime? savedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final List<NoteVerseRef> verses;
+
+  NoteDetail({
+    required this.id,
+    required this.category,
+    this.qtPassageId,
+    required this.title,
+    this.body,
+    this.rememberSection,
+    this.interpretSection,
+    this.applySection,
+    this.praySection,
+    required this.status,
+    required this.visibility,
+    this.qtDate,
+    this.rangeLabel,
+    required this.shared,
+    this.savedAt,
+    this.createdAt,
+    this.updatedAt,
+    required this.verses,
+  });
+
+  // 왜 이렇게 짰냐면:
+  // 목록 모델과 동일한 방어(null이면 기본값)로 어떤 응답이 와도 앱이 안 죽게 했고,
+  // 자유노트는 4섹션이 null로 와도 정상이라 전부 String?(nullable)로 받는다.
+  factory NoteDetail.fromJson(Map<String, dynamic> json) {
+    final verses = (json['verses'] as List<dynamic>? ?? [])
+        .map((e) => NoteVerseRef.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return NoteDetail(
+      id: json['id'] as int,
+      category: json['category'] as String? ?? '',
+      qtPassageId: json['qtPassageId'] as int?,
+      title: json['title'] as String? ?? '',
+      body: json['body'] as String?,
+      rememberSection: json['rememberSection'] as String?,
+      interpretSection: json['interpretSection'] as String?,
+      applySection: json['applySection'] as String?,
+      praySection: json['praySection'] as String?,
+      status: json['status'] as String? ?? '',
+      visibility: json['visibility'] as String? ?? 'PRIVATE',
+      qtDate: json['qtDate'] as String?,
+      rangeLabel: json['rangeLabel'] as String?,
+      shared: json['shared'] as bool? ?? false,
+      savedAt: json['savedAt'] != null
+          ? DateTime.parse(json['savedAt'] as String)
+          : null,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : null,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : null,
+      verses: verses,
+    );
+  }
+
+  /// 자유노트(body 기반) 여부 — 묵상은 4섹션이라 N-03 단일본문 편집 대상이 아니다.
+  bool get isFreeNote => category != 'MEDITATION';
+}
+
+/// 묵상 달력 응답 (GET /api/v1/me/meditation-calendar, 04 §4.6.2).
+class MeditationCalendar {
+  final String month; // "2026-05"
+  final List<CalendarDay> days;
+  final CalendarSummary summary;
+
+  MeditationCalendar({
+    required this.month,
+    required this.days,
+    required this.summary,
+  });
+
+  factory MeditationCalendar.fromJson(Map<String, dynamic> json) {
+    final days = (json['days'] as List<dynamic>? ?? [])
+        .map((e) => CalendarDay.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return MeditationCalendar(
+      month: json['month'] as String? ?? '',
+      days: days,
+      summary: CalendarSummary.fromJson(
+          json['summary'] as Map<String, dynamic>? ?? const {}),
+    );
+  }
+}
+
+/// 달력의 하루.
+class CalendarDay {
+  final DateTime date;
+  final bool saved; // 그날 저장된 노트가 있는가 (점 표시 기준)
+  final int savedNoteCount;
+  final int? meditationNoteId; // 그날 묵상노트 id(있으면 탭 시 이동)
+  final List<String> categories; // 그날 작성한 카테고리들
+
+  CalendarDay({
+    required this.date,
+    required this.saved,
+    required this.savedNoteCount,
+    this.meditationNoteId,
+    required this.categories,
+  });
+
+  factory CalendarDay.fromJson(Map<String, dynamic> json) {
+    return CalendarDay(
+      // ✏️ "2026-05-17" 문자열을 DateTime으로. 비교는 시간 떼고 해야 하므로 화면에서 처리.
+      date: DateTime.parse(json['date'] as String),
+      saved: json['saved'] as bool? ?? false,
+      savedNoteCount: json['savedNoteCount'] as int? ?? 0,
+      meditationNoteId: json['meditationNoteId'] as int?,
+      categories: (json['categories'] as List<dynamic>? ?? [])
+          .map((e) => e as String)
+          .toList(),
+    );
+  }
+}
+
+/// 달력 요약(저장한 날 수, 노트 수, 연속 묵상일).
+class CalendarSummary {
+  final int savedDays;
+  final int savedNoteCount;
+  final int meditationStreakDays;
+
+  CalendarSummary({
+    required this.savedDays,
+    required this.savedNoteCount,
+    required this.meditationStreakDays,
+  });
+
+  factory CalendarSummary.fromJson(Map<String, dynamic> json) {
+    return CalendarSummary(
+      savedDays: json['savedDays'] as int? ?? 0,
+      savedNoteCount: json['savedNoteCount'] as int? ?? 0,
+      meditationStreakDays: json['meditationStreakDays'] as int? ?? 0,
+    );
+  }
+}
+
 /// 노트 생성 응답 (POST /api/v1/notes, 04 §4.3.4).
 class NoteCreateResponse {
   final int id;

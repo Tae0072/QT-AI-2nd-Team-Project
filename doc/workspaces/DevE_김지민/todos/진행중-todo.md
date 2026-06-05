@@ -21,19 +21,19 @@
 
 > 📌 실데이터·저장 왕복은 레벨2(백엔드 `docker compose up --build` + 카카오 로그인) 필요 — 추후.
 
-## ⬜ 내일(금 2026-06-05) — Day2
+## ✅ Day2(금 2026-06-05) 완료 — 전 항목 + `flutter analyze` 전체 무경고
 
-- [ ] **N-04 상세/수정/삭제** (`GET/PATCH/DELETE /notes/{id}`) — 수정방식 ①N-03재사용/②상세내편집 규칙1로 결정
-- [ ] **N-01 달력 탭** (`GET /me/meditation-calendar`, 이지윤 #138)
-- [ ] **외부공유** (share_plus 텍스트 + RenderRepaintBoundary 카드)
-- [ ] **서식 툴바** (N-03/N-04, v1 간소화)
-- [ ] **나눔 S-01~03 검토 + 댓글/신고 보완**(필요시)
-- [ ] 🆕 **명세 대조 점검·수정** — 04 API/07 요구사항과 다르게 구현된 부분 체크 후 수정
-- [ ] 🆕 **학습 문서** — 그날 구현 플러터 개념/위젯/속성 정리(study-notes)
-- [ ] **W3 마감**(주간회고 + push)
+- [x] **N-04 상세/수정/삭제** — 수정=N-03 편집모드 재사용(설계 A) + 전달 i(noteId 재조회) + `NoteEditArgs`. 묵상은 [수정] 숨김(화면 부재→회의)
+- [x] **N-01 달력 탭** — `table_calendar` 점 표시 + 월이동 재조회 + 토글
+- [x] **외부공유** — `note_share_sheet`(텍스트/카드이미지 RepaintBoundary), share_plus 12.x
+- [x] **서식 툴바** — 마크다운 마커(설계 A, body=평문 유지). 색/크기/하이라이트는 회의 안건
+- [x] **나눔 댓글/신고 보완** — `sharing_detail` placeholder 제거, 댓글 CRUD + 신고 시트 연결
+- [x] 🆕 **명세 대조** — 설교노트 PATCH 절 손실 버그 차단([수정] 게이트 `writableNoteCategories`로)
+- [x] 🆕 **학습 문서** — `study-notes/2026-06-05_W3-Day2-Flutter개념정리`, `..._table_calendar-초보자-완전가이드`
+- [x] **W3 마감** — 리포트·워크플로우·todo·회고·**커밋 완료** (push·PR은 김지민 직접)
 
-> ⚠️ 밀리면 뒤(서식툴바·나눔보완)부터 압축.
-> 시작 명령: "오늘 W3 금요일 시작" → SKILL + 이 todo + `workflows/2026-W3_Flutter-상세-워크플로우.md` 자동 로드
+> 📌 패키지 3종(table_calendar/share_plus/path_provider) pubspec 추가 → 팀원 pull 후 `flutter pub get`(+cold restart).
+> 🗣️ 회의 안건 6건 정리: `workflows/2026-06-05_회의-안건-목록.md`
 
 ---
 

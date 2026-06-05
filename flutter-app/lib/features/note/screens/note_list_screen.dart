@@ -5,6 +5,7 @@ import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
+import '../widgets/meditation_calendar.dart';
 
 /// 노트 목록 화면 (N-01).
 ///
@@ -19,10 +20,25 @@ class NoteListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notesAsync = ref.watch(notesProvider);
     final selectedCategory = ref.watch(noteCategoryFilterProvider);
+    final showCalendar = ref.watch(noteCalendarViewProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('노트'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('노트'),
+        centerTitle: true,
+        // ✏️ 목록↔달력 전환 토글. 상태는 noteCalendarViewProvider에 둬 화면 전체가 따라 바뀜.
+        actions: [
+          IconButton(
+            tooltip: showCalendar ? '목록 보기' : '달력 보기',
+            icon: Icon(showCalendar
+                ? Icons.view_list_outlined
+                : Icons.calendar_month_outlined),
+            onPressed: () => ref.read(noteCalendarViewProvider.notifier).state =
+                !showCalendar,
+          ),
+        ],
+      ),
       // ✏️ 왜 이렇게 짰냐면:
       // 새 노트 작성은 Material 관례대로 우하단 FAB에 둔다.
       // 누르면 N-02(카테고리 선택)로 이동 → 거기서 N-03 작성으로 이어진다.
@@ -31,7 +47,10 @@ class NoteListScreen extends ConsumerWidget {
             Navigator.of(context).pushNamed(AppRouter.noteCategorySelect),
         child: const Icon(Icons.add),
       ),
-      body: Column(
+      // ✏️ 달력 모드면 묵상 달력 위젯, 아니면 기존 목록(칩+리스트).
+      body: showCalendar
+          ? const MeditationCalendarView()
+          : Column(
         children: [
           // 카테고리 필터 칩 (전체 + 5종)
           SizedBox(
@@ -40,7 +59,8 @@ class NoteListScreen extends ConsumerWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               children: [
-                _CategoryChip(label: '전체', value: null, selected: selectedCategory),
+                _CategoryChip(
+                    label: '전체', value: null, selected: selectedCategory),
                 for (final entry in noteCategoryLabels.entries)
                   _CategoryChip(
                     label: entry.value,
@@ -96,12 +116,13 @@ class NoteListScreen extends ConsumerWidget {
                               ),
                           ],
                         ),
-                        onTap: () {
-                          // TODO(Day2): N-04 상세 화면으로 이동
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('상세 화면은 곧 추가됩니다')),
-                          );
-                        },
+                        // 항목 탭 → N-04 상세로 이동(노트 id를 arguments로 전달).
+                        // 상세에서 수정·삭제하면 그쪽이 notesProvider를 invalidate하므로
+                        // 돌아오면 이 목록도 자동으로 최신으로 다시 그려진다.
+                        onTap: () => Navigator.of(context).pushNamed(
+                          AppRouter.noteDetail,
+                          arguments: item.id,
+                        ),
                       );
                     },
                   ),

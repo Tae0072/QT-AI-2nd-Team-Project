@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
+import 'note_edit_screen.dart';
 
 /// 노트 카테고리 선택 화면 (N-02).
 ///
@@ -31,11 +32,11 @@ class NoteCategorySelectScreen extends StatelessWidget {
                 title: Text(noteCategoryLabel(code)),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  // 선택한 카테고리 코드를 arguments로 실어 작성 화면으로 이동.
-                  // 값이 이 이동에만 딸려가므로 잔여 상태가 남지 않는다.
+                  // 선택한 카테고리를 NoteEditArgs로 실어 작성 화면으로 이동.
+                  // (N-03가 작성/수정을 NoteEditArgs로 구분하므로 작성도 같은 타입으로 넘긴다)
                   Navigator.of(context).pushNamed(
                     AppRouter.noteEdit,
-                    arguments: code,
+                    arguments: NoteEditArgs(category: code),
                   );
                 },
               ),
