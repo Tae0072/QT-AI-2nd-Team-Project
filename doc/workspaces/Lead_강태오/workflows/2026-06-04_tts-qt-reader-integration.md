@@ -56,13 +56,25 @@ Voice Studio TTS 엔진을 QT-AI Flutter 앱에 통합하여,
 | 상태 관리 | Riverpod |
 
 ## 현재 진행 상태
-- [x] 1단계: QT 전용 엔드포인트 추가 — `POST /qt/read` (긴 텍스트 분할+합치기+MP3)
-- [x] 2단계: 서버 배포 구성 — CORS 추가, AppConfig에 ttsBaseUrl 추가
+- [x] 1단계: QT 전용 엔드포인트 추가 — `POST /qt/read`
+- [x] 2단계: 서버 배포 구성 — CORS, AppConfig ttsBaseUrl, 웹 호환(kIsWeb)
 - [x] 3단계: Flutter TTS 서비스 — `TtsRepository` + Riverpod providers
-- [x] 4단계: 오디오 플레이어 위젯 — `QtAudioPlayer` (just_audio, 시크바, 목소리 선택)
-- [x] 5단계: QT 화면 연동 — 위젯 준비 완료 (QT 화면에서 import하여 사용)
-- [x] 6단계: 캐싱 — cacheKey 기반 로컬 파일 캐싱 구현
-- [ ] 7단계: E2E 테스트 (QT 화면 구현 후)
+- [x] 4단계: 오디오 플레이어 위젯 — `QtAudioPlayer` (just_audio)
+- [x] 5단계: QT 화면 연동 — `today_qt_screen.dart`에 QtAudioPlayer 배치
+- [x] 6단계: 캐싱 — cacheKey 기반 로컬 파일 캐싱
+- [x] 7단계: E2E 환경 구성 — MySQL(qtai/qtai) + Redis(Docker) + JWT + 서버 기동 성공
+- [ ] 8단계 (다음): 마이페이지 설정에 TTS 목소리 선택
+- [ ] 9단계 (다음): QT 본문 로드 시 자동 음성 생성 (백그라운드)
+- [ ] 10단계 (다음): QT 화면에서 바로 재생만
+
+## E2E 테스트 환경 구성 기록
+- MySQL root 비밀번호: Workbench 키체인 저장 (cmd `0000` 아님)
+- qtai DB/사용자: Workbench에서 SQL 실행하여 생성 (`qtai`/`qtai`)
+- Redis: Docker `qtai-redis` 컨테이너 (`docker start qtai-redis`)
+- JWT 키: `src/test/resources/application.yml`에서 PowerShell 환경변수로 주입
+- qtai-server: `.\gradlew bootRun --args="--spring.profiles.active=dev"` (8080 포트)
+- TTS API: `venv\Scripts\python.exe tts_api.py` (8090 포트)
+- Flutter: `flutter run --dart-define=TTS_TOKEN=vs_xxx` (에뮬레이터 Pixel_10)
 
 ## 산출물
 | 파일 | 설명 |
