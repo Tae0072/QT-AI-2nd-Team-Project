@@ -2,6 +2,7 @@ package com.qtai.domain.study.internal;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.qtai.common.exception.BusinessException;
@@ -31,18 +32,21 @@ public class GlossaryTermService implements PublishApprovedGlossaryTermsUseCase,
             PublishApprovedGlossaryTermsCommand command
     ) {
         requireValidCommand(command);
+        List<GlossaryTerm> existingAssetTerms =
+                glossaryTermRepository.findApprovedByAiAssetIdForUpdate(command.aiAssetId());
         if (command.terms().isEmpty()) {
-            return new PublishApprovedGlossaryTermsResult(command.aiAssetId(), 0, 0);
+            hideExistingTerms(existingAssetTerms);
+            return new PublishApprovedGlossaryTermsResult(command.aiAssetId(), 0, existingAssetTerms.size());
         }
 
         List<Long> bibleVerseIds = command.terms().stream()
                 .map(PublishApprovedGlossaryTermsCommand.Term::bibleVerseId)
                 .distinct()
                 .toList();
-        List<GlossaryTerm> existingTerms =
+        List<GlossaryTerm> existingVerseTerms =
                 glossaryTermRepository.findApprovedByBibleVerseIdInForUpdate(bibleVerseIds);
-        existingTerms.forEach(GlossaryTerm::hide);
-        glossaryTermRepository.flush();
+        List<GlossaryTerm> existingTerms = mergeExistingTerms(existingAssetTerms, existingVerseTerms);
+        hideExistingTerms(existingTerms);
 
         LocalDateTime approvedAt = LocalDateTime.ofInstant(command.approvedAt().toInstant(), KST);
         List<GlossaryTerm> newTerms = command.terms().stream()
@@ -122,6 +126,26 @@ public class GlossaryTermService implements PublishApprovedGlossaryTermsUseCase,
     private static void requireText(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, fieldName + " must not be blank");
+        }
+    }
+
+    private static List<GlossaryTerm> mergeExistingTerms(
+            List<GlossaryTerm> existingAssetTerms,
+            List<GlossaryTerm> existingVerseTerms
+    ) {
+        List<GlossaryTerm> mergedTerms = new ArrayList<>(existingAssetTerms);
+        for (GlossaryTerm existingVerseTerm : existingVerseTerms) {
+            if (!mergedTerms.contains(existingVerseTerm)) {
+                mergedTerms.add(existingVerseTerm);
+            }
+        }
+        return mergedTerms;
+    }
+
+    private void hideExistingTerms(List<GlossaryTerm> terms) {
+        terms.forEach(GlossaryTerm::hide);
+        if (!terms.isEmpty()) {
+            glossaryTermRepository.flush();
         }
     }
 }
