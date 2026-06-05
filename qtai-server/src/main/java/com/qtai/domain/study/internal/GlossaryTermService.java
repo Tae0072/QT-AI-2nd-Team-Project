@@ -3,7 +3,10 @@ package com.qtai.domain.study.internal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
@@ -46,15 +49,19 @@ public class GlossaryTermService implements PublishApprovedGlossaryTermsUseCase,
         List<GlossaryTerm> existingVerseTerms =
                 glossaryTermRepository.findApprovedByBibleVerseIdInForUpdate(bibleVerseIds);
         List<GlossaryTerm> existingTerms = mergeExistingTerms(existingAssetTerms, existingVerseTerms);
+        if (existingTerms.size() == existingAssetTerms.size()
+                && hasSameApprovedTerms(existingAssetTerms, command)) {
+            return new PublishApprovedGlossaryTermsResult(command.aiAssetId(), 0, 0);
+        }
         hideExistingTerms(existingTerms);
 
         LocalDateTime approvedAt = LocalDateTime.ofInstant(command.approvedAt().toInstant(), KST);
         List<GlossaryTerm> newTerms = command.terms().stream()
                 .map(term -> GlossaryTerm.approvedFromAiAsset(
                         term.bibleVerseId(),
-                        term.term(),
-                        term.meaning(),
-                        command.sourceLabel(),
+                        normalizeText(term.term()),
+                        normalizeText(term.meaning()),
+                        normalizeText(command.sourceLabel()),
                         command.aiAssetId(),
                         approvedAt
                 ))
@@ -99,6 +106,7 @@ public class GlossaryTermService implements PublishApprovedGlossaryTermsUseCase,
         for (PublishApprovedGlossaryTermsCommand.Term term : command.terms()) {
             requireValidTerm(term);
         }
+        requireNoDuplicateTerms(command.terms());
     }
 
     private static void requireValidTerm(PublishApprovedGlossaryTermsCommand.Term term) {
@@ -129,23 +137,92 @@ public class GlossaryTermService implements PublishApprovedGlossaryTermsUseCase,
         }
     }
 
+    private static void requireNoDuplicateTerms(List<PublishApprovedGlossaryTermsCommand.Term> terms) {
+        Set<TermKey> termKeys = new HashSet<>();
+        for (PublishApprovedGlossaryTermsCommand.Term term : terms) {
+            TermKey key = TermKey.from(term);
+            if (!termKeys.add(key)) {
+                throw new BusinessException(
+                        ErrorCode.INVALID_INPUT,
+                        "terms must not contain duplicate bibleVerseId and term"
+                );
+            }
+        }
+    }
+
     private static List<GlossaryTerm> mergeExistingTerms(
             List<GlossaryTerm> existingAssetTerms,
             List<GlossaryTerm> existingVerseTerms
     ) {
         List<GlossaryTerm> mergedTerms = new ArrayList<>(existingAssetTerms);
+        Set<Long> mergedTermIds = existingAssetTerms.stream()
+                .map(GlossaryTerm::getId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
         for (GlossaryTerm existingVerseTerm : existingVerseTerms) {
-            if (!mergedTerms.contains(existingVerseTerm)) {
+            Long existingVerseTermId = existingVerseTerm.getId();
+            if (existingVerseTermId == null || mergedTermIds.add(existingVerseTermId)) {
                 mergedTerms.add(existingVerseTerm);
             }
         }
         return mergedTerms;
     }
 
+    private static boolean hasSameApprovedTerms(
+            List<GlossaryTerm> existingAssetTerms,
+            PublishApprovedGlossaryTermsCommand command
+    ) {
+        if (existingAssetTerms.size() != command.terms().size()) {
+            return false;
+        }
+        Set<TermSnapshot> existingSnapshots = existingAssetTerms.stream()
+                .map(TermSnapshot::from)
+                .collect(Collectors.toSet());
+        Set<TermSnapshot> requestedSnapshots = command.terms().stream()
+                .map(term -> TermSnapshot.from(command, term))
+                .collect(Collectors.toSet());
+        return existingSnapshots.equals(requestedSnapshots);
+    }
+
+    private static String normalizeText(String value) {
+        return value.trim();
+    }
+
     private void hideExistingTerms(List<GlossaryTerm> terms) {
         terms.forEach(GlossaryTerm::hide);
         if (!terms.isEmpty()) {
             glossaryTermRepository.flush();
+        }
+    }
+
+    private record TermKey(Long bibleVerseId, String term) {
+
+        private static TermKey from(PublishApprovedGlossaryTermsCommand.Term term) {
+            return new TermKey(term.bibleVerseId(), normalizeText(term.term()));
+        }
+    }
+
+    private record TermSnapshot(Long bibleVerseId, String term, String meaning, String sourceLabel) {
+
+        private static TermSnapshot from(GlossaryTerm glossaryTerm) {
+            return new TermSnapshot(
+                    glossaryTerm.getBibleVerseId(),
+                    normalizeText(glossaryTerm.getTerm()),
+                    normalizeText(glossaryTerm.getMeaning()),
+                    normalizeText(glossaryTerm.getSourceLabel())
+            );
+        }
+
+        private static TermSnapshot from(
+                PublishApprovedGlossaryTermsCommand command,
+                PublishApprovedGlossaryTermsCommand.Term term
+        ) {
+            return new TermSnapshot(
+                    term.bibleVerseId(),
+                    normalizeText(term.term()),
+                    normalizeText(term.meaning()),
+                    normalizeText(command.sourceLabel())
+            );
         }
     }
 }

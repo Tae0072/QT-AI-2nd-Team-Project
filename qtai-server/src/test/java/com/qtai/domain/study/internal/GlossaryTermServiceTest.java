@@ -18,7 +18,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class GlossaryTermServiceTest {
@@ -96,6 +98,63 @@ class GlossaryTermServiceTest {
         assertThat(result.publishedCount()).isEqualTo(1);
         assertThat(result.hiddenCount()).isEqualTo(2);
         verify(glossaryTermRepository).flush();
+    }
+
+    @Test
+    @DisplayName("Re-publishing the same approved glossary set is a no-op")
+    void publishApprovedGlossaryTerms_whenSameAiAssetAndTermsAlreadyApproved_returnsNoop() {
+        GlossaryTerm existing = glossaryTerm(
+                1L,
+                10L,
+                GlossaryTermStatus.APPROVED,
+                "same term",
+                "same meaning",
+                "QT-AI DeepSeek",
+                500L
+        );
+        when(glossaryTermRepository.findApprovedByAiAssetIdForUpdate(500L))
+                .thenReturn(List.of(existing));
+        when(glossaryTermRepository.findApprovedByBibleVerseIdInForUpdate(List.of(10L)))
+                .thenReturn(List.of(existing));
+
+        PublishApprovedGlossaryTermsResult result =
+                glossaryTermService.publishApprovedGlossaryTerms(new PublishApprovedGlossaryTermsCommand(
+                        500L,
+                        "QT-AI DeepSeek",
+                        OffsetDateTime.parse("2026-06-04T14:20:00+09:00"),
+                        List.of(new PublishApprovedGlossaryTermsCommand.Term(10L, "same term", "same meaning"))
+                ));
+
+        assertThat(existing.getStatus()).isEqualTo(GlossaryTermStatus.APPROVED);
+        assertThat(result.publishedCount()).isZero();
+        assertThat(result.hiddenCount()).isZero();
+        verify(glossaryTermRepository, never()).flush();
+        verify(glossaryTermRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("Existing terms returned by both lock queries are deduplicated by id")
+    void publishApprovedGlossaryTerms_whenSameExistingIdReturnedByBothQueries_hidesOnce() {
+        GlossaryTerm existingAssetTerm = glossaryTerm(1L, 10L, GlossaryTermStatus.APPROVED, "old term");
+        GlossaryTerm sameIdVerseTerm = glossaryTerm(1L, 10L, GlossaryTermStatus.APPROVED, "old term");
+        when(glossaryTermRepository.findApprovedByAiAssetIdForUpdate(500L))
+                .thenReturn(List.of(existingAssetTerm));
+        when(glossaryTermRepository.findApprovedByBibleVerseIdInForUpdate(List.of(10L)))
+                .thenReturn(List.of(sameIdVerseTerm));
+        when(glossaryTermRepository.saveAll(anyList()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PublishApprovedGlossaryTermsResult result =
+                glossaryTermService.publishApprovedGlossaryTerms(new PublishApprovedGlossaryTermsCommand(
+                        500L,
+                        "QT-AI DeepSeek",
+                        OffsetDateTime.parse("2026-06-04T14:20:00+09:00"),
+                        List.of(new PublishApprovedGlossaryTermsCommand.Term(10L, "new term", "new meaning"))
+                ));
+
+        assertThat(existingAssetTerm.getStatus()).isEqualTo(GlossaryTermStatus.HIDDEN);
+        assertThat(result.publishedCount()).isEqualTo(1);
+        assertThat(result.hiddenCount()).isEqualTo(1);
     }
 
     @Test
@@ -189,6 +248,21 @@ class GlossaryTermServiceTest {
                 OffsetDateTime.parse("2026-06-04T14:20:00+09:00"),
                 List.of(new PublishApprovedGlossaryTermsCommand.Term(10L, "term", " "))
         ));
+    }
+
+    @Test
+    @DisplayName("Duplicate bibleVerseId and term pairs are rejected before publishing")
+    void publishApprovedGlossaryTerms_whenDuplicateVerseAndTerm_throwsInvalidInput() {
+        assertInvalidInput(new PublishApprovedGlossaryTermsCommand(
+                500L,
+                "QT-AI DeepSeek",
+                OffsetDateTime.parse("2026-06-04T14:20:00+09:00"),
+                List.of(
+                        new PublishApprovedGlossaryTermsCommand.Term(10L, "same term", "meaning"),
+                        new PublishApprovedGlossaryTermsCommand.Term(10L, " same term ", "other meaning")
+                )
+        ));
+        verifyNoInteractions(glossaryTermRepository);
     }
 
     @Test

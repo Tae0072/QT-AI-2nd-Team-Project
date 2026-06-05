@@ -73,14 +73,26 @@ public final class TestEntityFactory {
             GlossaryTermStatus status,
             String term
     ) {
+        return glossaryTerm(id, bibleVerseId, status, term, "test meaning", "test source", 200L);
+    }
+
+    public static GlossaryTerm glossaryTerm(
+            Long id,
+            Long bibleVerseId,
+            GlossaryTermStatus status,
+            String term,
+            String meaning,
+            String sourceLabel,
+            Long aiAssetId
+    ) {
         GlossaryTerm glossaryTerm = newInstance(GlossaryTerm.class);
         set(glossaryTerm, "id", id);
         set(glossaryTerm, "bibleVerseId", bibleVerseId);
         set(glossaryTerm, "term", term);
-        set(glossaryTerm, "meaning", "test meaning");
-        set(glossaryTerm, "sourceLabel", "test source");
+        set(glossaryTerm, "meaning", meaning);
+        set(glossaryTerm, "sourceLabel", sourceLabel);
         set(glossaryTerm, "status", status);
-        set(glossaryTerm, "aiAssetId", 200L);
+        set(glossaryTerm, "aiAssetId", aiAssetId);
         return glossaryTerm;
     }
 
