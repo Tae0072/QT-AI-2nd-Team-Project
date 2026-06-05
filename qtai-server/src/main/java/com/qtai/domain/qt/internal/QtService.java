@@ -46,6 +46,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
     private final QtPassageVerseRepository qtPassageVerseRepository;
     private final TodayQtRangeResolver rangeResolver;
     private final GetNoteUseCase getNoteUseCase;
+    private final java.time.Clock clock;
 
     // ------------------------------------------------------------------
     // GetTodayQtUseCase 구현
@@ -82,6 +83,12 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
     public TodayQtResponse getPassage(Long memberId, Long qtPassageId) {
         QtPassage passage = qtPassageRepository.findById(qtPassageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND));
+
+        // 공개 게이트(CLAUDE.md §6) — QT 범위 공개는 해당일 00:00 KST.
+        // 선등록된 미래 본문은 id 순회로도 열람 불가(존재 은닉을 위해 404).
+        if (passage.getQtDate().isAfter(java.time.LocalDate.now(clock))) {
+            throw new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND);
+        }
 
         Long draftNoteId = resolveDraftNoteId(memberId, qtPassageId);
         return new TodayQtResponse(
@@ -128,12 +135,18 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 .map(QtPassageVerse::getBibleVerseId)
                 .toList();
 
+        // 공개 게이트(CLAUDE.md §6) — 기존 published=true 하드코딩은 선등록 미래 본문의
+        // 승인 해설·시뮬레이터 클립이 study 경로로 새는 구멍이었다. study 서비스들은
+        // 이 플래그로 노출을 차단한다. (ai 사전 생성 경로는 published를 보지 않으므로
+        // 관리자 선생성 워크플로우는 막히지 않는다)
+        boolean published = !passage.getQtDate().isAfter(java.time.LocalDate.now(clock));
+
         return new QtPassageContentContext(
                 passage.getId(),
                 passage.getQtDate(),
                 passage.getTitle(),
                 verseIds,
-                true
+                published
         );
     }
 

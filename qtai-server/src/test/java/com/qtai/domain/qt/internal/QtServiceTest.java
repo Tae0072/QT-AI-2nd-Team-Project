@@ -49,6 +49,12 @@ class QtServiceTest {
     private GetNoteUseCase getNoteUseCase;
     private QtService qtService;
 
+    /** 공개 게이트 기준 '오늘' — 2026-06-01 (KST). */
+    private static final java.time.Clock FIXED_CLOCK = java.time.Clock.fixed(
+            java.time.Instant.parse("2026-06-01T03:00:00Z"),
+            java.time.ZoneId.of("Asia/Seoul")
+    );
+
     @BeforeEach
     void setUp() {
         passageLookup = Mockito.mock(QtPassageLookup.class);
@@ -61,7 +67,8 @@ class QtServiceTest {
                 qtPassageRepository,
                 qtPassageVerseRepository,
                 rangeResolver,
-                getNoteUseCase
+                getNoteUseCase,
+                FIXED_CLOCK
         );
     }
 
@@ -296,6 +303,33 @@ class QtServiceTest {
             assertThat(response.qtPassageId()).isEqualTo(5L);
             assertThat(response.draftNoteId()).isNull();
         }
+
+        @Test
+        @DisplayName("공개 게이트(§6) — 선등록된 미래 본문은 id를 알아도 404 (00:00 공개 전 비노출)")
+        void 미래_본문_조회는_404() {
+            // given — 오늘(고정 Clock)은 2026-06-01, 본문은 내일(06-02) 선등록분
+            QtPassage future = QtPassageFixture.createPassage(8L,
+                    LocalDate.of(2026, 6, 2), "내일 본문");
+            when(qtPassageRepository.findById(8L)).thenReturn(Optional.of(future));
+
+            // when & then — 존재 은닉을 위해 NOT_FOUND로 응답, note 조회도 발생하지 않음
+            assertThatThrownBy(() -> qtService.getPassage(100L, 8L))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.QT_PASSAGE_NOT_FOUND));
+            verify(getNoteUseCase, never()).getDraft(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("공개 게이트 — 오늘 날짜 본문은 00:00부터 id 조회 가능")
+        void 오늘_본문_조회는_허용() {
+            QtPassage today = QtPassageFixture.createPassage(7L,
+                    LocalDate.of(2026, 6, 1), "오늘 본문");
+            when(qtPassageRepository.findById(7L)).thenReturn(Optional.of(today));
+
+            TodayQtResponse response = qtService.getPassage(null, 7L);
+
+            assertThat(response.qtPassageId()).isEqualTo(7L);
+        }
     }
 
     @Nested
@@ -374,6 +408,32 @@ class QtServiceTest {
             assertThatThrownBy(() -> qtService.findContentContextByDate(null))
                     .isInstanceOfSatisfying(BusinessException.class, exception ->
                             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        }
+
+        @Test
+        @DisplayName("공개 게이트 — 미래 날짜 본문의 context는 published=false (study 노출 차단)")
+        void 미래_본문_context는_published_false() {
+            QtPassage future = QtPassageFixture.createPassage(9L,
+                    LocalDate.of(2026, 6, 2), "내일 본문");
+            when(qtPassageRepository.findById(9L)).thenReturn(Optional.of(future));
+            when(qtPassageVerseRepository.findByQtPassageIdOrderByDisplayOrderAsc(9L))
+                    .thenReturn(List.of());
+
+            QtPassageContentContext context = qtService.getContentContext(9L);
+
+            assertThat(context.published()).isFalse();
+        }
+
+        @Test
+        @DisplayName("공개 게이트 — 오늘 날짜 본문의 context는 published=true")
+        void 오늘_본문_context는_published_true() {
+            QtPassage today = QtPassageFixture.createPassage(10L,
+                    LocalDate.of(2026, 6, 1), "오늘 본문");
+            when(qtPassageRepository.findById(10L)).thenReturn(Optional.of(today));
+            when(qtPassageVerseRepository.findByQtPassageIdOrderByDisplayOrderAsc(10L))
+                    .thenReturn(List.of());
+
+            assertThat(qtService.getContentContext(10L).published()).isTrue();
         }
 
         private QtPassageVerse verse(Long qtPassageId, Long bibleVerseId, Short displayOrder) {
