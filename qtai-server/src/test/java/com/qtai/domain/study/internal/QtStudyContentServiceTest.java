@@ -16,6 +16,7 @@ import static com.qtai.support.TestEntityFactory.glossaryTerm;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class QtStudyContentServiceTest {
@@ -81,6 +82,34 @@ class QtStudyContentServiceTest {
 
         assertThat(response.summary()).isNull();
         assertThat(response.glossaryTerms()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("해설이 없는 절이 있어도 승인 해설만 반환하고 조회 계약을 유지한다")
+    void getStudyContent_whenSomeVerseExplanationsAreMissing_returnsOnlyApprovedExplanations() {
+        when(getQtPassageContentContextUseCase.getContentContext(10L))
+                .thenReturn(context(List.of(1L, 2L, 3L)));
+        when(verseExplanationService.listApprovedByVerseIds(List.of(1L, 2L, 3L)))
+                .thenReturn(List.of(new ApprovedVerseExplanationResponse(
+                        2L,
+                        "summary-2",
+                        "explanation-2",
+                        "source-2",
+                        102L
+                )));
+        when(glossaryTermRepository.findByBibleVerseIdInAndStatusOrderByBibleVerseIdAscIdAsc(
+                List.of(1L, 2L, 3L),
+                GlossaryTermStatus.APPROVED
+        )).thenReturn(List.of());
+
+        QtStudyContentResponse response = service.getStudyContent(10L);
+
+        assertThat(response.summary()).isEqualTo("summary-2");
+        assertThat(response.explanations())
+                .extracting(QtStudyContentResponse.ExplanationItem::verseId)
+                .containsExactly(2L);
+        assertThat(response.glossaryTerms()).isEmpty();
+        verify(verseExplanationService).listApprovedByVerseIds(List.of(1L, 2L, 3L));
     }
 
     @Test

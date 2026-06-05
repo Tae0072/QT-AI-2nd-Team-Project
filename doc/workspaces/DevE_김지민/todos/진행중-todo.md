@@ -3,8 +3,20 @@
 > **목표**: 나눔 쓰기(공개·좋아요·댓글) 백엔드 API 완성
 > **브랜치**: `feature/sharing-write` (최신 dev 기반, 한 브랜치 = 나눔 쓰기 묶음, 기능별 커밋)
 > **완료 기준**: 기능별 커밋 + 테스트 3종 + dev-console로 동작 눈 확인 → PR 1개
-> **최종 업데이트**: 2026-06-02 (공개·좋아요·댓글 #191 dev 머지 / 공유글 삭제·숨김·되돌리기 신규 완료 → PR)
+> **최종 업데이트**: 2026-06-04 (내 나눔 목록 조회 API 신규 완료 → PR 준비. `feature/sharing-my-posts`)
 > **상세**: [workflows/2026-W3_상세-워크플로우.md](../workflows/2026-W3_상세-워크플로우.md) · [진행현황](../김지민_작업_진행현황.md)
+
+---
+
+## ✅ 오늘(2026-06-04) 한 일 — 내 나눔 목록 조회 API (`feature/sharing-my-posts`)
+
+- **API** `GET /api/v1/me/sharing-posts` (F-10, 화면 M-05, 04 §4.4.5 #56) — V1 점검 중 발견한 **유일 누락 엔드포인트**. hide/show/delete의 짝.
+- **설계 결정 2개**: ① 응답은 **신규 lean DTO**(공개 피드 재사용 X — 04가 4필드 적게 정의, 계약 정확성+결합 끊기) ② status 생략 시 **PUBLISHED+HIDDEN**(삭제 제외, `DELETED`·이상값→400).
+- **구현**: `ListMySharingPostsUseCase`(포트) + `MySharingPostListItem/Response`(lean DTO) 신규 / `SharingPostService.listMine()`+`resolveStatuses()`(검증) / `findByMemberIdAndStatusIn`(파생쿼리) / 컨트롤러 핸들러. ErrorCode 신규 없음(`INVALID_INPUT` 재사용).
+- **회귀**: 컨트롤러 필드 추가로 `@RequiredArgsConstructor` 생성자 인자 수가 바뀌어 깨진 **기존 SharingPostControllerTest 생성자 7인자로 수정**.
+- **테스트** 6개(서비스3·컨트롤러2·통합1) — compileTestJava 통과(실행은 CI). dev-console "내 나눔 목록" 섹션 + **Docker(MySQL) 8081 스모크 통과**(401/200/200/400).
+- **PR 규모**: 신규 3 + 수정 6 = 9파일, +217/-4. dev-console.html은 gitignore라 제외.
+- **착수 점검**: `sharing-posts`(77 behind)·`sharing-post-delete`(PR #208 머지 끝) 둘 다 재사용 부적합 → origin/dev 최신 기반 새 브랜치.
 
 ---
 

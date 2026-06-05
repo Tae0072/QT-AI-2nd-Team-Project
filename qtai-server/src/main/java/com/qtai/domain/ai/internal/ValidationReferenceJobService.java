@@ -14,13 +14,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.CreateValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.ExpireValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.GetValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.dto.CreateValidationReferenceJobCommand;
-import com.qtai.domain.ai.api.dto.ExpireValidationReferenceJobCommand;
-import com.qtai.domain.ai.api.dto.GetValidationReferenceJobQuery;
-import com.qtai.domain.ai.api.dto.ValidationReferenceJobResponse;
+import com.qtai.domain.ai.api.validation.CreateValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.ExpireValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.GetValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.dto.CreateValidationReferenceJobCommand;
+import com.qtai.domain.ai.api.validation.dto.ExpireValidationReferenceJobCommand;
+import com.qtai.domain.ai.api.validation.dto.GetValidationReferenceJobQuery;
+import com.qtai.domain.ai.api.validation.dto.ValidationReferenceJobResponse;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 

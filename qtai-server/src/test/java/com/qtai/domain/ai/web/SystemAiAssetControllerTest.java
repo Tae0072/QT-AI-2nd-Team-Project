@@ -37,9 +37,9 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.RegisterAiGeneratedAssetUseCase;
-import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetCommand;
-import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetResult;
+import com.qtai.domain.ai.api.generation.RegisterAiGeneratedAssetUseCase;
+import com.qtai.domain.ai.api.generation.dto.RegisterAiGeneratedAssetCommand;
+import com.qtai.domain.ai.api.generation.dto.RegisterAiGeneratedAssetResult;
 
 class SystemAiAssetControllerTest {
 

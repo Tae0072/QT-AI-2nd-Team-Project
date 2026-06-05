@@ -38,20 +38,20 @@ import org.slf4j.MDC;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.GetAdminAiAssetUseCase;
-import com.qtai.domain.ai.api.ListAdminAiAssetsUseCase;
-import com.qtai.domain.ai.api.RegenerateAiAssetUseCase;
-import com.qtai.domain.ai.api.ReviewAiAssetUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiAssetDetailResponse;
-import com.qtai.domain.ai.api.dto.AdminAiAssetListItem;
-import com.qtai.domain.ai.api.dto.AdminAiAssetListResponse;
-import com.qtai.domain.ai.api.dto.AdminAiValidationLogItem;
-import com.qtai.domain.ai.api.dto.GetAdminAiAssetQuery;
-import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
-import com.qtai.domain.ai.api.dto.RegenerateAiAssetCommand;
-import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
-import com.qtai.domain.ai.api.dto.ReviewAiAssetCommand;
-import com.qtai.domain.ai.api.dto.ReviewAiAssetResult;
+import com.qtai.domain.ai.api.admin.asset.GetAdminAiAssetUseCase;
+import com.qtai.domain.ai.api.admin.asset.ListAdminAiAssetsUseCase;
+import com.qtai.domain.ai.api.admin.asset.RegenerateAiAssetUseCase;
+import com.qtai.domain.ai.api.admin.asset.ReviewAiAssetUseCase;
+import com.qtai.domain.ai.api.admin.asset.dto.AdminAiAssetDetailResponse;
+import com.qtai.domain.ai.api.admin.asset.dto.AdminAiAssetListItem;
+import com.qtai.domain.ai.api.admin.asset.dto.AdminAiAssetListResponse;
+import com.qtai.domain.ai.api.admin.asset.dto.AdminAiValidationLogItem;
+import com.qtai.domain.ai.api.admin.asset.dto.GetAdminAiAssetQuery;
+import com.qtai.domain.ai.api.admin.asset.dto.ListAdminAiAssetsQuery;
+import com.qtai.domain.ai.api.admin.asset.dto.RegenerateAiAssetCommand;
+import com.qtai.domain.ai.api.admin.asset.dto.RegenerateAiAssetResult;
+import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetCommand;
+import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetResult;
 
 class AdminAiAssetControllerTest {
 
@@ -294,7 +294,6 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "checklistVersionId": 4,
                                   "reason": "검증 기준을 충족합니다.",
                                   "activateForTarget": true
                                 }
@@ -313,7 +312,6 @@ class AdminAiAssetControllerTest {
         assertThat(command.memberRole()).isEqualTo("ADMIN");
         assertThat(command.adminRole()).isEqualTo("REVIEWER");
         assertThat(command.action()).isEqualTo("APPROVE");
-        assertThat(command.checklistVersionId()).isEqualTo(4L);
         assertThat(command.reason()).isEqualTo("검증 기준을 충족합니다.");
         assertThat(command.activateForTarget()).isTrue();
         assertThat(command.reviewedAt()).isEqualTo(OffsetDateTime.parse("2026-05-21T10:30:00+09:00"));
@@ -373,7 +371,6 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "checklistVersionId": 4,
                                   "reason": "권한 확인",
                                   "activateForTarget": true
                                 }
@@ -393,7 +390,6 @@ class AdminAiAssetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "checklistVersionId": 4,
                                   "reason": "상태 전이 확인",
                                   "activateForTarget": true
                                 }

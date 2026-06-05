@@ -28,6 +28,7 @@ dependencies:
 
   # UI
   cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
 
   # TTS 오디오 재생
   just_audio: ^0.9.42

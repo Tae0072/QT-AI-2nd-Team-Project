@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../routes/app_router.dart';
 import '../providers/auth_providers.dart';
 
-/// 카카오 로그인 화면.
+/// 카카오 로그인 화면 (A-02) — 웜 파스텔 디자인.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -29,10 +30,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
 
       if (result.isNewMember) {
-        // 신규 회원 — 닉네임 설정 후 인증 상태 업데이트 (먼저 setAuthenticated하면 홈으로 강제 이동됨)
         Navigator.of(context).pushReplacementNamed(AppRouter.nicknameSetup);
       } else {
-        // 기존 회원 — 인증 상태 업데이트 → main.dart에서 /home으로 전환
         ref.read(authStatusProvider.notifier).setAuthenticated();
       }
     } catch (e) {
@@ -50,32 +49,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.bg,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              const Spacer(flex: 3),
+              const Spacer(flex: 2),
 
-              // 앱 로고 / 타이틀
-              Icon(
-                Icons.auto_stories,
-                size: 80,
-                color: Theme.of(context).colorScheme.primary,
+              // 로고
+              Text.rich(
+                TextSpan(children: [
+                  const TextSpan(text: 'QT'),
+                  TextSpan(text: '·', style: TextStyle(color: AppTheme.accent)),
+                  const TextSpan(text: 'AI'),
+                ]),
+                style: const TextStyle(
+                  fontFamily: 'GowunDodum',
+                  fontSize: 40,
+                  fontWeight: FontWeight.w400,
+                  color: AppTheme.text,
+                  letterSpacing: -1,
+                ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'QT AI',
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+              const SizedBox(height: 18),
+
+              // 헤드라인
+              const Text(
+                '매일의 묵상을\n가장 단순하게.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'GowunDodum',
+                  fontSize: 28,
+                  fontWeight: FontWeight.w400,
+                  color: AppTheme.text,
+                  height: 1.2,
+                  letterSpacing: -0.4,
+                ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                '매일의 큐티를 더 깊이있게',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+              const SizedBox(height: 12),
+              const Text(
+                '오늘의 QT 본문과 검증된 해설을 읽고,\n나만의 묵상 노트를 남겨보세요.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 17, color: AppTheme.textMuted, height: 1.5),
               ),
 
               const Spacer(flex: 2),
@@ -85,18 +101,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline, color: Colors.red[700], size: 20),
+                      Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: TextStyle(color: Colors.red[700], fontSize: 14),
-                        ),
+                        child: Text(_errorMessage!,
+                            style: TextStyle(color: Colors.red.shade700, fontSize: 14)),
                       ),
                     ],
                   ),
@@ -107,44 +121,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               // 카카오 로그인 버튼
               SizedBox(
                 width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
+                child: ElevatedButton.icon(
                   onPressed: _isLoading ? null : _handleKakaoLogin,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 20, height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF191600)))
+                      : const Icon(Icons.chat_bubble, size: 20),
+                  label: const Text('카카오로 시작하기'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFEE500),
-                    foregroundColor: const Color(0xFF191919),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    foregroundColor: const Color(0xFF191600),
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    textStyle: const TextStyle(
+                      fontFamily: 'GowunDodum',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
                     ),
-                    elevation: 0,
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Color(0xFF191919),
-                          ),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.chat_bubble, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              '카카오 로그인',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
                 ),
               ),
 
-              const Spacer(flex: 1),
+              const SizedBox(height: 18),
+
+              // 법적 고지
+              Text.rich(
+                TextSpan(
+                  text: '계속 진행하면 ',
+                  children: [
+                    TextSpan(
+                      text: '이용약관',
+                      style: TextStyle(color: AppTheme.accent),
+                    ),
+                    const TextSpan(text: ' 및 '),
+                    TextSpan(
+                      text: '개인정보처리방침',
+                      style: TextStyle(color: AppTheme.accent),
+                    ),
+                    const TextSpan(text: '에\n동의하는 것으로 간주합니다.'),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              ),
+
+              const SizedBox(height: 40),
             ],
           ),
         ),

@@ -2,6 +2,7 @@ package com.qtai.domain.ai.internal;
 
 import static com.qtai.support.TestEntityFactory.verseExplanation;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -16,7 +17,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.qtai.config.JpaAuditingConfig;
-import com.qtai.domain.ai.api.dto.ReviewAiAssetCommand;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetCommand;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 import com.qtai.domain.study.api.dto.ApprovedVerseExplanationResponse;
@@ -54,7 +57,6 @@ class AiAssetReviewFlowIntegrationTest {
         verseExplanationService = new VerseExplanationService(verseExplanationRepository);
         reviewService = new AiAssetReviewService(
                 generatedAssetRepository,
-                checklistVersionRepository,
                 validationLogRepository,
                 verseExplanationService,
                 verseExplanationService,
@@ -91,17 +93,8 @@ class AiAssetReviewFlowIntegrationTest {
                 "QT-AI DeepSeek",
                 CREATED_AT
         ));
-        validationLogRepository.saveAndFlush(AiValidationLog.create(
-                asset.getId(),
-                null,
-                1,
-                AiValidationResult.PASSED,
-                AiValidationReviewerType.AUTO,
-                checklistVersion.getId(),
-                "{\"validator\":\"test\"}",
-                null,
-                CREATED_AT.plusMinutes(10)
-        ));
+        saveValidationLog(asset, checklistVersion, 1, AiValidationReviewerType.AUTO, AiValidationResult.PASSED, 10);
+        saveValidationLog(asset, checklistVersion, 2, AiValidationReviewerType.ADVISOR, AiValidationResult.PASSED, 12);
 
         reviewService.reviewAiAsset(new ReviewAiAssetCommand(
                 7L,
@@ -109,7 +102,6 @@ class AiAssetReviewFlowIntegrationTest {
                 "ADMIN",
                 "REVIEWER",
                 "APPROVE",
-                checklistVersion.getId(),
                 "approved reason",
                 true,
                 REVIEWED_AT
@@ -130,6 +122,65 @@ class AiAssetReviewFlowIntegrationTest {
         assertThat(generatedAssetRepository.findById(asset.getId()).orElseThrow().getStatus())
                 .isEqualTo(AiGeneratedAssetStatus.APPROVED);
         Mockito.verify(auditLogUseCase).write(Mockito.any(AuditLogWriteRequest.class));
+    }
+
+    @Test
+    void approveInvalidPublishPayloadKeepsAssetValidatingAndDoesNotCreateVisibleVerseExplanation() {
+        verseExplanationRepository.save(verseExplanation(
+                1003L,
+                VerseExplanationStatus.APPROVED,
+                "ACTIVE",
+                "old active summary"
+        ));
+        AiValidationChecklistVersion checklistVersion = checklistVersionRepository.saveAndFlush(activeChecklist());
+        AiGeneratedAsset asset = generatedAssetRepository.saveAndFlush(AiGeneratedAsset.create(
+                1L,
+                AiGeneratedAssetType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                1003L,
+                """
+                        {
+                          "explanations": [
+                            {
+                              "verseId": 2003,
+                              "summary": "wrong target summary",
+                              "explanation": "wrong target explanation"
+                            }
+                          ]
+                        }
+                        """,
+                "QT-AI DeepSeek",
+                CREATED_AT
+        ));
+        saveValidationLog(asset, checklistVersion, 1, AiValidationReviewerType.AUTO, AiValidationResult.PASSED, 10);
+        saveValidationLog(asset, checklistVersion, 2, AiValidationReviewerType.ADVISOR, AiValidationResult.PASSED, 12);
+
+        assertThatThrownBy(() -> reviewService.reviewAiAsset(new ReviewAiAssetCommand(
+                7L,
+                asset.getId(),
+                "ADMIN",
+                "REVIEWER",
+                "APPROVE",
+                "approved reason",
+                true,
+                REVIEWED_AT
+        ))).isInstanceOfSatisfying(BusinessException.class, exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        generatedAssetRepository.flush();
+        verseExplanationRepository.flush();
+
+        assertThat(generatedAssetRepository.findById(asset.getId()).orElseThrow().getStatus())
+                .isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        assertThat(verseExplanationService.listApprovedByVerseIds(List.of(1003L)))
+                .singleElement()
+                .satisfies(explanation -> {
+                    assertThat(explanation.summary()).isEqualTo("old active summary");
+                    assertThat(explanation.aiAssetId()).isNotEqualTo(asset.getId());
+                });
+        assertThat(verseExplanationRepository.findAll())
+                .filteredOn(explanation -> asset.getId().equals(explanation.getAiAssetId()))
+                .isEmpty();
+        Mockito.verify(auditLogUseCase, Mockito.never()).write(Mockito.any(AuditLogWriteRequest.class));
     }
 
     @Test
@@ -154,24 +205,14 @@ class AiAssetReviewFlowIntegrationTest {
                 "QT-AI DeepSeek",
                 CREATED_AT
         ));
-        validationLogRepository.saveAndFlush(AiValidationLog.create(
-                asset.getId(),
-                null,
-                1,
-                AiValidationResult.PASSED,
-                AiValidationReviewerType.AUTO,
-                checklistVersion.getId(),
-                "{\"validator\":\"test\"}",
-                null,
-                CREATED_AT.plusMinutes(10)
-        ));
+        saveValidationLog(asset, checklistVersion, 1, AiValidationReviewerType.AUTO, AiValidationResult.PASSED, 10);
+        saveValidationLog(asset, checklistVersion, 2, AiValidationReviewerType.ADVISOR, AiValidationResult.PASSED, 12);
         reviewService.reviewAiAsset(new ReviewAiAssetCommand(
                 7L,
                 asset.getId(),
                 "ADMIN",
                 "REVIEWER",
                 "APPROVE",
-                checklistVersion.getId(),
                 "approved reason",
                 true,
                 REVIEWED_AT
@@ -185,7 +226,6 @@ class AiAssetReviewFlowIntegrationTest {
                 "ADMIN",
                 "REVIEWER",
                 "HIDE",
-                null,
                 "hide reason",
                 false,
                 REVIEWED_AT.plusMinutes(5)
@@ -206,6 +246,48 @@ class AiAssetReviewFlowIntegrationTest {
         Mockito.verify(auditLogUseCase, Mockito.times(2)).write(Mockito.any(AuditLogWriteRequest.class));
     }
 
+    @Test
+    void approveRequiresAdvisorLayer2ValidationLog() {
+        AiValidationChecklistVersion checklistVersion = checklistVersionRepository.saveAndFlush(activeChecklist());
+        AiGeneratedAsset asset = generatedAssetRepository.saveAndFlush(AiGeneratedAsset.create(
+                1L,
+                AiGeneratedAssetType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                1004L,
+                """
+                        {
+                          "explanations": [
+                            {
+                              "verseId": 1004,
+                              "summary": "summary",
+                              "explanation": "explanation"
+                            }
+                          ]
+                        }
+                        """,
+                "QT-AI DeepSeek",
+                CREATED_AT
+        ));
+        saveValidationLog(asset, checklistVersion, 1, AiValidationReviewerType.AUTO, AiValidationResult.PASSED, 10);
+
+        assertThatThrownBy(() -> reviewService.reviewAiAsset(new ReviewAiAssetCommand(
+                7L,
+                asset.getId(),
+                "ADMIN",
+                "REVIEWER",
+                "APPROVE",
+                "approved reason",
+                true,
+                REVIEWED_AT
+        ))).isInstanceOfSatisfying(BusinessException.class, exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+        generatedAssetRepository.flush();
+
+        assertThat(generatedAssetRepository.findById(asset.getId()).orElseThrow().getStatus())
+                .isEqualTo(AiGeneratedAssetStatus.VALIDATING);
+        Mockito.verify(auditLogUseCase, Mockito.never()).write(Mockito.any(AuditLogWriteRequest.class));
+    }
+
     private static AiValidationChecklistVersion activeChecklist() {
         AiValidationChecklistVersion version = AiValidationChecklistVersion.create(
                 AiValidationChecklistType.EXPLANATION,
@@ -216,5 +298,26 @@ class AiAssetReviewFlowIntegrationTest {
         );
         version.activate(CREATED_AT.minusHours(1));
         return version;
+    }
+
+    private AiValidationLog saveValidationLog(
+            AiGeneratedAsset asset,
+            AiValidationChecklistVersion checklistVersion,
+            int layer,
+            AiValidationReviewerType reviewerType,
+            AiValidationResult result,
+            int createdAtMinutes
+    ) {
+        return validationLogRepository.saveAndFlush(AiValidationLog.create(
+                asset.getId(),
+                null,
+                layer,
+                result,
+                reviewerType,
+                checklistVersion.getId(),
+                "{\"validator\":\"test\"}",
+                null,
+                CREATED_AT.plusMinutes(createdAtMinutes)
+        ));
     }
 }

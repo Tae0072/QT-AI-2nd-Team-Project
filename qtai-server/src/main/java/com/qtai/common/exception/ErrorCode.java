@@ -14,6 +14,7 @@ public enum ErrorCode {
     INVALID_STATUS_TRANSITION("C0003", "상태 전이를 수행할 수 없습니다.", HttpStatus.CONFLICT),
     RESOURCE_NOT_FOUND("C0004", "요청한 리소스를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOT_IMPLEMENTED("C0005", "아직 구현되지 않은 기능입니다.", HttpStatus.NOT_IMPLEMENTED),
+    EXTERNAL_API_FAILURE("C0006", "외부 API 호출에 실패했습니다.", HttpStatus.BAD_GATEWAY),
 
     // 회원
     MEMBER_NOT_FOUND("M0001", "회원을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

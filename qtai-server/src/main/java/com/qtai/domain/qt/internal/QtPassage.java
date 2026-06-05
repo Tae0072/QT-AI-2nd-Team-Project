@@ -36,4 +36,35 @@ public class QtPassage extends BaseEntity {
 
     @Column(name = "main_verse_ref", length = 100)
     private String mainVerseRef;
+
+    public static QtPassage create(
+            LocalDate qtDate,
+            Short bookId,
+            Short chapter,
+            Short startVerse,
+            Short endVerse,
+            String title,
+            String mainVerseRef
+    ) {
+        QtPassage passage = new QtPassage();
+        passage.qtDate = qtDate;
+        passage.updateRange(bookId, chapter, startVerse, endVerse, title, mainVerseRef);
+        return passage;
+    }
+
+    public void updateRange(
+            Short bookId,
+            Short chapter,
+            Short startVerse,
+            Short endVerse,
+            String title,
+            String mainVerseRef
+    ) {
+        this.bookId = bookId;
+        this.chapter = chapter;
+        this.startVerse = startVerse;
+        this.endVerse = endVerse;
+        this.title = title;
+        this.mainVerseRef = mainVerseRef;
+    }
 }

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
@@ -98,6 +99,48 @@ class ExplanationGenerationJobHandlerTest {
         verify(llmClient).complete(requestCaptor.capture());
         assertThat(requestCaptor.getValue().prompt())
                 .contains("verseId=1001", "verseId=1002", "QT title");
+    }
+
+    @Test
+    void createsBibleVersePayloadWithoutQtContext() throws Exception {
+        AiGenerationJob job = bibleVerseJob(1001L);
+        givenPromptVersion();
+        givenBibleVerses(List.of(1001L));
+        when(llmClient.complete(any())).thenReturn(completionResponse("""
+                {
+                  "explanations": [
+                    {"verseId": 1001, "summary": "summary one", "explanation": "explanation one"}
+                  ],
+                  "glossaryTerms": []
+                }
+                """));
+
+        AiGeneratedAsset asset = handler.generate(job, CREATED_AT);
+
+        assertThat(asset.getGenerationJobId()).isEqualTo(901L);
+        assertThat(asset.getAssetType()).isEqualTo(AiGeneratedAssetType.EXPLANATION);
+        assertThat(asset.getTargetType()).isEqualTo(AiTargetType.BIBLE_VERSE);
+        assertThat(asset.getTargetId()).isEqualTo(1001L);
+
+        JsonNode payload = objectMapper.readTree(asset.getPayloadJson());
+        assertThat(payload.path("explanations")).hasSize(1);
+        assertThat(payload.path("explanations").get(0).path("verseId").asLong()).isEqualTo(1001L);
+        assertThat(payload.path("glossaryTerms")).isEmpty();
+        assertThat(payload.path("sourceMetadata").path("targetType").asText()).isEqualTo("BIBLE_VERSE");
+        assertThat(payload.path("sourceMetadata").path("targetId").asLong()).isEqualTo(1001L);
+        assertThat(payload.path("sourceMetadata").path("verseIds")).hasSize(1);
+        assertThat(payload.path("sourceMetadata").path("verseIds").get(0).asLong()).isEqualTo(1001L);
+        assertThat(payload.path("sourceMetadata").has("qtPassageId")).isFalse();
+        assertThat(payload.path("sourceMetadata").has("qtDate")).isFalse();
+        assertThat(payload.path("sourceMetadata").has("title")).isFalse();
+
+        verifyNoInteractions(getQtPassageContentContextUseCase);
+        verify(getBibleVerseUseCase).getVerses(List.of(1001L));
+        ArgumentCaptor<LlmCompletionRequest> requestCaptor = ArgumentCaptor.forClass(LlmCompletionRequest.class);
+        verify(llmClient).complete(requestCaptor.capture());
+        assertThat(requestCaptor.getValue().prompt())
+                .contains("Target type: BIBLE_VERSE", "Target id: 1001", "verseId=1001")
+                .doesNotContain("QT passage id", "QT date", "QT title");
     }
 
     @Test
@@ -219,6 +262,18 @@ class ExplanationGenerationJobHandlerTest {
                 CREATED_AT.minusMinutes(2)
         );
         setId(job, 900L);
+        return job;
+    }
+
+    private static AiGenerationJob bibleVerseJob(Long targetId) {
+        AiGenerationJob job = AiGenerationJob.queue(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                targetId,
+                3L,
+                CREATED_AT.minusMinutes(2)
+        );
+        setId(job, 901L);
         return job;
     }
 

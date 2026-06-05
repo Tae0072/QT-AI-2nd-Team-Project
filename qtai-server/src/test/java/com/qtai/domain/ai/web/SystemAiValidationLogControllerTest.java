@@ -35,9 +35,9 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.RegisterAiValidationLogUseCase;
-import com.qtai.domain.ai.api.dto.RegisterAiValidationLogCommand;
-import com.qtai.domain.ai.api.dto.RegisterAiValidationLogResult;
+import com.qtai.domain.ai.api.validation.RegisterAiValidationLogUseCase;
+import com.qtai.domain.ai.api.validation.dto.RegisterAiValidationLogCommand;
+import com.qtai.domain.ai.api.validation.dto.RegisterAiValidationLogResult;
 
 class SystemAiValidationLogControllerTest {
 

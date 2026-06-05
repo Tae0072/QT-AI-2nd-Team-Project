@@ -62,7 +62,7 @@ void main() {
       expect(route, isA<MaterialPageRoute>());
     });
 
-    testWidgets('login route renders 카카오 로그인 텍스트', (tester) async {
+    testWidgets('login route renders 카카오로 시작하기 텍스트', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(
@@ -72,7 +72,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.text('카카오 로그인'), findsOneWidget);
+      expect(find.text('카카오로 시작하기'), findsOneWidget);
     });
 
     testWidgets('unknown route renders error message', (tester) async {
@@ -109,8 +109,8 @@ void main() {
       await tester.tap(find.text('건너뛰기'));
       await tester.pumpAndSettle();
 
-      // login 화면으로 전환됨 — LoginScreen의 카카오 로그인 버튼 확인
-      expect(find.text('카카오 로그인'), findsOneWidget);
+      // login 화면으로 전환됨 — LoginScreen의 카카오로 시작하기 버튼 확인
+      expect(find.text('카카오로 시작하기'), findsOneWidget);
 
       // SharedPreferences에 완료 플래그 저장됨
       expect(prefs.getBool('onboarding_complete'), isTrue);
