@@ -1,60 +1,68 @@
-﻿# 2026-06-05 ?덊눜 ?뚯썝 ?ш???李⑤떒(M0009) ?댁냼 ???쒕쾭 寃곌낵 蹂닿퀬
+# 2026-06-05 탈퇴 회원 재가입 차단(M0009) 해소 — 서버 결과 보고
 
-## ?붿빟
-?덊눜 ??利됱떆 ?듬챸?붽? `member_auth_providers` UNIQUE 異⑸룎???쇱쑝耳??ш??낆쓣
-?곴뎄 李⑤떒?섎뜕 踰꾧렇(M0009)瑜? ?덊눜 ?뺤콉 媛쒗렪(媛쒖씤?뺣낫 2??蹂댁〈 + ?щ줈洹몄씤 ??
-?ы솢?깊솕)?쇰줈 洹쇰낯 ?닿껐?덈떎. 蹂댁〈湲곌컙 留뚮즺 ?뚯썝???뺣━?섎뒗 ?쇱씪 諛곗튂瑜?異붽??덈떎.
+## 요약
+탈퇴 시 즉시 익명화가 `member_auth_providers` UNIQUE 충돌을 일으켜 재가입을
+영구 차단하던 버그(M0009)를, 탈퇴 정책 개편(개인정보 2년 보존 + 재로그인 시
+재활성화, 2026-06-05 결정)으로 근본 해결했다. 보존기간 만료 회원을 정리하는
+일일 배치를 도메인 경계를 지키는 포트 위임 구조로 추가했다.
 
-## ?꾨즺???묒뾽
+## 완료된 작업
 
-### 1. ?덊눜 ???듬챸???쒓굅, 2??蹂댁〈 (fix)
-- `Member.withdraw()`: status=WITHDRAWN + withdrawnAt 湲곕줉留??섑뻾
-  (湲곗〈: ?됰꽕???대찓???꾨줈??kakaoId 利됱떆 ?듬챸????M0009 ?먯씤)
-- `MemberService.withdraw()`: ?덊눜 利됱떆 refresh token 臾댄슚???몄뀡 ?뺣━) 異붽?
-- `WithdrawUseCase` javadoc ?뺤콉 媛깆떊
+### 1. 탈퇴 — 익명화 제거, 2년 보존 (fix)
+- `Member.withdraw()`: status=WITHDRAWN + withdrawnAt 기록만 수행
+  (기존: 닉네임/이메일/프로필/kakaoId 즉시 익명화 → M0009 원인)
+- 세션(refresh token) 무효화는 `MemberWithdrawnEvent` +
+  `@TransactionalEventListener(AFTER_COMMIT)` 핸들러로 분리 —
+  롤백 시 토큰 유지, Redis 실패가 탈퇴 트랜잭션을 깨지 않음
+- `WithdrawUseCase` javadoc 정책 갱신
 
-### 2. ?щ줈洹몄씤 ??湲곗〈 怨꾩젙 ?ы솢?깊솕 (fix)
-- `Member.reactivate(email, profileImageUrl)` 異붽? ???대찓?셋룻봽濡쒗븘? 移댁뭅??
-  理쒖떊 媛믪쑝濡?媛깆떊, ?됰꽕?꽷톘icknameChangedAt(7???좉툑)? ?좎?
-- `AuthService.login()`: WITHDRAWN ?뚯썝 諛쒓껄 ???ы솢?깊솕 ???좏겙 諛쒓툒.
-  ?좉퇋 媛??寃쎈줈瑜??吏 ?딆븘 auth_provider 以묐났 INSERT媛 諛쒖깮?섏? ?딆쓬
-- 遺??寃쎈줈 ?좎?: SUSPENDED 濡쒓렇??李⑤떒, refresh 寃쎈줈???ы솢?깊솕 ?놁씠
-  MEMBER_ALREADY_WITHDRAWN ?좎?
+### 2. 재로그인 — 기존 계정 재활성화 (fix)
+- `Member.reactivate(email, profileImageUrl)` 추가 — 이메일·프로필은 카카오
+  최신 값으로 갱신, 닉네임·nicknameChangedAt(7일 잠금)은 유지
+- `AuthService.login()`: WITHDRAWN 회원 발견 시 재활성화 후 토큰 발급.
+  재활성화는 login 메인 경로와 login 동시가입 재조회 경로에서만 수행
+- 부정 경로 유지: SUSPENDED 로그인 차단, refresh 경로는 재활성화 없이
+  MEMBER_ALREADY_WITHDRAWN 유지 (정책 주석 + 회귀 테스트로 고정)
 
-### 3. 蹂댁〈湲곌컙(2?? 留뚮즺 ?뺣━ 諛곗튂 (feat)
-- `MemberRetentionPurgeService`: withdrawn_at 2??寃쎄낵 ?뚯썝??FK ??닚?쇰줈
-  hard delete (12媛??뚯씠釉? ?볤? ?몃━??由ы봽-?곗꽑 諛섎났 ??젣濡??먭린李몄“ FK ?덉쟾)
-- Lead 寃곗젙(B??: ?덊눜???섎닎 湲???щ┛ ????볤?쨌醫뗭븘?붾룄 湲怨??④퍡 ?곗뇙 ??젣
-- 愿由ъ옄 ?곌껐 ?뚯썝 ?먮룞 ??젣 ?쒖쇅(?섎룞 泥섎━), ?뚯썝 ?⑥쐞 ?몃옖??뀡?쇰줈 遺遺??ㅽ뙣 寃⑸━
-- `MemberRetentionPurgeBatch`: 留ㅼ씪 03:00 KST(@Scheduled), SYSTEM_BATCH 二쇱껜
-- MySQL/H2 怨듯넻 ?숈옉 SQL留??ъ슜 (cutoff??Clock 湲곕컲 ?뚮씪誘명꽣 諛붿씤??
+### 3. 보존기간(2년) 만료 정리 배치 (feat)
+- `MemberRetentionPurgeService`(오케스트레이터): 각 도메인 데이터 삭제를
+  해당 도메인 api 포트(`Purge*UseCase` — note/sharing/praise/mission/
+  notification/report)로 위임, member는 자기 테이블만 직접 삭제
+- 호출 순서(FK 역순): sharing → note → praise → mission → notification →
+  report → member 본체(member_auth_providers는 ON DELETE CASCADE)
+- 댓글 자기참조 FK는 sharing 도메인에서 리프-우선 반복 삭제
+  (빈 IN() 가드, parent_id cycle 감지 시 해당 회원만 건너뜀)
+- 관리자 연결 회원(비활성 DISABLED 포함)은 자동 삭제 제외 —
+  `VerifyAdminRoleUseCase` 계약(`AdminService.findActiveAdminUser`) 기반
+- 회원 단위 트랜잭션 격리, 1회 실행당 LIMIT 500 (잔여분 다음 실행 처리)
+- `MemberRetentionPurgeBatch`: 매일 03:00 KST(@Scheduled), SYSTEM_BATCH 주체
+- MySQL/H2 공통 동작 SQL만 사용 (cutoff는 Clock 기반 파라미터 바인딩)
 
-## 蹂寃??뚯씪
-| ?뚯씪 | 蹂寃??댁슜 |
+## 변경 파일 (주요)
+| 파일 | 변경 내용 |
 |------|----------|
-| `domain/member/internal/Member.java` | withdraw ?듬챸???쒓굅 + reactivate 異붽? |
-| `domain/member/internal/AuthService.java` | 濡쒓렇?????ы솢?깊솕 遺꾧린 |
-| `domain/member/internal/MemberService.java` | ?덊눜 ??refresh token 臾댄슚??|
-| `domain/member/api/WithdrawUseCase.java` | ?뺤콉 javadoc 媛깆떊 |
-| `domain/member/api/PurgeExpiredWithdrawnMembersUseCase.java` | ?좉퇋 ??留뚮즺 ?뺣━ ?ы듃 |
-| `domain/member/internal/MemberRetentionPurgeService.java` | ?좉퇋 ???곗뇙 ??젣 援ы쁽 |
-| `batch/MemberRetentionPurgeBatch.java` | ?좉퇋 ??03:00 KST ?ㅼ?以?|
-| `??AuthServiceTest.java` | ?ы솢?깊솕 ?깃났 + ?뚭? 諛⑹? 寃利앹쑝濡?援먯껜 |
-| `??MemberServiceTest.java` | 蹂댁〈쨌?몄뀡 臾댄슚??寃利앹쑝濡?援먯껜 |
-| `??MemberRetentionPurgeServiceTest.java` | ?좉퇋 ???곗뇙 ??젣쨌寃쎄퀎쨌蹂댁〈 4嫄?|
+| `domain/member/internal/Member.java` | withdraw 익명화 제거 + reactivate 추가 |
+| `domain/member/internal/AuthService.java` | 로그인 시 재활성화 분기 + 정책 주석 |
+| `domain/member/internal/MemberService.java` | 탈퇴 이벤트 발행(AFTER_COMMIT 분리) |
+| `domain/member/internal/MemberWithdrawnEvent(Handler).java` | 신규 — 세션 무효화 이벤트 |
+| `domain/member/internal/MemberRetentionPurgeService.java` | 신규 — 만료 정리 오케스트레이터 |
+| `domain/member/api/Purge…·WithdrawUseCase` | 포트 신설·정책 갱신 |
+| `domain/{note,sharing,praise,mission,notification,report}/api·internal` | Purge 포트 + 구현 (순수 추가) |
+| `batch/MemberRetentionPurgeBatch.java` | 신규 — 03:00 KST 스케줄 |
+| 테스트 9파일 | 재활성화·보존·연쇄 삭제·경계·cycle·cron·이벤트 검증 |
 
-## 寃利?
-- [x] `gradlew build` ?꾩껜 ?듦낵 (test/check/ArchUnit ?ы븿, member ?꾨찓??84嫄?
-- [x] ?좉퇋 ?뚯뒪?? 2??寃쎄낵 ?곗뇙 ??젣(?????볤? ?ы븿)쨌?뺥솗??2??寃쎄퀎쨌
-  愿由ъ옄 ?쒖쇅쨌????놁쓬 0嫄?
-- [x] ?꾩빱 MySQL E2E: ?덊눜 ??移댁뭅???щ줈洹몄씤 ??`?덊눜 ?뚯썝 ?ы솢?깊솕: memberId=1`
-  ??`濡쒓렇???깃났` (?덊눜/?щ줈洹몄씤 2???ъ씠???뺤씤)
-- [x] gitleaks ????됰Ц ?쒗겕由??놁쓬, ? ?꾨찓??Java import ?놁쓬
+## 검증
+- [x] `gradlew build` 전체 통과 (test/check/ArchUnit 도메인 경계 포함)
+- [x] 통합 테스트(H2): 연쇄 삭제(3단계 대댓글 포함)·정확히 2년 경계·
+  관리자 연결(활성/비활성) 제외·댓글 cycle 회원 단위 skip·대상 없음 0건
+- [x] 단위 테스트: 재활성화(메인/재조회 경로)·refresh 차단 회귀·SUSPENDED 차단·
+  탈퇴 이벤트 발행·핸들러 실패 무전파·배치 cron 고정
+- [x] 도커 MySQL E2E: 탈퇴 → 카카오 재로그인 → `탈퇴 회원 재활성화: memberId=1`
+  → `로그인 성공` (탈퇴/재로그인 2회 사이클 확인)
 
-## 李멸퀬
-- ?뺣━ 諛곗튂媛 ?ㅽ궎留??꾨컲(12媛??뚯씠釉????ㅻ（???곗씠???섎챸二쇨린 ?묒뾽?대씪
-  ?꾨찓?몃퀎 UseCase 遺꾩궛 ???JdbcTemplate ?⑥씪 吏??SQL???좏깮 ???ㅻⅨ ?꾨찓??
-  ??낆쓣 import?섏? ?딆븘 紐⑤뱢 寃쎄퀎(import 湲곗?)???좎??섎ŉ 肄붾뱶 二쇱꽍??紐낆떆
-- `member_auth_providers`??ON DELETE CASCADE??Flyway ?뺤쓽??H2 ?뚯뒪?몄뿉??
-  誘멸?利?????MySQL ?ㅻえ???뚯뒪?몃뒗 ?꾩냽 怨쇱젣
-- `07_?붽뎄?ы빆_?뺤쓽??md` ?덊눜 ?뺤콉 諛섏쁺 ?꾩슂 (Lead 寃곗젙 2026-06-05)
+## 참고
+- mission/notification/report는 담당 범위 밖 도메인이나 Purge 포트 **순수 추가**만
+  수행했고 기존 코드는 수정하지 않았다 (PR 본문 "담당 범위 밖 변경" 사유 기재)
+- `member_auth_providers`의 ON DELETE CASCADE는 Flyway 정의라 H2 테스트에서
+  미검증 — 실 MySQL 스모크 테스트는 후속 과제
+- `07_요구사항_정의서.md` 탈퇴 정책 반영 필요 (2026-06-05 결정)

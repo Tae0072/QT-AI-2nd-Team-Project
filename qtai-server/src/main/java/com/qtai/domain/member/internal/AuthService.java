@@ -102,7 +102,10 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
             );
         } catch (DataIntegrityViolationException e) {
             // 동시 가입 경합: kakaoId 또는 닉네임 unique constraint 위반
-            // 다른 스레드가 먼저 생성 완료했으므로 새 트랜잭션에서 재조회
+            // 다른 스레드가 먼저 생성 완료했으므로 새 트랜잭션에서 재조회.
+            // 주의: 이 블록은 login()의 재시도 경로다 — refresh 경로가 아니므로
+            // 여기서의 reactivateIfWithdrawn 호출은 "refresh는 재활성화 차단" 정책과
+            // 무관하다 (refresh()는 재활성화 없이 MEMBER_ALREADY_WITHDRAWN 유지).
             log.info("동시 가입 경합 감지, 재조회: kakaoId={}", kakaoUser.id());
             member = Objects.requireNonNull(
                     transactionTemplate.execute(status -> {

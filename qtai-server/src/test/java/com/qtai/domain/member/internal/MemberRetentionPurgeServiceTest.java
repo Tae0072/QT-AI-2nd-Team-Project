@@ -137,12 +137,29 @@ class MemberRetentionPurgeServiceTest {
     void purgeExpired_관리자_연결_회원은_자동삭제_제외() {
         long e = insertMember("adminE", 105L, "WITHDRAWN", LocalDateTime.parse("2023-01-01T00:00:00"));
         Mockito.reset(verifyAdminRoleUseCase);
-        when(verifyAdminRoleUseCase.getActiveAdmin(e)).thenReturn(null); // 연결 존재
+        when(verifyAdminRoleUseCase.getActiveAdmin(e)).thenReturn(null); // 활성 관리자 연결 존재
 
         int purged = service.purgeExpired();
 
         assertThat(purged).isZero();
         assertThat(countWhere("members", "id = " + e)).isOne();
+    }
+
+    @Test
+    void purgeExpired_비활성_관리자_연결도_자동삭제_제외() {
+        // VerifyAdminRoleUseCase 계약(AdminService.findActiveAdminUser):
+        // admin_users row 존재 + 비활성 → ADMIN_USER_DISABLED.
+        // row가 존재하면(비활성 포함) reports.processed_by_admin_id FK가 남을 수
+        // 있으므로 자동 삭제에서 제외되어야 한다.
+        long d2 = insertMember("disabledAdminD", 109L, "WITHDRAWN", LocalDateTime.parse("2023-01-01T00:00:00"));
+        Mockito.reset(verifyAdminRoleUseCase);
+        when(verifyAdminRoleUseCase.getActiveAdmin(d2))
+                .thenThrow(new BusinessException(ErrorCode.ADMIN_USER_DISABLED));
+
+        int purged = service.purgeExpired();
+
+        assertThat(purged).isZero();
+        assertThat(countWhere("members", "id = " + d2)).isOne();
     }
 
     @Test

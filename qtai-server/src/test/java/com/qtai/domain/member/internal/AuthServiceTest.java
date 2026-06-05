@@ -144,6 +144,36 @@ class AuthServiceTest {
         assertThat(response.member().id()).isEqualTo(20L);
     }
 
+    @Test
+    void login_동시가입_재조회_경로에서도_탈퇴회원_재활성화() {
+        // 재조회 블록은 login()의 재시도 경로이므로 재활성화가 적용된다
+        // (refresh 경로의 "재활성화 차단" 정책과 무관함을 회귀 테스트로 고정)
+        LoginRequest request = new LoginRequest("kakao-token");
+        KakaoUserInfo kakaoUser = createKakaoUserInfo(77777L);
+        Member withdrawn = createMember(30L, 77777L, MemberStatus.ACTIVE);
+        withdrawn.withdraw(Clock.systemUTC());
+
+        when(kakaoOAuthClient.getUserInfo("kakao-token")).thenReturn(kakaoUser);
+
+        AtomicInteger callCount = new AtomicInteger(0);
+        Mockito.doAnswer(inv -> {
+            if (callCount.incrementAndGet() == 1) {
+                throw new DataIntegrityViolationException("Duplicate entry");
+            }
+            TransactionCallback<?> callback = inv.getArgument(0);
+            return callback.doInTransaction(null);
+        }).when(transactionTemplate).execute(any());
+
+        when(memberRepository.findByKakaoId(77777L)).thenReturn(Optional.of(withdrawn));
+        when(jwtProvider.issueAccessToken(30L, "USER")).thenReturn("access-jwt");
+        when(jwtProvider.issueRefreshToken(30L)).thenReturn("refresh-jwt");
+
+        LoginResponse response = authService.login(request);
+
+        assertThat(withdrawn.getStatus()).isEqualTo(MemberStatus.ACTIVE);
+        assertThat(response.member().status()).isEqualTo("ACTIVE");
+    }
+
     // ── login 실패 ──
 
     @Test
@@ -328,6 +358,9 @@ class AuthServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.MEMBER_ALREADY_WITHDRAWN);
         verify(refreshTokenStore).delete(1L);
+        // 정책 회귀 방지: 재활성화는 login 경로에서만 — refresh는 탈퇴 상태를 바꾸지 않는다
+        assertThat(withdrawn.getStatus()).isEqualTo(MemberStatus.WITHDRAWN);
+        verify(jwtProvider, never()).issueAccessToken(anyLong(), anyString());
     }
 
     // ── helper ──

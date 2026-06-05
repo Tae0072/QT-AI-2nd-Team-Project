@@ -1,82 +1,101 @@
-﻿# 2026-06-05 ?뚯썝 ?덊눜 ?뺤콉 媛쒗렪 ??2??蹂댁〈쨌?ы솢?깊솕쨌留뚮즺 ?뺣━ 諛곗튂
+# 2026-06-05 회원 탈퇴 정책 개편 — 2년 보존·재활성화·만료 정리 배치
 
-## 紐⑺몴
-?뚯썝 ?덊눜 ??媛숈? 移댁뭅??怨꾩젙?쇰줈 ?щ줈洹몄씤?섎㈃ M0009(移댁뭅???몄쬆 ?ㅽ뙣)濡?
-?곴뎄 李⑤떒?섎뒗 踰꾧렇瑜?洹쇰낯 ?닿껐?섍퀬, ?덊눜 ?뺤콉??"媛쒖씤?뺣낫 2??蹂댁〈 怨좎? +
-蹂댁〈 以??щ줈洹몄씤 ??怨꾩젙 蹂듦뎄 + 2??寃쎄낵 ???먮룞 ??젣"濡??뺤젙쨌援ы쁽?쒕떎.
+## 목표
+회원 탈퇴 후 같은 카카오 계정으로 재로그인하면 M0009(카카오 인증 실패)로
+영구 차단되는 버그를 근본 해결하고, 탈퇴 정책을 "개인정보 2년 보존 고지 +
+보존 중 재로그인 시 계정 복구 + 2년 경과 시 자동 삭제"로 확정·구현한다.
 
-## ?묒뾽 釉뚮옖移?
-- ?쒕쾭: `bugfix/member-withdraw-rejoin` (dev 湲곕컲)
-- Flutter: `bugfix/flutter-withdraw-cleanup` (dev 湲곕컲)
+## 작업 브랜치
+- 서버: `bugfix/member-withdraw-rejoin` (dev 기반)
+- Flutter: `bugfix/flutter-withdraw-cleanup` (dev 기반)
 
-## ?먯씤 吏꾨떒
+## 원인 진단
 
-### 利앹긽
-?덊눜 ???щ줈洹몄씤 ??`BusinessException: M0009 ??移댁뭅???몄쬆???ㅽ뙣?덉뒿?덈떎.`
+### 증상
+탈퇴 → 재로그인 시 `BusinessException: M0009 — 카카오 인증에 실패했습니다.`
 
-### 遺꾩꽍 (?꾩빱 MySQL 濡쒓렇쨌?곗씠??吏곸젒 ?뺤씤)
-1. 移댁뭅??API ?몄텧? ?깃났 (`移댁뭅???ъ슜???뺣낫 議고쉶 ?깃났: kakaoId=...`)
-2. 湲곗〈 `Member.withdraw()`媛 ?덊눜 利됱떆 kakao_id瑜??듬챸??-id) ??
-   ?щ줈洹몄씤 ??`findByKakaoId` 誘몃컻寃????좉퇋 媛??寃쎈줈 吏꾩엯
-3. `member_auth_providers`??`uk_auth_provider_user(provider, provider_user_id)`
-   row???듬챸?붾릺吏 ?딄퀬 ?⑥쓬 ??INSERT ??SQL 1062 以묐났
-4. `AuthService`媛 ?대? "?숈떆 媛??寃쏀빀"?쇰줈 ?ㅽ뙋 ??kakao_id ?ъ“?????놁쓬 ??M0009
+### 분석 (도커 MySQL 로그·데이터 직접 확인)
+1. 카카오 API 호출은 성공 (`카카오 사용자 정보 조회 성공: kakaoId=...`)
+2. 기존 `Member.withdraw()`가 탈퇴 즉시 kakao_id를 익명화(-id) →
+   재로그인 시 `findByKakaoId` 미발견 → 신규 가입 경로 진입
+3. `member_auth_providers`의 `uk_auth_provider_user(provider, provider_user_id)`
+   row는 익명화되지 않고 남음 → INSERT 시 SQL 1062 중복
+4. `AuthService`가 이를 "동시 가입 경합"으로 오판 → kakao_id 재조회 → 없음 → M0009
 
-### Flutter 痢??곗뇙 利앹긽
-- ?덊눜 ?몃뱾?ш? SecureStorage ?좏겙쨌移댁뭅???몄뀡쨌authStatus瑜??뺣━?섏? ?딆쓬 ??
-  ?щ줈洹몄씤 ?깃났 ??`setAuthenticated()`媛 ?숈씪 ?곹깭媛믪씠???붾㈃ ?꾪솚 遺덈컻(濡쒓렇???붾㈃ 猷⑦봽)
-- `logout()`??濡쒖뺄 ?좏겙??癒쇱? ??젣 ???쒕쾭 ?몄텧 ??臾댁씤利??몄텧濡?Redis refresh ?먭린 ?ㅽ뙣
+### Flutter 측 연쇄 증상
+- 탈퇴 핸들러가 SecureStorage 토큰·카카오 세션·authStatus를 정리하지 않음 →
+  재로그인 성공 시 `setAuthenticated()`가 동일 상태값이라 화면 전환 불발(로그인 화면 루프)
+- `logout()`이 로컬 토큰을 먼저 삭제 후 서버 호출 → 무인증 호출로 Redis refresh 폐기 실패
 
-## ?섏궗寃곗젙 湲곕줉 (Lead, 2026-06-05)
-| ??ぉ | 寃곗젙 |
+## 의사결정 기록 (2026-06-05, 이승욱)
+| 항목 | 결정 |
 |------|------|
-| ?덊눜 ??媛쒖씤?뺣낫 | 利됱떆 ?듬챸?뷀븯吏 ?딄퀬 **2??蹂댁〈** (?덊눜 ??怨좎?) |
-| 蹂댁〈 以??щ줈洹몄씤 | 湲곗〈 怨꾩젙 **?ы솢?깊솕** (?좉퇋 媛???꾨떂) |
-| 2??寃쎄낵 泥섎━ | 留ㅼ씪 03:00 KST 諛곗튂媛 **?꾨? hard delete** ???뚯썝쨌?명듃쨌?섎닎 湲쨌?????볤?源뚯? ?곗뇙 ??젣 (B?? ?섏씠釉뚮━???꾨떂) |
-| ?덊눜 ??移댁뭅??| **unlink(?곌껐?딄린)** ???щ줈洹몄씤 ???숈쓽?붾㈃遺??|
-| ?덊눜 ??泥?濡쒓렇??| **Prompt.login?쇰줈 移댁뭅??怨꾩젙 ?ъ씤利??대찓??鍮꾨쾲) 1??媛뺤젣** |
-| 怨좎? 臾멸뎄 | "?덊눜 ??怨꾩젙? 鍮꾪솢?깊솕?섎ŉ, 媛쒖씤?뺣낫? ?묒꽦 湲곕줉? 愿??踰뺣졊???곕씪 2?꾧컙 蹂닿? ???먮룞 ??젣?⑸땲?? 蹂닿? 湲곌컙 ??媛숈? 移댁뭅??怨꾩젙?쇰줈 ?ㅼ떆 濡쒓렇?명븯硫?怨꾩젙怨?湲곕줉??蹂듦뎄?⑸땲??" |
+| 탈퇴 시 개인정보 | 즉시 익명화하지 않고 **2년 보존** (탈퇴 시 고지) |
+| 보존 중 재로그인 | 기존 계정 **재활성화** (신규 가입 아님) |
+| 2년 경과 처리 | 매일 03:00 KST 배치가 **전부 hard delete** — 회원·노트·나눔 글·타인 대댓글까지 연쇄 삭제 (B안. 하이브리드 아님) |
+| 탈퇴 시 카카오 | **unlink(연결끊기)** — 재로그인 시 동의화면부터 |
+| 탈퇴 후 첫 로그인 | **Prompt.login으로 카카오 계정 재인증(이메일/비번) 1회 강제** |
+| 고지 문구 | "탈퇴 시 계정은 비활성화되며, 개인정보와 작성 기록은 관련 법령에 따라 2년간 보관 후 자동 삭제됩니다. 보관 기간 내 같은 카카오 계정으로 다시 로그인하면 계정과 기록이 복구됩니다." |
 
-## ?④퀎
+## 단계
 
-### 1?④퀎: ?쒕쾭 ???덊눜쨌?ы솢?깊솕 (?꾨즺)
-- `Member.withdraw()`: ?듬챸???쒓굅, status=WITHDRAWN + withdrawnAt留?湲곕줉
-- `Member.reactivate(email, profileImageUrl)` 異붽? ???됰꽕?꽷????좉툑? ?좎?
-- `AuthService.login()`: WITHDRAWN 諛쒓껄 ??reactivate ??吏꾪뻾 (SUSPENDED 李⑤떒 ?좎?,
-  refresh 寃쎈줈??湲곗〈?濡?MEMBER_ALREADY_WITHDRAWN ?좎?)
-- `MemberService.withdraw()`: refresh token 利됱떆 臾댄슚??異붽?
+### 1단계: 서버 — 탈퇴·재활성화 (완료)
+- `Member.withdraw()`: 익명화 제거, status=WITHDRAWN + withdrawnAt만 기록
+- `Member.reactivate(email, profileImageUrl)` 추가 — 닉네임·7일 잠금은 유지
+- `AuthService.login()`: WITHDRAWN 발견 시 reactivate 후 진행 (SUSPENDED 차단 유지,
+  refresh 경로는 재활성화 없이 MEMBER_ALREADY_WITHDRAWN 유지)
+- `MemberService.withdraw()`: 세션(refresh token) 무효화 — AFTER_COMMIT 이벤트로 분리
 
-### 2?④퀎: ?쒕쾭 ??蹂댁〈湲곌컙 留뚮즺 ?뺣━ 諛곗튂 (?꾨즺)
-- `PurgeExpiredWithdrawnMembersUseCase` + `MemberRetentionPurgeService`
-- ??젣 ?쒖꽌(FK ??닚): journal_events ??note_verses ??post_likes ??comments(?몃━ 由ы봽遺??
-  ??sharing_posts ??notes ??member_praise_songs ??member_mission_progress
-  ??member_settings ??notifications ??reports(?좉퀬??湲곗?) ??members(auth_providers CASCADE)
-- ?볤? ?먭린李몄“ FK: Java?먯꽌 ?몃━ transitive ?섏쭛 ??由ы봽-?곗꽑 諛섎났 ??젣 (MySQL/H2 怨듯넻 ?숈옉)
-- 愿由ъ옄 ?곌껐 ?뚯썝? ?먮룞 ??젣 ?쒖쇅(?섎룞 泥섎━), ?뚯썝 ?⑥쐞 ?몃옖??뀡?쇰줈 遺遺??ㅽ뙣 寃⑸━
-- `MemberRetentionPurgeBatch`: 留ㅼ씪 03:00 KST (00:05/04:00 湲곗〈 諛곗튂? ?쒓컙 遺꾨━)
+### 2단계: 서버 — 보존기간 만료 정리 배치 (완료)
+- `PurgeExpiredWithdrawnMembersUseCase` + `MemberRetentionPurgeService`(오케스트레이터)
+- 도메인 경계: 각 도메인 데이터 삭제는 해당 도메인 api 포트로 위임 —
+  note/sharing/praise/mission/notification/report에 `Purge*UseCase` 추가,
+  member는 자기 테이블(members, member_settings)만 직접 삭제
+- 호출 순서(FK 역순): sharing(나눔 글의 note FK 선행 해제) → note → praise →
+  mission → notification → report → member 본체(auth_providers는 ON DELETE CASCADE)
+- 댓글 자기참조 FK: sharing 도메인에서 트리 transitive 수집 후 리프-우선 반복 삭제
+  (빈 IN() 가드 + parent_id cycle 감지 시 해당 회원만 건너뜀)
+- 관리자 연결 회원(비활성 포함)은 자동 삭제 제외(수동 처리),
+  회원 단위 트랜잭션으로 부분 실패 격리, 1회 실행당 LIMIT 500
+- `MemberRetentionPurgeBatch`: 매일 03:00 KST (00:05/04:00 기존 배치와 시간 분리)
 
-### 3?④퀎: Flutter ???덊눜/濡쒓렇?꾩썐 ?뺣━ (?꾨즺)
-- ?덊눜: ?쒕쾭 ?덊눜 ??unlink + ?좏겙 ??젣 + ?ъ씤利??뚮옒洹???setUnauthenticated
-- logout(): ?쒕쾭 ?먭린 癒쇱? ??移댁뭅??logout ??濡쒖뺄 ?좏겙 ??젣(finally 蹂댁옣)
-- ?덊눜 ??泥?濡쒓렇?? `loginWithKakaoAccount(prompts: [Prompt.login])` 1??媛뺤젣
-- ?덊눜 ?ㅼ씠?쇰줈洹?怨좎? 臾멸뎄 援먯껜
+### 3단계: Flutter — 탈퇴/로그아웃 정리 (완료)
+- 탈퇴: 서버 탈퇴 → unlink + 토큰 삭제 + 재인증 플래그 → setUnauthenticated
+- logout(): 서버 폐기 먼저 → 카카오 logout → 로컬 토큰 삭제(finally 보장)
+- 탈퇴 후 첫 로그인: `loginWithKakaoAccount(prompts: [Prompt.login])` 1회 강제
+- 탈퇴 다이얼로그 고지 문구 교체
 
-### 4?④퀎: 寃利?(?꾨즺)
-- ?쒕쾭: `gradlew build` ?꾩껜 ?듦낵 (member ?꾨찓??84媛??뚯뒪???ы븿)
-- Flutter: `flutter analyze` 0嫄? `flutter test` 100媛??듦낵
-- E2E: ?꾩빱 MySQL?먯꽌 ?덊눜 ???щ줈洹몄씤 ??`?덊눜 ?뚯썝 ?ы솢?깊솕: memberId=1` ??
-  `濡쒓렇???깃났` 濡쒓렇 ?뺤씤 (2??諛섎났 ?ъ씠??寃利?
+### 4단계: 검증 (완료)
+- 서버: `gradlew build` 전체 통과 (ArchUnit 도메인 경계 테스트 포함)
+- Flutter: `flutter analyze` 0건, `flutter test` 100개 통과
+- E2E: 도커 MySQL에서 탈퇴 → 재로그인 → `탈퇴 회원 재활성화: memberId=1` →
+  `로그인 성공` 로그 확인 (2회 반복 사이클 검증)
 
-## ?몃윭釉붿뒋???대젰
-- **援ъ씠誘몄? ?щ퉴???ш퀬**: PR??Flutter 釉뚮옖移??쒕쾭 ?섏젙 誘명룷??濡??묒뾽 ?몃━瑜?
-  ?꾪솚?대몦 ?ъ씠 `docker compose up --build` ?ㅽ뻾 ??援щ쾭???쒕쾭濡?鍮뚮뱶?섏뼱 M0009 ?щ컻.
-  ?쒕쾭+Flutter ?섏젙??紐⑤몢 ?ы븿???몃━濡?蹂듦뎄 ???щ퉴?쒕줈 ?닿껐.
-  ??援먰썕: ?꾩빱 鍮뚮뱶???묒뾽 ?몃━ ?곹깭???섏〈?섎?濡?鍮뚮뱶 ??釉뚮옖移??곹깭 ?뺤씤 ?꾩닔
-- ?먮??덉씠?곗뿉 移댁뭅??怨꾩젙 ???몄뀡???⑥븘 "???뺣낫媛 ?먮룞?쇰줈 ?⑤뒗" ?꾩긽?
-  ?쒕퉬?ㅺ? ?쒖뼱?????녿뒗 移댁뭅??怨꾩젙 ?먯껜 濡쒓렇????Prompt.login ?꾩엯 諛곌꼍
+## 리뷰 반영 이력
+- [BLOCK] 타 도메인 테이블 직접 DELETE(경계 위반) → 도메인별 api 포트 위임으로 전환
+- [BLOCK] 빈 `IN ()` SQL 가드 + 댓글 parent_id cycle 감지(회원 단위 skip)
+- [BLOCK] `catch (Exception)` → `DataAccessException | TransactionException |
+  IllegalStateException` 멀티캐치로 축소
+- [WARN] 탈퇴 세션 무효화를 `@TransactionalEventListener(AFTER_COMMIT)` 이벤트로 분리
+- [WARN] 대량 만료 페이지네이션(LIMIT 500), 3단계 대댓글·cycle 엣지 테스트,
+  배치 cron 회귀 테스트, refresh 경로 정책 주석·회귀 테스트
+- 2차: `reactivateIfWithdrawn` 호출 위치 검증(login 메인 + login 동시가입 재조회 —
+  refresh 경로 아님) + 회귀 테스트, `VerifyAdminRoleUseCase`의 DISABLED 분기 계약
+  확인(`AdminService.findActiveAdminUser`) + 테스트, 문서 인코딩 복구
 
-## ?꾩냽 怨쇱젣
-- `07_?붽뎄?ы빆_?뺤쓽??md`???덊눜 ?뺤콉 蹂寃?諛섏쁺 (臾몄꽌 ??μ냼)
-- `member_auth_providers` ON DELETE CASCADE??Flyway ?뺤쓽??H2 ?뚯뒪??誘멸?利???
-  ??MySQL ?ㅻえ???뚯뒪??怨좊젮
-- ?덊눜 ?뚯썝 ?됰꽕?꾩쓽 ?ъ슜???몄텧 ?쒖떆 ?뺤콉(?섎닎 湲 ?묒꽦?먮챸 ??? 蹂꾨룄 寃??
+## 트러블슈팅 이력
+- **구이미지 재빌드 사고**: PR용 Flutter 브랜치(서버 수정 미포함)로 작업 트리를
+  전환해둔 사이 `docker compose up --build` 실행 → 구버전 서버로 빌드되어 M0009 재발.
+  서버+Flutter 수정이 모두 포함된 트리로 복구 후 재빌드로 해결.
+  → 교훈: 도커 빌드는 작업 트리 상태에 의존하므로 빌드 전 브랜치 상태 확인 필수
+- **문서 인코딩 깨짐**: PowerShell `Get-Content`(기본 ANSI/CP949)로 UTF-8 문서를
+  읽어 재저장하면서 한글 전체가 깨짐 → UTF-8 보장 도구로 재작성하여 복구.
+  → 교훈: 한글 문서 일괄 치환은 인코딩 명시 필수, 저장 후 바이트 단위 검증
+- 에뮬레이터에 카카오 계정 웹 세션이 남아 "내 정보가 자동으로 뜨는" 현상은
+  서비스가 제어할 수 없는 카카오 계정 자체 로그인 → Prompt.login 도입 배경
+
+## 후속 과제
+- `07_요구사항_정의서.md`에 탈퇴 정책 변경 반영 (문서 저장소)
+- `member_auth_providers` ON DELETE CASCADE는 Flyway 정의라 H2 테스트 미검증 —
+  실 MySQL 스모크 테스트 고려
+- 탈퇴 회원 닉네임의 사용자 노출 표시 정책(나눔 글 작성자명 등)은 별도 검토
