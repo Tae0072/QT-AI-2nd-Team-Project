@@ -78,12 +78,14 @@
 - [ ] restricted index 파일이 로컬 제한 저장소 경로에 배치된다.
 - [ ] `restricted://validation/index/reference-index.json`가 검증 대상 URI로 기록된다.
 - [ ] restricted 파일이 Git ignored 상태다.
+- [ ] `.gitignore`만으로는 `git add -f`를 막을 수 없으므로 pre-commit 또는 CI hook 차단 후속 작업이 명시된다.
 - [ ] schema가 `ai-review-reference-index.v1`이다.
 - [ ] source hash가 PDF hash와 일치한다.
 - [ ] entry count가 `3021`, book count가 `66`이다.
 - [ ] 회복 대상 9권 count가 모두 1 이상이다.
 - [ ] focused test가 통과한다.
 - [ ] report에 장문 원문 값과 긴 인용문이 포함되지 않는다.
+- [ ] PR 설명에 workflow/report 문서 경로가 포함되어야 함을 report에 명시한다.
 - [ ] stage 대상은 `qtai-server/.gitignore`, workflow, report 3개뿐이다.
 - [ ] 커밋이 생성된다.
 
@@ -135,6 +137,7 @@ $idx.sourceFileHash -eq $pdfHash
 
 ## 후속 작업으로 남길 항목
 
+- pre-commit 또는 CI hook으로 `qtai-server/restricted/**`, `qtai-server/build/**`, `doc/TalkFile_IVP*.pdf*` 강제 stage 차단
 - DB row 생성 또는 system API 호출 방식의 `validation_reference_jobs.indexStorageUri` 연결 검증
 - 운영 환경의 `QTAI_RESTRICTED_STORAGE_ROOT` 값 확정
 - 운영 restricted storage 배포

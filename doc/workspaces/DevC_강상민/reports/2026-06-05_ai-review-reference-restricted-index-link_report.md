@@ -94,8 +94,26 @@ git status --short --ignored -- qtai-server\restricted qtai-server\build\ai-revi
 - `qtai-server/build/**`
 - `doc/TalkFile_IVP성경배경주석.pdf.pdf`
 
+## 보안 안전장치 판단
+
+`restricted/` ignore는 로컬 산출물이 일반 stage에 포함되는 것을 막는 1차 안전장치다. 다만 `.gitignore`는 `git add -f` 강제 stage를 차단하지 못한다.
+
+따라서 다음 작업에서 pre-commit 또는 CI hook으로 아래 경로의 stage를 차단해야 한다.
+
+- `qtai-server/restricted/**`
+- `qtai-server/build/**`
+- `doc/TalkFile_IVP*.pdf*`
+
+## PR 설명 링크 확인
+
+PR 설명에는 다음 문서 경로를 포함해야 한다.
+
+- `doc/workspaces/DevC_강상민/workflows/2026-06-05_ai-review-reference-restricted-index-link.md`
+- `doc/workspaces/DevC_강상민/reports/2026-06-05_ai-review-reference-restricted-index-link_report.md`
+
 ## 후속 작업
 
+- pre-commit 또는 CI hook으로 민감 검증 참조자료 경로 강제 stage 차단
 - DB row 생성 또는 system API 호출 방식의 `validation_reference_jobs.indexStorageUri` 연결 검증
 - 운영 환경의 `QTAI_RESTRICTED_STORAGE_ROOT` 값 확정
 - 운영 restricted storage 배포
