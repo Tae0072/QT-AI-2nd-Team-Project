@@ -2,12 +2,19 @@ import 'package:dio/dio.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import '../../../core/storage/secure_storage.dart';
+import 'kakao_auth_client.dart';
 
 /// 인증 관련 API 호출 및 토큰 관리.
+///
+/// 카카오 SDK 호출은 [KakaoAuthClient] 포트를 통한다 —
+/// 싱글톤(UserApi.instance) 직접 의존을 끊어 단위 테스트를 가능하게 한다.
 class AuthRepository {
   final Dio _dio;
+  final KakaoAuthClient _kakao;
 
-  AuthRepository({required Dio dio}) : _dio = dio;
+  AuthRepository({required Dio dio, KakaoAuthClient? kakaoAuthClient})
+      : _dio = dio,
+        _kakao = kakaoAuthClient ?? SdkKakaoAuthClient();
 
   /// 카카오 로그인 → 서버 JWT 발급.
   ///
@@ -20,20 +27,20 @@ class AuthRepository {
     // 탈퇴 직후 첫 로그인은 Prompt.login으로 카카오 계정 재인증(이메일/비번 입력)을
     // 강제한다 — '완전히 새로 가입하는' 경험 제공 (2026-06-05 Lead 결정).
     final forceRelogin = await SecureStorage.getForceKakaoRelogin();
-    OAuthToken kakaoToken;
+    String kakaoAccessToken;
     if (forceRelogin) {
-      kakaoToken = await UserApi.instance
-          .loginWithKakaoAccount(prompts: [Prompt.login]);
-    } else if (await isKakaoTalkInstalled()) {
-      kakaoToken = await UserApi.instance.loginWithKakaoTalk();
+      kakaoAccessToken =
+          await _kakao.loginWithKakaoAccount(prompts: [Prompt.login]);
+    } else if (await _kakao.isKakaoTalkAvailable()) {
+      kakaoAccessToken = await _kakao.loginWithKakaoTalk();
     } else {
-      kakaoToken = await UserApi.instance.loginWithKakaoAccount();
+      kakaoAccessToken = await _kakao.loginWithKakaoAccount();
     }
 
     // 2) 서버에 카카오 토큰 전달 → JWT 발급
     final response = await _dio.post(
       '/auth/kakao',
-      data: {'kakaoAccessToken': kakaoToken.accessToken},
+      data: {'kakaoAccessToken': kakaoAccessToken},
     );
 
     final data = response.data['data'] as Map<String, dynamic>;
@@ -70,7 +77,7 @@ class AuthRepository {
     } finally {
       // 2) 카카오 SDK 로그아웃 (세션 종료 — 연결은 유지)
       try {
-        await UserApi.instance.logout();
+        await _kakao.logout();
       } catch (_) {
         // 카카오 로그아웃 실패해도 무시
       }
@@ -88,7 +95,7 @@ class AuthRepository {
   /// 로컬 토큰은 반드시 삭제한다.
   Future<void> cleanupAfterWithdraw() async {
     try {
-      await UserApi.instance.unlink();
+      await _kakao.unlink();
     } catch (_) {
       // 카카오 연결끊기 실패해도 로컬 정리는 계속 진행
     } finally {
