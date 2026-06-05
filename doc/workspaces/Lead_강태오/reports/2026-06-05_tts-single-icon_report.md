@@ -26,9 +26,16 @@ QT 화면의 TTS 플레이어 카드(시크바·시간·목소리 라벨)를 전
 | `flutter-app/lib/features/tts/widgets/qt_tts_button.dart` | 단일 아이콘 TTS 버튼 (구 qt_audio_player.dart) |
 | `flutter-app/lib/features/bible/screens/today_qt_screen.dart` | 카드 제거, 앱바에 QtTtsButton 배치 |
 
+## 아이콘 v2 개선 (같은 날 후속)
+- 1차 아이콘이 앱바 크기(26px)에서 흰 간격이 뭉개져 검은 덩어리로 보이는 문제 발견
+- 흰 간격 확대(파동 간격 ~100px/1000 기준), 얼굴 슬림화, 링 두께 축소로 재생성
+- 24px까지 얼굴 옆모습 + 음파 2줄 식별 가능 확인
+- `tool/make_tts_voice_icon.py`를 v2 스크립트로 갱신
+
 ## 검증
 - [x] flutter analyze: No issues found
-- [x] 에뮬레이터 E2E (adb 스크린샷)
+- [x] 에뮬레이터 E2E (adb 스크린샷, 앱바 확대 캡처로 재확인)
   - 본문 화면에서 플레이어 카드 제거 확인, 오버플로우(노란 줄) 없음
-  - 앱바에 자동 생성 스피너 → 완료 후 아이콘 표시
+  - 앱바에 자동 생성 스피너 → 완료 후 아이콘 표시 (v2 아이콘 가독성 확인)
   - 탭 → 재생(아이콘 빨강) → 재탭 → 정지(원래 색) 토글 정상
+  - 생성 중(스피너) 탭은 무시됨 — 의도된 동작
