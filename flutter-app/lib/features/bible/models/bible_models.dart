@@ -238,6 +238,18 @@ class QtStudyContent {
         explanations.isNotEmpty ||
         glossaryTerms.isNotEmpty;
   }
+
+  /// TTS 낭독용 주석 전체 텍스트 (절 순서대로, 빈 항목 제외).
+  String get readableText {
+    final buf = StringBuffer();
+    for (final item in explanations) {
+      final text = item.explanation.trim();
+      if (text.isNotEmpty) {
+        buf.writeln(text);
+      }
+    }
+    return buf.toString().trim();
+  }
 }
 
 class QtStudyExplanation {

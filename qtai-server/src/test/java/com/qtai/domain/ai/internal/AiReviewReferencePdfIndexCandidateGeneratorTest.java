@@ -58,6 +58,39 @@ class AiReviewReferencePdfIndexCandidateGeneratorTest {
     }
 
     @Test
+    void splitsEntriesByBookNamePrefixedHeadingLines() {
+        List<AiReviewReferencePdfIndexCandidateWriter.CandidateEntry> entries = generator.entriesFromPages(List.of(
+                new AiReviewReferencePdfIndexCandidateGenerator.PageText(20, """
+                        시편 8:3 -9:13
+                        시편 후보 본문입니다. 충분한 길이를 만들기 위해 문장을 덧붙입니다.
+                        나홍1 :1 -2
+                        나훔 후보 본문입니다. 충분한 길이를 만들기 위해 문장을 덧붙입니다.
+                        """)
+        ));
+
+        assertThat(entries).hasSize(2);
+        assertThat(entries.get(0).pageStart()).isEqualTo(20);
+        assertThat(entries.get(0).detectedHeading()).isEqualTo("8:3-9:13");
+        assertThat(entries.get(1).detectedHeading()).isEqualTo("1:1-2");
+    }
+
+    @Test
+    void splitsEntryAtRightmostBookHeadingInMixedBoundaryLine() {
+        List<AiReviewReferencePdfIndexCandidateWriter.CandidateEntry> entries = generator.entriesFromPages(List.of(
+                new AiReviewReferencePdfIndexCandidateGenerator.PageText(30, """
+                        잠언 31 : 16-전도서 1 ’ 2
+                        전도서 후보 본문입니다. 충분한 길이를 만들기 위해 문장을 덧붙입니다.
+                        전도서 12 :3 아가 1 :3
+                        아가 후보 본문입니다. 충분한 길이를 만들기 위해 문장을 덧붙입니다.
+                        """)
+        ));
+
+        assertThat(entries).hasSize(2);
+        assertThat(entries.get(0).detectedHeading()).isEqualTo("1:2");
+        assertThat(entries.get(1).detectedHeading()).isEqualTo("1:3");
+    }
+
+    @Test
     void doesNotSplitBodyLineThatStartsWithVerseReferenceAndText() {
         List<AiReviewReferencePdfIndexCandidateWriter.CandidateEntry> entries = generator.entriesFromPages(List.of(
                 new AiReviewReferencePdfIndexCandidateGenerator.PageText(5, """

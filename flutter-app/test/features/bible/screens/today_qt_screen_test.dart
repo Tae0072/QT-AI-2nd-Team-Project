@@ -7,10 +7,16 @@ import 'package:qtai_app/features/bible/models/bible_reference.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/screens/today_qt_screen.dart';
 import 'package:qtai_app/features/bible/services/bible_repository.dart';
+import 'package:qtai_app/features/onboarding/providers/onboarding_providers.dart';
+import 'package:qtai_app/features/tts/widgets/qt_tts_button.dart';
 import 'package:qtai_app/routes/app_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('오늘 QT 화면은 기본 한글 본문만 보이고 영어는 선택 시 표시한다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
     const passage = TodayQtPassage(
       reference: BibleReference(
         koreanBookName: '고린도전서',
@@ -41,6 +47,7 @@ void main() {
       ProviderScope(
         overrides: [
           todayQtPassageProvider.overrideWith((ref) async => passage),
+          sharedPreferencesProvider.overrideWithValue(prefs),
         ],
         child: const MaterialApp(home: TodayQtScreen()),
       ),
@@ -58,9 +65,13 @@ void main() {
 
     expect(find.text('1 Corinthians'), findsOneWidget);
     expect(find.text('Dummy English verse 10'), findsOneWidget);
+    expect(find.byType(QtTtsButton), findsOneWidget);
   });
 
   testWidgets('노트 버튼을 누르면 오늘 QT 본문을 가진 노트 작성 화면으로 이동한다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
     const passage = TodayQtPassage(
       qtPassageId: 7,
       passageDate: '2026-06-05',
@@ -94,6 +105,7 @@ void main() {
       ProviderScope(
         overrides: [
           todayQtPassageProvider.overrideWith((ref) async => passage),
+          sharedPreferencesProvider.overrideWithValue(prefs),
         ],
         child: const MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
@@ -115,6 +127,9 @@ void main() {
   });
 
   testWidgets('해설 버튼을 누르면 준비된 해설이 없을 때 빈 상태를 표시한다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
     const passage = TodayQtPassage(
       qtPassageId: 7,
       passageDate: '2026-06-05',
@@ -149,6 +164,7 @@ void main() {
         overrides: [
           todayQtPassageProvider.overrideWith((ref) async => passage),
           bibleRepositoryProvider.overrideWithValue(_FakeBibleRepository()),
+          sharedPreferencesProvider.overrideWithValue(prefs),
         ],
         child: const MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,

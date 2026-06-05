@@ -1,10 +1,13 @@
 package com.qtai.domain.ai.internal;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +56,7 @@ class AiReviewReferenceIndexReader {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, HASH_MISMATCH);
         }
 
-        OffsetDateTime generatedAt = parseGeneratedAt(requiredText(root, "generatedAt"));
+        OffsetDateTime generatedAt = parseGeneratedAt(root.get("generatedAt"));
         List<ReferenceIndexEntry> entries = parseEntries(root.get("entries"));
         return new ReferenceIndex(schemaVersion, sourceFileHash, generatedAt, entries);
     }
@@ -121,10 +124,36 @@ class AiReviewReferenceIndexReader {
         return value;
     }
 
-    private static OffsetDateTime parseGeneratedAt(String generatedAt) {
+    private static OffsetDateTime parseGeneratedAt(JsonNode generatedAtNode) {
+        if (generatedAtNode == null) {
+            throw invalidIndex();
+        }
+        if (generatedAtNode.isTextual()) {
+            return parseGeneratedAtText(generatedAtNode.asText());
+        }
+        if (generatedAtNode.isNumber()) {
+            return parseGeneratedAtEpochSeconds(generatedAtNode.decimalValue());
+        }
+        throw invalidIndex();
+    }
+
+    private static OffsetDateTime parseGeneratedAtText(String generatedAt) {
         try {
             return OffsetDateTime.parse(generatedAt);
         } catch (DateTimeParseException exception) {
+            throw invalidIndex();
+        }
+    }
+
+    private static OffsetDateTime parseGeneratedAtEpochSeconds(BigDecimal epochSeconds) {
+        try {
+            long seconds = epochSeconds.longValue();
+            int nanos = epochSeconds
+                    .subtract(BigDecimal.valueOf(seconds))
+                    .movePointRight(9)
+                    .intValue();
+            return OffsetDateTime.ofInstant(Instant.ofEpochSecond(seconds, nanos), ZoneOffset.UTC);
+        } catch (ArithmeticException exception) {
             throw invalidIndex();
         }
     }

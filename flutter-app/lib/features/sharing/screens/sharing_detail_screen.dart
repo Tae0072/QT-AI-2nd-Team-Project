@@ -17,6 +17,9 @@ class SharingDetailScreen extends ConsumerStatefulWidget {
 class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
   SharingPostDetail? _detail;
   bool _isLoading = true;
+  List<CommentItem> _comments = [];
+  final _commentController = TextEditingController();
+  bool _sendingComment = false;
 
   @override
   void initState() {
@@ -24,13 +27,113 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
     _loadDetail();
   }
 
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadDetail() async {
     setState(() => _isLoading = true);
     try {
-      final detail = await ref.read(sharingRepositoryProvider).getSharingPostDetail(widget.postId);
-      if (mounted) setState(() { _detail = detail; _isLoading = false; });
+      final repo = ref.read(sharingRepositoryProvider);
+      final detail = await repo.getSharingPostDetail(widget.postId);
+      // ✏️ 댓글이 켜진 글만 댓글을 불러온다(꺼진 글은 빈 목록 유지).
+      final comments =
+          detail.commentsEnabled ? await repo.getComments(widget.postId) : <CommentItem>[];
+      if (mounted) {
+        setState(() {
+          _detail = detail;
+          _comments = comments;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// 댓글 작성 → 목록·상세(댓글 수) 새로고침.
+  Future<void> _submitComment() async {
+    final body = _commentController.text.trim();
+    if (body.isEmpty || _sendingComment) return;
+    setState(() => _sendingComment = true);
+    try {
+      await ref.read(sharingRepositoryProvider).createComment(widget.postId, body);
+      _commentController.clear();
+      await _loadDetail(); // 댓글 목록 + commentCount 갱신
+      ref.invalidate(sharingPostsProvider); // 피드의 댓글 수도 갱신
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('댓글 작성에 실패했습니다')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingComment = false);
+    }
+  }
+
+  /// 내 댓글 삭제.
+  Future<void> _deleteComment(int commentId) async {
+    try {
+      await ref.read(sharingRepositoryProvider).deleteComment(commentId);
+      await _loadDetail();
+      ref.invalidate(sharingPostsProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('댓글 삭제에 실패했습니다')),
+        );
+      }
+    }
+  }
+
+  /// 신고 바텀시트 → 사유 선택 시 POST /reports.
+  Future<void> _showReportSheet() async {
+    const reasons = {
+      'SPAM': '스팸/광고',
+      'HATE': '혐오/욕설',
+      'SEXUAL': '선정성',
+      'ETC': '기타',
+    };
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('신고 사유를 선택하세요'),
+            ),
+            for (final entry in reasons.entries)
+              ListTile(
+                title: Text(entry.value),
+                onTap: () => Navigator.pop(context, entry.key),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (reason == null || !mounted) return;
+    try {
+      await ref.read(sharingRepositoryProvider).report(
+            targetType: 'POST',
+            targetId: widget.postId,
+            reason: reason,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('신고가 접수되었습니다')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('신고에 실패했습니다')),
+        );
+      }
     }
   }
 
@@ -95,12 +198,8 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
             IconButton(icon: const Icon(Icons.delete_outline), onPressed: _deletePost),
           IconButton(
             icon: const Icon(Icons.flag_outlined),
-            onPressed: () {
-              // TODO: POST /reports API
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('신고 기능은 준비 중입니다')),
-              );
-            },
+            tooltip: '신고',
+            onPressed: _showReportSheet,
           ),
         ],
       ),
@@ -147,13 +246,56 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
                       if (_detail!.commentsEnabled) ...[
                         Text('댓글', style: theme.textTheme.titleMedium),
                         const SizedBox(height: 8),
-                        // TODO: 댓글 API 연결
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Text('댓글 기능은 준비 중입니다', style: TextStyle(color: Colors.grey)),
-                          ),
+                        // 댓글 입력 줄
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _commentController,
+                                decoration: const InputDecoration(
+                                  hintText: '댓글을 입력하세요',
+                                  isDense: true,
+                                  border: OutlineInputBorder(),
+                                ),
+                                minLines: 1,
+                                maxLines: 3,
+                              ),
+                            ),
+                            IconButton(
+                              icon: _sendingComment
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2))
+                                  : const Icon(Icons.send),
+                              onPressed: _sendingComment ? null : _submitComment,
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 8),
+                        // 댓글 목록
+                        if (_comments.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text('첫 댓글을 남겨보세요',
+                                style: TextStyle(color: Colors.grey)),
+                          )
+                        else
+                          for (final c in _comments)
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(c.nickname,
+                                  style: theme.textTheme.bodySmall
+                                      ?.copyWith(color: Colors.grey)),
+                              subtitle: Text(c.body,
+                                  style: theme.textTheme.bodyMedium),
+                              trailing: c.ownedByMe
+                                  ? IconButton(
+                                      icon: const Icon(Icons.delete_outline, size: 20),
+                                      onPressed: () => _deleteComment(c.id),
+                                    )
+                                  : null,
+                            ),
                       ] else
                         const Padding(
                           padding: EdgeInsets.all(16),

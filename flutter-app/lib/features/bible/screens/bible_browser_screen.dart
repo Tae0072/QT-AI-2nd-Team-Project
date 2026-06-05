@@ -47,10 +47,11 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
     final requestId = ++_chapterRequestId;
     setState(() => _isLoadingChapter = true);
     try {
-      final chapterRange = await ref.read(bibleRepositoryProvider).getChapterVerses(
-            bookCode: bookCode,
-            chapter: chapter,
-          );
+      final chapterRange =
+          await ref.read(bibleRepositoryProvider).getChapterVerses(
+                bookCode: bookCode,
+                chapter: chapter,
+              );
       if (!mounted || requestId != _chapterRequestId) {
         return;
       }
@@ -353,10 +354,10 @@ class _BibleRangePicker extends StatelessWidget {
                 child: _PickerColumn(
                   key: const Key('bible-book-picker'),
                   label: '성경',
-                  selectedIndex:
-                      selectedBookIndex < 0 ? 0 : selectedBookIndex,
+                  selectedIndex: selectedBookIndex < 0 ? 0 : selectedBookIndex,
                   items: [for (final book in books) book.koreanName],
-                  onSelectedIndexChanged: (index) => onBookChanged(books[index]),
+                  onSelectedIndexChanged: (index) =>
+                      onBookChanged(books[index]),
                 ),
               ),
               Expanded(

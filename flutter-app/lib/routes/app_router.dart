@@ -2,19 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/auth/screens/login_screen.dart';
-import '../features/home/screens/home_screen.dart';
 import '../features/auth/screens/nickname_setup_screen.dart';
+import '../features/home/screens/home_screen.dart';
 import '../features/mypage/screens/mypage_screen.dart';
 import '../features/mypage/screens/notification_list_screen.dart';
 import '../features/mypage/screens/praise_screen.dart';
 import '../features/mypage/screens/profile_edit_screen.dart';
 import '../features/mypage/screens/settings_screen.dart';
+import '../features/mypage/screens/tts_settings_screen.dart';
+import '../features/note/screens/note_category_select_screen.dart';
+import '../features/note/screens/note_detail_screen.dart';
+import '../features/note/screens/note_edit_screen.dart';
+import '../features/note/screens/note_list_screen.dart';
 import '../features/note/screens/qt_note_editor_screen.dart';
+import '../features/onboarding/providers/onboarding_providers.dart';
+import '../features/onboarding/screens/onboarding_screen.dart';
 import '../features/sharing/screens/sharing_detail_screen.dart';
 import '../features/sharing/screens/sharing_feed_screen.dart';
 import '../features/study/screens/qt_study_content_screen.dart';
-import '../features/onboarding/providers/onboarding_providers.dart';
-import '../features/onboarding/screens/onboarding_screen.dart';
 
 /// 앱 라우트 설정.
 class AppRouter {
@@ -27,9 +32,14 @@ class AppRouter {
   static const String profileEdit = '/my-page/profile';
   static const String notifications = '/notifications';
   static const String appSettings = '/settings';
+  static const String ttsSettings = '/settings/tts';
   static const String praise = '/praise';
   static const String sharing = '/sharing';
   static const String sharingDetail = '/sharing/detail';
+  static const String noteList = '/notes';
+  static const String noteCategorySelect = '/notes/category-select';
+  static const String noteEdit = '/notes/edit';
+  static const String noteDetail = '/notes/detail';
   static const String qtNoteEditor = '/notes/qt-editor';
   static const String qtStudyContent = '/qt/study-content';
 
@@ -76,6 +86,10 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (_) => const SettingsScreen(),
         );
+      case ttsSettings:
+        return MaterialPageRoute(
+          builder: (_) => const TtsSettingsScreen(),
+        );
       case praise:
         return MaterialPageRoute(
           builder: (_) => const PraiseScreen(),
@@ -88,6 +102,24 @@ class AppRouter {
         final postId = settings.arguments as int;
         return MaterialPageRoute(
           builder: (_) => SharingDetailScreen(postId: postId),
+        );
+      case noteList:
+        return MaterialPageRoute(
+          builder: (_) => const NoteListScreen(),
+        );
+      case noteCategorySelect:
+        return MaterialPageRoute(
+          builder: (_) => const NoteCategorySelectScreen(),
+        );
+      case noteEdit:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const NoteEditScreen(),
+        );
+      case noteDetail:
+        final noteId = settings.arguments as int;
+        return MaterialPageRoute(
+          builder: (_) => NoteDetailScreen(noteId: noteId),
         );
       case qtNoteEditor:
         final args = settings.arguments as QtNoteEditorArgs;

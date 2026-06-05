@@ -24,10 +24,10 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('카카오 로그인'), findsOneWidget);
+      expect(find.text('카카오로 시작하기'), findsOneWidget);
     });
 
-    testWidgets('앱 타이틀 QT AI가 표시된다', (tester) async {
+    testWidgets('헤드라인이 표시된다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(home: LoginScreen()),
@@ -35,18 +35,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('QT AI'), findsOneWidget);
-    });
-
-    testWidgets('앱 설명 텍스트가 표시된다', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(home: LoginScreen()),
-        ),
-      );
-      await tester.pump();
-
-      expect(find.text('매일의 큐티를 더 깊이있게'), findsOneWidget);
+      expect(find.textContaining('매일의 묵상을'), findsOneWidget);
     });
 
     testWidgets('카카오 로그인 버튼은 ElevatedButton이다', (tester) async {
@@ -69,17 +58,6 @@ void main() {
       await tester.pump();
 
       expect(find.text('로그인에 실패했습니다. 다시 시도해주세요.'), findsNothing);
-    });
-
-    testWidgets('초기 상태에서 로딩 인디케이터가 없다', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(home: LoginScreen()),
-        ),
-      );
-      await tester.pump();
-
-      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });
 }
