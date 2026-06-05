@@ -23,6 +23,13 @@ class BibleRepository {
     return TodayQtSummary.fromJson(data);
   }
 
+  /// QT 학습 콘텐츠(해설/주석) 조회 — TTS 주석 읽기에 사용.
+  Future<QtStudyContent> getQtStudyContent(int qtPassageId) async {
+    final response = await _dio.get('/qt/$qtPassageId/study-content');
+    final data = response.data['data'] as Map<String, dynamic>;
+    return QtStudyContent.fromJson(data);
+  }
+
   Future<BibleVerseRange> getVerses({
     required String bookCode,
     required int chapter,
