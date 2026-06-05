@@ -88,7 +88,10 @@ class SuTodayPassageImportSchedulerTest {
 
         verify(repository).existsByQtDate(LocalDate.of(2026, 6, 2));
         verifyNoInteractions(client);
-        verifyNoInteractions(importService);
+        // 본문 import는 생략하되, 절 매핑 백필은 항상 시도한다
+        verify(importService, org.mockito.Mockito.never())
+                .importToday(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(importService).backfillMissingVerseMappings();
     }
 
     @Test
@@ -106,7 +109,10 @@ class SuTodayPassageImportSchedulerTest {
 
         verify(repository).existsByQtDate(LocalDate.of(2026, 6, 2));
         verifyNoInteractions(client);
-        verifyNoInteractions(importService);
+        // import 경로 실패와 무관하게 절 매핑 백필은 시도된다
+        verify(importService, org.mockito.Mockito.never())
+                .importToday(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(importService).backfillMissingVerseMappings();
         assertThat(output).contains(
                 "성서유니온 오늘 QT startup 보강 실패",
                 "errorType=IllegalStateException",

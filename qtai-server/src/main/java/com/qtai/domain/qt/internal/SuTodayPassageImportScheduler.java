@@ -46,14 +46,30 @@ class SuTodayPassageImportScheduler {
         }
         LocalDate today = LocalDate.now(clock.withZone(KST));
         try {
-            if (qtPassageRepository.existsByQtDate(today)) {
-                return;
+            if (!qtPassageRepository.existsByQtDate(today)) {
+                importToday();
             }
-            importToday();
         } catch (RuntimeException exception) {
             log.warn(
                     "성서유니온 오늘 QT startup 보강 실패. qtDate={}, errorType={}, errorMessage={}",
                     today,
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage()
+            );
+        }
+        backfillVerseMappings();
+    }
+
+    /** 절 매핑(qt_passage_verses) 누락분 백필 — 과거 수집분 포함, 실패는 로그만. */
+    private void backfillVerseMappings() {
+        try {
+            int filled = importService.backfillMissingVerseMappings();
+            if (filled > 0) {
+                log.info("QT 절 매핑 백필 완료. filledCount={}", filled);
+            }
+        } catch (RuntimeException exception) {
+            log.warn(
+                    "QT 절 매핑 백필 실패. errorType={}, errorMessage={}",
                     exception.getClass().getSimpleName(),
                     exception.getMessage()
             );

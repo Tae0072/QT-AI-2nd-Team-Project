@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -17,12 +18,18 @@ public interface QtPassageRepository extends JpaRepository<QtPassage, Long> {
 
     boolean existsByQtDate(LocalDate qtDate);
 
-    @Query(value = """
-            SELECT b.id
-              FROM bible_books b
-             WHERE b.english_name = :englishName
-            """, nativeQuery = true)
-    Optional<Short> findBookIdByEnglishName(@Param("englishName") String englishName);
+    /** 절 매핑(qt_passage_verses)이 비어 있는 본문 — 매핑 백필 대상 조회. */
+    @Query("""
+            select p
+              from QtPassage p
+             where p.deletedAt is null
+               and not exists (
+                   select 1
+                     from QtPassageVerse v
+                    where v.qtPassageId = p.id
+               )
+            """)
+    List<QtPassage> findAllWithoutVerseMappings();
 
     @Query(value = """
             SELECT b.testament AS testament,
