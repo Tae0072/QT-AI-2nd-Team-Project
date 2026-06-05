@@ -5,9 +5,11 @@ import '../providers/tts_providers.dart';
 
 /// QT 본문 읽기용 오디오 플레이어 위젯.
 ///
-/// QT 상세 화면 하단에 배치하여 음성 생성 → 재생을 한 곳에서 처리한다.
+/// QT 상세 화면 하단에 배치한다. 위젯이 뜨는 즉시(=QT 본문 로드 시)
+/// 백그라운드로 음성을 미리 생성하고, ▶ 버튼은 준비된 음성을 바로 재생한다.
 /// [qtText]에 QT 본문, [qtDate]에 날짜를 넘기면
 /// 캐시 키를 자동 생성하여 같은 QT는 한 번만 생성한다.
+/// 목소리는 마이페이지 > 설정에서 변경하며, 변경 시 자동으로 다시 준비한다.
 class QtAudioPlayer extends ConsumerStatefulWidget {
   final String qtText;
   final String qtDate; // 예: "2026-06-04"
@@ -41,6 +43,11 @@ class _QtAudioPlayerState extends ConsumerState<QtAudioPlayer> {
     _player.playerStateStream.listen((state) {
       if (mounted) setState(() {});
     });
+
+    // QT 본문이 로드되어 위젯이 뜨면 바로 음성을 미리 준비한다 (자동 생성).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _prepareAudio();
+    });
   }
 
   @override
@@ -49,7 +56,12 @@ class _QtAudioPlayerState extends ConsumerState<QtAudioPlayer> {
     super.dispose();
   }
 
-  Future<void> _generateAndPlay() async {
+  /// 음성을 생성(또는 캐시에서 로드)해 플레이어에 세팅한다.
+  ///
+  /// [autoPlay]가 true면 준비 완료 후 바로 재생한다.
+  /// 위젯 표시 직후에는 autoPlay=false로 미리 준비만 해두고,
+  /// 준비 전에 ▶를 누르면 autoPlay=true로 호출된다.
+  Future<void> _prepareAudio({bool autoPlay = false}) async {
     final repo = ref.read(ttsRepositoryProvider);
     final voice = ref.read(selectedVoiceProvider);
     final token = ref.read(ttsTokenProvider);
@@ -58,6 +70,7 @@ class _QtAudioPlayerState extends ConsumerState<QtAudioPlayer> {
       setState(() => _errorMessage = 'TTS 토큰이 설정되지 않았습니다');
       return;
     }
+    if (widget.qtText.trim().isEmpty || _isGenerating) return;
 
     setState(() {
       _isGenerating = true;
@@ -65,7 +78,7 @@ class _QtAudioPlayerState extends ConsumerState<QtAudioPlayer> {
     });
 
     try {
-      // 캐시 키: 날짜_목소리해시
+      // 캐시 키: 날짜_목소리해시 — 같은 날짜·목소리면 재생성하지 않는다
       final voiceHash = voice.hashCode.toRadixString(16);
       final cacheKey = '${widget.qtDate}_$voiceHash';
 
@@ -75,12 +88,13 @@ class _QtAudioPlayerState extends ConsumerState<QtAudioPlayer> {
         cacheKey: cacheKey,
       );
 
+      if (!mounted) return;
       await _player.setFilePath(audioPath);
-      await _player.play();
+      if (autoPlay) await _player.play();
     } catch (e) {
-      setState(() => _errorMessage = '음성 생성 실패: $e');
+      if (mounted) setState(() => _errorMessage = '음성 생성 실패: $e');
     } finally {
-      setState(() => _isGenerating = false);
+      if (mounted) setState(() => _isGenerating = false);
     }
   }
 
@@ -96,6 +110,14 @@ class _QtAudioPlayerState extends ConsumerState<QtAudioPlayer> {
     final processing = _player.processingState;
     final playing = _player.playing;
     final hasAudio = processing != ProcessingState.idle;
+
+    // 설정에서 목소리가 바뀌면 새 목소리로 음성을 다시 준비한다.
+    ref.listen<String>(selectedVoiceProvider, (prev, next) {
+      if (prev != next) {
+        _player.stop();
+        _prepareAudio();
+      }
+    });
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -158,15 +180,21 @@ class _QtAudioPlayerState extends ConsumerState<QtAudioPlayer> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 목소리 선택
+              // 현재 목소리 표시 (변경은 마이페이지 > 설정)
               Consumer(builder: (context, ref, _) {
                 final voice = ref.watch(selectedVoiceProvider);
-                return TextButton.icon(
-                  onPressed: () => _showVoiceSelector(context, ref),
-                  icon: Icon(Icons.record_voice_over, size: 16,
-                      color: theme.colorScheme.outline),
-                  label: Text(voice, style: TextStyle(fontSize: 12,
-                      color: theme.colorScheme.outline)),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.record_voice_over, size: 16,
+                          color: theme.colorScheme.outline),
+                      const SizedBox(width: 4),
+                      Text(voice, style: TextStyle(fontSize: 12,
+                          color: theme.colorScheme.outline)),
+                    ],
+                  ),
                 );
               }),
 
@@ -197,9 +225,11 @@ class _QtAudioPlayerState extends ConsumerState<QtAudioPlayer> {
                         if (hasAudio && playing) {
                           _player.pause();
                         } else if (hasAudio) {
+                          // 미리 준비된 음성을 바로 재생
                           _player.play();
                         } else {
-                          _generateAndPlay();
+                          // 준비 실패/미완료 시 생성 후 바로 재생
+                          _prepareAudio(autoPlay: true);
                         }
                       },
                       icon: Icon(
@@ -223,44 +253,4 @@ class _QtAudioPlayerState extends ConsumerState<QtAudioPlayer> {
     );
   }
 
-  void _showVoiceSelector(BuildContext context, WidgetRef ref) {
-    final voices = ref.read(ttsVoicesProvider);
-    voices.when(
-      data: (list) {
-        if (list.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('TTS 서버에 연결할 수 없습니다')),
-          );
-          return;
-        }
-        showModalBottomSheet(
-          context: context,
-          builder: (ctx) => ListView.builder(
-            shrinkWrap: true,
-            itemCount: list.length,
-            itemBuilder: (ctx, i) {
-              final v = list[i];
-              return ListTile(
-                title: Text(v.displayName),
-                subtitle: Text(v.type == 'custom' ? '커스텀 목소리' : '기본 목소리'),
-                trailing: v.hasFinetuned
-                    ? const Chip(label: Text('학습됨', style: TextStyle(fontSize: 10)))
-                    : null,
-                onTap: () {
-                  ref.read(selectedVoiceProvider.notifier).state = v.name;
-                  Navigator.pop(ctx);
-                },
-              );
-            },
-          ),
-        );
-      },
-      loading: () {},
-      error: (_, __) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('목소리 목록을 불러올 수 없습니다')),
-        );
-      },
-    );
-  }
 }

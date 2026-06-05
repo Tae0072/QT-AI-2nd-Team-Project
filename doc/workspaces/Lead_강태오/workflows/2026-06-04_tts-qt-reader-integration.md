@@ -63,9 +63,19 @@ Voice Studio TTS 엔진을 QT-AI Flutter 앱에 통합하여,
 - [x] 5단계: QT 화면 연동 — `today_qt_screen.dart`에 QtAudioPlayer 배치
 - [x] 6단계: 캐싱 — cacheKey 기반 로컬 파일 캐싱
 - [x] 7단계: E2E 환경 구성 — MySQL(qtai/qtai) + Redis(Docker) + JWT + 서버 기동 성공
-- [ ] 8단계 (다음): 마이페이지 설정에 TTS 목소리 선택
-- [ ] 9단계 (다음): QT 본문 로드 시 자동 음성 생성 (백그라운드)
-- [ ] 10단계 (다음): QT 화면에서 바로 재생만
+- [x] 8단계: 마이페이지 설정에 TTS 목소리 선택 — SharedPreferences 영구 저장 (06-05)
+- [x] 9단계: QT 본문 로드 시 자동 음성 생성 — QtAudioPlayer initState에서 사전 준비 (06-05)
+- [x] 10단계: QT 화면에서 바로 재생 — 준비된 음성 즉시 플레이, 목소리 변경 시 자동 재준비 (06-05)
+
+## 8~10단계 설계 (2026-06-05)
+- `selectedVoiceProvider`: StateProvider → `StateNotifierProvider`(SelectedVoiceNotifier)로 교체.
+  `sharedPreferencesProvider`(main에서 주입)를 통해 `tts_selected_voice` 키로 영구 저장
+- 설정 화면(M-06): "QT 읽기 목소리" ListTile + BottomSheet 선택 UI 추가
+  (라디오 표시로 현재 선택 강조, `/voices` 목록 사용)
+- `QtAudioPlayer`: 위젯 표시 직후 `addPostFrameCallback`으로 `_prepareAudio()` 호출 →
+  본문 로드 시 백그라운드 자동 생성. ▶ 버튼은 준비된 음성 즉시 재생
+- `ref.listen(selectedVoiceProvider)`: 설정에서 목소리 변경 시 정지 후 새 목소리로 재준비
+- 플레이어 내 목소리 선택 버튼 제거 → 현재 목소리 표시 전용 (변경은 설정에서)
 
 ## E2E 테스트 환경 구성 기록
 - MySQL root 비밀번호: Workbench 키체인 저장 (cmd `0000` 아님)
@@ -83,7 +93,8 @@ Voice Studio TTS 엔진을 QT-AI Flutter 앱에 통합하여,
 | `flutter-app/lib/core/config/app_config.dart` | ttsBaseUrl 추가 |
 | `flutter-app/lib/features/tts/services/tts_repository.dart` | TTS API 호출 + 캐싱 |
 | `flutter-app/lib/features/tts/providers/tts_providers.dart` | Riverpod 상태 관리 |
-| `flutter-app/lib/features/tts/widgets/qt_audio_player.dart` | 오디오 플레이어 위젯 |
+| `flutter-app/lib/features/tts/widgets/qt_audio_player.dart` | 오디오 플레이어 위젯 (자동 생성 + 바로 재생) |
+| `flutter-app/lib/features/mypage/screens/settings_screen.dart` | QT 읽기 목소리 설정 UI |
 | `flutter-app/pubspec.yaml` | just_audio, path_provider 추가 |
 
 ## 사용법 (QT 화면에서)

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/common_widgets.dart';
+import '../../tts/providers/tts_providers.dart';
 import '../providers/mypage_providers.dart';
 
 /// 설정 화면 (M-06).
 ///
 /// - 알림 수신: Switch
 /// - 폰트 크기: DropdownButton (SMALL/MEDIUM/LARGE)
+/// - TTS 목소리: BottomSheet 선택 (로컬 저장, 앱 전체 적용)
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -59,10 +61,96 @@ class SettingsScreen extends ConsumerWidget {
                   },
                 ),
               ),
+
+              const Divider(),
+
+              // TTS 목소리
+              ListTile(
+                title: const Text('QT 읽기 목소리'),
+                subtitle: const Text('QT 본문을 읽어주는 목소리를 설정합니다'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      ref.watch(selectedVoiceProvider),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+                onTap: () => _showVoiceSelector(context, ref),
+              ),
             ],
           );
         },
       ),
+    );
+  }
+
+  /// 목소리 선택 BottomSheet.
+  ///
+  /// TTS 서버의 `/voices` 목록을 보여주고, 선택값은
+  /// [SelectedVoiceNotifier]를 통해 SharedPreferences에 저장한다.
+  void _showVoiceSelector(BuildContext context, WidgetRef ref) {
+    final voicesAsync = ref.read(ttsVoicesProvider);
+    final current = ref.read(selectedVoiceProvider);
+
+    voicesAsync.when(
+      data: (voices) {
+        if (voices.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('TTS 서버에 연결할 수 없습니다')),
+          );
+          return;
+        }
+        showModalBottomSheet(
+          context: context,
+          showDragHandle: true,
+          builder: (ctx) => SafeArea(
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: voices.length,
+              itemBuilder: (ctx, i) {
+                final v = voices[i];
+                final selected = v.name == current;
+                return ListTile(
+                  leading: Icon(
+                    selected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
+                    color: selected
+                        ? Theme.of(ctx).colorScheme.primary
+                        : null,
+                  ),
+                  title: Text(v.displayName),
+                  subtitle: Text(v.type == 'custom' ? '커스텀 목소리' : '기본 목소리'),
+                  trailing: v.hasFinetuned
+                      ? const Chip(
+                          label: Text('학습됨', style: TextStyle(fontSize: 10)))
+                      : null,
+                  onTap: () {
+                    ref.read(selectedVoiceProvider.notifier).select(v.name);
+                    Navigator.pop(ctx);
+                  },
+                );
+              },
+            ),
+          ),
+        );
+      },
+      loading: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('목소리 목록을 불러오는 중입니다')),
+        );
+      },
+      error: (_, __) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('목소리 목록을 불러올 수 없습니다')),
+        );
+      },
     );
   }
 }
