@@ -44,7 +44,16 @@ QT 본문 로드 시 백그라운드로 음성을 미리 생성해 ▶ 버튼으
 ## 검증
 - [x] flutter analyze: No issues found (40.3s)
 - [x] 코드 2차 검토: 중복 호출 가드, mounted 가드, 목소리 변경 양쪽 경로 확인
-- [ ] 에뮬레이터 동작 확인 — hot restart(R) 필요 (initState 변경은 hot reload로 반영 안 됨)
+- [x] 에뮬레이터 E2E 확인 (Pixel, emulator-5554, adb 스크린샷 기반)
+  - QT 화면 진입 즉시 자동 생성 스피너 → 2:03 음성 준비 완료 (선희)
+  - ▶ 탭 → 즉시 재생 (0:03 진행, 일시정지 버튼 전환 확인)
+  - 마이페이지 > 설정 > QT 읽기 목소리 → BottomSheet 목록 표시 (기본 3종 + 커스텀, 학습됨 칩)
+  - 인준 (남성) 선택 → 설정 표시 갱신 → QT 화면 복귀 시 새 목소리로 자동 재생성 (2:09)
+
+## 추가 발견 사항 (기존 이슈, 이번 변경과 무관)
+- hot reload(`r`) 시 just_audio 클래스 로드 충돌로 Dart VM 크래시 → initState/Provider 구조 변경 후에는 완전 재실행 필요
+- 라우터에 `'/'`(splash) 케이스가 없어 끝까지 뒤로가기 시 "Route not found: /" 노출
+  (initialRoute가 `/home`이면 Flutter가 `['/', '/home']` 스택을 생성하는 동작 때문) → 후속 수정 후보
 
 ## 다음 작업 후보
 - 에뮬레이터 E2E 확인 후 PR 정리
