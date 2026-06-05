@@ -104,7 +104,26 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
 
         QtPassage passage = qtPassageRepository.findById(qtPassageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND));
-        List<Long> verseIds = qtPassageVerseRepository.findByQtPassageIdOrderByDisplayOrderAsc(qtPassageId)
+        return toContentContext(passage);
+    }
+
+    /**
+     * 특정 날짜 본문의 콘텐츠 컨텍스트 조회 — 내부 배치 전용.
+     *
+     * <p>사용자 노출 정책(00:00~04:00 STALE_FALLBACK, 캐시)을 거치지 않고
+     * qt_date로 직접 조회한다. 00:05 해설 시딩이 "어제 본문"을 시딩하던
+     * 버그의 수정 경로 (CLAUDE.md §6).
+     */
+    @Override
+    public java.util.Optional<QtPassageContentContext> findContentContextByDate(java.time.LocalDate qtDate) {
+        if (qtDate == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        return qtPassageRepository.findByQtDate(qtDate).map(this::toContentContext);
+    }
+
+    private QtPassageContentContext toContentContext(QtPassage passage) {
+        List<Long> verseIds = qtPassageVerseRepository.findByQtPassageIdOrderByDisplayOrderAsc(passage.getId())
                 .stream()
                 .map(QtPassageVerse::getBibleVerseId)
                 .toList();

@@ -39,3 +39,11 @@ external:
       model: deepseek-v4-flash
       connect-timeout-ms: 100
       read-timeout-ms: 100
+
+# 테스트에서 성서유니온 실서버 HTTP 호출 차단
+# (기본값 true라 @SpringBootTest 부팅 시 startup 보강 임포트가 실서버를 호출해
+#  네트워크 환경에 따라 테스트가 흔들리고 테스트 DB가 오염될 수 있음)
+qt:
+  today-source:
+    sum:
+      enabled: false

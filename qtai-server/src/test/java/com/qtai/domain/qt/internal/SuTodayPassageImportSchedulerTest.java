@@ -135,11 +135,12 @@ class SuTodayPassageImportSchedulerTest {
     }
 
     @Test
-    void scheduledTriggerRunsAtFiveMinutesAfterMidnightKst() throws NoSuchMethodException {
+    void scheduledTriggerRunsAtTwoMinutesAfterMidnightKst() throws NoSuchMethodException {
         Method importToday = SuTodayPassageImportScheduler.class.getDeclaredMethod("importToday");
         Scheduled scheduled = importToday.getAnnotation(Scheduled.class);
 
-        assertThat(scheduled.cron()).isEqualTo("0 5 0 * * *");
+        // 00:05 AI 해설 시딩과의 동시 실행(순서 미보장) 경합을 피해 00:02로 분리
+        assertThat(scheduled.cron()).isEqualTo("0 2 0 * * *");
         assertThat(scheduled.zone()).isEqualTo("Asia/Seoul");
     }
 
