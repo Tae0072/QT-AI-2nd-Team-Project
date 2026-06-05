@@ -46,7 +46,8 @@ class SuTodayPassageImportSchedulerTest {
     void enabledSchedulerFetchesAndImportsTodayPassage() {
         SuTodayBibleClient client = mock(SuTodayBibleClient.class);
         QtTodayPassageImportService importService = mock(QtTodayPassageImportService.class);
-        SuTodayPassageImportScheduler scheduler = scheduler(client, importService, true);
+        QtPassageRepository repository = mock(QtPassageRepository.class);
+        SuTodayPassageImportScheduler scheduler = scheduler(client, importService, repository, true);
         SuTodayPassage passage = passage();
         when(client.fetchToday()).thenReturn(passage);
         when(importService.importToday(LocalDate.of(2026, 6, 2), passage)).thenReturn(new QtPassage());
@@ -55,6 +56,62 @@ class SuTodayPassageImportSchedulerTest {
 
         verify(client).fetchToday();
         verify(importService).importToday(LocalDate.of(2026, 6, 2), passage);
+    }
+
+    @Test
+    void startupImportFetchesOnlyWhenTodayPassageIsMissing() {
+        SuTodayBibleClient client = mock(SuTodayBibleClient.class);
+        QtTodayPassageImportService importService = mock(QtTodayPassageImportService.class);
+        QtPassageRepository repository = mock(QtPassageRepository.class);
+        SuTodayPassageImportScheduler scheduler = scheduler(client, importService, repository, true);
+        SuTodayPassage passage = passage();
+        when(repository.existsByQtDate(LocalDate.of(2026, 6, 2))).thenReturn(false);
+        when(client.fetchToday()).thenReturn(passage);
+        when(importService.importToday(LocalDate.of(2026, 6, 2), passage)).thenReturn(new QtPassage());
+
+        scheduler.importTodayOnStartup();
+
+        verify(repository).existsByQtDate(LocalDate.of(2026, 6, 2));
+        verify(client).fetchToday();
+        verify(importService).importToday(LocalDate.of(2026, 6, 2), passage);
+    }
+
+    @Test
+    void startupImportSkipsWhenTodayPassageAlreadyExists() {
+        SuTodayBibleClient client = mock(SuTodayBibleClient.class);
+        QtTodayPassageImportService importService = mock(QtTodayPassageImportService.class);
+        QtPassageRepository repository = mock(QtPassageRepository.class);
+        SuTodayPassageImportScheduler scheduler = scheduler(client, importService, repository, true);
+        when(repository.existsByQtDate(LocalDate.of(2026, 6, 2))).thenReturn(true);
+
+        scheduler.importTodayOnStartup();
+
+        verify(repository).existsByQtDate(LocalDate.of(2026, 6, 2));
+        verifyNoInteractions(client);
+        verifyNoInteractions(importService);
+    }
+
+    @Test
+    void startupRepositoryFailureDoesNotPropagate(CapturedOutput output) {
+        SuTodayBibleClient client = mock(SuTodayBibleClient.class);
+        QtTodayPassageImportService importService = mock(QtTodayPassageImportService.class);
+        QtPassageRepository repository = mock(QtPassageRepository.class);
+        SuTodayPassageImportScheduler scheduler = scheduler(client, importService, repository, true);
+        doThrow(new IllegalStateException("database unavailable"))
+                .when(repository)
+                .existsByQtDate(LocalDate.of(2026, 6, 2));
+
+        assertThatCode(scheduler::importTodayOnStartup)
+                .doesNotThrowAnyException();
+
+        verify(repository).existsByQtDate(LocalDate.of(2026, 6, 2));
+        verifyNoInteractions(client);
+        verifyNoInteractions(importService);
+        assertThat(output).contains(
+                "성서유니온 오늘 QT startup 보강 실패",
+                "errorType=IllegalStateException",
+                "errorMessage=database unavailable"
+        );
     }
 
     @Test
@@ -91,7 +148,16 @@ class SuTodayPassageImportSchedulerTest {
             QtTodayPassageImportService importService,
             boolean enabled
     ) {
-        return new SuTodayPassageImportScheduler(client, importService, CLOCK, enabled);
+        return scheduler(client, importService, mock(QtPassageRepository.class), enabled);
+    }
+
+    private static SuTodayPassageImportScheduler scheduler(
+            SuTodayBibleClient client,
+            QtTodayPassageImportService importService,
+            QtPassageRepository repository,
+            boolean enabled
+    ) {
+        return new SuTodayPassageImportScheduler(client, importService, repository, CLOCK, enabled);
     }
 
     private static SuTodayPassage passage() {

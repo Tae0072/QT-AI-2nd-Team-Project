@@ -2,8 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/common_widgets.dart';
+import '../../tts/widgets/qt_tts_button.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
+
+/// QT 본문 전체 텍스트 (TTS 입력용).
+String _fullTextOf(TodayQtPassage data) {
+  final buf = StringBuffer();
+  for (final v in data.verses) {
+    final t = v.koreanText?.trim();
+    if (t != null && t.isNotEmpty) buf.writeln(t);
+  }
+  return buf.toString().trim();
+}
+
+/// QT 날짜 (TTS 캐시 키용).
+String _qtDateOf(TodayQtPassage data) =>
+    data.passageDate ?? DateTime.now().toIso8601String().substring(0, 10);
 
 class TodayQtScreen extends ConsumerWidget {
   const TodayQtScreen({super.key});
@@ -11,11 +26,20 @@ class TodayQtScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final passage = ref.watch(todayQtPassageProvider);
+    final data = passage.valueOrNull;
+    final fullText = data == null ? '' : _fullTextOf(data);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('오늘 QT'),
         actions: [
+          // 본문 읽기(TTS) — 아이콘 하나로 재생/정지 토글
+          if (data != null && fullText.isNotEmpty)
+            QtTtsButton(
+              qtText: fullText,
+              qtDate: _qtDateOf(data),
+              qtPassageId: data.qtPassageId,
+            ),
           IconButton(
             tooltip: '새로고침',
             icon: const Icon(Icons.refresh),

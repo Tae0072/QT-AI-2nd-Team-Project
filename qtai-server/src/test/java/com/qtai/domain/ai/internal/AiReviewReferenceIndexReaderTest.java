@@ -55,6 +55,18 @@ class AiReviewReferenceIndexReaderTest {
     }
 
     @Test
+    void readsNumericGeneratedAtWrittenByExistingPromotedIndex() throws Exception {
+        Files.writeString(indexFile, validIndexJson(SOURCE_FILE_HASH)
+                .replace("\"generatedAt\": \"2026-06-04T09:00:00+09:00\"",
+                        "\"generatedAt\": 1780566489.269959400"));
+
+        AiReviewReferenceIndexReader.ReferenceIndex index = reader.read(INDEX_URI, SOURCE_FILE_HASH);
+
+        assertThat(index.generatedAt()).isNotNull();
+        assertThat(index.entries()).hasSize(1);
+    }
+
+    @Test
     void invalidSchemaVersionIsRejected() throws Exception {
         Files.writeString(indexFile, validIndexJson(SOURCE_FILE_HASH)
                 .replace("ai-review-reference-index.v1", "ai-review-reference-index.v0"));
