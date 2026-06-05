@@ -46,6 +46,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
     private final QtPassageVerseRepository qtPassageVerseRepository;
     private final TodayQtRangeResolver rangeResolver;
     private final GetNoteUseCase getNoteUseCase;
+    private final com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase getQtStudyAvailabilityUseCase;
     private final java.time.Clock clock;
 
     // ------------------------------------------------------------------
@@ -68,7 +69,8 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
     public TodayQtResponse getToday(Long memberId) {
         TodayQtResponse base = passageLookup.findTodayPassage();
         Long draftNoteId = resolveDraftNoteId(memberId, base.qtPassageId());
-        return enrichWithDraftNoteId(base, draftNoteId);
+        // 시뮬레이터 상태·해설 진입점은 승인 시점에 바뀌므로 캐시(todayQt) 밖에서 enrich한다
+        return enrichWithStudyAvailability(enrichWithDraftNoteId(base, draftNoteId));
     }
 
     /**
@@ -91,16 +93,17 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
         }
 
         Long draftNoteId = resolveDraftNoteId(memberId, qtPassageId);
-        return new TodayQtResponse(
+        TodayQtResponse base = new TodayQtResponse(
                 passage.getId(),
                 passage.getQtDate().toString(),
                 passage.getTitle(),
-                "MISSING",    // simulatorStatus: 시뮬레이터 도메인 연동 전 기본값
-                false,        // hasExplanation: AI 해설 도메인 연동 전 기본값
+                "MISSING",    // simulatorStatus 기본값 — study 연동 실패 시 fallback
+                false,        // hasExplanation 기본값 — study 연동 실패 시 fallback
                 draftNoteId,
                 "HIT",
                 rangeResolver.resolve(passage)
         );
+        return enrichWithStudyAvailability(base);
     }
 
     @Override
@@ -153,6 +156,44 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
     // ------------------------------------------------------------------
     // Private helpers
     // ------------------------------------------------------------------
+
+    /**
+     * study 도메인에서 시뮬레이터 상태·승인 해설 존재 여부를 조회해 응답을 보강한다.
+     *
+     * <p>"Today QT 100%"(CLAUDE.md §6) — 기존에는 두 값이 하드코딩이라
+     * 콘텐츠가 승인돼도 클라이언트 버튼이 영구 비활성이었다.
+     * study 호출 실패 시 응답 전체가 실패하지 않도록 기본값(MISSING/false)으로 fallback.
+     */
+    private TodayQtResponse enrichWithStudyAvailability(TodayQtResponse base) {
+        if (base.qtPassageId() == null) {
+            return base;
+        }
+        try {
+            List<Long> verseIds = qtPassageVerseRepository
+                    .findByQtPassageIdOrderByDisplayOrderAsc(base.qtPassageId())
+                    .stream()
+                    .map(QtPassageVerse::getBibleVerseId)
+                    .toList();
+            var availability = getQtStudyAvailabilityUseCase.getAvailability(base.qtPassageId(), verseIds);
+            if (availability == null) {
+                return base;
+            }
+            return new TodayQtResponse(
+                    base.qtPassageId(),
+                    base.passageDate(),
+                    base.title(),
+                    availability.simulatorStatus(),
+                    availability.hasExplanation(),
+                    base.draftNoteId(),
+                    base.cacheStatus(),
+                    base.range()
+            );
+        } catch (RuntimeException exception) {
+            log.warn("study 가용성 조회 실패 — 기본값(MISSING/false)으로 응답. qtPassageId={}, errorType={}, errorMessage={}",
+                    base.qtPassageId(), exception.getClass().getSimpleName(), exception.getMessage());
+            return base;
+        }
+    }
 
     /**
      * note 도메인에서 해당 사용자의 MEDITATION DRAFT 노트 ID를 조회한다.
