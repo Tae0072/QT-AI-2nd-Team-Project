@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/common_widgets.dart';
+import '../../tts/widgets/qt_audio_player.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
 
@@ -40,6 +41,18 @@ class _TodayQtContent extends StatelessWidget {
 
   const _TodayQtContent({required this.data});
 
+  String get _fullText {
+    final buf = StringBuffer();
+    for (final v in data.verses) {
+      final t = v.koreanText?.trim();
+      if (t != null && t.isNotEmpty) buf.writeln(t);
+    }
+    return buf.toString().trim();
+  }
+
+  String get _qtDate =>
+      data.passageDate ?? DateTime.now().toIso8601String().substring(0, 10);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -71,6 +84,9 @@ class _TodayQtContent extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _ActionRow(qtPassageId: null),
+          const SizedBox(height: 16),
+          if (_fullText.isNotEmpty)
+            QtAudioPlayer(qtText: _fullText, qtDate: _qtDate),
           const SizedBox(height: 20),
           for (final verse in data.verses) _VerseTile(verse: verse),
         ],
