@@ -1,40 +1,33 @@
 # -*- coding: utf-8 -*-
-"""TTS 아이콘 v2: 작은 크기 가독성 개선 — 흰 간격 확대, 얼굴 슬림화, 선 두께 정리."""
+"""TTS 아이콘 v3: 🗣 이모지 스타일 — 원 없이 말하는 머리 실루엣 + 음파."""
 import math
 from PIL import Image, ImageDraw
 
 S = 1000
-CX, CY = 500, 500
-R_OUT = 480
-RING_W = 52
 BLACK = (0, 0, 0, 255)
 
 img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
 d = ImageDraw.Draw(img)
 
-# 1) 바깥 링 (얇게)
-d.ellipse([CX - R_OUT, CY - R_OUT, CX + R_OUT, CY + R_OUT],
-          outline=BLACK, width=RING_W)
-
-def circle_pt(deg, r=R_OUT - 8):
-    a = math.radians(deg)
-    return (CX + r * math.cos(a), CY + r * math.sin(a))
-
-# 2) 얼굴 실루엣 — 왼쪽으로 슬림하게 (오른쪽 여백 확보)
+# 말하는 머리 실루엣 (오른쪽을 보는 옆모습, 입 벌림)
 ctrl = [
-    circle_pt(285),
-    (480, 90),
-    (520, 190),
-    (505, 270),
-    (565, 360),   # 코끝
-    (515, 415),
-    (548, 462),   # 윗입술
-    (512, 505),   # 입
-    (542, 552),   # 아랫입술
-    (505, 620),   # 턱
-    (455, 690),
-    (395, 800),
-    circle_pt(105),
+    (330, 900),   # 목 왼쪽 아래
+    (300, 700),   # 목덜미
+    (195, 520),   # 뒤통수
+    (235, 290),   # 뒤통수 위
+    (420, 130),   # 정수리
+    (590, 175),   # 앞머리
+    (650, 280),   # 이마
+    (640, 350),   # 미간
+    (715, 445),   # 코끝
+    (650, 490),   # 코밑
+    (700, 525),   # 윗입술
+    (620, 560),   # 입 안쪽 (벌린 입)
+    (690, 600),   # 아랫입술
+    (640, 680),   # 턱
+    (560, 740),   # 턱선
+    (520, 800),   # 목 앞
+    (520, 900),   # 목 오른쪽 아래
 ]
 
 def catmull_rom(pts, seg=18):
@@ -55,25 +48,29 @@ def catmull_rom(pts, seg=18):
     out.append(pts[-1])
     return out
 
-rim = [circle_pt(a) for a in range(105, 286, 4)]
-d.polygon(catmull_rom(ctrl) + rim, fill=BLACK)
+d.polygon(catmull_rom(ctrl), fill=BLACK)
 
-# 3) 음파 2줄 — 간격을 크게, 선은 적당히 두껍게
-M = (505, 500)
-def arc(r, width, sweep=46):
+# 음파 3줄 — 입에서 퍼져나가는 호 (🗣 스타일)
+M = (660, 555)  # 입 중심
+def arc(r, width, sweep=38):
     bbox = [M[0] - r, M[1] - r, M[0] + r, M[1] + r]
     d.arc(bbox, start=-sweep, end=sweep, fill=BLACK, width=width)
 
-arc(170, 62)   # 안쪽 파동: 142~198  (입~파동1 간격 ~90)
-arc(330, 62)   # 바깥 파동: 299~361  (파동1~2 간격 ~100, 링 내선 428과 간격 ~67)
+arc(160, 52)
+arc(255, 52)
+arc(350, 52)
 
 img = img.resize((512, 512), Image.LANCZOS)
-img.save("/sessions/vibrant-friendly-galileo/mnt/outputs/tts_voice_icon2.png")
+img.save("/sessions/vibrant-friendly-galileo/mnt/outputs/tts_voice_icon3.png")
 
-# 크기별 미리보기 (앱바 배경색)
+# 크기별 미리보기
 canvas = Image.new("RGBA", (320, 90), (245, 237, 227, 255))
 for i, sz in enumerate([64, 48, 32, 24]):
     s = img.resize((sz, sz), Image.LANCZOS)
     canvas.alpha_composite(s, (20 + i * 75, (90 - sz) // 2))
-canvas.convert("RGB").save("/sessions/vibrant-friendly-galileo/mnt/outputs/icon2_sizes_preview.png")
+canvas.convert("RGB").save("/sessions/vibrant-friendly-galileo/mnt/outputs/icon3_sizes_preview.png")
+
+prev = Image.new("RGBA", (512, 512), (255, 255, 255, 255))
+prev.alpha_composite(Image.open("/sessions/vibrant-friendly-galileo/mnt/outputs/tts_voice_icon3.png"))
+prev.convert("RGB").save("/sessions/vibrant-friendly-galileo/mnt/outputs/icon3_full_preview.png")
 print("done")
