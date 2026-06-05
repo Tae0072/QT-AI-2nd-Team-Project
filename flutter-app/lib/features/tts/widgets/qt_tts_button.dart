@@ -59,10 +59,15 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
     super.dispose();
   }
 
-  /// 설정(본문/주석)에 따라 읽을 텍스트를 조합한다.
+  /// 본문과 해설 사이에 넣는 묵음 길이(초).
+  ///
+  /// TTS 서버(/qt/read)가 `[N초]` 태그를 해석해 해당 길이의 무음을 삽입한다.
+  static const int _partPauseSeconds = 2;
+
+  /// 설정(본문/해설)에 따라 읽을 텍스트를 조합한다.
   ///
   /// 반환: (낭독 텍스트, 캐시 범위 표시) — 읽을 내용이 없으면 텍스트가 빈 문자열.
-  /// 둘 다 켜져 있으면 본문을 먼저, 주석을 뒤에 붙인다.
+  /// 둘 다 켜져 있으면 본문 → [2초] 묵음 → 해설 순서로 읽는다.
   Future<(String, String)> _composeText({required bool autoPlay}) async {
     final readBible = ref.read(ttsReadBibleProvider);
     final readExplanation = ref.read(ttsReadExplanationProvider);
@@ -103,7 +108,14 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
       }
     }
 
-    return (parts.join('\n\n'), scope);
+    if (parts.length > 1) {
+      // 본문과 해설 사이 [N초] 묵음 태그 — 캐시 키에도 반영해 구버전과 구분
+      return (
+        parts.join('\n\n[$_partPauseSeconds초]\n\n'),
+        '${scope}s$_partPauseSeconds',
+      );
+    }
+    return (parts.join(), scope);
   }
 
   /// 음성을 생성(또는 캐시에서 로드)해 플레이어에 세팅한다.

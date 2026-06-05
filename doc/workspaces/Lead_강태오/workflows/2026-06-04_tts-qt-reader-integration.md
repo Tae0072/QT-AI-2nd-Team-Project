@@ -69,6 +69,7 @@ Voice Studio TTS 엔진을 QT-AI Flutter 앱에 통합하여,
 - [x] 11단계: TTS 버튼 커스텀 아이콘 + 재생/정지 토글 — 얼굴+음파 아이콘, 탭=재생/다시 탭=정지 (06-05)
 - [x] 12단계: 플레이어 카드 제거 → 앱바 단일 아이콘(QtTtsButton)으로 단순화, Row 오버플로우 해소 (06-05)
 - [x] 13단계: TTS 읽기 범위 설정 — 본문(한글)/주석(해설) 토글, 둘 다 켜면 본문 후 주석 낭독 (06-05)
+- [x] 14단계: [N초] 묵음 태그 지원 — TTS 서버 태그 파싱 + 본문↔해설 사이 [2초] 묵음 (06-05)
 
 ## 8~10단계 설계 (2026-06-05)
 - `selectedVoiceProvider`: StateProvider → `StateNotifierProvider`(SelectedVoiceNotifier)로 교체.
