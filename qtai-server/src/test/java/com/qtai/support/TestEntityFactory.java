@@ -92,6 +92,8 @@ public final class TestEntityFactory {
         set(glossaryTerm, "meaning", meaning);
         set(glossaryTerm, "sourceLabel", sourceLabel);
         set(glossaryTerm, "status", status);
+        set(glossaryTerm, "activeUniqueKey",
+                status == GlossaryTermStatus.APPROVED ? GlossaryTerm.ACTIVE_UNIQUE_KEY : null);
         set(glossaryTerm, "aiAssetId", aiAssetId);
         return glossaryTerm;
     }

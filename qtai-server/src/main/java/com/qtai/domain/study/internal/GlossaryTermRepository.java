@@ -11,9 +11,10 @@ import jakarta.persistence.LockModeType;
 
 public interface GlossaryTermRepository extends JpaRepository<GlossaryTerm, Long> {
 
-    List<GlossaryTerm> findByBibleVerseIdInAndStatusOrderByBibleVerseIdAscIdAsc(
+    List<GlossaryTerm> findByBibleVerseIdInAndStatusAndActiveUniqueKeyOrderByBibleVerseIdAscIdAsc(
             List<Long> bibleVerseIds,
-            GlossaryTermStatus status
+            GlossaryTermStatus status,
+            String activeUniqueKey
     );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -22,6 +23,7 @@ public interface GlossaryTermRepository extends JpaRepository<GlossaryTerm, Long
             from GlossaryTerm glossaryTerm
             where glossaryTerm.bibleVerseId in :bibleVerseIds
               and glossaryTerm.status = com.qtai.domain.study.internal.GlossaryTermStatus.APPROVED
+              and glossaryTerm.activeUniqueKey = 'ACTIVE'
             """)
     List<GlossaryTerm> findApprovedByBibleVerseIdInForUpdate(
             @Param("bibleVerseIds") List<Long> bibleVerseIds
@@ -33,6 +35,7 @@ public interface GlossaryTermRepository extends JpaRepository<GlossaryTerm, Long
             from GlossaryTerm glossaryTerm
             where glossaryTerm.aiAssetId = :aiAssetId
               and glossaryTerm.status = com.qtai.domain.study.internal.GlossaryTermStatus.APPROVED
+              and glossaryTerm.activeUniqueKey = 'ACTIVE'
             """)
     List<GlossaryTerm> findApprovedByAiAssetIdForUpdate(@Param("aiAssetId") Long aiAssetId);
 }

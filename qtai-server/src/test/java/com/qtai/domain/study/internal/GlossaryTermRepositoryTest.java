@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @Import(JpaAuditingConfig.class)
@@ -41,12 +42,13 @@ class GlossaryTermRepositoryTest {
 
         assertThat(result)
                 .extracting(GlossaryTerm::getAiAssetId, GlossaryTerm::getBibleVerseId, GlossaryTerm::getTerm,
-                        GlossaryTerm::getStatus)
+                        GlossaryTerm::getStatus, GlossaryTerm::getActiveUniqueKey)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple(
                         500L,
                         10L,
                         "approved",
-                        GlossaryTermStatus.APPROVED
+                        GlossaryTermStatus.APPROVED,
+                        GlossaryTerm.ACTIVE_UNIQUE_KEY
                 ));
     }
 
@@ -68,6 +70,39 @@ class GlossaryTermRepositoryTest {
                         org.assertj.core.groups.Tuple.tuple(10L, "approved 10", GlossaryTermStatus.APPROVED),
                         org.assertj.core.groups.Tuple.tuple(11L, "approved 11", GlossaryTermStatus.APPROVED)
                 );
+    }
+
+    @Test
+    @DisplayName("only one active APPROVED glossary term is allowed per bible verse")
+    void glossaryTerms_activeApprovedTermIsUniquePerBibleVerse() {
+        persistGlossaryTerm(10L, "approved", GlossaryTermStatus.APPROVED, 500L);
+        entityManager.flush();
+
+        GlossaryTerm duplicateActive = GlossaryTerm.approvedFromAiAsset(
+                10L,
+                "other approved",
+                "meaning",
+                "QT-AI DeepSeek",
+                501L,
+                LocalDateTime.of(2026, 6, 4, 14, 30)
+        );
+
+        assertThatThrownBy(() -> entityManager.persistAndFlush(duplicateActive))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @DisplayName("hidden glossary terms clear active key and do not block a new active approved term")
+    void glossaryTerms_hiddenTermsDoNotBlockActiveUniqueKey() {
+        GlossaryTerm hidden = persistGlossaryTerm(10L, "hidden", GlossaryTermStatus.HIDDEN, 500L);
+        entityManager.flush();
+        entityManager.clear();
+
+        GlossaryTerm active = persistGlossaryTerm(10L, "approved", GlossaryTermStatus.APPROVED, 501L);
+        entityManager.flush();
+
+        assertThat(hidden.getActiveUniqueKey()).isNull();
+        assertThat(active.getActiveUniqueKey()).isEqualTo(GlossaryTerm.ACTIVE_UNIQUE_KEY);
     }
 
     @Test

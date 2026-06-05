@@ -7,7 +7,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @Profile("dev")
@@ -21,7 +20,6 @@ class DevMemberSeedRunner implements ApplicationRunner {
     private final MemberRepository memberRepository;
 
     @Override
-    @Transactional
     public void run(ApplicationArguments args) {
         if (memberRepository.existsByKakaoId(DEV_KAKAO_ID)) {
             return;

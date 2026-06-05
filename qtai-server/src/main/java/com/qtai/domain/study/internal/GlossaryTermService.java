@@ -17,6 +17,7 @@ import com.qtai.domain.study.api.dto.HidePublishedGlossaryTermsResult;
 import com.qtai.domain.study.api.dto.PublishApprovedGlossaryTermsCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedGlossaryTermsResult;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,10 +38,6 @@ public class GlossaryTermService implements PublishApprovedGlossaryTermsUseCase,
         requireValidCommand(command);
         List<GlossaryTerm> existingAssetTerms =
                 glossaryTermRepository.findApprovedByAiAssetIdForUpdate(command.aiAssetId());
-        if (command.terms().isEmpty()) {
-            hideExistingTerms(existingAssetTerms);
-            return new PublishApprovedGlossaryTermsResult(command.aiAssetId(), 0, existingAssetTerms.size());
-        }
 
         List<Long> bibleVerseIds = command.terms().stream()
                 .map(PublishApprovedGlossaryTermsCommand.Term::bibleVerseId)
@@ -66,7 +63,7 @@ public class GlossaryTermService implements PublishApprovedGlossaryTermsUseCase,
                         approvedAt
                 ))
                 .toList();
-        List<GlossaryTerm> savedTerms = glossaryTermRepository.saveAll(newTerms);
+        List<GlossaryTerm> savedTerms = saveApprovedTerms(newTerms);
 
         return new PublishApprovedGlossaryTermsResult(
                 command.aiAssetId(),
@@ -103,10 +100,16 @@ public class GlossaryTermService implements PublishApprovedGlossaryTermsUseCase,
         if (command.terms() == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "terms must not be null");
         }
+        if (command.terms().isEmpty()) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT,
+                    "terms must not be empty; use hide command to unpublish glossary terms"
+            );
+        }
         for (PublishApprovedGlossaryTermsCommand.Term term : command.terms()) {
             requireValidTerm(term);
         }
-        requireNoDuplicateTerms(command.terms());
+        requireNoDuplicateVerses(command.terms());
     }
 
     private static void requireValidTerm(PublishApprovedGlossaryTermsCommand.Term term) {
@@ -137,14 +140,13 @@ public class GlossaryTermService implements PublishApprovedGlossaryTermsUseCase,
         }
     }
 
-    private static void requireNoDuplicateTerms(List<PublishApprovedGlossaryTermsCommand.Term> terms) {
-        Set<TermKey> termKeys = new HashSet<>();
+    private static void requireNoDuplicateVerses(List<PublishApprovedGlossaryTermsCommand.Term> terms) {
+        Set<Long> bibleVerseIds = new HashSet<>();
         for (PublishApprovedGlossaryTermsCommand.Term term : terms) {
-            TermKey key = TermKey.from(term);
-            if (!termKeys.add(key)) {
+            if (!bibleVerseIds.add(term.bibleVerseId())) {
                 throw new BusinessException(
                         ErrorCode.INVALID_INPUT,
-                        "terms must not contain duplicate bibleVerseId and term"
+                        "terms must not contain duplicate bibleVerseId"
                 );
             }
         }
@@ -195,10 +197,16 @@ public class GlossaryTermService implements PublishApprovedGlossaryTermsUseCase,
         }
     }
 
-    private record TermKey(Long bibleVerseId, String term) {
-
-        private static TermKey from(PublishApprovedGlossaryTermsCommand.Term term) {
-            return new TermKey(term.bibleVerseId(), normalizeText(term.term()));
+    private List<GlossaryTerm> saveApprovedTerms(List<GlossaryTerm> newTerms) {
+        try {
+            List<GlossaryTerm> savedTerms = glossaryTermRepository.saveAll(newTerms);
+            glossaryTermRepository.flush();
+            return savedTerms;
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_STATUS_TRANSITION,
+                    "active glossary term already exists for bible verse"
+            );
         }
     }
 

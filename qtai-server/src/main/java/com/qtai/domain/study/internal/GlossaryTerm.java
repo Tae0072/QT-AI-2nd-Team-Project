@@ -7,6 +7,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -17,6 +18,10 @@ import java.util.Objects;
 @Entity
 @Table(
         name = "glossary_terms",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_glossary_terms_active_per_verse",
+                columnNames = {"bible_verse_id", "active_unique_key"}
+        ),
         indexes = {
                 @Index(name = "idx_glossary_terms_verse_status", columnList = "bible_verse_id, status"),
                 @Index(name = "idx_glossary_terms_status", columnList = "status")
@@ -25,6 +30,8 @@ import java.util.Objects;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class GlossaryTerm extends BaseEntity {
+
+    public static final String ACTIVE_UNIQUE_KEY = "ACTIVE";
 
     @Column(name = "bible_verse_id", nullable = false)
     private Long bibleVerseId;
@@ -41,6 +48,9 @@ public class GlossaryTerm extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private GlossaryTermStatus status = GlossaryTermStatus.HIDDEN;
+
+    @Column(name = "active_unique_key", length = 20)
+    private String activeUniqueKey;
 
     @Column(name = "ai_asset_id")
     private Long aiAssetId;
@@ -64,11 +74,13 @@ public class GlossaryTerm extends BaseEntity {
         glossaryTerm.aiAssetId = requirePositive(aiAssetId, "aiAssetId");
         glossaryTerm.approvedAt = Objects.requireNonNull(approvedAt, "approvedAt must not be null");
         glossaryTerm.status = GlossaryTermStatus.APPROVED;
+        glossaryTerm.activeUniqueKey = ACTIVE_UNIQUE_KEY;
         return glossaryTerm;
     }
 
     public void hide() {
         this.status = GlossaryTermStatus.HIDDEN;
+        this.activeUniqueKey = null;
     }
 
     private static Long requirePositive(Long value, String fieldName) {
