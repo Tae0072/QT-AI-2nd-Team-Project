@@ -113,6 +113,7 @@ class TodayQtPassage {
   final String? passageDate;
   final String? title;
   final String? cacheStatus;
+  final bool hasExplanation;
   final BibleReference reference;
   final BibleVerseBook book;
   final List<BibleVerse> verses;
@@ -122,6 +123,7 @@ class TodayQtPassage {
     this.passageDate,
     this.title,
     this.cacheStatus,
+    this.hasExplanation = false,
     required this.reference,
     required this.book,
     required this.verses,
@@ -133,6 +135,7 @@ class TodayQtSummary {
   final String? passageDate;
   final String? title;
   final String? cacheStatus;
+  final bool hasExplanation;
   final TodayQtRange? range;
 
   const TodayQtSummary({
@@ -140,6 +143,7 @@ class TodayQtSummary {
     required this.passageDate,
     required this.title,
     required this.cacheStatus,
+    required this.hasExplanation,
     required this.range,
   });
 
@@ -150,6 +154,7 @@ class TodayQtSummary {
       passageDate: json['passageDate'] as String?,
       title: json['title'] as String?,
       cacheStatus: json['cacheStatus'] as String?,
+      hasExplanation: json['hasExplanation'] as bool? ?? false,
       range: rangeJson == null
           ? null
           : TodayQtRange.fromJson(rangeJson as Map<String, dynamic>),
@@ -198,6 +203,91 @@ class TodayQtRange {
       chapter: chapter,
       verseFrom: verseFrom,
       verseTo: verseTo,
+    );
+  }
+}
+
+class QtStudyContent {
+  final String? summary;
+  final List<QtStudyExplanation> explanations;
+  final List<QtStudyGlossaryTerm> glossaryTerms;
+
+  const QtStudyContent({
+    required this.summary,
+    required this.explanations,
+    required this.glossaryTerms,
+  });
+
+  factory QtStudyContent.fromJson(Map<String, dynamic> json) {
+    return QtStudyContent(
+      summary: json['summary'] as String?,
+      explanations: ((json['explanations'] as List<dynamic>?) ?? const [])
+          .map((item) =>
+              QtStudyExplanation.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      glossaryTerms: ((json['glossaryTerms'] as List<dynamic>?) ?? const [])
+          .map((item) =>
+              QtStudyGlossaryTerm.fromJson(item as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  bool get hasVisibleContent {
+    final summaryText = summary?.trim();
+    return (summaryText != null && summaryText.isNotEmpty) ||
+        explanations.isNotEmpty ||
+        glossaryTerms.isNotEmpty;
+  }
+}
+
+class QtStudyExplanation {
+  final int verseId;
+  final String? summary;
+  final String explanation;
+  final String? sourceLabel;
+  final int? aiAssetId;
+
+  const QtStudyExplanation({
+    required this.verseId,
+    required this.summary,
+    required this.explanation,
+    required this.sourceLabel,
+    required this.aiAssetId,
+  });
+
+  factory QtStudyExplanation.fromJson(Map<String, dynamic> json) {
+    return QtStudyExplanation(
+      verseId: json['verseId'] as int,
+      summary: json['summary'] as String?,
+      explanation: json['explanation'] as String? ?? '',
+      sourceLabel: json['sourceLabel'] as String?,
+      aiAssetId: json['aiAssetId'] as int?,
+    );
+  }
+}
+
+class QtStudyGlossaryTerm {
+  final int id;
+  final int verseId;
+  final String term;
+  final String meaning;
+  final String? sourceLabel;
+
+  const QtStudyGlossaryTerm({
+    required this.id,
+    required this.verseId,
+    required this.term,
+    required this.meaning,
+    required this.sourceLabel,
+  });
+
+  factory QtStudyGlossaryTerm.fromJson(Map<String, dynamic> json) {
+    return QtStudyGlossaryTerm(
+      id: json['id'] as int,
+      verseId: json['verseId'] as int,
+      term: json['term'] as String? ?? '',
+      meaning: json['meaning'] as String? ?? '',
+      sourceLabel: json['sourceLabel'] as String?,
     );
   }
 }

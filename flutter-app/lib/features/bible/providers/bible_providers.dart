@@ -17,3 +17,9 @@ final todayQtPassageProvider =
     fallbackReferenceText: sumTodayReferenceText,
   );
 });
+
+final qtStudyContentProvider =
+    FutureProvider.autoDispose.family<QtStudyContent, int>((ref, qtPassageId) {
+  final repository = ref.watch(bibleRepositoryProvider);
+  return repository.getQtStudyContent(qtPassageId);
+});

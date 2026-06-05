@@ -9,8 +9,10 @@ import '../features/mypage/screens/notification_list_screen.dart';
 import '../features/mypage/screens/praise_screen.dart';
 import '../features/mypage/screens/profile_edit_screen.dart';
 import '../features/mypage/screens/settings_screen.dart';
+import '../features/note/screens/qt_note_editor_screen.dart';
 import '../features/sharing/screens/sharing_detail_screen.dart';
 import '../features/sharing/screens/sharing_feed_screen.dart';
+import '../features/study/screens/qt_study_content_screen.dart';
 import '../features/onboarding/providers/onboarding_providers.dart';
 import '../features/onboarding/screens/onboarding_screen.dart';
 
@@ -28,6 +30,8 @@ class AppRouter {
   static const String praise = '/praise';
   static const String sharing = '/sharing';
   static const String sharingDetail = '/sharing/detail';
+  static const String qtNoteEditor = '/notes/qt-editor';
+  static const String qtStudyContent = '/qt/study-content';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -36,9 +40,7 @@ class AppRouter {
           builder: (context) => Consumer(
             builder: (context, ref, _) => OnboardingScreen(
               onComplete: () async {
-                await ref
-                    .read(onboardingCompleteProvider.notifier)
-                    .complete();
+                await ref.read(onboardingCompleteProvider.notifier).complete();
                 if (context.mounted) {
                   Navigator.of(context).pushReplacementNamed(login);
                 }
@@ -86,6 +88,16 @@ class AppRouter {
         final postId = settings.arguments as int;
         return MaterialPageRoute(
           builder: (_) => SharingDetailScreen(postId: postId),
+        );
+      case qtNoteEditor:
+        final args = settings.arguments as QtNoteEditorArgs;
+        return MaterialPageRoute(
+          builder: (_) => QtNoteEditorScreen(args: args),
+        );
+      case qtStudyContent:
+        final args = settings.arguments as QtStudyContentArgs;
+        return MaterialPageRoute(
+          builder: (_) => QtStudyContentScreen(args: args),
         );
       default:
         return MaterialPageRoute(

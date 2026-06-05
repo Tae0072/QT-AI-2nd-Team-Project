@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(
@@ -46,4 +47,41 @@ public class GlossaryTerm extends BaseEntity {
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
+
+    public static GlossaryTerm approvedFromAiAsset(
+            Long bibleVerseId,
+            String term,
+            String meaning,
+            String sourceLabel,
+            Long aiAssetId,
+            LocalDateTime approvedAt
+    ) {
+        GlossaryTerm glossaryTerm = new GlossaryTerm();
+        glossaryTerm.bibleVerseId = requirePositive(bibleVerseId, "bibleVerseId");
+        glossaryTerm.term = requireText(term, "term");
+        glossaryTerm.meaning = requireText(meaning, "meaning");
+        glossaryTerm.sourceLabel = requireText(sourceLabel, "sourceLabel");
+        glossaryTerm.aiAssetId = requirePositive(aiAssetId, "aiAssetId");
+        glossaryTerm.approvedAt = Objects.requireNonNull(approvedAt, "approvedAt must not be null");
+        glossaryTerm.status = GlossaryTermStatus.APPROVED;
+        return glossaryTerm;
+    }
+
+    public void hide() {
+        this.status = GlossaryTermStatus.HIDDEN;
+    }
+
+    private static Long requirePositive(Long value, String fieldName) {
+        if (value == null || value <= 0) {
+            throw new IllegalArgumentException(fieldName + " must be positive");
+        }
+        return value;
+    }
+
+    private static String requireText(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value;
+    }
 }

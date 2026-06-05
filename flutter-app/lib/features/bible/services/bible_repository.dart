@@ -39,6 +39,24 @@ class BibleRepository {
     return BibleVerseRange.fromJson(data);
   }
 
+  Future<BibleVerseRange> getChapterVerses({
+    required String bookCode,
+    required int chapter,
+  }) async {
+    final response = await _dio.get('/bible/verses', queryParameters: {
+      'bookCode': bookCode,
+      'chapter': chapter,
+    });
+    final data = response.data['data'] as Map<String, dynamic>;
+    return BibleVerseRange.fromJson(data);
+  }
+
+  Future<QtStudyContent> getQtStudyContent(int qtPassageId) async {
+    final response = await _dio.get('/qt/$qtPassageId/study-content');
+    final data = response.data['data'] as Map<String, dynamic>;
+    return QtStudyContent.fromJson(data);
+  }
+
   Future<TodayQtPassage> getPassageFromReferenceText(
     String referenceText,
   ) async {
@@ -78,6 +96,7 @@ class BibleRepository {
         passageDate: todayQt.passageDate,
         title: todayQt.title,
         cacheStatus: todayQt.cacheStatus,
+        hasExplanation: todayQt.hasExplanation,
         reference: fallback.reference,
         book: fallback.book,
         verses: fallback.verses,
@@ -96,6 +115,7 @@ class BibleRepository {
       passageDate: todayQt.passageDate,
       title: todayQt.title,
       cacheStatus: todayQt.cacheStatus,
+      hasExplanation: todayQt.hasExplanation,
       reference: todayRange.toReference(),
       book: verseRange.book,
       verses: verseRange.verses,

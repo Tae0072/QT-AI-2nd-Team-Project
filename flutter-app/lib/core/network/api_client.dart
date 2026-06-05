@@ -10,7 +10,10 @@ final dioProvider = Provider<Dio>((ref) {
     baseUrl: AppConfig.instance.baseUrl,
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
-    headers: {'Content-Type': 'application/json'},
+    headers: {
+      'Content-Type': 'application/json',
+      if (AppConfig.instance.isDev) 'X-Dev-User-Id': '1',
+    },
   ));
 
   dio.interceptors.addAll([
