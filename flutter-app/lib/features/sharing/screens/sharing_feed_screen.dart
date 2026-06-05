@@ -36,6 +36,15 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
       appBar: AppBar(
         title: const Text('나눔'),
         centerTitle: true,
+        actions: [
+          // 내 나눔 관리(M-05)로 진입 — 내가 공유한 글의 숨김/되돌리기/삭제.
+          IconButton(
+            tooltip: '내 나눔',
+            icon: const Icon(Icons.manage_accounts_outlined),
+            onPressed: () =>
+                Navigator.of(context).pushNamed(AppRouter.mySharing),
+          ),
+        ],
       ),
       body: Column(
         children: [
