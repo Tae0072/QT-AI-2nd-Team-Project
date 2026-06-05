@@ -9,7 +9,8 @@ on:
 # 환경변수 — 변경 가능 (한 곳만 수정하면 전체 반영)
 # =============================================================================
 # 정책: 코드 파일만 diff 추출, 크기 제한 없음.
-#   - *.java *.kt *.gradle *.yml *.yaml *.properties *.xml *.md 만 추출한다.
+#   - *.java *.kt *.dart *.gradle *.yml *.yaml *.properties *.xml *.md 만 추출한다.
+#     (*.dart 누락 시 Flutter 전용 PR의 diff가 0바이트로 추출되어 리뷰 불가 — 2026-06-05 수정)
 #   - 성경 시드 SQL/JSON 같은 대용량 비코드 데이터는 제외하여 컨텍스트 폭발 방지.
 #   - 코드 파일 자체는 절단하지 않는다. 파일 기반 stdin 파이프로 ARG_MAX 우회.
 #   - Claude CLI 실패(컨텍스트 초과, API 장애 등)는 PR 코멘트로 안내하며 step은 exit 0.
@@ -63,7 +64,7 @@ jobs:
 
           FULL_SIZE=$(git diff "origin/${BASE_REF}...HEAD" | wc -c)
           git diff "origin/${BASE_REF}...HEAD" -- \
-            '*.java' '*.kt' '*.gradle' '*.gradle.kts' \
+            '*.java' '*.kt' '*.dart' '*.gradle' '*.gradle.kts' \
             '*.yml' '*.yaml' '*.properties' '*.xml' '*.md' \
             > "$DIFF_FILE"
           DIFF_SIZE=$(wc -c < "$DIFF_FILE")
