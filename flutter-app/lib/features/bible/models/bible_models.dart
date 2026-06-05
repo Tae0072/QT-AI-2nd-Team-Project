@@ -128,6 +128,57 @@ class TodayQtPassage {
   });
 }
 
+/// QT 학습 콘텐츠 (해설/주석) — `GET /qt/{qtPassageId}/study-content`.
+class QtStudyContent {
+  final String? summary;
+  final List<QtExplanationItem> explanations;
+
+  const QtStudyContent({
+    required this.summary,
+    required this.explanations,
+  });
+
+  factory QtStudyContent.fromJson(Map<String, dynamic> json) {
+    return QtStudyContent(
+      summary: json['summary'] as String?,
+      explanations: (json['explanations'] as List<dynamic>? ?? const [])
+          .map((item) =>
+              QtExplanationItem.fromJson(item as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  /// TTS 낭독용 주석 전체 텍스트 (절 순서대로, 빈 항목 제외).
+  String get readableText {
+    final buf = StringBuffer();
+    for (final item in explanations) {
+      final t = item.explanation?.trim();
+      if (t != null && t.isNotEmpty) buf.writeln(t);
+    }
+    return buf.toString().trim();
+  }
+}
+
+class QtExplanationItem {
+  final int? verseId;
+  final String? summary;
+  final String? explanation;
+
+  const QtExplanationItem({
+    required this.verseId,
+    required this.summary,
+    required this.explanation,
+  });
+
+  factory QtExplanationItem.fromJson(Map<String, dynamic> json) {
+    return QtExplanationItem(
+      verseId: json['verseId'] as int?,
+      summary: json['summary'] as String?,
+      explanation: json['explanation'] as String?,
+    );
+  }
+}
+
 class TodayQtSummary {
   final int? qtPassageId;
   final String? passageDate;

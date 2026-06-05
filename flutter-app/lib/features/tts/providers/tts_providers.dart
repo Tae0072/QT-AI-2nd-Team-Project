@@ -75,6 +75,42 @@ final selectedVoiceProvider =
   return SelectedVoiceNotifier(ref.watch(sharedPreferencesProvider));
 });
 
+/// TTS 읽기 범위 SharedPreferences 키.
+const String kTtsReadBiblePrefsKey = 'tts_read_bible';
+const String kTtsReadExplanationPrefsKey = 'tts_read_explanation';
+
+/// TTS 읽기 범위 on/off — SharedPreferences에 저장된다.
+///
+/// - 본문 읽기(한글): 기본 켜짐
+/// - 주석(해설) 읽기: 기본 꺼짐
+/// 둘 다 켜면 본문을 먼저 읽고 이어서 주석을 읽는다.
+class TtsReadScopeNotifier extends StateNotifier<bool> {
+  final SharedPreferences _prefs;
+  final String _key;
+
+  TtsReadScopeNotifier(this._prefs, this._key, bool defaultValue)
+      : super(_prefs.getBool(_key) ?? defaultValue);
+
+  void set(bool value) {
+    state = value;
+    _prefs.setBool(_key, value);
+  }
+}
+
+/// 본문(한글) 읽기 여부.
+final ttsReadBibleProvider =
+    StateNotifierProvider<TtsReadScopeNotifier, bool>((ref) {
+  return TtsReadScopeNotifier(
+      ref.watch(sharedPreferencesProvider), kTtsReadBiblePrefsKey, true);
+});
+
+/// 주석(해설) 읽기 여부.
+final ttsReadExplanationProvider =
+    StateNotifierProvider<TtsReadScopeNotifier, bool>((ref) {
+  return TtsReadScopeNotifier(
+      ref.watch(sharedPreferencesProvider), kTtsReadExplanationPrefsKey, false);
+});
+
 /// 음성 생성 상태.
 enum TtsState { idle, generating, playing, paused, error }
 

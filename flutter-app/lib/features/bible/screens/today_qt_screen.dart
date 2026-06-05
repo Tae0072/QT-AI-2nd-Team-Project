@@ -35,7 +35,11 @@ class TodayQtScreen extends ConsumerWidget {
         actions: [
           // 본문 읽기(TTS) — 아이콘 하나로 재생/정지 토글
           if (data != null && fullText.isNotEmpty)
-            QtTtsButton(qtText: fullText, qtDate: _qtDateOf(data)),
+            QtTtsButton(
+              qtText: fullText,
+              qtDate: _qtDateOf(data),
+              qtPassageId: data.qtPassageId,
+            ),
           IconButton(
             tooltip: '새로고침',
             icon: const Icon(Icons.refresh),
