@@ -55,6 +55,72 @@ class SharingPostListResponse {
   }
 }
 
+/// 내 나눔 글 1건 (GET /api/v1/me/sharing-posts, 04 §4.4.5, 화면 M-05).
+///
+/// 공개 피드(SharingPostItem)와 달리 작성자 본인 관리용이라
+/// 닉네임·본문 미리보기·likedByMe가 없고, status(공개/숨김)로 액션을 분기한다.
+class MySharingPostItem {
+  final int id;
+  final String titleSnapshot;
+  final String category;
+  final String status; // PUBLISHED / HIDDEN
+  final bool commentsEnabled;
+  final DateTime? sourceNoteDeletedAt; // null 아니면 원본 노트 삭제됨
+  final int likeCount;
+  final int commentCount;
+  final DateTime? publishedAt;
+
+  MySharingPostItem({
+    required this.id,
+    required this.titleSnapshot,
+    required this.category,
+    required this.status,
+    required this.commentsEnabled,
+    this.sourceNoteDeletedAt,
+    required this.likeCount,
+    required this.commentCount,
+    this.publishedAt,
+  });
+
+  bool get isHidden => status == 'HIDDEN';
+
+  factory MySharingPostItem.fromJson(Map<String, dynamic> json) {
+    return MySharingPostItem(
+      id: json['id'] as int,
+      titleSnapshot: json['titleSnapshot'] as String? ?? '',
+      category: json['category'] as String? ?? '',
+      status: json['status'] as String? ?? 'PUBLISHED',
+      commentsEnabled: json['commentsEnabled'] as bool? ?? true,
+      sourceNoteDeletedAt: json['sourceNoteDeletedAt'] != null
+          ? DateTime.parse(json['sourceNoteDeletedAt'] as String)
+          : null,
+      likeCount: json['likeCount'] as int? ?? 0,
+      commentCount: json['commentCount'] as int? ?? 0,
+      publishedAt: json['publishedAt'] != null
+          ? DateTime.parse(json['publishedAt'] as String)
+          : null,
+    );
+  }
+}
+
+/// 내 나눔 목록 응답 (페이징).
+class MySharingPostListResponse {
+  final List<MySharingPostItem> items;
+  final bool hasNext;
+
+  MySharingPostListResponse({required this.items, required this.hasNext});
+
+  factory MySharingPostListResponse.fromJson(Map<String, dynamic> json) {
+    final content = json['content'] as List<dynamic>? ?? [];
+    return MySharingPostListResponse(
+      items: content
+          .map((e) => MySharingPostItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      hasNext: !(json['last'] as bool? ?? true),
+    );
+  }
+}
+
 /// 나눔 댓글 1건 (GET /sharing-posts/{id}/comments, 04 §4.4.4).
 class CommentItem {
   final int id;

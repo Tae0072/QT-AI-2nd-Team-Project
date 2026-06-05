@@ -1,11 +1,31 @@
-# 진행 중 Todo — W3 Flutter 노트 화면 (목·금)
+# 진행 중 Todo — M-05 내 나눔 관리 화면
 
-> **목표**: 본인 담당 V1 Flutter 화면 전체 — 노트(N-01~04) 중심 + 달력·외부공유·서식툴바 + 나눔(S-01~03) 검토·보완
-> **브랜치**: `feature/note-flutter-screens` (origin/dev 최신 기반)
-> **완료 기준**: 노트 작성→목록→상세→수정→삭제 동작 + 달력/외부공유 연결 + `flutter analyze` 무경고
+> **목표**: M-05(내 나눔 관리) Flutter 화면 — 내가 쓴 나눔 글 목록 + 숨김/되돌리기/삭제
+> **브랜치**: `feature/sharing-my-posts-screen` (origin/dev 최신 기반, note PR #246 머지 후)
+> **완료 기준**: 목록 조회 + ⋮메뉴(상태별 숨김/되돌리기/삭제) + 삭제 확인 + `flutter analyze` 무경고
 > **구현 방식**: 학습 모드(SKILL 🟢 강 모드)
-> **최종 업데이트**: 2026-06-04 (백엔드 W3 완료 → Flutter 화면 착수. 브랜치·워크플로우 문서 셋업 완료)
-> **상세**: [workflows/2026-W3_Flutter-상세-워크플로우.md](../workflows/2026-W3_Flutter-상세-워크플로우.md)
+> **최종 업데이트**: 2026-06-05 (M-05 구현 완료)
+> **상세**: [workflows/2026-06-05_M05-내나눔관리-워크플로우.md](../workflows/2026-06-05_M05-내나눔관리-워크플로우.md)
+
+---
+
+## ✅ M-05 내 나눔 관리 (2026-06-05) 완료 — `flutter analyze` 무경고
+
+- [x] 모델 `MySharingPostItem`(+페이징) — 04 §4.4.5 필드(닉네임·미리보기 없음, status로 분기)
+- [x] repository `getMySharingPosts`/`hidePost`/`showPost` (deletePost 재사용)
+- [x] provider `mySharingPostsProvider` (공개+숨김 한 목록, 변경 후 invalidate)
+- [x] `my_sharing_screen.dart` — 목록 + 상태 뱃지 + **⋮ 메뉴(공개중=숨김/삭제, 숨김=되돌리기/삭제)** + 삭제 확인창 + 탭→상세
+- [x] 라우팅 `mySharing` + **나눔 피드 AppBar "내 나눔" 진입**(팀 합의 — 06 마이페이지 진입 대신)
+- [x] 문서 반영 요청 메모([workflows/2026-06-05_문서반영요청-M05-진입점.md](../workflows/2026-06-05_문서반영요청-M05-진입점.md))
+
+> 📌 진입점: 06은 마이페이지(M-01) 진입으로 정의 → 팀 합의로 나눔 피드 진입 구현. 06 갱신은 문서 담당에 요청(#decisions).
+> ⏳ 다음: commit → push → PR(base dev). 마이페이지 진입은 QuickMenuCard 소유자 협의 시 추가(옵션).
+
+---
+
+# (아카이브) W3 Flutter 노트 화면
+
+> 노트(N-01~04)·달력·외부공유·서식툴바·나눔 댓글/신고 — `feature/note-flutter-screens` → dev 머지 완료(#246)
 
 ---
 

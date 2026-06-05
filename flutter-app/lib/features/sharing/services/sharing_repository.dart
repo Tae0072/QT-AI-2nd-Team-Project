@@ -46,6 +46,32 @@ class SharingRepository {
     await _dio.delete('/sharing-posts/$postId');
   }
 
+  /// 내 나눔 글 목록 (GET /api/v1/me/sharing-posts, 04 §4.4.5, 화면 M-05).
+  ///
+  /// status 생략 시 서버가 공개+숨김을 함께 반환한다(삭제 제외).
+  Future<MySharingPostListResponse> getMySharingPosts({
+    String? status,
+    int page = 0,
+  }) async {
+    final response = await _dio.get('/me/sharing-posts', queryParameters: {
+      if (status != null) 'status': status,
+      'page': page,
+      'size': 20,
+    });
+    final data = response.data['data'] as Map<String, dynamic>;
+    return MySharingPostListResponse.fromJson(data);
+  }
+
+  /// 나눔 글 숨김 (PATCH /sharing-posts/{id}/hide, 204). PUBLISHED→HIDDEN.
+  Future<void> hidePost(int postId) async {
+    await _dio.patch('/sharing-posts/$postId/hide');
+  }
+
+  /// 나눔 글 되돌리기 (PATCH /sharing-posts/{id}/show, 204). HIDDEN→PUBLISHED.
+  Future<void> showPost(int postId) async {
+    await _dio.patch('/sharing-posts/$postId/show');
+  }
+
   /// 노트를 나눔에 공유.
   Future<void> publishNote(int noteId, {bool commentsEnabled = true}) async {
     await _dio.post('/notes/$noteId/share', data: {
