@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 class AiReviewReferenceServiceTest {
 
     private static final OffsetDateTime CREATED_AT = OffsetDateTime.parse("2026-06-04T09:00:00+09:00");
+    private static final String INDEX_STORAGE_URI = "restricted://validation/index/reference-index.json";
 
     private ValidationReferenceJobRepository repository;
     private AiReviewReferenceService service;
@@ -35,7 +36,7 @@ class AiReviewReferenceServiceTest {
         assertThat(metadata.validationReferenceJobId()).isEqualTo(33L);
         assertThat(metadata.sourceName()).isEqualTo("검증 참조 자료");
         assertThat(metadata.sourceFileHash()).isEqualTo("sha256:reference-hash");
-        assertThat(metadata.indexStorageUri()).isEqualTo("restricted://validation/index");
+        assertThat(metadata.indexStorageUri()).isEqualTo(INDEX_STORAGE_URI);
     }
 
     @Test
@@ -65,7 +66,7 @@ class AiReviewReferenceServiceTest {
                 "reference-notes.pdf",
                 "sha256:reference-hash",
                 "restricted://validation/reference.pdf",
-                "restricted://validation/index",
+                INDEX_STORAGE_URI,
                 CREATED_AT.plusDays(1),
                 CREATED_AT
         );
