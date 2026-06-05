@@ -8,7 +8,9 @@ import java.nio.file.Path;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -138,96 +140,49 @@ class AiBibleVerseAssetCustomerExposureFlowManualTest {
         QtPassageContentContext context = getQtPassageContentContextUseCase.getContentContext(todayQt.qtPassageId());
         assertThat(context.verseIds()).hasSize(15);
 
+        Map<Long, QtStudyContentResponse.ExplanationItem> visibleBeforeSeed =
+                visibleExposuresByVerse(todayQt.qtPassageId());
         List<Long> jobIdsBeforeSeed = todayVerseJobIds(context.verseIds());
         AiDailyQtVerseExplanationSeedResult seedResult = seedService.seedToday();
-        Long jobId = newlySeededJobIdToRun(context.verseIds(), jobIdsBeforeSeed);
-        if (jobId == null) {
-            QtStudyContentResponse.ExplanationItem existingExposure = firstVisibleExposure(todayQt.qtPassageId());
-            writeSummary(
-                    "NO_QUEUED_JOB",
-                    todayQt,
-                    context,
-                    promptVersionId,
-                    checklistVersionId,
-                    referenceJobId,
-                    seedResult,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    existingExposure
-            );
-            assertThat(existingExposure)
-                    .as("seedToday created no job, so an existing customer exposure row must already be visible")
-                    .isNotNull();
-            return;
+        Map<Long, List<JobPick>> queuedJobsByVerse = queuedJobsByVerse(context.verseIds(), jobIdsBeforeSeed);
+        List<VerseRunResult> verseResults = new ArrayList<>();
+
+        for (Long verseId : context.verseIds()) {
+            QtStudyContentResponse.ExplanationItem existingExposure = visibleBeforeSeed.get(verseId);
+            if (existingExposure != null) {
+                verseResults.add(VerseRunResult.alreadyVisible(verseId, existingExposure));
+                continue;
+            }
+
+            JobPick jobPick = firstQueuedJob(queuedJobsByVerse.getOrDefault(verseId, List.of()));
+            if (jobPick == null) {
+                verseResults.add(VerseRunResult.noQueuedJob(verseId));
+                continue;
+            }
+
+            VerseRunResult result = runAndExposeVerse(todayQt.qtPassageId(), verseId, jobPick);
+            verseResults.add(result);
         }
 
-        boolean claimed = jobRunner.runJob(jobId);
-        assertThat(claimed).isTrue();
-
-        AiGenerationJob job = generationJobRepository.findById(jobId).orElseThrow();
-        AiGeneratedAsset asset = assetByGenerationJobId(jobId).orElse(null);
-        AiValidationLog layer1Log = asset == null ? null : latestValidationLog(asset.getId(), 1, AiValidationReviewerType.AUTO);
-        AiValidationLog layer2Log = asset == null ? null : latestValidationLog(asset.getId(), 2, AiValidationReviewerType.ADVISOR);
-
-        if (asset == null || layer1Log == null || layer2Log == null
-                || layer1Log.getResult() != AiValidationResult.PASSED
-                || layer2Log.getResult() != AiValidationResult.PASSED) {
-            writeSummary(
-                    "NOT_APPROVED",
-                    todayQt,
-                    context,
-                    promptVersionId,
-                    checklistVersionId,
-                    referenceJobId,
-                    seedResult,
-                    job,
-                    asset,
-                    layer1Log,
-                    layer2Log,
-                    null,
-                    null
-            );
-            assertNoExposureForAsset(asset);
-            return;
-        }
-
-        reviewAiAssetUseCase.reviewAiAsset(new ReviewAiAssetCommand(
-                1L,
-                asset.getId(),
-                "ADMIN",
-                "REVIEWER",
-                "APPROVE",
-                "manual customer exposure sample approval",
-                true,
-                now()
-        ));
-
-        AiGeneratedAsset approvedAsset = generatedAssetRepository.findById(asset.getId()).orElseThrow();
-        assertThat(approvedAsset.getStatus()).isEqualTo(AiGeneratedAssetStatus.APPROVED);
-
-        QtStudyContentResponse.ExplanationItem exposure = visibleExposure(todayQt.qtPassageId(), asset.getId());
-        assertThat(exposure).isNotNull();
-        assertThat(exposure.verseId()).isEqualTo(asset.getTargetId());
-        assertThat(exposure.aiAssetId()).isEqualTo(asset.getId());
-
-        writeSummary(
-                "APPROVED_AND_VISIBLE",
+        Map<Long, QtStudyContentResponse.ExplanationItem> finalExposureByVerse =
+                visibleExposuresByVerse(todayQt.qtPassageId());
+        String flowStatus = finalExposureByVerse.keySet().containsAll(context.verseIds())
+                ? "FULLY_VISIBLE"
+                : "PARTIAL_VISIBLE";
+        writeFullSummary(
+                flowStatus,
                 todayQt,
                 context,
                 promptVersionId,
                 checklistVersionId,
                 referenceJobId,
                 seedResult,
-                job,
-                approvedAsset,
-                layer1Log,
-                layer2Log,
-                approvedAsset,
-                exposure
+                verseResults,
+                finalExposureByVerse
         );
+
+        assertThat(finalExposureByVerse.keySet()).containsAll(context.verseIds());
+        assertThat(finalExposureByVerse).hasSize(15);
     }
 
     private void ensureTodayQtVerseLinks() {
@@ -403,22 +358,98 @@ class AiBibleVerseAssetCustomerExposureFlowManualTest {
                 """.formatted(inClause), (rs, rowNum) -> rs.getLong(1), verseIds.toArray());
     }
 
-    private Long newlySeededJobIdToRun(List<Long> verseIds, List<Long> jobIdsBeforeSeed) {
+    private Map<Long, List<JobPick>> queuedJobsByVerse(List<Long> verseIds, List<Long> jobIdsBeforeSeed) {
         String inClause = placeholders(verseIds.size());
-        List<Long> queuedJobIds = jdbcTemplate.query("""
-                select id
+        Map<Long, List<JobPick>> jobsByVerse = new LinkedHashMap<>();
+        jdbcTemplate.query("""
+                select target_id, id
                 from ai_generation_jobs
                 where job_type = 'EXPLANATION'
                   and target_type = 'BIBLE_VERSE'
                   and status = 'QUEUED'
                   and target_id in (%s)
-                order by id asc
-                """.formatted(inClause), (rs, rowNum) -> rs.getLong(1), verseIds.toArray());
-        // Keep the sample run tied to this seed execution; stale QUEUED jobs make provenance unclear.
-        return queuedJobIds.stream()
-                .filter(id -> !jobIdsBeforeSeed.contains(id))
+                order by target_id asc, id asc
+                """.formatted(inClause), rs -> {
+                    Long verseId = rs.getLong(1);
+                    Long jobId = rs.getLong(2);
+                    String origin = jobIdsBeforeSeed.contains(jobId)
+                            ? "PREEXISTING_QUEUED"
+                            : "NEWLY_SEEDED";
+                    jobsByVerse.computeIfAbsent(verseId, ignored -> new ArrayList<>())
+                            .add(new JobPick(jobId, origin));
+                }, verseIds.toArray());
+        return jobsByVerse;
+    }
+
+    private static JobPick firstQueuedJob(List<JobPick> jobPicks) {
+        return jobPicks.stream()
+                .filter(jobPick -> "NEWLY_SEEDED".equals(jobPick.origin()))
                 .findFirst()
+                .or(() -> jobPicks.stream().findFirst())
                 .orElse(null);
+    }
+
+    private VerseRunResult runAndExposeVerse(Long qtPassageId, Long verseId, JobPick jobPick) {
+        boolean claimed = jobRunner.runJob(jobPick.id());
+        AiGenerationJob job = generationJobRepository.findById(jobPick.id()).orElseThrow();
+        if (!claimed) {
+            return VerseRunResult.notClaimed(verseId, jobPick.origin(), job);
+        }
+
+        AiGeneratedAsset asset = assetByGenerationJobId(jobPick.id()).orElse(null);
+        AiValidationLog layer1Log = asset == null ? null : latestValidationLog(
+                asset.getId(),
+                1,
+                AiValidationReviewerType.AUTO
+        );
+        AiValidationLog layer2Log = asset == null ? null : latestValidationLog(
+                asset.getId(),
+                2,
+                AiValidationReviewerType.ADVISOR
+        );
+
+        if (asset == null || layer1Log == null || layer2Log == null
+                || layer1Log.getResult() != AiValidationResult.PASSED
+                || layer2Log.getResult() != AiValidationResult.PASSED) {
+            assertNoExposureForAsset(asset);
+            return VerseRunResult.notApproved(verseId, jobPick.origin(), job, asset, layer1Log, layer2Log);
+        }
+
+        reviewAiAssetUseCase.reviewAiAsset(new ReviewAiAssetCommand(
+                1L,
+                asset.getId(),
+                "ADMIN",
+                "REVIEWER",
+                "APPROVE",
+                "manual customer exposure full-flow approval",
+                true,
+                now()
+        ));
+
+        AiGeneratedAsset approvedAsset = generatedAssetRepository.findById(asset.getId()).orElseThrow();
+        assertThat(approvedAsset.getStatus()).isEqualTo(AiGeneratedAssetStatus.APPROVED);
+
+        QtStudyContentResponse.ExplanationItem exposure = visibleExposureByVerse(qtPassageId, verseId);
+        if (exposure == null) {
+            return VerseRunResult.approvedButNotVisible(
+                    verseId,
+                    jobPick.origin(),
+                    job,
+                    approvedAsset,
+                    layer1Log,
+                    layer2Log
+            );
+        }
+        assertThat(exposure.aiAssetId()).isEqualTo(asset.getId());
+        return VerseRunResult.approvedAndVisible(
+                verseId,
+                jobPick.origin(),
+                job,
+                approvedAsset,
+                layer1Log,
+                layer2Log,
+                exposure
+        );
     }
 
     private Optional<AiGeneratedAsset> assetByGenerationJobId(Long generationJobId) {
@@ -461,25 +492,20 @@ class AiBibleVerseAssetCustomerExposureFlowManualTest {
         assertThat(exposureCount).isZero();
     }
 
-    private QtStudyContentResponse.ExplanationItem visibleExposure(Long qtPassageId, Long assetId) {
-        return getQtStudyContentUseCase.getStudyContent(qtPassageId)
-                .explanations()
-                .stream()
-                .filter(item -> assetId.equals(item.aiAssetId()))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private QtStudyContentResponse.ExplanationItem firstVisibleExposure(Long qtPassageId) {
-        List<QtStudyContentResponse.ExplanationItem> explanations =
-                getQtStudyContentUseCase.getStudyContent(qtPassageId).explanations();
-        if (explanations.isEmpty()) {
-            return null;
+    private Map<Long, QtStudyContentResponse.ExplanationItem> visibleExposuresByVerse(Long qtPassageId) {
+        Map<Long, QtStudyContentResponse.ExplanationItem> exposuresByVerse = new LinkedHashMap<>();
+        for (QtStudyContentResponse.ExplanationItem item
+                : getQtStudyContentUseCase.getStudyContent(qtPassageId).explanations()) {
+            exposuresByVerse.putIfAbsent(item.verseId(), item);
         }
-        return explanations.get(0);
+        return exposuresByVerse;
     }
 
-    private void writeSummary(
+    private QtStudyContentResponse.ExplanationItem visibleExposureByVerse(Long qtPassageId, Long verseId) {
+        return visibleExposuresByVerse(qtPassageId).get(verseId);
+    }
+
+    private void writeFullSummary(
             String flowStatus,
             TodayQtResponse todayQt,
             QtPassageContentContext context,
@@ -487,15 +513,11 @@ class AiBibleVerseAssetCustomerExposureFlowManualTest {
             Long checklistVersionId,
             Long referenceJobId,
             AiDailyQtVerseExplanationSeedResult seedResult,
-            AiGenerationJob job,
-            AiGeneratedAsset asset,
-            AiValidationLog layer1Log,
-            AiValidationLog layer2Log,
-            AiGeneratedAsset approvedAsset,
-            QtStudyContentResponse.ExplanationItem exposure
+            List<VerseRunResult> verseResults,
+            Map<Long, QtStudyContentResponse.ExplanationItem> finalExposureByVerse
     ) throws IOException {
         ObjectNode root = objectMapper.createObjectNode();
-        root.put("schemaVersion", "ai-bible-verse-customer-exposure-summary.v1");
+        root.put("schemaVersion", "ai-bible-verse-customer-exposure-full-summary.v1");
         root.put("flowStatus", flowStatus);
         root.put("sampleMarker", SAMPLE_MARKER);
         root.put("sampleVersion", SAMPLE_VERSION);
@@ -516,11 +538,8 @@ class AiBibleVerseAssetCustomerExposureFlowManualTest {
         }
         ArrayNode verseIds = root.putArray("verseIds");
         context.verseIds().forEach(verseIds::add);
-        putJob(root, job);
-        putAsset(root, "asset", asset);
-        putValidationLog(root, "layer1", layer1Log);
-        putValidationLog(root, "layer2", layer2Log);
-        putAsset(root, "approvedAsset", approvedAsset);
+        root.put("finalVisibleCount", finalExposureByVerse.size());
+        root.put("resultCount", verseResults.size());
         root.put("llmCallCount", capturingLlmClient.callCount());
         ArrayNode llmCalls = root.putArray("llmCalls");
         capturingLlmClient.callRecords().forEach(record -> {
@@ -534,27 +553,54 @@ class AiBibleVerseAssetCustomerExposureFlowManualTest {
             }
             llmCalls.add(node);
         });
-        if (layer2Log != null && layer2Log.getChecklistJson() != null) {
-            JsonNode checklist = objectMapper.readTree(layer2Log.getChecklistJson());
-            root.put("selectedReferenceExcerptCount", checklist.path("selectedReferenceExcerptCount").asInt(0));
-            root.set("selectedReferenceHashes", checklist.path("selectedReferenceHashes"));
-            root.set("selectedReferenceRangeLabels", checklist.path("selectedReferenceRangeLabels"));
+        ArrayNode results = root.putArray("verseResults");
+        for (VerseRunResult result : verseResults) {
+            putVerseResult(results, result);
         }
-        if (exposure != null) {
-            ObjectNode exposureNode = root.putObject("customerExposure");
-            exposureNode.put("verseId", exposure.verseId());
-            exposureNode.put("aiAssetId", exposure.aiAssetId());
-            exposureNode.put("sourceLabel", exposure.sourceLabel());
-            exposureNode.put("summary", exposure.summary());
-            exposureNode.put("explanation", exposure.explanation());
+        ArrayNode exposures = root.putArray("customerExposures");
+        for (Long verseId : context.verseIds()) {
+            QtStudyContentResponse.ExplanationItem exposure = finalExposureByVerse.get(verseId);
+            if (exposure != null) {
+                putExposure(exposures.addObject(), exposure);
+            }
         }
 
         Path output = projectDir()
                 .resolve("build")
                 .resolve("ai-review-reference")
-                .resolve("bible-verse-customer-exposure-summary.json");
+                .resolve("bible-verse-customer-exposure-full-summary.json");
         Files.createDirectories(output.getParent());
         objectMapper.writerWithDefaultPrettyPrinter().writeValue(output.toFile(), root);
+    }
+
+    private void putVerseResult(ArrayNode results, VerseRunResult result) throws IOException {
+        ObjectNode node = results.addObject();
+        node.put("verseId", result.verseId());
+        node.put("status", result.status());
+        if (result.jobOrigin() != null) {
+            node.put("jobOrigin", result.jobOrigin());
+        }
+        putJob(node, result.job());
+        putAsset(node, "asset", result.asset());
+        putValidationLog(node, "layer1", result.layer1Log());
+        putValidationLog(node, "layer2", result.layer2Log());
+        if (result.layer2Log() != null && result.layer2Log().getChecklistJson() != null) {
+            JsonNode checklist = objectMapper.readTree(result.layer2Log().getChecklistJson());
+            node.put("selectedReferenceExcerptCount", checklist.path("selectedReferenceExcerptCount").asInt(0));
+            node.set("selectedReferenceHashes", checklist.path("selectedReferenceHashes"));
+            node.set("selectedReferenceRangeLabels", checklist.path("selectedReferenceRangeLabels"));
+        }
+        if (result.exposure() != null) {
+            putExposure(node.putObject("customerExposure"), result.exposure());
+        }
+    }
+
+    private static void putExposure(ObjectNode node, QtStudyContentResponse.ExplanationItem exposure) {
+        node.put("verseId", exposure.verseId());
+        node.put("aiAssetId", exposure.aiAssetId());
+        node.put("sourceLabel", exposure.sourceLabel());
+        node.put("summary", exposure.summary());
+        node.put("explanation", exposure.explanation());
     }
 
     private void putJob(ObjectNode root, AiGenerationJob job) {
@@ -649,6 +695,131 @@ class AiBibleVerseAssetCustomerExposureFlowManualTest {
 
     private static OffsetDateTime now() {
         return OffsetDateTime.now(KST_ZONE);
+    }
+
+    private record JobPick(
+            Long id,
+            String origin
+    ) {
+    }
+
+    private record VerseRunResult(
+            Long verseId,
+            String status,
+            String jobOrigin,
+            AiGenerationJob job,
+            AiGeneratedAsset asset,
+            AiValidationLog layer1Log,
+            AiValidationLog layer2Log,
+            QtStudyContentResponse.ExplanationItem exposure
+    ) {
+
+        static VerseRunResult alreadyVisible(
+                Long verseId,
+                QtStudyContentResponse.ExplanationItem exposure
+        ) {
+            return new VerseRunResult(
+                    verseId,
+                    "ALREADY_VISIBLE",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    exposure
+            );
+        }
+
+        static VerseRunResult noQueuedJob(Long verseId) {
+            return new VerseRunResult(
+                    verseId,
+                    "NO_QUEUED_JOB",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
+
+        static VerseRunResult notClaimed(
+                Long verseId,
+                String jobOrigin,
+                AiGenerationJob job
+        ) {
+            return new VerseRunResult(
+                    verseId,
+                    "NOT_CLAIMED",
+                    jobOrigin,
+                    job,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
+
+        static VerseRunResult notApproved(
+                Long verseId,
+                String jobOrigin,
+                AiGenerationJob job,
+                AiGeneratedAsset asset,
+                AiValidationLog layer1Log,
+                AiValidationLog layer2Log
+        ) {
+            return new VerseRunResult(
+                    verseId,
+                    "NOT_APPROVED",
+                    jobOrigin,
+                    job,
+                    asset,
+                    layer1Log,
+                    layer2Log,
+                    null
+            );
+        }
+
+        static VerseRunResult approvedButNotVisible(
+                Long verseId,
+                String jobOrigin,
+                AiGenerationJob job,
+                AiGeneratedAsset approvedAsset,
+                AiValidationLog layer1Log,
+                AiValidationLog layer2Log
+        ) {
+            return new VerseRunResult(
+                    verseId,
+                    "APPROVED_BUT_NOT_VISIBLE",
+                    jobOrigin,
+                    job,
+                    approvedAsset,
+                    layer1Log,
+                    layer2Log,
+                    null
+            );
+        }
+
+        static VerseRunResult approvedAndVisible(
+                Long verseId,
+                String jobOrigin,
+                AiGenerationJob job,
+                AiGeneratedAsset approvedAsset,
+                AiValidationLog layer1Log,
+                AiValidationLog layer2Log,
+                QtStudyContentResponse.ExplanationItem exposure
+        ) {
+            return new VerseRunResult(
+                    verseId,
+                    "APPROVED_AND_VISIBLE",
+                    jobOrigin,
+                    job,
+                    approvedAsset,
+                    layer1Log,
+                    layer2Log,
+                    exposure
+            );
+        }
     }
 
     @TestConfiguration
