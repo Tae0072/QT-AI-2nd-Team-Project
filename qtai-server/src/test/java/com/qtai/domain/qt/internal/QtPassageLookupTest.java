@@ -122,10 +122,10 @@ class QtPassageLookupTest {
             // when
             TodayQtResponse response = lookup.findTodayPassage();
 
-            // then
+            // then — 본문 부재는 MISSING(콘텐츠 없음). DISABLED는 운영자 비활성 전용 의미
             assertThat(response.qtPassageId()).isNull();
             assertThat(response.cacheStatus()).isEqualTo("EMPTY");
-            assertThat(response.simulatorStatus()).isEqualTo("DISABLED");
+            assertThat(response.simulatorStatus()).isEqualTo("MISSING");
         }
 
         @Test
@@ -142,10 +142,10 @@ class QtPassageLookupTest {
             // when
             TodayQtResponse response = lookup.findTodayPassage();
 
-            // then
+            // then — 본문 부재는 MISSING(콘텐츠 없음). DISABLED는 운영자 비활성 전용 의미
             assertThat(response.qtPassageId()).isNull();
             assertThat(response.cacheStatus()).isEqualTo("MISS");
-            assertThat(response.simulatorStatus()).isEqualTo("DISABLED");
+            assertThat(response.simulatorStatus()).isEqualTo("MISSING");
         }
 
         @Test

@@ -80,8 +80,8 @@ class QtPassageLookup {
                 passage.getId(),
                 passage.getQtDate().toString(),
                 passage.getTitle(),
-                "MISSING",    // simulatorStatus: 시뮬레이터 도메인 연동 전 기본값
-                false,        // hasExplanation: AI 해설 도메인 연동 전 기본값
+                "MISSING",    // simulatorStatus 기본값 — QtService가 캐시 밖에서 study 가용성으로 enrich
+                false,        // hasExplanation 기본값 — QtService가 캐시 밖에서 study 가용성으로 enrich
                 null,         // draftNoteId: QtService에서 enrich
                 cacheStatus,
                 rangeResolver.resolve(passage)
@@ -93,6 +93,7 @@ class QtPassageLookup {
     }
 
     private TodayQtResponse emptyResponse(String cacheStatus) {
-        return new TodayQtResponse(null, null, null, "DISABLED", false, null, cacheStatus);
+        // DISABLED는 '운영자 비활성' 의미 — 본문 부재는 콘텐츠 없음(MISSING)으로 표현한다
+        return new TodayQtResponse(null, null, null, "MISSING", false, null, cacheStatus);
     }
 }
