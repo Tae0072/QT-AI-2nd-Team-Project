@@ -48,29 +48,44 @@ class AuthRepository {
     );
   }
 
-  /// 로그아웃 — 로컬 토큰 우선 삭제 후 서버/카카오 폐기.
+  /// 로그아웃 — 서버 폐기를 먼저 시도하고, 어떤 경우에도 로컬 토큰을 삭제한다.
   ///
-  /// SecureStorage를 먼저 삭제하여 서버/카카오 호출 실패 시에도
-  /// 로컬 인증 상태가 반드시 초기화되도록 한다.
+  /// 서버 `/auth/logout`은 인터셉터가 SecureStorage의 access token을 헤더에
+  /// 붙여 호출하므로, 로컬 토큰 삭제보다 먼저 호출해야 Redis refresh token이
+  /// 정상 폐기된다 (기존: 토큰을 먼저 지워 무인증 호출 → 서버 폐기 실패 버그).
+  /// 서버/카카오 호출이 실패해도 finally에서 로컬 토큰은 반드시 삭제한다.
   Future<void> logout() async {
-    // 1) 로컬 토큰 우선 삭제 (부분 실패 시에도 로그아웃 보장)
-    final refreshToken = await SecureStorage.getRefreshToken();
-    await SecureStorage.clearTokens();
-
-    // 2) 서버 Refresh Token 폐기 (Redis 삭제)
     try {
-      if (refreshToken != null && refreshToken.isNotEmpty) {
-        await _dio.post('/auth/logout');
+      // 1) 서버 Refresh Token 폐기 (Redis 삭제) — 토큰이 살아있는 상태에서 호출
+      await _dio.post('/auth/logout');
+    } catch (_) {
+      // 서버 호출 실패해도 로컬 정리는 계속 진행
+    } finally {
+      // 2) 카카오 SDK 로그아웃 (세션 종료 — 연결은 유지)
+      try {
+        await UserApi.instance.logout();
+      } catch (_) {
+        // 카카오 로그아웃 실패해도 무시
       }
-    } catch (_) {
-      // 서버 호출 실패해도 로컬 토큰은 이미 삭제됨
+      // 3) 로컬 토큰 삭제 — 어떤 경우에도 로컬 인증 상태 초기화 보장
+      await SecureStorage.clearTokens();
     }
+  }
 
-    // 3) 카카오 SDK 로그아웃
+  /// 회원 탈퇴 후 로컬 정리 — 카카오 연결끊기(unlink) + 로컬 토큰 삭제.
+  ///
+  /// 서버 탈퇴(DELETE /me)가 성공한 뒤 호출한다.
+  /// unlink는 카카오 계정에서 QT-AI 앱 연결 자체를 해제하므로,
+  /// 재로그인 시 동의화면부터 다시 시작한다 (탈퇴 후에도 카카오에
+  /// 내 정보가 자동으로 뜨는 현상 방지). unlink 실패는 무시하고
+  /// 로컬 토큰은 반드시 삭제한다.
+  Future<void> cleanupAfterWithdraw() async {
     try {
-      await UserApi.instance.logout();
+      await UserApi.instance.unlink();
     } catch (_) {
-      // 카카오 로그아웃 실패해도 무시
+      // 카카오 연결끊기 실패해도 로컬 정리는 계속 진행
+    } finally {
+      await SecureStorage.clearTokens();
     }
   }
 
