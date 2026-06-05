@@ -67,6 +67,7 @@ Voice Studio TTS 엔진을 QT-AI Flutter 앱에 통합하여,
 - [x] 9단계: QT 본문 로드 시 자동 음성 생성 — QtAudioPlayer initState에서 사전 준비 (06-05)
 - [x] 10단계: QT 화면에서 바로 재생 — 준비된 음성 즉시 플레이, 목소리 변경 시 자동 재준비 (06-05)
 - [x] 11단계: TTS 버튼 커스텀 아이콘 + 재생/정지 토글 — 얼굴+음파 아이콘, 탭=재생/다시 탭=정지 (06-05)
+- [x] 12단계: 플레이어 카드 제거 → 앱바 단일 아이콘(QtTtsButton)으로 단순화, Row 오버플로우 해소 (06-05)
 
 ## 8~10단계 설계 (2026-06-05)
 - `selectedVoiceProvider`: StateProvider → `StateNotifierProvider`(SelectedVoiceNotifier)로 교체.
