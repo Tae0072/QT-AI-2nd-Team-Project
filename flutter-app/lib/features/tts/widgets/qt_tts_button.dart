@@ -77,7 +77,7 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
 
     if (readExplanation) {
       if (widget.qtPassageId == null) {
-        if (autoPlay && parts.isEmpty) _showMessage('오늘 QT의 주석 정보가 없습니다');
+        if (autoPlay && parts.isEmpty) _showMessage('오늘 QT의 해설 정보가 없습니다');
       } else {
         try {
           final content = await ref
@@ -89,15 +89,15 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
             scope += 'e';
           } else if (autoPlay) {
             _showMessage(parts.isEmpty
-                ? '아직 준비된 주석이 없습니다'
-                : '주석이 아직 없어 본문만 읽습니다');
+                ? '아직 준비된 해설이 없습니다'
+                : '해설이 아직 없어 본문만 읽습니다');
           }
         } catch (_) {
-          // 주석 조회 실패 — 본문만이라도 읽고, 주석 전용이면 안내
+          // 해설 조회 실패 — 본문만이라도 읽고, 해설 전용이면 안내
           if (autoPlay) {
             _showMessage(parts.isEmpty
-                ? '주석을 불러오지 못했습니다'
-                : '주석을 불러오지 못해 본문만 읽습니다');
+                ? '해설을 불러오지 못했습니다'
+                : '해설을 불러오지 못해 본문만 읽습니다');
           }
         }
       }

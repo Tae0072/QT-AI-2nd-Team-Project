@@ -86,8 +86,8 @@ class SettingsScreen extends ConsumerWidget {
 
               const Divider(),
 
-              // TTS 읽기 범위 — 본문(한글) / 주석(해설)
-              // 둘 다 켜면 본문을 읽은 후 이어서 주석을 읽는다.
+              // TTS 읽기 범위 — 본문(한글) / 해설
+              // 둘 다 켜면 본문을 읽은 후 이어서 해설을 읽는다.
               SwitchListTile(
                 title: const Text('본문 읽기 (한글)'),
                 subtitle: const Text('QT 한글 본문을 읽어줍니다'),
@@ -100,8 +100,8 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               SwitchListTile(
-                title: const Text('주석 읽기'),
-                subtitle: const Text('본문 해설(주석)을 읽어줍니다. 본문 읽기와 함께 켜면 본문 후에 읽습니다'),
+                title: const Text('해설 읽기'),
+                subtitle: const Text('본문 해설을 읽어줍니다. 본문 읽기와 함께 켜면 본문 후에 읽습니다'),
                 value: ref.watch(ttsReadExplanationProvider),
                 onChanged: (value) => _setReadScope(
                   context, ref,
@@ -127,7 +127,7 @@ class SettingsScreen extends ConsumerWidget {
   }) {
     if (!bible && !explanation) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('본문과 주석 중 최소 한 가지는 켜져 있어야 합니다')),
+        const SnackBar(content: Text('본문과 해설 중 최소 한 가지는 켜져 있어야 합니다')),
       );
       return;
     }
