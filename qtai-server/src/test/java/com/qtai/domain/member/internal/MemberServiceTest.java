@@ -15,7 +15,9 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import com.qtai.common.exception.BusinessException;
@@ -36,12 +38,14 @@ class MemberServiceTest {
             Clock.fixed(Instant.parse("2026-05-26T12:00:00Z"), ZoneId.of("Asia/Seoul"));
 
     private MemberRepository memberRepository;
+    private ApplicationEventPublisher eventPublisher;
     private MemberService memberService;
 
     @BeforeEach
     void setUp() {
         memberRepository = Mockito.mock(MemberRepository.class);
-        memberService = new MemberService(memberRepository, FIXED_CLOCK);
+        eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
+        memberService = new MemberService(memberRepository, eventPublisher, FIXED_CLOCK);
     }
 
     // ── getMember ──
@@ -230,16 +234,24 @@ class MemberServiceTest {
     // ── withdraw ──
 
     @Test
-    void withdraw_성공_개인정보_익명화() {
+    void withdraw_성공_상태전환_개인정보보존_세션무효화_이벤트발행() {
         Member member = createMember(1L, "toWithdraw");
         when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
 
         memberService.withdraw(1L, "서비스 불만");
 
         assertThat(member.getStatus()).isEqualTo(MemberStatus.WITHDRAWN);
-        assertThat(member.getNickname()).startsWith("탈퇴회원_");
-        assertThat(member.getEmail()).isNull();
-        assertThat(member.getKakaoId()).isEqualTo(-1L);
+        assertThat(member.getWithdrawnAt()).isNotNull();
+        // 2년 보존 정책 — 즉시 익명화하지 않는다 (익명화 시 auth_provider UNIQUE 충돌로 재가입 영구 차단)
+        assertThat(member.getNickname()).isEqualTo("toWithdraw");
+        assertThat(member.getEmail()).isEqualTo("toWithdraw@test.com");
+        assertThat(member.getKakaoId()).isEqualTo(101L);
+        // 세션 무효화는 AFTER_COMMIT 이벤트로 분리 — 발행 여부와 대상 회원 검증
+        ArgumentCaptor<MemberWithdrawnEvent> captor =
+                ArgumentCaptor.forClass(MemberWithdrawnEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().memberId()).isEqualTo(1L);
+        assertThat(captor.getValue().eventId()).isNotBlank();
     }
 
     @Test
