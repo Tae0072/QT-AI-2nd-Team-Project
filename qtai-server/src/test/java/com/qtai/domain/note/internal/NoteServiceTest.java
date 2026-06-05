@@ -55,6 +55,7 @@ class NoteServiceTest {
     private NoteVerseRepository noteVerseRepository;
     private GetBibleVerseUseCase getBibleVerseUseCase;
     private NoteQtClient noteQtClient;
+    private com.qtai.domain.sharing.api.MarkSourceNoteDeletedUseCase markSourceNoteDeletedUseCase;
     private ApplicationEventPublisher eventPublisher;
     private NoteService noteService;
     private ArgumentCaptor<Iterable<NoteVerse>> noteVersesCaptor;
@@ -67,6 +68,7 @@ class NoteServiceTest {
         noteVerseRepository = mock(NoteVerseRepository.class);
         getBibleVerseUseCase = mock(GetBibleVerseUseCase.class);
         noteQtClient = mock(NoteQtClient.class);
+        markSourceNoteDeletedUseCase = mock(com.qtai.domain.sharing.api.MarkSourceNoteDeletedUseCase.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         Clock clock = Clock.fixed(Instant.parse("2026-05-28T03:00:00Z"), ZoneId.of("Asia/Seoul"));
         noteService = new NoteService(
@@ -74,6 +76,7 @@ class NoteServiceTest {
                 noteVerseRepository,
                 getBibleVerseUseCase,
                 noteQtClient,
+                markSourceNoteDeletedUseCase,
                 eventPublisher,
                 clock
         );
@@ -748,6 +751,21 @@ class NoteServiceTest {
         assertThat(note.getDeletedAt()).isSameAs(deletedAt);
         assertThat(note.getStatus()).isEqualTo(NoteStatus.DELETED);
         verify(eventPublisher, never()).publishEvent(any());
+        // 이미 삭제된 노트는 나눔 글 통지도 다시 보내지 않는다
+        verify(markSourceNoteDeletedUseCase, never()).markSourceNoteDeleted(any(), any());
+    }
+
+    @Test
+    @DisplayName("delete notifies sharing to mark source note deleted (명세 §4.3.7)")
+    void delete_notifiesSharingSourceNoteDeleted() {
+        Note note = persistedNote(1L, 10L, NoteCategory.PRAYER, NoteStatus.SAVED, null);
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
+
+        noteService.delete(10L, 1L);
+
+        // 같은 트랜잭션에서 나눔 글에 원본 삭제 시각 기록을 위임한다
+        verify(markSourceNoteDeletedUseCase)
+                .markSourceNoteDeleted(org.mockito.ArgumentMatchers.eq(1L), any());
     }
 
     private static Note persistedNote(Long id, Long memberId, NoteCategory category, NoteStatus status, Long qtPassageId) {

@@ -152,4 +152,20 @@ public class SharingPost extends BaseEntity {
         this.status = SharingPostStatus.PUBLISHED;
         this.hiddenAt = null;
     }
+
+    /**
+     * 원본 노트 삭제 시각 기록 (명세 §4.3.7 — 유지+안내 표시).
+     *
+     * <p>게시글은 스냅샷이므로 상태는 바꾸지 않고 안내 판단용 시각만 남긴다.
+     * 이미 기록된 경우 최초 시각을 보존한다(멱등).
+     *
+     * @return 새로 기록했으면 true, 이미 기록돼 있었으면 false
+     */
+    public boolean markSourceNoteDeleted(LocalDateTime deletedAt) {
+        if (this.sourceNoteUnsharedAt != null) {
+            return false;
+        }
+        this.sourceNoteUnsharedAt = deletedAt;
+        return true;
+    }
 }

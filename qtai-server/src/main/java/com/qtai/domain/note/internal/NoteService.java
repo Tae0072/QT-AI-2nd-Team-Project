@@ -57,6 +57,8 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     private final NoteVerseRepository noteVerseRepository;
     private final GetBibleVerseUseCase getBibleVerseUseCase;
     private final NoteQtClient noteQtClient;
+    // 나눔 글 원본 삭제 통지(명세 §4.3.7) — sharing api 포트 (CLAUDE.md §4)
+    private final com.qtai.domain.sharing.api.MarkSourceNoteDeletedUseCase markSourceNoteDeletedUseCase;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
@@ -190,7 +192,11 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         }
         NoteStatus previousStatus = note.getStatus();
         boolean meditationNote = note.getCategory() == NoteCategory.MEDITATION;
-        note.delete(LocalDateTime.now(clock));
+        LocalDateTime deletedAt = LocalDateTime.now(clock);
+        note.delete(deletedAt);
+        // 이 노트로 발행된 나눔 글에 원본 삭제 시각 기록(명세 §4.3.7 — 유지+안내).
+        // 같은 트랜잭션에서 처리해 노트 삭제와 기록의 정합을 보장한다.
+        markSourceNoteDeletedUseCase.markSourceNoteDeleted(noteId, deletedAt);
         if (meditationNote) {
             publishJournalEvent(note, JournalEventType.JOURNAL_DELETED, previousStatus);
         }
