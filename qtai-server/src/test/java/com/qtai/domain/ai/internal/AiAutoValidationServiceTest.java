@@ -31,6 +31,7 @@ class AiAutoValidationServiceTest {
     private AiGeneratedAssetRepository generatedAssetRepository;
     private AiValidationChecklistVersionRepository checklistVersionRepository;
     private AiValidationLogRepository validationLogRepository;
+    private AiReviewValidationService aiReviewValidationService;
     private AiAutoValidationService aiAutoValidationService;
     private ObjectMapper objectMapper;
 
@@ -40,6 +41,7 @@ class AiAutoValidationServiceTest {
         generatedAssetRepository = mock(AiGeneratedAssetRepository.class);
         checklistVersionRepository = mock(AiValidationChecklistVersionRepository.class);
         validationLogRepository = mock(AiValidationLogRepository.class);
+        aiReviewValidationService = mock(AiReviewValidationService.class);
         objectMapper = new ObjectMapper();
 
         AiLogService aiLogService = new AiLogService(
@@ -51,6 +53,7 @@ class AiAutoValidationServiceTest {
                 generatedAssetRepository,
                 checklistVersionRepository,
                 aiLogService,
+                aiReviewValidationService,
                 objectMapper
         );
 
@@ -97,6 +100,7 @@ class AiAutoValidationServiceTest {
                 "validationReferenceText",
                 "promptText"
         );
+        verify(aiReviewValidationService).validateExplanationAsset(ASSET_ID, VALIDATED_AT);
     }
 
     @Test
@@ -115,6 +119,7 @@ class AiAutoValidationServiceTest {
         assertThat(log.getErrorMessage()).isEqualTo("EXPLANATION_SCHEMA");
         assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.REJECTED);
         assertThat(asset.getReviewedAt()).isEqualTo(VALIDATED_AT);
+        verify(aiReviewValidationService, never()).validateExplanationAsset(any(), any());
     }
 
     @Test

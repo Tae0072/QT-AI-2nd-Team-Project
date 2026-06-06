@@ -44,7 +44,10 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
     private final QtPassageLookup passageLookup;
     private final QtPassageRepository qtPassageRepository;
     private final QtPassageVerseRepository qtPassageVerseRepository;
+    private final TodayQtRangeResolver rangeResolver;
     private final GetNoteUseCase getNoteUseCase;
+    private final com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase getQtStudyAvailabilityUseCase;
+    private final java.time.Clock clock;
 
     // ------------------------------------------------------------------
     // GetTodayQtUseCase 구현
@@ -66,7 +69,8 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
     public TodayQtResponse getToday(Long memberId) {
         TodayQtResponse base = passageLookup.findTodayPassage();
         Long draftNoteId = resolveDraftNoteId(memberId, base.qtPassageId());
-        return enrichWithDraftNoteId(base, draftNoteId);
+        // 시뮬레이터 상태·해설 진입점은 승인 시점에 바뀌므로 캐시(todayQt) 밖에서 enrich한다
+        return enrichWithStudyAvailability(enrichWithDraftNoteId(base, draftNoteId));
     }
 
     /**
@@ -82,16 +86,24 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
         QtPassage passage = qtPassageRepository.findById(qtPassageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND));
 
+        // 공개 게이트(CLAUDE.md §6) — QT 범위 공개는 해당일 00:00 KST.
+        // 선등록된 미래 본문은 id 순회로도 열람 불가(존재 은닉을 위해 404).
+        if (passage.getQtDate().isAfter(java.time.LocalDate.now(clock))) {
+            throw new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND);
+        }
+
         Long draftNoteId = resolveDraftNoteId(memberId, qtPassageId);
-        return new TodayQtResponse(
+        TodayQtResponse base = new TodayQtResponse(
                 passage.getId(),
                 passage.getQtDate().toString(),
                 passage.getTitle(),
-                "MISSING",    // simulatorStatus: 시뮬레이터 도메인 연동 전 기본값
-                false,        // hasExplanation: AI 해설 도메인 연동 전 기본값
+                "MISSING",    // simulatorStatus 기본값 — study 연동 실패 시 fallback
+                false,        // hasExplanation 기본값 — study 연동 실패 시 fallback
                 draftNoteId,
-                "HIT"
+                "HIT",
+                rangeResolver.resolve(passage)
         );
+        return enrichWithStudyAvailability(base);
     }
 
     @Override
@@ -102,23 +114,86 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
 
         QtPassage passage = qtPassageRepository.findById(qtPassageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND));
-        List<Long> verseIds = qtPassageVerseRepository.findByQtPassageIdOrderByDisplayOrderAsc(qtPassageId)
+        return toContentContext(passage);
+    }
+
+    /**
+     * 특정 날짜 본문의 콘텐츠 컨텍스트 조회 — 내부 배치 전용.
+     *
+     * <p>사용자 노출 정책(00:00~04:00 STALE_FALLBACK, 캐시)을 거치지 않고
+     * qt_date로 직접 조회한다. 00:05 해설 시딩이 "어제 본문"을 시딩하던
+     * 버그의 수정 경로 (CLAUDE.md §6).
+     */
+    @Override
+    public java.util.Optional<QtPassageContentContext> findContentContextByDate(java.time.LocalDate qtDate) {
+        if (qtDate == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        return qtPassageRepository.findByQtDate(qtDate).map(this::toContentContext);
+    }
+
+    private QtPassageContentContext toContentContext(QtPassage passage) {
+        List<Long> verseIds = qtPassageVerseRepository.findByQtPassageIdOrderByDisplayOrderAsc(passage.getId())
                 .stream()
                 .map(QtPassageVerse::getBibleVerseId)
                 .toList();
+
+        // 공개 게이트(CLAUDE.md §6) — 기존 published=true 하드코딩은 선등록 미래 본문의
+        // 승인 해설·시뮬레이터 클립이 study 경로로 새는 구멍이었다. study 서비스들은
+        // 이 플래그로 노출을 차단한다. (ai 사전 생성 경로는 published를 보지 않으므로
+        // 관리자 선생성 워크플로우는 막히지 않는다)
+        boolean published = !passage.getQtDate().isAfter(java.time.LocalDate.now(clock));
 
         return new QtPassageContentContext(
                 passage.getId(),
                 passage.getQtDate(),
                 passage.getTitle(),
                 verseIds,
-                true
+                published
         );
     }
 
     // ------------------------------------------------------------------
     // Private helpers
     // ------------------------------------------------------------------
+
+    /**
+     * study 도메인에서 시뮬레이터 상태·승인 해설 존재 여부를 조회해 응답을 보강한다.
+     *
+     * <p>"Today QT 100%"(CLAUDE.md §6) — 기존에는 두 값이 하드코딩이라
+     * 콘텐츠가 승인돼도 클라이언트 버튼이 영구 비활성이었다.
+     * study 호출 실패 시 응답 전체가 실패하지 않도록 기본값(MISSING/false)으로 fallback.
+     */
+    private TodayQtResponse enrichWithStudyAvailability(TodayQtResponse base) {
+        if (base.qtPassageId() == null) {
+            return base;
+        }
+        try {
+            List<Long> verseIds = qtPassageVerseRepository
+                    .findByQtPassageIdOrderByDisplayOrderAsc(base.qtPassageId())
+                    .stream()
+                    .map(QtPassageVerse::getBibleVerseId)
+                    .toList();
+            var availability = getQtStudyAvailabilityUseCase.getAvailability(base.qtPassageId(), verseIds);
+            if (availability == null) {
+                return base;
+            }
+            return new TodayQtResponse(
+                    base.qtPassageId(),
+                    base.passageDate(),
+                    base.title(),
+                    availability.simulatorStatus(),
+                    availability.hasExplanation(),
+                    base.draftNoteId(),
+                    base.cacheStatus(),
+                    base.range()
+            );
+        } catch (RuntimeException exception) {
+            log.warn("study 가용성 조회 실패 — 기본값(MISSING/false)으로 응답. qtPassageId={}, errorType={}, errorMessage={}",
+                    base.qtPassageId(), exception.getClass().getSimpleName(), exception.getMessage());
+            return base;
+        }
+    }
 
     /**
      * note 도메인에서 해당 사용자의 MEDITATION DRAFT 노트 ID를 조회한다.
@@ -157,7 +232,9 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 base.simulatorStatus(),
                 base.hasExplanation(),
                 draftNoteId,
-                base.cacheStatus()
+                base.cacheStatus(),
+                base.range()
         );
     }
+
 }

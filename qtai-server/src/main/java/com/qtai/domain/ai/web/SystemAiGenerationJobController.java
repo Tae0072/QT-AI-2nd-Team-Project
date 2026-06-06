@@ -23,9 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.CreateAiGenerationJobUseCase;
-import com.qtai.domain.ai.api.dto.CreateAiGenerationJobCommand;
-import com.qtai.domain.ai.api.dto.CreateAiGenerationJobResult;
+import com.qtai.domain.ai.api.generation.CreateAiGenerationJobUseCase;
+import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobCommand;
+import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobResult;
 
 @RestController
 @RequestMapping("/api/v1/system/ai/generation-jobs")

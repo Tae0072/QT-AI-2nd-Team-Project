@@ -28,5 +28,22 @@ public class Comment extends BaseEntity {
 
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
+
+    /**
+     * 댓글 한 건 생성(평면 댓글). 생성자가 protected라 외부는 이 팩토리로만 만든다.
+     * v1은 대댓글이 없어 parentId는 null로 둔다. createdAt은 BaseEntity가 채운다.
+     */
+    public static Comment of(Long sharingPostId, Long memberId, String body) {
+        Comment comment = new Comment();
+        comment.sharingPostId = sharingPostId;
+        comment.memberId = memberId;
+        comment.body = body;
+        return comment;
+    }
+
+    /** 소프트 삭제 — 행은 남기고 숨김 플래그만 켠다(목록 조회에서 제외). */
+    public void markDeleted() {
+        this.isDeleted = true;
+    }
 }
 

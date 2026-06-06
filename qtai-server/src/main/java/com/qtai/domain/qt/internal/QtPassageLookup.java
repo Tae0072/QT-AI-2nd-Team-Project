@@ -35,14 +35,15 @@ class QtPassageLookup {
 
     private final QtPassageRepository qtPassageRepository;
     private final Clock clock;
+    private final TodayQtRangeResolver rangeResolver;
 
     /**
      * 오늘의 QT 본문을 캐시에서 조회한다.
      *
      * <p>캐시 정책 (CLAUDE.md §6):
      * <ul>
-     *   <li>오늘 날짜의 QT 본문이 있으면 {@code HIT}으로 반환</li>
-     *   <li>00:00~04:00 사이 오늘 본문 없으면 어제 본문을 {@code STALE_FALLBACK}으로 반환</li>
+     *   <li>00:00~04:00 사이에는 오늘 본문이 DB에 있어도 어제 본문을 {@code STALE_FALLBACK}으로 반환</li>
+     *   <li>04:00 이후 오늘 날짜의 QT 본문이 있으면 {@code HIT}으로 반환</li>
      *   <li>04:00 이후 오늘 본문 없으면 {@code MISS}로 반환 (클라이언트 재시도 권장)</li>
      *   <li>어떤 데이터도 없으면 {@code EMPTY}</li>
      * </ul>
@@ -52,22 +53,25 @@ class QtPassageLookup {
      *
      * @return 공용 캐시 응답 (draftNoteId=null)
      */
+    // 캐시 키는 주입 Clock 빈(@clock = Asia/Seoul)으로 오늘 날짜를 산출한다(P2). 기존엔 SpEL이
+    // 시스템 시계를 직접 호출해 메서드가 쓰는 주입 Clock과 어긋날 수 있었다(테스트·시간대 일관성).
     @Cacheable(cacheNames = "todayQt",
-            key = "T(java.time.LocalDate).now(T(java.time.ZoneId).of('Asia/Seoul')).toString()",
+            key = "T(java.time.LocalDate).now(@clock).toString()",
             unless = "!#result.cacheStatus().equals('HIT')")
     public TodayQtResponse findTodayPassage() {
         ZonedDateTime nowKst = ZonedDateTime.now(clock).withZoneSameInstant(KST);
         LocalDate today = nowKst.toLocalDate();
         boolean isBeforeBatch = nowKst.toLocalTime().isBefore(BATCH_COMPLETE_TIME);
 
+        if (isBeforeBatch) {
+            return qtPassageRepository.findByQtDate(today.minusDays(1))
+                    .map(passage -> toResponse(passage, "STALE_FALLBACK"))
+                    .orElse(emptyResponse());
+        }
+
         return qtPassageRepository.findByQtDate(today)
                 .map(passage -> toResponse(passage, "HIT"))
                 .orElseGet(() -> {
-                    if (isBeforeBatch) {
-                        return qtPassageRepository.findByQtDate(today.minusDays(1))
-                                .map(passage -> toResponse(passage, "STALE_FALLBACK"))
-                                .orElse(emptyResponse());
-                    }
                     log.warn("오늘의 QT 본문이 없습니다. date={}, 배치 상태를 확인해 주세요.", today);
                     return emptyResponse("MISS");
                 });
@@ -78,10 +82,11 @@ class QtPassageLookup {
                 passage.getId(),
                 passage.getQtDate().toString(),
                 passage.getTitle(),
-                "MISSING",    // simulatorStatus: 시뮬레이터 도메인 연동 전 기본값
-                false,        // hasExplanation: AI 해설 도메인 연동 전 기본값
+                "MISSING",    // simulatorStatus 기본값 — QtService가 캐시 밖에서 study 가용성으로 enrich
+                false,        // hasExplanation 기본값 — QtService가 캐시 밖에서 study 가용성으로 enrich
                 null,         // draftNoteId: QtService에서 enrich
-                cacheStatus
+                cacheStatus,
+                rangeResolver.resolve(passage)
         );
     }
 
@@ -90,6 +95,7 @@ class QtPassageLookup {
     }
 
     private TodayQtResponse emptyResponse(String cacheStatus) {
-        return new TodayQtResponse(null, null, null, "DISABLED", false, null, cacheStatus);
+        // DISABLED는 '운영자 비활성' 의미 — 본문 부재는 콘텐츠 없음(MISSING)으로 표현한다
+        return new TodayQtResponse(null, null, null, "MISSING", false, null, cacheStatus);
     }
 }

@@ -33,15 +33,17 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.CreateValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.ExpireValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.GetValidationReferenceJobUseCase;
-import com.qtai.domain.ai.api.dto.CreateValidationReferenceJobCommand;
-import com.qtai.domain.ai.api.dto.ExpireValidationReferenceJobCommand;
-import com.qtai.domain.ai.api.dto.GetValidationReferenceJobQuery;
-import com.qtai.domain.ai.api.dto.ValidationReferenceJobResponse;
+import com.qtai.domain.ai.api.validation.CreateValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.ExpireValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.GetValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.dto.CreateValidationReferenceJobCommand;
+import com.qtai.domain.ai.api.validation.dto.ExpireValidationReferenceJobCommand;
+import com.qtai.domain.ai.api.validation.dto.GetValidationReferenceJobQuery;
+import com.qtai.domain.ai.api.validation.dto.ValidationReferenceJobResponse;
 
 class SystemValidationReferenceJobControllerTest {
+
+    private static final String INDEX_STORAGE_URI = "restricted://validation/index/reference-index.json";
 
     private CreateValidationReferenceJobUseCase createUseCase;
     private GetValidationReferenceJobUseCase getUseCase;
@@ -108,7 +110,7 @@ class SystemValidationReferenceJobControllerTest {
         assertThat(command.sourceFileName()).isEqualTo("reference-notes.pdf");
         assertThat(command.sourceFileHash()).isEqualTo("sha256:reference-hash");
         assertThat(command.storageUri()).isEqualTo("restricted://validation/reference.pdf");
-        assertThat(command.indexStorageUri()).isEqualTo("restricted://validation/index");
+        assertThat(command.indexStorageUri()).isEqualTo(INDEX_STORAGE_URI);
         assertThat(command.expiresAt()).isEqualTo(OffsetDateTime.parse("2026-05-29T04:00:00+09:00"));
     }
 
@@ -231,10 +233,10 @@ class SystemValidationReferenceJobControllerTest {
                   "sourceFileName": "reference-notes.pdf",
                   "sourceFileHash": "sha256:reference-hash",
                   "storageUri": "restricted://validation/reference.pdf",
-                  "indexStorageUri": "restricted://validation/index",
+                  "indexStorageUri": "%s",
                   "expiresAt": "2026-05-29T04:00:00+09:00"
                 }
-                """;
+                """.formatted(INDEX_STORAGE_URI);
     }
 
     private static ValidationReferenceJobResponse activeResponse() {

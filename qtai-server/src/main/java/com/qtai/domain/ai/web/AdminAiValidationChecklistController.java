@@ -17,15 +17,15 @@ import org.springframework.web.bind.annotation.RestController;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.ActivateAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.CreateAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.ListAdminAiValidationChecklistsUseCase;
-import com.qtai.domain.ai.api.RetireAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistListResponse;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistResponse;
-import com.qtai.domain.ai.api.dto.ChangeAdminAiValidationChecklistStatusCommand;
-import com.qtai.domain.ai.api.dto.CreateAdminAiValidationChecklistCommand;
-import com.qtai.domain.ai.api.dto.ListAdminAiValidationChecklistsQuery;
+import com.qtai.domain.ai.api.admin.checklist.ActivateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.CreateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.ListAdminAiValidationChecklistsUseCase;
+import com.qtai.domain.ai.api.admin.checklist.RetireAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistListResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.ChangeAdminAiValidationChecklistStatusCommand;
+import com.qtai.domain.ai.api.admin.checklist.dto.CreateAdminAiValidationChecklistCommand;
+import com.qtai.domain.ai.api.admin.checklist.dto.ListAdminAiValidationChecklistsQuery;
 
 @RestController
 @RequestMapping("/api/v1/admin/ai/validation-checklists")
@@ -35,17 +35,20 @@ public class AdminAiValidationChecklistController {
     private final CreateAdminAiValidationChecklistUseCase createUseCase;
     private final ActivateAdminAiValidationChecklistUseCase activateUseCase;
     private final RetireAdminAiValidationChecklistUseCase retireUseCase;
+    private final AdminAiAuthentication adminAiAuthentication;
 
     public AdminAiValidationChecklistController(
             ListAdminAiValidationChecklistsUseCase listUseCase,
             CreateAdminAiValidationChecklistUseCase createUseCase,
             ActivateAdminAiValidationChecklistUseCase activateUseCase,
-            RetireAdminAiValidationChecklistUseCase retireUseCase
+            RetireAdminAiValidationChecklistUseCase retireUseCase,
+            AdminAiAuthentication adminAiAuthentication
     ) {
         this.listUseCase = listUseCase;
         this.createUseCase = createUseCase;
         this.activateUseCase = activateUseCase;
         this.retireUseCase = retireUseCase;
+        this.adminAiAuthentication = adminAiAuthentication;
     }
 
     @GetMapping
@@ -56,7 +59,7 @@ public class AdminAiValidationChecklistController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        AdminAiAuthentication adminAuthentication = AdminAiAuthentication.requireReviewer(authentication);
+        AdminAiAuthentication.AdminAiPrincipal adminAuthentication = adminAiAuthentication.requireReviewer(authentication);
         AdminAiValidationChecklistListResponse response = listUseCase.listAdminAiValidationChecklists(
                 new ListAdminAiValidationChecklistsQuery(
                         adminAuthentication.adminId(),
@@ -76,7 +79,7 @@ public class AdminAiValidationChecklistController {
             Authentication authentication,
             @Valid @RequestBody AdminAiValidationChecklistRequest request
     ) {
-        AdminAiAuthentication adminAuthentication = AdminAiAuthentication.requireReviewer(authentication);
+        AdminAiAuthentication.AdminAiPrincipal adminAuthentication = adminAiAuthentication.requireReviewer(authentication);
         String status = normalizeCreateStatus(request.status());
         AdminAiValidationChecklistResponse response = createUseCase.createAdminAiValidationChecklist(
                 new CreateAdminAiValidationChecklistCommand(
@@ -97,7 +100,7 @@ public class AdminAiValidationChecklistController {
             @PathVariable Long id,
             Authentication authentication
     ) {
-        AdminAiAuthentication adminAuthentication = AdminAiAuthentication.requireReviewer(authentication);
+        AdminAiAuthentication.AdminAiPrincipal adminAuthentication = adminAiAuthentication.requireReviewer(authentication);
         AdminAiValidationChecklistResponse response = activateUseCase.activateAdminAiValidationChecklist(
                 new ChangeAdminAiValidationChecklistStatusCommand(
                         adminAuthentication.adminId(),
@@ -114,7 +117,7 @@ public class AdminAiValidationChecklistController {
             @PathVariable Long id,
             Authentication authentication
     ) {
-        AdminAiAuthentication adminAuthentication = AdminAiAuthentication.requireReviewer(authentication);
+        AdminAiAuthentication.AdminAiPrincipal adminAuthentication = adminAiAuthentication.requireReviewer(authentication);
         AdminAiValidationChecklistResponse response = retireUseCase.retireAdminAiValidationChecklist(
                 new ChangeAdminAiValidationChecklistStatusCommand(
                         adminAuthentication.adminId(),

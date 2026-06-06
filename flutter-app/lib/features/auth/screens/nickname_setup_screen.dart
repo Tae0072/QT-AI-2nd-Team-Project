@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../routes/app_router.dart';
+import '../providers/auth_providers.dart';
 
 /// 신규 가입 시 닉네임 설정 화면.
 class NicknameSetupScreen extends ConsumerStatefulWidget {
@@ -59,7 +59,8 @@ class _NicknameSetupScreenState extends ConsumerState<NicknameSetupScreen> {
       );
 
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed(AppRouter.home);
+      // 닉네임 설정 완료 → 인증 상태 업데이트 → main.dart에서 /home으로 전환
+      ref.read(authStatusProvider.notifier).setAuthenticated();
     } catch (e) {
       if (!mounted) return;
       setState(() {

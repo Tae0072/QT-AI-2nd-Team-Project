@@ -43,9 +43,21 @@ public class MissionProgressCalculator {
     @Transactional
     public void recalculateForMember(Long memberId, List<MissionDefinition> activeDefinitions) {
         YearMonth month = YearMonth.now(clock);
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        recalculateForMonth(memberId, month, activeDefinitions, now);
+
+        // 매월 1일에는 전월 마지막 활동까지 한 번 더 마감 재계산한다(P1-9).
+        // 04:00 배치는 새 달만 계산해 전월 말일 활동이 영구히 반영되지 않던 문제 보강.
+        if (month.atDay(1).equals(now.toLocalDate())) {
+            recalculateForMonth(memberId, month.minusMonths(1), activeDefinitions, now);
+        }
+    }
+
+    private void recalculateForMonth(Long memberId, YearMonth month,
+                                     List<MissionDefinition> activeDefinitions, LocalDateTime now) {
         LocalDate periodStart = month.atDay(1);
         LocalDate periodEnd = month.atEndOfMonth();
-        LocalDateTime now = LocalDateTime.now(clock);
 
         MeditationCalendarResponse.Summary summary =
                 getMeditationCalendarUseCase.getCalendar(memberId, month).summary();
@@ -76,7 +88,7 @@ public class MissionProgressCalculator {
         progressRepository
                 .findByMemberIdAndMissionDefinitionIdAndPeriodStartDate(memberId, def.getId(), periodStart)
                 .ifPresentOrElse(
-                        existing -> existing.applyCalculation(current, rate, reached, now),
+                        existing -> existing.applyCalculation(current, target, rate, reached, now),
                         () -> progressRepository.save(MemberMissionProgress.builder()
                                 .memberId(memberId)
                                 .missionDefinitionId(def.getId())

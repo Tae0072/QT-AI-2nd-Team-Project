@@ -1,5 +1,6 @@
 package com.qtai.security;
 
+import com.qtai.common.exception.ErrorCode;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -8,8 +9,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,7 +17,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -42,6 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtProvider jwtProvider;
+    private final SecurityErrorResponseWriter securityErrorResponseWriter;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -66,7 +65,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // 토큰 값은 로그에 남기지 않음 (CLAUDE.md §9)
                 log.warn("JWT 검증 실패 — uri={}, error={}", request.getRequestURI(), e.getMessage());
                 SecurityContextHolder.clearContext();
-                sendUnauthorized(response);
+                securityErrorResponseWriter.write(response, ErrorCode.UNAUTHORIZED);
                 return;
             }
         }
@@ -80,14 +79,5 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return header.substring(BEARER_PREFIX.length());
         }
         return null;
-    }
-
-    private void sendUnauthorized(HttpServletResponse response) throws IOException {
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.getWriter().write("""
-                {"code":"UNAUTHORIZED","message":"유효하지 않은 인증 토큰입니다."}
-                """.strip());
     }
 }

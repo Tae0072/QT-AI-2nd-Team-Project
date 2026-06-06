@@ -45,4 +45,15 @@ public class PostLike {
             this.createdAt = LocalDateTime.now();
         }
     }
+
+    /**
+     * 좋아요 한 건 생성. 생성자가 protected라(JPA 전용) 외부는 이 팩토리로만 만든다.
+     * createdAt은 {@code @PrePersist}가 저장 직전에 채운다.
+     */
+    public static PostLike of(Long sharingPostId, Long memberId) {
+        PostLike like = new PostLike();
+        like.sharingPostId = sharingPostId;
+        like.memberId = memberId;
+        return like;
+    }
 }

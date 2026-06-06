@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/error_interceptor.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../auth/providers/auth_providers.dart';
 import '../providers/mypage_providers.dart';
 import '../widgets/withdraw_dialog.dart';
 
@@ -76,16 +77,46 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     }
   }
 
+  Future<void> _handleLogout() async {
+    try {
+      final authRepository = ref.read(authRepositoryProvider);
+      await authRepository.logout();
+      ref.read(authStatusProvider.notifier).setUnauthenticated();
+
+      if (mounted) {
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('로그아웃에 실패했습니다.')),
+        );
+      }
+    }
+  }
+
   Future<void> _showWithdrawDialog() async {
     final confirmed = await showWithdrawDialog(context);
     if (confirmed != true || !mounted) return;
 
     try {
+      // 1) 서버 탈퇴 — 토큰이 살아있는 상태에서 호출
       final repository = ref.read(myPageRepositoryProvider);
       await repository.withdraw();
 
+      // 2) 카카오 연결끊기(unlink) + 로컬 토큰 삭제
+      //    (미정리 시 stale JWT가 남아 자동로그인/재로그인 흐름이 깨진다)
+      final authRepository = ref.read(authRepositoryProvider);
+      await authRepository.cleanupAfterWithdraw();
+
+      // 3) 인증 상태 전환 — main.dart의 ValueKey(initialRoute)가 바뀌며
+      //    Navigator가 재생성되어 로그인 화면으로 이동한다.
+      //    (상태를 바꾸지 않으면 재로그인 성공 시 setAuthenticated()가
+      //    동일 값이라 화면 전환이 일어나지 않는 버그가 있었다)
+      ref.read(authStatusProvider.notifier).setUnauthenticated();
+
       if (mounted) {
-        // 토큰 정리 후 로그인 화면으로 이동
         Navigator.of(context)
             .pushNamedAndRemoveUntil('/login', (route) => false);
       }
@@ -160,6 +191,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 ),
 
               const SizedBox(height: 32),
+
+              // 로그아웃 버튼
+              OutlinedButton.icon(
+                onPressed: _handleLogout,
+                icon: const Icon(Icons.logout),
+                label: const Text('로그아웃'),
+              ),
+
+              const SizedBox(height: 12),
 
               // 탈퇴 버튼
               TextButton(

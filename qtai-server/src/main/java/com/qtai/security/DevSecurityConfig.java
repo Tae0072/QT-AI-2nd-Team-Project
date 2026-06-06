@@ -67,6 +67,9 @@ public class DevSecurityConfig {
                 // dev 환경 핵심: 모든 요청 인증 없이 통과
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().permitAll())
+                // H2 콘솔(/h2-console)은 iframe 기반이라, 기본값 X-Frame-Options: DENY면 흰 화면이 된다.
+                // 같은 출처 iframe만 허용해 dev에서 H2 콘솔을 띄울 수 있게 한다. (dev 전용)
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 // X-Dev-User-Id 헤더 → SecurityContext memberId 주입. permitAll만으로는
                 // @AuthenticationPrincipal에 null이 들어와 NoteController가 401을 던지므로 필수.
                 .addFilterBefore(devUserIdHeaderFilter, UsernamePasswordAuthenticationFilter.class)

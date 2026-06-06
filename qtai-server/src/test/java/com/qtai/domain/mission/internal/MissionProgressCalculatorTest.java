@@ -114,6 +114,53 @@ class MissionProgressCalculatorTest {
     }
 
     @Test
+    void 기존_진행_target_변경되면_snapshot도_갱신된다_P1_9() {
+        // 미션 목표가 7→10으로 바뀐 뒤 재계산되면 snapshot도 10으로 갱신돼 progressRate와 정합을 맞춘다.
+        stubCalendar(1L, 0, 0, 6);
+        MissionDefinition def = definition(100L, MissionMetricType.STREAK_DAYS,
+                MissionPeriodType.MONTHLY, 10); // 변경된 목표 10
+        MemberMissionProgress existing = MemberMissionProgress.builder()
+                .memberId(1L).missionDefinitionId(100L)
+                .periodStartDate(LocalDate.of(2026, 5, 1)).periodEndDate(LocalDate.of(2026, 5, 31))
+                .currentCount(3).targetCountSnapshot(7).progressRate(new BigDecimal("42.86"))
+                .createdAt(LocalDateTime.of(2026, 5, 1, 0, 0)).build();
+        when(progressRepository.findByMemberIdAndMissionDefinitionIdAndPeriodStartDate(
+                1L, 100L, LocalDate.of(2026, 5, 1))).thenReturn(Optional.of(existing));
+
+        calculator.recalculateForMember(1L, List.of(def));
+
+        assertThat(existing.getTargetCountSnapshot()).isEqualTo(10); // 목표 변경 반영
+        assertThat(existing.getProgressRate()).isEqualByComparingTo("60.00"); // 6/10*100
+        assertThat(existing.isCompleted()).isFalse(); // 6 < 10
+    }
+
+    @Test
+    void 매월_1일에는_전월도_마감_재계산한다_P1_9() {
+        // clock=2026-06-01 → 6월(당월)과 5월(전월)을 모두 재계산해 전월 말일 활동이 영구 누락되지 않게 한다.
+        Clock firstOfMonth =
+                Clock.fixed(Instant.parse("2026-05-31T15:00:01Z"), ZoneId.of("Asia/Seoul")); // 06-01 00:00 KST
+        MissionProgressCalculator boundaryCalculator = new MissionProgressCalculator(
+                progressRepository, getMeditationCalendarUseCase, firstOfMonth);
+        stubCalendar(1L, 5, 5, 5);
+        MissionDefinition def = definition(100L, MissionMetricType.MEDITATION_SAVED_DAYS,
+                MissionPeriodType.MONTHLY, 10);
+        when(progressRepository.findByMemberIdAndMissionDefinitionIdAndPeriodStartDate(
+                any(), any(), any())).thenReturn(Optional.empty());
+
+        boundaryCalculator.recalculateForMember(1L, List.of(def));
+
+        // 당월(6/1)과 전월(5/1) 두 기간의 진행 레코드가 각각 생성된다.
+        verify(progressRepository).findByMemberIdAndMissionDefinitionIdAndPeriodStartDate(
+                1L, 100L, LocalDate.of(2026, 6, 1));
+        verify(progressRepository).findByMemberIdAndMissionDefinitionIdAndPeriodStartDate(
+                1L, 100L, LocalDate.of(2026, 5, 1));
+        ArgumentCaptor<MemberMissionProgress> captor = ArgumentCaptor.forClass(MemberMissionProgress.class);
+        verify(progressRepository, Mockito.times(2)).save(captor.capture());
+        assertThat(captor.getAllValues()).extracting(MemberMissionProgress::getPeriodStartDate)
+                .containsExactlyInAnyOrder(LocalDate.of(2026, 6, 1), LocalDate.of(2026, 5, 1));
+    }
+
+    @Test
     void MONTHLY_외_주기는_건너뜀() {
         stubCalendar(1L, 10, 10, 10);
         MissionDefinition daily = definition(200L, MissionMetricType.MEDITATION_SAVED_DAYS,

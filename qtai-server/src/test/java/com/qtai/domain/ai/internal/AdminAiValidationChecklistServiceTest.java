@@ -23,15 +23,15 @@ import org.springframework.data.domain.Pageable;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.ActivateAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.CreateAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.ListAdminAiValidationChecklistsUseCase;
-import com.qtai.domain.ai.api.RetireAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistListResponse;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistResponse;
-import com.qtai.domain.ai.api.dto.ChangeAdminAiValidationChecklistStatusCommand;
-import com.qtai.domain.ai.api.dto.CreateAdminAiValidationChecklistCommand;
-import com.qtai.domain.ai.api.dto.ListAdminAiValidationChecklistsQuery;
+import com.qtai.domain.ai.api.admin.checklist.ActivateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.CreateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.ListAdminAiValidationChecklistsUseCase;
+import com.qtai.domain.ai.api.admin.checklist.RetireAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistListResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.ChangeAdminAiValidationChecklistStatusCommand;
+import com.qtai.domain.ai.api.admin.checklist.dto.CreateAdminAiValidationChecklistCommand;
+import com.qtai.domain.ai.api.admin.checklist.dto.ListAdminAiValidationChecklistsQuery;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 
@@ -120,12 +120,12 @@ class AdminAiValidationChecklistServiceTest {
 
         assertThat(response.id()).isEqualTo(4L);
         assertThat(response.status()).isEqualTo("DRAFT");
-        assertThat(response.createdByAdminId()).isNull();
+        assertThat(response.createdByAdminId()).isEqualTo(7L); // P2: 생성자(admin) 기록 — 기존 null 저장 버그 수정
 
         ArgumentCaptor<AiValidationChecklistVersion> versionCaptor =
                 ArgumentCaptor.forClass(AiValidationChecklistVersion.class);
         verify(repository).save(versionCaptor.capture());
-        assertThat(versionCaptor.getValue().getCreatedByAdminId()).isNull();
+        assertThat(versionCaptor.getValue().getCreatedByAdminId()).isEqualTo(7L);
 
         ArgumentCaptor<AuditLogWriteRequest> auditCaptor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
         verify(auditLogUseCase).write(auditCaptor.capture());

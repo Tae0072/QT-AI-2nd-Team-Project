@@ -19,7 +19,8 @@ import java.time.LocalDateTime;
  * 회원 엔티티.
  *
  * <p>ERD: members 테이블.
- * <p>탈퇴 정책: 닉네임·kakaoId 포함 개인정보 전체 익명화.
+ * <p>탈퇴 정책(2026-06-05 Lead 결정): 즉시 익명화하지 않고 개인정보를 2년 보존한다(탈퇴 시 고지).
+ * 보존기간 만료 삭제는 별도 배치(후속 작업), 보존 중 재로그인 시 기존 계정을 재활성화한다.
  */
 @Entity
 @Table(name = "members", uniqueConstraints = {
@@ -105,20 +106,37 @@ public class Member extends BaseEntity {
     }
 
     /**
-     * 회원 탈퇴 — 개인정보 전체 익명화.
+     * 회원 탈퇴 — 상태 전환 + 탈퇴 시각 기록.
      *
-     * <p>정책: 닉네임("탈퇴회원_{id}"), 이메일, 프로필 이미지, kakaoId 모두 제거.
-     * <p>kakaoId: 음수 고유값(-id) 사용 — 0L 사용 시 두 번째 탈퇴 회원부터 kakao_id UNIQUE 위반.
+     * <p>정책: 개인정보(닉네임·이메일·kakaoId 등)는 즉시 익명화하지 않고 2년 보존한다.
+     * 익명화하면 member_auth_providers의 (provider, provider_user_id) UNIQUE와 충돌해
+     * 재가입이 영구 차단되는 문제가 있었다(M0009). 보존 중 재로그인은
+     * {@link #reactivate(String, String)}로 기존 계정을 복구한다.
+     * 보존기간 만료 삭제는 별도 배치(후속 작업)가 수행한다.
      *
      * @param clock 테스트 주입용 시계
      */
     public void withdraw(Clock clock) {
         this.status = MemberStatus.WITHDRAWN;
         this.withdrawnAt = LocalDateTime.now(clock);
-        this.nickname = "탈퇴회원_" + getId();
-        this.email = null;
-        this.profileImageUrl = null;
-        this.kakaoId = -getId();
+    }
+
+    /**
+     * 탈퇴 회원 재활성화 — 보존기간(2년) 내 같은 카카오 계정으로 재로그인 시 기존 계정 복구.
+     *
+     * <p>이메일·프로필 이미지는 카카오 최신 값이 <b>있을 때만</b> 갱신한다. 카카오가 선택 동의 항목
+     * (이메일·프로필)을 주지 않아 null로 오면 기존 보관 값을 유지한다(과거 값 소실 방지).
+     * 닉네임과 nicknameChangedAt(7일 잠금)은 기존 값을 유지한다.
+     */
+    public void reactivate(String email, String profileImageUrl) {
+        this.status = MemberStatus.ACTIVE;
+        this.withdrawnAt = null;
+        if (email != null) {
+            this.email = email;
+        }
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl;
+        }
     }
 
     public boolean isActive() {

@@ -25,12 +25,12 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.springframework.boot:spring-boot-starter-batch")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-cache")
 
     // Caffeine — 로컬 캐시 (bible_books 등 불변 데이터)
     implementation("com.github.ben-manes.caffeine:caffeine")
+    implementation("org.apache.pdfbox:pdfbox:3.0.3")
 
     // Flyway — DB 마이그레이션
     implementation("org.flywaydb:flyway-core")
@@ -56,6 +56,10 @@ dependencies {
 
     // ArchUnit — 도메인 경계 자동 검증 (CLAUDE.md §3, §4)
     testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
+
+    // Testcontainers — 실 MySQL 기반 Flyway migrate + Hibernate validate 가드 (버전은 Spring Boot BOM 관리)
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:mysql")
 }
 
 tasks.withType<JavaCompile> {
@@ -64,4 +68,25 @@ tasks.withType<JavaCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.register<JavaExec>("aiReviewReferencePdfIndexDiagnostics") {
+    group = "ai"
+    description = "Generate AI review reference PDF index candidates and quality diagnostics."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.qtai.domain.ai.internal.AiReviewReferencePdfIndexDiagnosticsTool")
+}
+
+tasks.register<JavaExec>("aiReviewReferencePromoteCandidateIndex") {
+    group = "ai"
+    description = "Promote AI review reference candidate index into production reference index."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.qtai.domain.ai.internal.AiReviewReferenceCandidatePromotionTool")
+}
+
+tasks.register<JavaExec>("aiReviewReferenceBookSectionMapCandidate") {
+    group = "ai"
+    description = "Generate AI review reference book section map candidates from a PDF."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.qtai.domain.ai.internal.AiReviewReferenceBookSectionMapCandidateTool")
 }

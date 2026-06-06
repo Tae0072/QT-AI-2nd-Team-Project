@@ -32,15 +32,15 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.ActivateAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.CreateAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.ListAdminAiValidationChecklistsUseCase;
-import com.qtai.domain.ai.api.RetireAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistListResponse;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistResponse;
-import com.qtai.domain.ai.api.dto.ChangeAdminAiValidationChecklistStatusCommand;
-import com.qtai.domain.ai.api.dto.CreateAdminAiValidationChecklistCommand;
-import com.qtai.domain.ai.api.dto.ListAdminAiValidationChecklistsQuery;
+import com.qtai.domain.ai.api.admin.checklist.ActivateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.CreateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.ListAdminAiValidationChecklistsUseCase;
+import com.qtai.domain.ai.api.admin.checklist.RetireAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistListResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.ChangeAdminAiValidationChecklistStatusCommand;
+import com.qtai.domain.ai.api.admin.checklist.dto.CreateAdminAiValidationChecklistCommand;
+import com.qtai.domain.ai.api.admin.checklist.dto.ListAdminAiValidationChecklistsQuery;
 
 class AdminAiValidationChecklistControllerTest {
 
@@ -48,6 +48,7 @@ class AdminAiValidationChecklistControllerTest {
     private CreateAdminAiValidationChecklistUseCase createUseCase;
     private ActivateAdminAiValidationChecklistUseCase activateUseCase;
     private RetireAdminAiValidationChecklistUseCase retireUseCase;
+    private com.qtai.support.StubVerifyAdminRoleUseCase verifyAdminRoleUseCase;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -56,12 +57,14 @@ class AdminAiValidationChecklistControllerTest {
         createUseCase = org.mockito.Mockito.mock(CreateAdminAiValidationChecklistUseCase.class);
         activateUseCase = org.mockito.Mockito.mock(ActivateAdminAiValidationChecklistUseCase.class);
         retireUseCase = org.mockito.Mockito.mock(RetireAdminAiValidationChecklistUseCase.class);
+        verifyAdminRoleUseCase = new com.qtai.support.StubVerifyAdminRoleUseCase();
 
         AdminAiValidationChecklistController controller = new AdminAiValidationChecklistController(
                 listUseCase,
                 createUseCase,
                 activateUseCase,
-                retireUseCase
+                retireUseCase,
+                new AdminAiAuthentication(verifyAdminRoleUseCase)
         );
         ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json()
                 .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
@@ -110,7 +113,8 @@ class AdminAiValidationChecklistControllerTest {
                 ArgumentCaptor.forClass(ListAdminAiValidationChecklistsQuery.class);
         verify(listUseCase).listAdminAiValidationChecklists(queryCaptor.capture());
         ListAdminAiValidationChecklistsQuery query = queryCaptor.getValue();
-        assertThat(query.adminId()).isEqualTo(7L);
+        // DB 검증 통일 후 adminId = admin_users.id (스텁 규약: memberId + 100)
+        assertThat(query.adminId()).isEqualTo(7L + com.qtai.support.StubVerifyAdminRoleUseCase.ADMIN_USER_ID_OFFSET);
         assertThat(query.memberRole()).isEqualTo("ADMIN");
         assertThat(query.adminRole()).isEqualTo("REVIEWER");
         assertThat(query.checklistType()).isEqualTo("EXPLANATION");
@@ -135,11 +139,11 @@ class AdminAiValidationChecklistControllerTest {
         mockMvc.perform(get("/api/v1/admin/ai/validation-checklists")
                         .principal(adminPrincipal(7L, "ADMIN_ROLE_OPERATOR")))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("M0003"));
+                .andExpect(jsonPath("$.error.code").value("AD0003"));
         mockMvc.perform(get("/api/v1/admin/ai/validation-checklists")
                         .principal(adminPrincipal(7L, "ADMIN_ROLE_CONTENT_CREATOR")))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("M0003"));
+                .andExpect(jsonPath("$.error.code").value("AD0003"));
         mockMvc.perform(get("/api/v1/admin/ai/validation-checklists")
                         .principal(adminPrincipal(8L, "ADMIN_ROLE_SUPER_ADMIN")))
                 .andExpect(status().isOk())
@@ -173,7 +177,7 @@ class AdminAiValidationChecklistControllerTest {
                 ArgumentCaptor.forClass(CreateAdminAiValidationChecklistCommand.class);
         verify(createUseCase).createAdminAiValidationChecklist(commandCaptor.capture());
         CreateAdminAiValidationChecklistCommand command = commandCaptor.getValue();
-        assertThat(command.adminId()).isEqualTo(7L);
+        assertThat(command.adminId()).isEqualTo(7L + com.qtai.support.StubVerifyAdminRoleUseCase.ADMIN_USER_ID_OFFSET);
         assertThat(command.memberRole()).isEqualTo("ADMIN");
         assertThat(command.adminRole()).isEqualTo("REVIEWER");
         assertThat(command.checklistType()).isEqualTo("EXPLANATION");
@@ -275,11 +279,17 @@ class AdminAiValidationChecklistControllerTest {
         );
     }
 
-    private static Authentication adminPrincipal(Long adminId, String... adminAuthorities) {
+    /** 관리자 토큰 생성 + 스텁 admin_users 등록 (ADMIN_ROLE_* 접두 제거 후 역할 등록). */
+    private Authentication adminPrincipal(Long memberId, String... adminAuthorities) {
+        for (String authority : adminAuthorities) {
+            if (authority.startsWith("ADMIN_ROLE_")) {
+                verifyAdminRoleUseCase.register(memberId, authority.substring("ADMIN_ROLE_".length()));
+            }
+        }
         String[] authorities = new String[adminAuthorities.length + 1];
         authorities[0] = "ROLE_ADMIN";
         System.arraycopy(adminAuthorities, 0, authorities, 1, adminAuthorities.length);
-        return principal(adminId, authorities);
+        return principal(memberId, authorities);
     }
 
     private static Authentication principal(Object principal, String... authorities) {

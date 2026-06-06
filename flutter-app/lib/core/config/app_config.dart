@@ -12,11 +12,13 @@ class AppConfig {
   final Environment environment;
   final String baseUrl;
   final String kakaoNativeAppKey;
+  final String ttsBaseUrl;
 
   const AppConfig._({
     required this.environment,
     required this.baseUrl,
     required this.kakaoNativeAppKey,
+    required this.ttsBaseUrl,
   });
 
   static AppConfig? _instance;
@@ -64,6 +66,7 @@ class AppConfig {
       environment: env,
       baseUrl: _baseUrlFor(env),
       kakaoNativeAppKey: kakaoKey,
+      ttsBaseUrl: _ttsBaseUrlFor(env),
     );
   }
 
@@ -72,11 +75,13 @@ class AppConfig {
     Environment environment = Environment.dev,
     String baseUrl = 'http://localhost:8080/api/v1',
     String kakaoNativeAppKey = 'test-key',
+    String ttsBaseUrl = 'http://localhost:8090',
   }) {
     _instance = AppConfig._(
       environment: environment,
       baseUrl: baseUrl,
       kakaoNativeAppKey: kakaoNativeAppKey,
+      ttsBaseUrl: ttsBaseUrl,
     );
   }
 
@@ -99,6 +104,22 @@ class AppConfig {
         return 'https://staging-api.qtai.com/api/v1';
       case Environment.prod:
         return 'https://api.qtai.com/api/v1';
+    }
+  }
+
+  /// TTS 서버 URL 결정.
+  /// `--dart-define=TTS_BASE_URL=...` 으로 override 가능.
+  static String _ttsBaseUrlFor(Environment env) {
+    const override = String.fromEnvironment('TTS_BASE_URL', defaultValue: '');
+    if (override.isNotEmpty) return override;
+    switch (env) {
+      case Environment.dev:
+        final host = Platform.isIOS ? 'localhost' : '10.0.2.2';
+        return 'http://$host:8090';
+      case Environment.staging:
+        return 'https://tts.qtai.com';
+      case Environment.prod:
+        return 'https://tts.qtai.com';
     }
   }
 

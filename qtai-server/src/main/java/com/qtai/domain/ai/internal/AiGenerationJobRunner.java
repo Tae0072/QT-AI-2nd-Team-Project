@@ -17,6 +17,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 class AiGenerationJobRunner {
 
@@ -81,6 +84,42 @@ class AiGenerationJobRunner {
             }
         }
         return processedCount;
+    }
+
+    /**
+     * 고착된 RUNNING job을 FAILED로 풀어 재처리를 가능케 한다 (P1-3).
+     *
+     * <p>워커가 markRunning(commit) 후 완료 전에 크래시하면 job이 RUNNING으로 영구 고착되고
+     * active_unique_key 때문에 재생성도 막힌다. timeout 임계 이전에 시작된 RUNNING을 FAILED로
+     * 전이해 unique key를 풀고, 시딩/관리자 재생성으로 다시 큐잉되게 한다.
+     *
+     * @param timeoutMillis RUNNING 허용 최대 시간(ms)
+     * @param batchSize     한 번에 회수할 최대 job 수
+     * @return FAILED로 전이한 job 수
+     */
+    int sweepStaleRunningJobs(long timeoutMillis, int batchSize) {
+        if (batchSize < 1) {
+            return 0;
+        }
+        OffsetDateTime threshold = now().minusNanos(timeoutMillis * 1_000_000L);
+        List<Long> staleIds = generationJobRepository.findStaleRunningJobIds(
+                threshold, PageRequest.of(0, batchSize));
+        int sweptCount = 0;
+        for (Long jobId : staleIds) {
+            boolean swept = Boolean.TRUE.equals(transactionTemplate.execute(status ->
+                    generationJobRepository.findByIdAndStatus(jobId, AiGenerationJobStatus.RUNNING)
+                            .map(job -> {
+                                job.markFailed("RUNNING_TIMEOUT_SWEPT", now());
+                                return true;
+                            })
+                            .orElse(false)
+            ));
+            if (swept) {
+                log.warn("고착 RUNNING job을 FAILED로 회수. jobId={}", jobId);
+                sweptCount++;
+            }
+        }
+        return sweptCount;
     }
 
     boolean runJob(Long jobId) {

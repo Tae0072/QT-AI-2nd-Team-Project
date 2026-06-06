@@ -28,4 +28,13 @@ public class QtPassageVerse {
 
     @Column(name = "display_order", nullable = false)
     private Short displayOrder;
+
+    /** 본문-절 매핑 생성 (display_order는 1부터 절 순서대로). */
+    public static QtPassageVerse create(Long qtPassageId, Long bibleVerseId, Short displayOrder) {
+        QtPassageVerse mapping = new QtPassageVerse();
+        mapping.qtPassageId = qtPassageId;
+        mapping.bibleVerseId = bibleVerseId;
+        mapping.displayOrder = displayOrder;
+        return mapping;
+    }
 }

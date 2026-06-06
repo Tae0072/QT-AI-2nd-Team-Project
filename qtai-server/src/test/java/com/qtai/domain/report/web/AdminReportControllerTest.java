@@ -46,6 +46,8 @@ class AdminReportControllerTest {
     private ListAdminReportsUseCase listAdminReportsUseCase;
     @MockBean
     private ProcessReportUseCase processReportUseCase;
+    @MockBean
+    private com.qtai.domain.admin.api.VerifyAdminRoleUseCase verifyAdminRoleUseCase;
 
     private void authenticate(String... authorities) {
         var auth = new UsernamePasswordAuthenticationToken(9L, null,
@@ -56,6 +58,9 @@ class AdminReportControllerTest {
     @BeforeEach
     void setUp() {
         authenticate("ROLE_ADMIN", "ADMIN_ROLE_OPERATOR");
+        // DB 2차 검증 기본 스텁 — memberId 9 → admin_users(id=109, OPERATOR)
+        when(verifyAdminRoleUseCase.verifyAnyRole(any(), any()))
+                .thenReturn(new com.qtai.domain.admin.api.dto.AdminUserInfo(109L, 9L, "OPERATOR"));
     }
 
     @AfterEach
@@ -105,12 +110,32 @@ class AdminReportControllerTest {
 
     @Test
     void list_403_관리자역할_부족() throws Exception {
-        // ROLE_ADMIN은 있으나 OPERATOR/SUPER_ADMIN 세부 권한 없음
+        // ROLE_ADMIN은 있으나 admin_users 세부 권한(OPERATOR) 미충족 — DB 2차 검증 거부
         authenticate("ROLE_ADMIN");
+        when(verifyAdminRoleUseCase.verifyAnyRole(any(), any()))
+                .thenThrow(new com.qtai.common.exception.BusinessException(
+                        com.qtai.common.exception.ErrorCode.ADMIN_ROLE_INSUFFICIENT));
 
         mockMvc.perform(get("/api/v1/admin/reports"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("AD0003"));
+    }
+
+    @Test
+    void resolve_커맨드에_admin_users_id가_실린다() throws Exception {
+        when(processReportUseCase.resolve(any()))
+                .thenReturn(new ProcessReportResult(900L, "RESOLVED", 109L, LocalDateTime.of(2026, 5, 29, 12, 0)));
+
+        mockMvc.perform(post("/api/v1/admin/reports/900/resolve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"action\":\"HIDE_TARGET\",\"reason\":\"정책 위반\",\"notifyReporter\":true}"))
+                .andExpect(status().isOk());
+
+        var captor = org.mockito.ArgumentCaptor.forClass(
+                com.qtai.domain.report.api.dto.ProcessReportCommand.class);
+        org.mockito.Mockito.verify(processReportUseCase).resolve(captor.capture());
+        // members.id(9)가 아니라 admin_users.id(109)가 기록되어야 한다 (FK 오기록 회귀 방지)
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().adminId()).isEqualTo(109L);
     }
 
     @Test

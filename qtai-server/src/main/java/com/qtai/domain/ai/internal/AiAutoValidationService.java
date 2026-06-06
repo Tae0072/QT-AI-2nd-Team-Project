@@ -50,17 +50,20 @@ class AiAutoValidationService {
     private final AiGeneratedAssetRepository generatedAssetRepository;
     private final AiValidationChecklistVersionRepository checklistVersionRepository;
     private final AiLogService aiLogService;
+    private final AiReviewValidationService aiReviewValidationService;
     private final ObjectMapper objectMapper;
 
     AiAutoValidationService(
             AiGeneratedAssetRepository generatedAssetRepository,
             AiValidationChecklistVersionRepository checklistVersionRepository,
             AiLogService aiLogService,
+            AiReviewValidationService aiReviewValidationService,
             ObjectMapper objectMapper
     ) {
         this.generatedAssetRepository = generatedAssetRepository;
         this.checklistVersionRepository = checklistVersionRepository;
         this.aiLogService = aiLogService;
+        this.aiReviewValidationService = aiReviewValidationService;
         this.objectMapper = objectMapper;
     }
 
@@ -76,7 +79,7 @@ class AiAutoValidationService {
         AiValidationChecklistVersion checklistVersion = activeExplanationChecklistVersion();
         ValidationOutcome outcome = validatePayload(asset.getPayloadJson());
 
-        return aiLogService.registerValidationLog(
+        AiValidationLog log = aiLogService.registerValidationLog(
                 asset.getId(),
                 null,
                 AUTO_VALIDATION_LAYER,
@@ -87,6 +90,10 @@ class AiAutoValidationService {
                 outcome.errorMessage(),
                 validatedAt
         );
+        if (log.getResult() == AiValidationResult.PASSED) {
+            aiReviewValidationService.validateExplanationAsset(asset.getId(), validatedAt);
+        }
+        return log;
     }
 
     private AiGeneratedAsset findAsset(Long assetId) {

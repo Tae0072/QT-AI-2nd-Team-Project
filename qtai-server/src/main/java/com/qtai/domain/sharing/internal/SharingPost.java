@@ -1,6 +1,8 @@
 package com.qtai.domain.sharing.internal;
 
 import com.qtai.common.entity.BaseEntity;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -67,4 +69,91 @@ public class SharingPost extends BaseEntity {
 
     @Column(name = "source_note_unshared_at")
     private LocalDateTime sourceNoteUnsharedAt;
+
+    /**
+     * 노트를 나눔으로 공개할 때 호출하는 정적 팩토리.
+     *
+     * <p>공개 "시점"의 값을 그대로 복사(스냅샷)해 둔다 — 이후 원본 노트나 닉네임이 바뀌어도
+     * 이 게시글은 변하지 않는다(07 §F-10 공유본 스냅샷 정책).
+     *
+     * @param commentsEnabled 댓글 허용 여부(요청이 생략하면 호출부에서 true로 넘긴다)
+     */
+    public static SharingPost publish(Long memberId,
+                                      Long noteId,
+                                      String snapshotTitle,
+                                      String snapshotBody,
+                                      String snapshotCategory,
+                                      java.time.LocalDate snapshotQtDate,
+                                      String snapshotVerseLabel,
+                                      String nicknameSnapshot,
+                                      boolean commentsEnabled) {
+        SharingPost post = new SharingPost();
+        post.memberId = memberId;
+        post.noteId = noteId;
+        post.status = SharingPostStatus.PUBLISHED;
+        // snapshot_title / snapshot_body 는 NOT NULL 컬럼이라 null이면 빈 문자열로 방어한다.
+        post.snapshotTitle = snapshotTitle == null ? "" : snapshotTitle;
+        post.snapshotBody = snapshotBody == null ? "" : snapshotBody;
+        post.snapshotCategory = snapshotCategory;
+        post.snapshotQtDate = snapshotQtDate;             // QT 노트가 아니면 null 가능(nullable)
+        post.snapshotVerseLabel = snapshotVerseLabel;     // 절 라벨 없으면 null 가능(nullable)
+        post.nicknameSnapshot = nicknameSnapshot;
+        post.commentsEnabled = commentsEnabled;
+        post.likeCount = 0;
+        post.commentCount = 0;
+        return post;
+    }
+
+    // like_count/comment_count 동기화는 동시성 lost update를 피하기 위해
+    // SharingPostRepository.syncLikeCount/syncCommentCount의 원자적 UPDATE로 처리한다 (P1-2).
+    // (기존 dirty-checking 방식 setter는 동시 요청 시 카운터가 어긋나 제거)
+
+    /**
+     * 나눔 게시글을 삭제한다(soft delete, 04 §4.4.6). {@code status=DELETED} + {@code deletedAt} 기록.
+     * PUBLISHED·HIDDEN 어느 상태에서도 삭제 가능하다. 이미 삭제된 글의 멱등 처리는 서비스가 담당한다.
+     */
+    public void delete(LocalDateTime now) {
+        this.status = SharingPostStatus.DELETED;
+        markDeletedAt(now);
+    }
+
+    /**
+     * 나눔 게시글을 숨긴다(공개 중단, 04 §4.4.6). PUBLISHED → HIDDEN, {@code hiddenAt} 기록.
+     * 삭제된(DELETED) 글은 숨길 수 없다. 이미 숨겨진 글의 멱등 처리는 서비스가 담당한다.
+     */
+    public void hide(LocalDateTime now) {
+        if (this.status == SharingPostStatus.DELETED) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
+        }
+        this.status = SharingPostStatus.HIDDEN;
+        this.hiddenAt = now;
+    }
+
+    /**
+     * 숨긴 게시글을 다시 공개한다(되돌리기, 04 §4.4.6). HIDDEN → PUBLISHED, {@code hiddenAt}을 비운다.
+     * 삭제된(DELETED) 글은 되돌릴 수 없다. 이미 공개 상태인 글의 멱등 처리는 서비스가 담당한다.
+     */
+    public void show() {
+        if (this.status == SharingPostStatus.DELETED) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
+        }
+        this.status = SharingPostStatus.PUBLISHED;
+        this.hiddenAt = null;
+    }
+
+    /**
+     * 원본 노트 삭제 시각 기록 (명세 §4.3.7 — 유지+안내 표시).
+     *
+     * <p>게시글은 스냅샷이므로 상태는 바꾸지 않고 안내 판단용 시각만 남긴다.
+     * 이미 기록된 경우 최초 시각을 보존한다(멱등).
+     *
+     * @return 새로 기록했으면 true, 이미 기록돼 있었으면 false
+     */
+    public boolean markSourceNoteDeleted(LocalDateTime deletedAt) {
+        if (this.sourceNoteUnsharedAt != null) {
+            return false;
+        }
+        this.sourceNoteUnsharedAt = deletedAt;
+        return true;
+    }
 }
