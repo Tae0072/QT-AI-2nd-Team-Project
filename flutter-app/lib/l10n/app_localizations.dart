@@ -1351,6 +1351,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t load the voice list'**
   String get ttsVoicesError;
+
+  /// No description provided for @catMeditation.
+  ///
+  /// In en, this message translates to:
+  /// **'Meditation'**
+  String get catMeditation;
+
+  /// No description provided for @catSermon.
+  ///
+  /// In en, this message translates to:
+  /// **'Sermon'**
+  String get catSermon;
+
+  /// No description provided for @catPrayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Prayer'**
+  String get catPrayer;
+
+  /// No description provided for @catGratitude.
+  ///
+  /// In en, this message translates to:
+  /// **'Gratitude'**
+  String get catGratitude;
+
+  /// No description provided for @catRepentance.
+  ///
+  /// In en, this message translates to:
+  /// **'Repentance'**
+  String get catRepentance;
 }
 
 class _AppLocalizationsDelegate

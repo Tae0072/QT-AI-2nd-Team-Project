@@ -217,5 +217,11 @@
   "ttsDefaultVoice": "기본 목소리",
   "ttsFinetuned": "학습됨",
   "ttsVoicesLoading": "목소리 목록을 불러오는 중입니다",
-  "ttsVoicesError": "목소리 목록을 불러올 수 없습니다"
+  "ttsVoicesError": "목소리 목록을 불러올 수 없습니다",
+
+  "catMeditation": "묵상",
+  "catSermon": "설교",
+  "catPrayer": "기도",
+  "catGratitude": "감사",
+  "catRepentance": "회개"
 }

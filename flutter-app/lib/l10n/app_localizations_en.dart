@@ -663,4 +663,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ttsVoicesError => 'Couldn\'t load the voice list';
+
+  @override
+  String get catMeditation => 'Meditation';
+
+  @override
+  String get catSermon => 'Sermon';
+
+  @override
+  String get catPrayer => 'Prayer';
+
+  @override
+  String get catGratitude => 'Gratitude';
+
+  @override
+  String get catRepentance => 'Repentance';
 }

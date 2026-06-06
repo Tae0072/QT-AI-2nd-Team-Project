@@ -653,4 +653,19 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get ttsVoicesError => '목소리 목록을 불러올 수 없습니다';
+
+  @override
+  String get catMeditation => '묵상';
+
+  @override
+  String get catSermon => '설교';
+
+  @override
+  String get catPrayer => '기도';
+
+  @override
+  String get catGratitude => '감사';
+
+  @override
+  String get catRepentance => '회개';
 }

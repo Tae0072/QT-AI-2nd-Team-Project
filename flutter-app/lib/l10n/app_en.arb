@@ -240,5 +240,11 @@
   "ttsDefaultVoice": "Default voice",
   "ttsFinetuned": "Trained",
   "ttsVoicesLoading": "Loading the voice list",
-  "ttsVoicesError": "Couldn't load the voice list"
+  "ttsVoicesError": "Couldn't load the voice list",
+
+  "catMeditation": "Meditation",
+  "catSermon": "Sermon",
+  "catPrayer": "Prayer",
+  "catGratitude": "Gratitude",
+  "catRepentance": "Repentance"
 }
