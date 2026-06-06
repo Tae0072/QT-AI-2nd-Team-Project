@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import com.qtai.domain.bible.api.dto.BibleBookResponse;
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
 
 /**
@@ -24,6 +25,8 @@ import com.qtai.domain.qt.api.dto.TodayQtResponse;
  *
  * <p>이 테스트는 캐시 프록시 없이 순수 로직만 검증한다.
  * 캐시 동작 검증은 {@link QtPassageLookupCacheTest}에서 수행한다.
+ *
+ * <p>범위(range) 해석은 §5.2 #1 보강으로 bible 직접 JOIN 대신 {@link BibleBookLookup}를 통한다.
  */
 class QtPassageLookupTest {
 
@@ -42,8 +45,8 @@ class QtPassageLookupTest {
         return QtPassageFixture.createPassage(id, date, title);
     }
 
-    private static QtPassageLookup lookup(QtPassageRepository repo, Clock clock) {
-        return new QtPassageLookup(repo, clock, new TodayQtRangeResolver(repo));
+    private static QtPassageLookup lookup(QtPassageRepository repo, BibleBookLookup bookLookup, Clock clock) {
+        return new QtPassageLookup(repo, clock, new TodayQtRangeResolver(bookLookup));
     }
 
     @Nested
@@ -56,13 +59,15 @@ class QtPassageLookupTest {
             // given: 2026-05-28 오후 2시 (배치 이후)
             Clock clock = fixedClockKst(2026, 5, 28, 14, 0);
             QtPassageRepository repo = Mockito.mock(QtPassageRepository.class);
-            QtPassageLookup lookup = lookup(repo, clock);
+            BibleBookLookup bookLookup = Mockito.mock(BibleBookLookup.class);
+            QtPassageLookup lookup = lookup(repo, bookLookup, clock);
 
             LocalDate today = LocalDate.of(2026, 5, 28);
+            // 픽스처: bookId=1, chapter=1, startVerse=1, endVerse=5
             QtPassage passage = createPassage(1L, today, "하나님이 세상을 이처럼 사랑하사");
-            QtPassageRangeView range = range("OLD", "GEN", "창세기", "Genesis", (short) 1, (short) 1, (short) 5);
             when(repo.findByQtDate(today)).thenReturn(Optional.of(passage));
-            when(repo.findRangeByQtPassageId(1L)).thenReturn(Optional.of(range));
+            when(bookLookup.findById((short) 1)).thenReturn(Optional.of(
+                    new BibleBookResponse(1, "OLD", "GEN", "창세기", "Genesis", 1)));
 
             // when
             TodayQtResponse response = lookup.findTodayPassage();
@@ -87,7 +92,8 @@ class QtPassageLookupTest {
             // given: 2026-05-28 새벽 2시 (배치 이전)
             Clock clock = fixedClockKst(2026, 5, 28, 2, 0);
             QtPassageRepository repo = Mockito.mock(QtPassageRepository.class);
-            QtPassageLookup lookup = lookup(repo, clock);
+            BibleBookLookup bookLookup = Mockito.mock(BibleBookLookup.class);
+            QtPassageLookup lookup = lookup(repo, bookLookup, clock);
 
             LocalDate today = LocalDate.of(2026, 5, 28);
             LocalDate yesterday = LocalDate.of(2026, 5, 27);
@@ -111,7 +117,8 @@ class QtPassageLookupTest {
             // given: 2026-05-28 새벽 1시, 어제 데이터도 없음
             Clock clock = fixedClockKst(2026, 5, 28, 1, 0);
             QtPassageRepository repo = Mockito.mock(QtPassageRepository.class);
-            QtPassageLookup lookup = lookup(repo, clock);
+            BibleBookLookup bookLookup = Mockito.mock(BibleBookLookup.class);
+            QtPassageLookup lookup = lookup(repo, bookLookup, clock);
 
             LocalDate today = LocalDate.of(2026, 5, 28);
             LocalDate yesterday = LocalDate.of(2026, 5, 27);
@@ -134,7 +141,8 @@ class QtPassageLookupTest {
             // given: 2026-05-28 오후 5시
             Clock clock = fixedClockKst(2026, 5, 28, 17, 0);
             QtPassageRepository repo = Mockito.mock(QtPassageRepository.class);
-            QtPassageLookup lookup = lookup(repo, clock);
+            BibleBookLookup bookLookup = Mockito.mock(BibleBookLookup.class);
+            QtPassageLookup lookup = lookup(repo, bookLookup, clock);
 
             LocalDate today = LocalDate.of(2026, 5, 28);
             when(repo.findByQtDate(today)).thenReturn(Optional.empty());
@@ -154,7 +162,8 @@ class QtPassageLookupTest {
             // given: 2026-05-28 새벽 3시, 오늘 데이터가 이미 DB에 들어왔고 어제 데이터도 있음
             Clock clock = fixedClockKst(2026, 5, 28, 3, 0);
             QtPassageRepository repo = Mockito.mock(QtPassageRepository.class);
-            QtPassageLookup lookup = lookup(repo, clock);
+            BibleBookLookup bookLookup = Mockito.mock(BibleBookLookup.class);
+            QtPassageLookup lookup = lookup(repo, bookLookup, clock);
 
             LocalDate today = LocalDate.of(2026, 5, 28);
             LocalDate yesterday = LocalDate.of(2026, 5, 27);
@@ -171,25 +180,5 @@ class QtPassageLookupTest {
             assertThat(response.passageDate()).isEqualTo("2026-05-27");
             assertThat(response.cacheStatus()).isEqualTo("STALE_FALLBACK");
         }
-    }
-
-    private static QtPassageRangeView range(
-            String testament,
-            String bookCode,
-            String koreanBookName,
-            String englishBookName,
-            Short chapter,
-            Short verseFrom,
-            Short verseTo
-    ) {
-        QtPassageRangeView view = Mockito.mock(QtPassageRangeView.class);
-        when(view.getTestament()).thenReturn(testament);
-        when(view.getBookCode()).thenReturn(bookCode);
-        when(view.getKoreanBookName()).thenReturn(koreanBookName);
-        when(view.getEnglishBookName()).thenReturn(englishBookName);
-        when(view.getChapter()).thenReturn(chapter);
-        when(view.getVerseFrom()).thenReturn(verseFrom);
-        when(view.getVerseTo()).thenReturn(verseTo);
-        return view;
     }
 }
