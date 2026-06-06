@@ -254,6 +254,37 @@ class AdminServiceTest {
     }
 
     @Test
+    @DisplayName("verifyAnyRole: 빈 목록이어도 SUPER_ADMIN은 우월권으로 통과 (계약)")
+    void verifyAnyRole_빈_목록이어도_SUPER_ADMIN은_통과() {
+        // given
+        Long memberId = 15L;
+        AdminUser superAdmin = createActiveAdmin(memberId, AdminRole.SUPER_ADMIN);
+        when(adminUserRepository.findByMemberId(memberId)).thenReturn(Optional.of(superAdmin));
+
+        // when: requiredRoles가 비어 있어도
+        AdminUserInfo result = adminService.verifyAnyRole(memberId, java.util.List.of());
+
+        // then: SUPER_ADMIN 우월권으로 통과 (인터페이스 계약)
+        assertThat(result.adminRole()).isEqualTo("SUPER_ADMIN");
+    }
+
+    @Test
+    @DisplayName("verifyAnyRole: 무효 역할 문자열만 있어도 SUPER_ADMIN은 통과 (계약)")
+    void verifyAnyRole_무효_문자열만_있어도_SUPER_ADMIN은_통과() {
+        // given
+        Long memberId = 16L;
+        AdminUser superAdmin = createActiveAdmin(memberId, AdminRole.SUPER_ADMIN);
+        when(adminUserRepository.findByMemberId(memberId)).thenReturn(Optional.of(superAdmin));
+
+        // when: 알 수 없는 역할 문자열만 전달돼도
+        AdminUserInfo result = adminService.verifyAnyRole(
+                memberId, java.util.List.of("UNKNOWN_ROLE", "TYPO"));
+
+        // then: SUPER_ADMIN 우월권으로 통과
+        assertThat(result.adminRole()).isEqualTo("SUPER_ADMIN");
+    }
+
+    @Test
     @DisplayName("verifyAnyRole: 목록 불일치(CONTENT_CREATOR)는 ADMIN_ROLE_INSUFFICIENT")
     void verifyAnyRole_목록_불일치는_ADMIN_ROLE_INSUFFICIENT() {
         // given

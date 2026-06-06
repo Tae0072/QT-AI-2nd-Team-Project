@@ -95,6 +95,12 @@ public class AdminService implements VerifyAdminRoleUseCase {
     public AdminUserInfo verifyAnyRole(Long memberId, java.util.Collection<String> requiredRoles) {
         AdminUser adminUser = findActiveAdminUser(memberId);
 
+        // SUPER_ADMIN 우월권: requiredRoles가 비어 있거나 모두 무효한 문자열이어도 항상 통과한다
+        // (VerifyAdminRoleUseCase 계약). 빈/무효 목록에서 SUPER_ADMIN이 차단되던 결함 수정.
+        if (adminUser.getAdminRole() == AdminRole.SUPER_ADMIN) {
+            return toAdminUserInfo(adminUser);
+        }
+
         if (requiredRoles != null) {
             for (String roleName : requiredRoles) {
                 AdminRole required;
