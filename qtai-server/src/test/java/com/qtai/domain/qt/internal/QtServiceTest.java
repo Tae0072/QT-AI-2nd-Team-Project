@@ -341,6 +341,41 @@ class QtServiceTest {
                             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.QT_PASSAGE_NOT_FOUND));
         }
 
+        @Test
+        @DisplayName("findContentContextByDate — 노출 정책(STALE_FALLBACK)·캐시 없이 날짜 직접 조회 (내부 배치용)")
+        void 날짜_기반_context_조회_성공() {
+            QtPassage passage = QtPassageFixture.createPassage(5L,
+                    LocalDate.of(2026, 6, 1), "오늘 본문");
+            when(qtPassageRepository.findByQtDate(LocalDate.of(2026, 6, 1)))
+                    .thenReturn(Optional.of(passage));
+            when(qtPassageVerseRepository.findByQtPassageIdOrderByDisplayOrderAsc(5L))
+                    .thenReturn(List.of(verse(5L, 100L, (short) 1)));
+
+            Optional<QtPassageContentContext> context =
+                    qtService.findContentContextByDate(LocalDate.of(2026, 6, 1));
+
+            assertThat(context).isPresent();
+            assertThat(context.get().qtPassageId()).isEqualTo(5L);
+            assertThat(context.get().verseIds()).containsExactly(100L);
+        }
+
+        @Test
+        @DisplayName("findContentContextByDate — 해당 날짜 본문이 없으면 empty (예외 아님: 배치 사전조건 판단용)")
+        void 날짜_기반_context_미존재() {
+            when(qtPassageRepository.findByQtDate(LocalDate.of(2026, 6, 2)))
+                    .thenReturn(Optional.empty());
+
+            assertThat(qtService.findContentContextByDate(LocalDate.of(2026, 6, 2))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("findContentContextByDate — null 날짜는 INVALID_INPUT")
+        void 날짜_기반_context_null_날짜() {
+            assertThatThrownBy(() -> qtService.findContentContextByDate(null))
+                    .isInstanceOfSatisfying(BusinessException.class, exception ->
+                            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        }
+
         private QtPassageVerse verse(Long qtPassageId, Long bibleVerseId, Short displayOrder) {
             try {
                 QtPassageVerse verse = QtPassageVerse.class.getDeclaredConstructor().newInstance();
