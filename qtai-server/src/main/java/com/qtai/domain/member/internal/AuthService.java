@@ -33,6 +33,7 @@ import java.util.UUID;
  *   <li>POST /api/v1/auth/kakao로 전달</li>
  *   <li>KakaoOAuthClient로 사용자 정보 조회 (트랜잭션 밖)</li>
  *   <li>Member 조회 또는 자동 가입 — TransactionTemplate으로 프로그래매틱 트랜잭션 관리</li>
+ *   <li>탈퇴(WITHDRAWN) 회원이면 재활성화 — 개인정보 2년 보존 정책에 따른 계정 복구</li>
  *   <li>JWT access/refresh token 발급 + Redis 저장</li>
  * </ol>
  *
@@ -93,6 +94,7 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
                         Member found = memberRepository.findByKakaoId(kakaoId)
                                 .orElseGet(() -> registerNewMember(kakaoUser));
 
+                        reactivateIfWithdrawn(found, kakaoUser);
                         validateMemberStatus(found);
                         return found;
                     }),
@@ -100,12 +102,16 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
             );
         } catch (DataIntegrityViolationException e) {
             // 동시 가입 경합: kakaoId 또는 닉네임 unique constraint 위반
-            // 다른 스레드가 먼저 생성 완료했으므로 새 트랜잭션에서 재조회
+            // 다른 스레드가 먼저 생성 완료했으므로 새 트랜잭션에서 재조회.
+            // 주의: 이 블록은 login()의 재시도 경로다 — refresh 경로가 아니므로
+            // 여기서의 reactivateIfWithdrawn 호출은 "refresh는 재활성화 차단" 정책과
+            // 무관하다 (refresh()는 재활성화 없이 MEMBER_ALREADY_WITHDRAWN 유지).
             log.info("동시 가입 경합 감지, 재조회: kakaoId={}", kakaoUser.id());
             member = Objects.requireNonNull(
                     transactionTemplate.execute(status -> {
                         Member found = memberRepository.findByKakaoId(kakaoUser.id())
                                 .orElseThrow(() -> new BusinessException(ErrorCode.KAKAO_AUTH_FAILED));
+                        reactivateIfWithdrawn(found, kakaoUser);
                         validateMemberStatus(found);
                         return found;
                     }),
@@ -149,6 +155,9 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
         }
 
         // 3. 회원 존재/상태 확인 — 상태별 에러코드를 구분하여 클라이언트가 적절히 처리 가능
+        //    정책: 재활성화는 명시적 재로그인(login)에서만 수행한다. refresh 경로는
+        //    탈퇴 회원을 재활성화하지 않고 차단한다 — 탈퇴 후 남은 토큰으로
+        //    사용자가 모르는 사이 계정이 복구되는 것을 방지(2026-06-05 결정).
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
         if (member.getStatus() != MemberStatus.ACTIVE) {
@@ -175,12 +184,26 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
     // -------------------------------------------------------------------------
 
     /**
-     * 회원 상태 검증 — 탈퇴/정지 회원은 로그인 차단.
+     * 탈퇴 회원 재활성화 — 개인정보 2년 보존 정책에 따라 보존 중 재로그인 시 기존 계정을 복구한다.
+     *
+     * <p>member_auth_providers 연동 row가 보존되어 있으므로 신규 가입 경로를 타지 않는다
+     * (신규 insert 시 (provider, provider_user_id) UNIQUE 충돌 — M0009 원인).
+     */
+    private void reactivateIfWithdrawn(Member member, KakaoUserInfo kakaoUser) {
+        if (member.getStatus() == MemberStatus.WITHDRAWN) {
+            member.reactivate(kakaoUser.getEmail(), kakaoUser.getProfileImageUrl());
+            log.info("탈퇴 회원 재활성화: memberId={}", member.getId());
+        }
+    }
+
+    /**
+     * 회원 상태 검증 — 정지 회원은 로그인 차단.
+     *
+     * <p>탈퇴 회원은 차단하지 않는다 — 2년 보존 정책에 따라
+     * {@link #reactivateIfWithdrawn(Member, KakaoUserInfo)}가 먼저 재활성화한다.
+     * (refresh 경로는 재활성화 없이 MEMBER_ALREADY_WITHDRAWN을 유지한다)
      */
     private void validateMemberStatus(Member member) {
-        if (member.getStatus() == MemberStatus.WITHDRAWN) {
-            throw new BusinessException(ErrorCode.MEMBER_ALREADY_WITHDRAWN);
-        }
         if (member.getStatus() == MemberStatus.SUSPENDED) {
             throw new BusinessException(ErrorCode.MEMBER_SUSPENDED);
         }
@@ -216,12 +239,7 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
      * 새 트랜잭션에서 재조회한다.
      */
     private Member registerNewMember(KakaoUserInfo kakaoUser) {
-        String tempNickname = "user_" + kakaoUser.id();
-        // 닉네임 충돌 시 UUID suffix 추가
-        if (memberRepository.existsByNickname(tempNickname)) {
-            tempNickname = "user_" + kakaoUser.id() + "_"
-                    + UUID.randomUUID().toString().substring(0, 8);
-        }
+        String tempNickname = generateTempNickname(kakaoUser.id());
 
         Member member = Member.builder()
                 .kakaoId(kakaoUser.id())
@@ -241,5 +259,42 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
 
         log.info("신규 회원 가입: memberId={}, kakaoId={}", member.getId(), kakaoUser.id());
         return member;
+    }
+
+    /** members.nickname 컬럼 길이(VARCHAR(20)). */
+    private static final int NICKNAME_MAX_LENGTH = 20;
+    /** 임시 닉네임 접두사 — 닉네임 변경 API에서 예약어로 차단한다. */
+    static final String TEMP_NICKNAME_PREFIX = "user_";
+
+    /**
+     * 항상 20자 이내이면서 닉네임 UNIQUE를 만족하는 임시 닉네임을 만든다.
+     *
+     * <p>버그 수정(2026-06-05): 기존 충돌 fallback "user_{10자리kakaoId}_{UUID8}"는
+     * 24자라 VARCHAR(20)을 초과해 INSERT가 "Data too long"으로 실패했다. 이 실패는
+     * DataIntegrityViolationException으로 잡혀 login()의 kakaoId 재조회로 넘어가는데,
+     * 정작 행이 안 만들어졌으므로 KAKAO_AUTH_FAILED(401)로 둔갑하고 해당 사용자는
+     * 영영 가입할 수 없었다. 길이를 보장하는 생성기로 교체한다.
+     */
+    private String generateTempNickname(long kakaoId) {
+        String base = truncate(TEMP_NICKNAME_PREFIX + kakaoId, NICKNAME_MAX_LENGTH);
+        if (!memberRepository.existsByNickname(base)) {
+            return base;
+        }
+        // 충돌 시: 6자리 랜덤 suffix를 붙이되 base를 잘라 전체 20자 이내를 유지
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String suffix = "_" + UUID.randomUUID().toString().replace("-", "").substring(0, 6);
+            String candidate = truncate(base, NICKNAME_MAX_LENGTH - suffix.length()) + suffix;
+            if (!memberRepository.existsByNickname(candidate)) {
+                return candidate;
+            }
+        }
+        // 극히 드문 연속 충돌 — 전부 랜덤(접두사 유지)으로 최종 시도
+        return truncate(TEMP_NICKNAME_PREFIX, NICKNAME_MAX_LENGTH)
+                + UUID.randomUUID().toString().replace("-", "")
+                        .substring(0, NICKNAME_MAX_LENGTH - TEMP_NICKNAME_PREFIX.length());
+    }
+
+    private static String truncate(String value, int maxLength) {
+        return value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
 }

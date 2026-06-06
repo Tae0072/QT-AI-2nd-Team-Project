@@ -17,15 +17,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.ai.api.ActivateAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.CreateAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.ListAdminAiValidationChecklistsUseCase;
-import com.qtai.domain.ai.api.RetireAdminAiValidationChecklistUseCase;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistListResponse;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistResponse;
-import com.qtai.domain.ai.api.dto.ChangeAdminAiValidationChecklistStatusCommand;
-import com.qtai.domain.ai.api.dto.CreateAdminAiValidationChecklistCommand;
-import com.qtai.domain.ai.api.dto.ListAdminAiValidationChecklistsQuery;
+import com.qtai.domain.ai.api.admin.checklist.ActivateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.CreateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.ListAdminAiValidationChecklistsUseCase;
+import com.qtai.domain.ai.api.admin.checklist.RetireAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistListResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.ChangeAdminAiValidationChecklistStatusCommand;
+import com.qtai.domain.ai.api.admin.checklist.dto.CreateAdminAiValidationChecklistCommand;
+import com.qtai.domain.ai.api.admin.checklist.dto.ListAdminAiValidationChecklistsQuery;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 
@@ -128,7 +128,7 @@ public class AdminAiValidationChecklistService implements
                 checklistType,
                 command.version(),
                 command.contentHash(),
-                null,
+                command.adminId(), // 생성자(admin) 기록 — 기존엔 null로 저장돼 감사 추적 불가했음(P2)
                 now
         ));
         writeAudit(command.adminId(), "CHECKLIST_CREATE", version.getId(), null, snapshot(version, now));

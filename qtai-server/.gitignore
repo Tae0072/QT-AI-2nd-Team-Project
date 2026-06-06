@@ -1,6 +1,7 @@
 # Gradle
 .gradle/
 build/
+restricted/
 !gradle/wrapper/gradle-wrapper.jar
 
 # Eclipse

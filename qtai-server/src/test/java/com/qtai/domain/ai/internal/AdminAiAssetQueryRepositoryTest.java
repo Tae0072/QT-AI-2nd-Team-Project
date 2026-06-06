@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
-import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
+import com.qtai.domain.ai.api.admin.asset.dto.ListAdminAiAssetsQuery;
 
 @DataJpaTest
 @Import(AdminAiAssetQueryRepository.class)

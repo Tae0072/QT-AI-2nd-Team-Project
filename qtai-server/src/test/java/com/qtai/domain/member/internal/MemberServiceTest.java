@@ -15,7 +15,9 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import com.qtai.common.exception.BusinessException;
@@ -36,12 +38,14 @@ class MemberServiceTest {
             Clock.fixed(Instant.parse("2026-05-26T12:00:00Z"), ZoneId.of("Asia/Seoul"));
 
     private MemberRepository memberRepository;
+    private ApplicationEventPublisher eventPublisher;
     private MemberService memberService;
 
     @BeforeEach
     void setUp() {
         memberRepository = Mockito.mock(MemberRepository.class);
-        memberService = new MemberService(memberRepository, FIXED_CLOCK);
+        eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
+        memberService = new MemberService(memberRepository, eventPublisher, FIXED_CLOCK);
     }
 
     // ── getMember ──
@@ -89,6 +93,31 @@ class MemberServiceTest {
                 .extracting("errorCode").isEqualTo(ErrorCode.MEMBER_NOT_FOUND);
     }
 
+    // ── getActivePublicProfiles (일괄 조회) ──
+
+    @Test
+    void getActivePublicProfiles_탈퇴_회원은_예외_없이_결과에서_제외() {
+        Member active = createMember(1L, "활성회원");
+        Member withdrawn = createMember(2L, "탈퇴회원");
+        withdrawn.withdraw(FIXED_CLOCK);
+        when(memberRepository.findAllById(any()))
+                .thenReturn(java.util.List.of(active, withdrawn));
+
+        var profiles = memberService.getActivePublicProfiles(java.util.List.of(1L, 2L));
+
+        // 단건 계약(404)과 달리 일괄 계약은 누락으로 표현 — 목록 화면 폴백용
+        assertThat(profiles).hasSize(1);
+        assertThat(profiles.get(0).id()).isEqualTo(1L);
+        assertThat(profiles.get(0).nickname()).isEqualTo("활성회원");
+    }
+
+    @Test
+    void getActivePublicProfiles_빈_입력은_조회_없이_빈_결과() {
+        assertThat(memberService.getActivePublicProfiles(java.util.List.of())).isEmpty();
+        assertThat(memberService.getActivePublicProfiles(null)).isEmpty();
+        org.mockito.Mockito.verifyNoInteractions(memberRepository);
+    }
+
     // ── changeNickname ──
 
     @Test
@@ -100,6 +129,30 @@ class MemberServiceTest {
         MemberResponse response = memberService.changeNickname(1L, new NicknameChangeRequest("newNick"));
 
         assertThat(response.nickname()).isEqualTo("newNick");
+    }
+
+    @Test
+    void changeNickname_앞뒤_공백_trim_적용() {
+        // P2: changeNickname 경로도 updateProfile처럼 trim 일원화 — 중복 검사·저장이 trim 값 기준이어야 한다.
+        Member member = createMember(1L, "oldNick");
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+        when(memberRepository.existsByNickname("trimmed")).thenReturn(false);
+
+        MemberResponse response = memberService.changeNickname(1L, new NicknameChangeRequest("  trimmed  "));
+
+        assertThat(response.nickname()).isEqualTo("trimmed");
+        verify(memberRepository).existsByNickname("trimmed"); // 공백 포함 원문이 아니라 trim 값으로 검사
+    }
+
+    @Test
+    void changeNickname_공백만_입력_거부() {
+        Member member = createMember(1L, "oldNick");
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> memberService.changeNickname(1L, new NicknameChangeRequest("   ")))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
     }
 
     @Test
@@ -136,6 +189,19 @@ class MemberServiceTest {
         assertThatThrownBy(() -> memberService.changeNickname(1L, new NicknameChangeRequest("race")))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.DUPLICATE_NICKNAME);
+    }
+
+    @Test
+    void changeNickname_시스템_예약접두사_user_차단() {
+        // P1-4: 임시 닉네임 접두사 'user_' 사칭 차단
+        Member member = createMember(1L, "original");
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> memberService.changeNickname(1L, new NicknameChangeRequest("user_1234")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
+        // 예약어는 중복 조회 전에 차단된다
+        verify(memberRepository, org.mockito.Mockito.never()).existsByNickname("user_1234");
     }
 
     // ── updateProfile ──
@@ -230,16 +296,24 @@ class MemberServiceTest {
     // ── withdraw ──
 
     @Test
-    void withdraw_성공_개인정보_익명화() {
+    void withdraw_성공_상태전환_개인정보보존_세션무효화_이벤트발행() {
         Member member = createMember(1L, "toWithdraw");
         when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
 
         memberService.withdraw(1L, "서비스 불만");
 
         assertThat(member.getStatus()).isEqualTo(MemberStatus.WITHDRAWN);
-        assertThat(member.getNickname()).startsWith("탈퇴회원_");
-        assertThat(member.getEmail()).isNull();
-        assertThat(member.getKakaoId()).isEqualTo(-1L);
+        assertThat(member.getWithdrawnAt()).isNotNull();
+        // 2년 보존 정책 — 즉시 익명화하지 않는다 (익명화 시 auth_provider UNIQUE 충돌로 재가입 영구 차단)
+        assertThat(member.getNickname()).isEqualTo("toWithdraw");
+        assertThat(member.getEmail()).isEqualTo("toWithdraw@test.com");
+        assertThat(member.getKakaoId()).isEqualTo(101L);
+        // 세션 무효화는 AFTER_COMMIT 이벤트로 분리 — 발행 여부와 대상 회원 검증
+        ArgumentCaptor<MemberWithdrawnEvent> captor =
+                ArgumentCaptor.forClass(MemberWithdrawnEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().memberId()).isEqualTo(1L);
+        assertThat(captor.getValue().eventId()).isNotBlank();
     }
 
     @Test

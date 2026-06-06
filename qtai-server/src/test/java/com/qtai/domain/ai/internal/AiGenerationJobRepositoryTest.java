@@ -1,6 +1,8 @@
 package com.qtai.domain.ai.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Field;
 import java.time.OffsetDateTime;
@@ -64,10 +66,72 @@ class AiGenerationJobRepositoryTest {
         assertThat(repository.findByIdAndStatus(failed.getId(), AiGenerationJobStatus.QUEUED)).isEmpty();
     }
 
+    @Test
+    void findActiveExplanationBibleVerseTargetIdsFiltersActiveVerseExplanationJobs() {
+        AiPromptVersion explanationPrompt = persistPromptVersion(AiPromptType.EXPLANATION);
+        AiPromptVersion simulatorPrompt = persistPromptVersion(AiPromptType.SIMULATOR);
+        persistJob(explanationPrompt, AiGenerationJobStatus.QUEUED, BASE_TIME, AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE, 101L);
+        persistJob(explanationPrompt, AiGenerationJobStatus.RUNNING, BASE_TIME.plusMinutes(1),
+                AiGenerationJobType.EXPLANATION, AiTargetType.BIBLE_VERSE, 102L);
+        persistJob(explanationPrompt, AiGenerationJobStatus.SUCCEEDED, BASE_TIME.plusMinutes(2),
+                AiGenerationJobType.EXPLANATION, AiTargetType.BIBLE_VERSE, 103L);
+        persistJob(explanationPrompt, AiGenerationJobStatus.FAILED, BASE_TIME.plusMinutes(3),
+                AiGenerationJobType.EXPLANATION, AiTargetType.BIBLE_VERSE, 104L);
+        persistJob(explanationPrompt, AiGenerationJobStatus.QUEUED, BASE_TIME.plusMinutes(4),
+                AiGenerationJobType.EXPLANATION, AiTargetType.QT_PASSAGE, 105L);
+        persistJob(simulatorPrompt, AiGenerationJobStatus.QUEUED, BASE_TIME.plusMinutes(5),
+                AiGenerationJobType.SIMULATOR, AiTargetType.BIBLE_VERSE, 106L);
+        flushAndClear();
+
+        List<Long> targetIds = repository.findActiveExplanationBibleVerseTargetIds(
+                List.of(101L, 102L, 103L, 104L, 105L, 106L));
+
+        assertThat(targetIds).containsExactlyInAnyOrder(101L, 102L);
+    }
+
+    @Test
+    void activeTargetUniqueConstraintBlocksSameTargetAcrossPromptVersions() {
+        AiPromptVersion firstPrompt = persistPromptVersion(AiPromptType.EXPLANATION, "2026.06.1");
+        AiPromptVersion secondPrompt = persistPromptVersion(AiPromptType.EXPLANATION, "2026.06.2");
+        persistJob(firstPrompt, AiGenerationJobStatus.QUEUED, BASE_TIME, AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE, 201L);
+
+        assertThatThrownBy(() -> persistJob(
+                secondPrompt,
+                AiGenerationJobStatus.QUEUED,
+                BASE_TIME.plusMinutes(1),
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                201L
+        )).isInstanceOf(Exception.class);
+    }
+
+    @Test
+    void activeTargetUniqueConstraintAllowsNewJobAfterPreviousJobIsFinished() {
+        AiPromptVersion firstPrompt = persistPromptVersion(AiPromptType.EXPLANATION, "2026.06.1");
+        AiPromptVersion secondPrompt = persistPromptVersion(AiPromptType.EXPLANATION, "2026.06.2");
+        persistJob(firstPrompt, AiGenerationJobStatus.SUCCEEDED, BASE_TIME, AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE, 202L);
+
+        assertThatCode(() -> persistJob(
+                secondPrompt,
+                AiGenerationJobStatus.QUEUED,
+                BASE_TIME.plusMinutes(1),
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                202L
+        )).doesNotThrowAnyException();
+    }
+
     private AiPromptVersion persistPromptVersion(AiPromptType promptType) {
+        return persistPromptVersion(promptType, "2026.05." + promptType);
+    }
+
+    private AiPromptVersion persistPromptVersion(AiPromptType promptType, String version) {
         AiPromptVersion promptVersion = new AiPromptVersion();
         setField(promptVersion, "promptType", promptType);
-        setField(promptVersion, "version", "2026.05." + promptType);
+        setField(promptVersion, "version", version);
         setField(promptVersion, "contentHash", "hash-" + promptType);
         setField(promptVersion, "status", AiPromptVersionStatus.ACTIVE);
         setField(promptVersion, "createdAt", BASE_TIME.minusDays(1));
@@ -79,10 +143,28 @@ class AiGenerationJobRepositoryTest {
             AiGenerationJobStatus status,
             OffsetDateTime createdAt
     ) {
-        AiGenerationJob job = AiGenerationJob.queue(
+        return persistJob(
+                promptVersion,
+                status,
+                createdAt,
                 AiGenerationJobType.EXPLANATION,
                 AiTargetType.QT_PASSAGE,
-                nextTargetId(),
+                nextTargetId()
+        );
+    }
+
+    private AiGenerationJob persistJob(
+            AiPromptVersion promptVersion,
+            AiGenerationJobStatus status,
+            OffsetDateTime createdAt,
+            AiGenerationJobType jobType,
+            AiTargetType targetType,
+            Long targetId
+    ) {
+        AiGenerationJob job = AiGenerationJob.queue(
+                jobType,
+                targetType,
+                targetId,
                 promptVersion.getId(),
                 createdAt
         );

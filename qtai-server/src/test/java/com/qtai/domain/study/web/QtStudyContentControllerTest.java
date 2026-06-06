@@ -68,8 +68,7 @@ class QtStudyContentControllerTest {
                         1L,
                         "verse summary",
                         "verified explanation",
-                        "QT-AI verified content",
-                        100L
+                        "QT-AI verified content"
                 )),
                 List.of(new QtStudyContentResponse.GlossaryTermItem(
                         20L,
@@ -86,6 +85,8 @@ class QtStudyContentControllerTest {
                 .andExpect(jsonPath("$.data.summary").value("safe summary"))
                 .andExpect(jsonPath("$.data.explanations[0].verseId").value(1))
                 .andExpect(jsonPath("$.data.explanations[0].sourceLabel").value("QT-AI verified content"))
+                // 내부 AI 자산 PK는 사용자 응답에 노출되지 않는다(P2 회귀 가드).
+                .andExpect(jsonPath("$.data.explanations[0].aiAssetId").doesNotExist())
                 .andExpect(jsonPath("$.data.glossaryTerms[0].term").value("sample term"));
     }
 

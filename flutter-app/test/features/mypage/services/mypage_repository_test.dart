@@ -78,7 +78,7 @@ void main() {
             'profileImageUrl': null,
             'status': 'ACTIVE',
             'role': 'USER',
-            'nicknameUnlockAt': '2026-06-03T12:00:00',
+            'nicknameUnlockAt': '2999-12-31T12:00:00',
             'createdAt': '2026-05-01T10:00:00',
           },
         });

@@ -12,6 +12,8 @@ import 'auth_refresh_exception.dart';
 /// - refresh 전용 [Dio] 인스턴스를 분리하여 인터셉터 chain 재귀를 방지한다.
 /// - 재시도 요청이 다시 401을 받는 무한 루프를 `_retried` extra flag로 방지한다.
 class AuthInterceptor extends Interceptor {
+  static void Function()? globalOnAuthFailure;
+
   final Dio _dio;
   late final Dio _refreshDio;
 
@@ -26,6 +28,12 @@ class AuthInterceptor extends Interceptor {
   /// 재시도 표시용 extra key. 이 플래그가 true인 요청이 401을 받으면
   /// refresh를 시도하지 않고 즉시 에러를 전달한다.
   static const _retriedKey = '_authRetried';
+
+  /// 인증 엔드포인트 — 여기서의 401은 "로그인/재발급 실패"이지 만료가 아니므로
+  /// refresh·전역 로그아웃을 트리거하지 않고 그대로 호출부에 전달한다(P1-12).
+  static const _authPaths = ['/auth/kakao', '/auth/refresh', '/auth/logout'];
+
+  bool _isAuthPath(String path) => _authPaths.any(path.contains);
 
   /// refresh 호출 횟수 추적 (테스트에서 single-flight 검증용).
   int refreshCallCount = 0;
@@ -50,15 +58,22 @@ class AuthInterceptor extends Interceptor {
   }
 
   @override
-  Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
+  Future<void> onError(
+      DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode != 401) {
+      return handler.next(err);
+    }
+
+    // /auth/** 의 401은 로그인/재발급 실패다 — refresh·전역 로그아웃을 트리거하지 않고
+    // 그대로 전달해 호출부가 "로그인 실패" 안내를 할 수 있게 한다 (P1-12).
+    if (_isAuthPath(err.requestOptions.path)) {
       return handler.next(err);
     }
 
     // 이미 재시도한 요청이 다시 401을 받으면 무한 루프 방지
     if (err.requestOptions.extra[_retriedKey] == true) {
       await SecureStorage.clearTokens();
-      onAuthFailure?.call();
+      _notifyAuthFailure();
       return handler.next(err);
     }
 
@@ -79,13 +94,18 @@ class AuthInterceptor extends Interceptor {
       return handler.resolve(retryResponse);
     } on AuthRefreshException {
       await SecureStorage.clearTokens();
-      onAuthFailure?.call();
+      _notifyAuthFailure();
       return handler.next(err);
     } on DioException catch (refreshErr) {
       await SecureStorage.clearTokens();
-      onAuthFailure?.call();
+      _notifyAuthFailure();
       return handler.next(refreshErr);
     }
+  }
+
+  void _notifyAuthFailure() {
+    onAuthFailure?.call();
+    globalOnAuthFailure?.call();
   }
 
   /// Single-flight 패턴: 첫 번째 401이 refresh를 실행하고,
@@ -136,7 +156,7 @@ class AuthInterceptor extends Interceptor {
     late final Response response;
     try {
       response = await _refreshDio.post(
-        '/auth/token/refresh',
+        '/auth/refresh',
         data: {'refreshToken': refreshToken},
       );
     } on DioException catch (e) {

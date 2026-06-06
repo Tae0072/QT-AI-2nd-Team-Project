@@ -14,6 +14,7 @@ public enum ErrorCode {
     INVALID_STATUS_TRANSITION("C0003", "상태 전이를 수행할 수 없습니다.", HttpStatus.CONFLICT),
     RESOURCE_NOT_FOUND("C0004", "요청한 리소스를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOT_IMPLEMENTED("C0005", "아직 구현되지 않은 기능입니다.", HttpStatus.NOT_IMPLEMENTED),
+    EXTERNAL_API_FAILURE("C0006", "외부 API 호출에 실패했습니다.", HttpStatus.BAD_GATEWAY),
 
     // 회원
     MEMBER_NOT_FOUND("M0001", "회원을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -61,6 +62,8 @@ public enum ErrorCode {
     // 나눔
     SHARING_POST_NOT_FOUND("S0001", "나눔 게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     COMMENT_NOT_FOUND("S0002", "댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    DUPLICATE_SHARING_POST("S0003", "이미 공유된 노트입니다.", HttpStatus.CONFLICT),
+    DUPLICATE_LIKE("S0004", "이미 좋아요를 누른 게시글입니다.", HttpStatus.CONFLICT),
 
     // 신고
     DUPLICATE_REPORT("R0001", "이미 신고한 대상입니다.", HttpStatus.CONFLICT),

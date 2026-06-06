@@ -11,6 +11,7 @@ class SecureStorage {
 
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
+  static const _forceKakaoReloginKey = 'force_kakao_relogin';
 
   // Access Token
   static Future<String?> getAccessToken() =>
@@ -29,4 +30,12 @@ class SecureStorage {
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _refreshTokenKey);
   }
+
+  // 탈퇴 후 1회 카카오 재인증(이메일/비번 입력) 강제 플래그
+  static Future<bool> getForceKakaoRelogin() async =>
+      await _storage.read(key: _forceKakaoReloginKey) == 'true';
+  static Future<void> setForceKakaoRelogin() =>
+      _storage.write(key: _forceKakaoReloginKey, value: 'true');
+  static Future<void> clearForceKakaoRelogin() =>
+      _storage.delete(key: _forceKakaoReloginKey);
 }

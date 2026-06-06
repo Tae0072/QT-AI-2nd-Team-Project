@@ -45,6 +45,7 @@ public class AdminReportController {
 
     private final ListAdminReportsUseCase listAdminReportsUseCase;
     private final ProcessReportUseCase processReportUseCase;
+    private final com.qtai.domain.admin.api.VerifyAdminRoleUseCase verifyAdminRoleUseCase;
 
     /** 후속 조치 요청 본문(resolve/reject 공통). */
     public record ProcessReportRequest(String action, String reason, boolean notifyReporter) {
@@ -88,9 +89,18 @@ public class AdminReportController {
         return new ProcessReportCommand(adminId, reportId, r.action(), r.reason(), r.notifyReporter());
     }
 
-    // ── 관리자 인증/권한 (ADMIN + OPERATOR/SUPER_ADMIN) ──
+    // ── 관리자 인증/권한 (ADMIN + admin_users OPERATOR, SUPER_ADMIN 우월권) ──
 
-    private static Long requireOperator(Authentication requestAuthentication) {
+    /**
+     * 신고 처리 권한 검증 — admin_users DB 2차 검증(CLAUDE.md §5).
+     *
+     * <p>기존 JWT {@code ADMIN_ROLE_*} authority 파싱은 발급 경로가 없어
+     * 운영에서 전부 403이 나는 결함이 있어 DB 검증으로 통일했다.
+     *
+     * @return admin_users.id — processedByAdminId FK(admin_users) 기록용.
+     *         기존에는 members.id를 넘겨 운영 MySQL에서 FK 위반이 나던 오기록을 수정.
+     */
+    private Long requireOperator(Authentication requestAuthentication) {
         Authentication authentication = requestAuthentication != null
                 ? requestAuthentication
                 : SecurityContextHolder.getContext().getAuthentication();
@@ -105,12 +115,8 @@ public class AdminReportController {
         if (!authorities.contains("ROLE_ADMIN")) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
-        boolean operator = List.of("OPERATOR", "SUPER_ADMIN").stream()
-                .anyMatch(role -> authorities.contains("ADMIN_ROLE_" + role));
-        if (!operator) {
-            throw new BusinessException(ErrorCode.ADMIN_ROLE_INSUFFICIENT);
-        }
-        return resolvePrincipalId(authentication);
+        Long memberId = resolvePrincipalId(authentication);
+        return verifyAdminRoleUseCase.verifyAnyRole(memberId, List.of("OPERATOR")).adminUserId();
     }
 
     private static Long resolvePrincipalId(Authentication authentication) {

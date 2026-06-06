@@ -16,6 +16,7 @@ class ValidationReferenceJobRepositoryTest {
 
     private static final OffsetDateTime CREATED_AT = OffsetDateTime.parse("2026-05-28T10:00:00+09:00");
     private static final OffsetDateTime EXPIRES_AT = OffsetDateTime.parse("2026-05-29T04:00:00+09:00");
+    private static final String INDEX_STORAGE_URI = "restricted://validation/index/reference-index.json";
 
     @Autowired
     private TestEntityManager testEntityManager;
@@ -58,7 +59,7 @@ class ValidationReferenceJobRepositoryTest {
                 "reference-notes.pdf",
                 "sha256:reference-hash",
                 "restricted://validation/reference.pdf",
-                "restricted://validation/index",
+                INDEX_STORAGE_URI,
                 EXPIRES_AT,
                 CREATED_AT
         );
@@ -70,8 +71,27 @@ class ValidationReferenceJobRepositoryTest {
         ValidationReferenceJob found = repository.findById(saved.getId()).orElseThrow();
         assertThat(found.getStatus()).isEqualTo(ValidationReferenceJobStatus.EXPIRED);
         assertThat(found.getStorageUri()).isEqualTo("restricted://validation/reference.pdf");
-        assertThat(found.getIndexStorageUri()).isEqualTo("restricted://validation/index");
+        assertThat(found.getIndexStorageUri()).isEqualTo(INDEX_STORAGE_URI);
         assertThat(found.getDeletedAt()).isNull();
         assertThat(found.getUpdatedAt()).isEqualTo(CREATED_AT.plusHours(1));
+    }
+
+    @Test
+    void storesReferenceIndexStorageUriWithJsonFileName() {
+        ValidationReferenceJob job = ValidationReferenceJob.create(
+                "검증 참조 자료",
+                "reference-notes.pdf",
+                "sha256:reference-hash",
+                "restricted://validation/reference.pdf",
+                INDEX_STORAGE_URI,
+                EXPIRES_AT,
+                CREATED_AT
+        );
+
+        ValidationReferenceJob saved = repository.saveAndFlush(job);
+        testEntityManager.clear();
+
+        ValidationReferenceJob found = repository.findById(saved.getId()).orElseThrow();
+        assertThat(found.getIndexStorageUri()).isEqualTo(INDEX_STORAGE_URI);
     }
 }

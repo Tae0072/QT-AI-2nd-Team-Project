@@ -9,35 +9,58 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import com.qtai.domain.ai.api.dto.AdminAiAssetDetailResponse;
-import com.qtai.domain.ai.api.dto.AdminAiAssetListItem;
-import com.qtai.domain.ai.api.dto.AdminAiAssetListResponse;
-import com.qtai.domain.ai.api.dto.AdminAiValidationLogItem;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistListResponse;
-import com.qtai.domain.ai.api.dto.AdminAiValidationChecklistResponse;
-import com.qtai.domain.ai.api.dto.ChangeAdminAiValidationChecklistStatusCommand;
-import com.qtai.domain.ai.api.dto.CreateValidationReferenceJobCommand;
-import com.qtai.domain.ai.api.dto.CreateAiGenerationJobCommand;
-import com.qtai.domain.ai.api.dto.CreateAiGenerationJobResult;
-import com.qtai.domain.ai.api.dto.CreateAdminAiValidationChecklistCommand;
-import com.qtai.domain.ai.api.dto.ExpireValidationReferenceJobCommand;
-import com.qtai.domain.ai.api.dto.GetAdminAiAssetQuery;
-import com.qtai.domain.ai.api.dto.GetAiQaResultCommand;
-import com.qtai.domain.ai.api.dto.GetAiQaResultResult;
-import com.qtai.domain.ai.api.dto.GetValidationReferenceJobQuery;
-import com.qtai.domain.ai.api.dto.ListAdminAiAssetsQuery;
-import com.qtai.domain.ai.api.dto.ListAdminAiValidationChecklistsQuery;
-import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetCommand;
-import com.qtai.domain.ai.api.dto.RegisterAiGeneratedAssetResult;
-import com.qtai.domain.ai.api.dto.RegisterAiValidationLogCommand;
-import com.qtai.domain.ai.api.dto.RegisterAiValidationLogResult;
-import com.qtai.domain.ai.api.dto.RegenerateAiAssetCommand;
-import com.qtai.domain.ai.api.dto.RegenerateAiAssetResult;
-import com.qtai.domain.ai.api.dto.RequestAiQaCommand;
-import com.qtai.domain.ai.api.dto.RequestAiQaResult;
-import com.qtai.domain.ai.api.dto.ReviewAiAssetCommand;
-import com.qtai.domain.ai.api.dto.ReviewAiAssetResult;
-import com.qtai.domain.ai.api.dto.ValidationReferenceJobResponse;
+import com.qtai.domain.ai.api.admin.asset.GetAdminAiAssetUseCase;
+import com.qtai.domain.ai.api.admin.asset.ListAdminAiAssetsUseCase;
+import com.qtai.domain.ai.api.admin.asset.RegenerateAiAssetUseCase;
+import com.qtai.domain.ai.api.admin.asset.ReviewAiAssetUseCase;
+import com.qtai.domain.ai.api.admin.checklist.ActivateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.CreateAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.checklist.ListAdminAiValidationChecklistsUseCase;
+import com.qtai.domain.ai.api.admin.checklist.RetireAdminAiValidationChecklistUseCase;
+import com.qtai.domain.ai.api.admin.monitoring.GetAdminAiMonitoringUseCase;
+import com.qtai.domain.ai.api.admin.monitoring.ListAdminAiBatchRunLogsUseCase;
+import com.qtai.domain.ai.api.generation.CreateAiGenerationJobUseCase;
+import com.qtai.domain.ai.api.generation.RegisterAiGeneratedAssetUseCase;
+import com.qtai.domain.ai.api.qa.GetAiQaResultUseCase;
+import com.qtai.domain.ai.api.qa.RequestAiQaUseCase;
+import com.qtai.domain.ai.api.validation.CreateValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.ExpireValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.GetValidationReferenceJobUseCase;
+import com.qtai.domain.ai.api.validation.RegisterAiValidationLogUseCase;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiBatchRunLogItem;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiBatchRunLogListResponse;
+import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiMonitoringResponse;
+import com.qtai.domain.ai.api.admin.asset.dto.AdminAiAssetDetailResponse;
+import com.qtai.domain.ai.api.admin.asset.dto.AdminAiAssetListItem;
+import com.qtai.domain.ai.api.admin.asset.dto.AdminAiAssetListResponse;
+import com.qtai.domain.ai.api.admin.asset.dto.AdminAiValidationLogItem;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistListResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.AdminAiValidationChecklistResponse;
+import com.qtai.domain.ai.api.admin.checklist.dto.ChangeAdminAiValidationChecklistStatusCommand;
+import com.qtai.domain.ai.api.validation.dto.CreateValidationReferenceJobCommand;
+import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobCommand;
+import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobResult;
+import com.qtai.domain.ai.api.admin.checklist.dto.CreateAdminAiValidationChecklistCommand;
+import com.qtai.domain.ai.api.validation.dto.ExpireValidationReferenceJobCommand;
+import com.qtai.domain.ai.api.admin.asset.dto.GetAdminAiAssetQuery;
+import com.qtai.domain.ai.api.admin.monitoring.dto.GetAdminAiMonitoringQuery;
+import com.qtai.domain.ai.api.qa.dto.GetAiQaResultCommand;
+import com.qtai.domain.ai.api.qa.dto.GetAiQaResultResult;
+import com.qtai.domain.ai.api.validation.dto.GetValidationReferenceJobQuery;
+import com.qtai.domain.ai.api.admin.monitoring.dto.ListAdminAiBatchRunLogsQuery;
+import com.qtai.domain.ai.api.admin.asset.dto.ListAdminAiAssetsQuery;
+import com.qtai.domain.ai.api.admin.checklist.dto.ListAdminAiValidationChecklistsQuery;
+import com.qtai.domain.ai.api.generation.dto.RegisterAiGeneratedAssetCommand;
+import com.qtai.domain.ai.api.generation.dto.RegisterAiGeneratedAssetResult;
+import com.qtai.domain.ai.api.validation.dto.RegisterAiValidationLogCommand;
+import com.qtai.domain.ai.api.validation.dto.RegisterAiValidationLogResult;
+import com.qtai.domain.ai.api.admin.asset.dto.RegenerateAiAssetCommand;
+import com.qtai.domain.ai.api.admin.asset.dto.RegenerateAiAssetResult;
+import com.qtai.domain.ai.api.qa.dto.RequestAiQaCommand;
+import com.qtai.domain.ai.api.qa.dto.RequestAiQaResult;
+import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetCommand;
+import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetResult;
+import com.qtai.domain.ai.api.validation.dto.ValidationReferenceJobResponse;
 
 class AiUseCaseContractTest {
 
@@ -55,6 +78,8 @@ class AiUseCaseContractTest {
             CreateAdminAiValidationChecklistUseCase.class,
             ActivateAdminAiValidationChecklistUseCase.class,
             RetireAdminAiValidationChecklistUseCase.class,
+            ListAdminAiBatchRunLogsUseCase.class,
+            GetAdminAiMonitoringUseCase.class,
             CreateValidationReferenceJobUseCase.class,
             GetValidationReferenceJobUseCase.class,
             ExpireValidationReferenceJobUseCase.class
@@ -86,6 +111,11 @@ class AiUseCaseContractTest {
             ChangeAdminAiValidationChecklistStatusCommand.class,
             AdminAiValidationChecklistResponse.class,
             AdminAiValidationChecklistListResponse.class,
+            ListAdminAiBatchRunLogsQuery.class,
+            AdminAiBatchRunLogItem.class,
+            AdminAiBatchRunLogListResponse.class,
+            GetAdminAiMonitoringQuery.class,
+            AdminAiMonitoringResponse.class,
             CreateValidationReferenceJobCommand.class,
             GetValidationReferenceJobQuery.class,
             ExpireValidationReferenceJobCommand.class,
@@ -99,6 +129,43 @@ class AiUseCaseContractTest {
                     assertThat(useCase).isInterface();
                     assertThat(useCase.getSimpleName()).endsWith("UseCase");
                 });
+    }
+
+    @Test
+    void publicAiContractsAreGroupedByFeaturePackage() {
+        assertThat(List.of(RequestAiQaUseCase.class, GetAiQaResultUseCase.class))
+                .allSatisfy(useCase -> assertThat(useCase.getPackageName())
+                        .isEqualTo("com.qtai.domain.ai.api.qa"));
+        assertThat(List.of(CreateAiGenerationJobUseCase.class, RegisterAiGeneratedAssetUseCase.class))
+                .allSatisfy(useCase -> assertThat(useCase.getPackageName())
+                        .isEqualTo("com.qtai.domain.ai.api.generation"));
+        assertThat(List.of(
+                ListAdminAiAssetsUseCase.class,
+                GetAdminAiAssetUseCase.class,
+                ReviewAiAssetUseCase.class,
+                RegenerateAiAssetUseCase.class
+        ))
+                .allSatisfy(useCase -> assertThat(useCase.getPackageName())
+                        .isEqualTo("com.qtai.domain.ai.api.admin.asset"));
+        assertThat(List.of(ListAdminAiBatchRunLogsUseCase.class, GetAdminAiMonitoringUseCase.class))
+                .allSatisfy(useCase -> assertThat(useCase.getPackageName())
+                        .isEqualTo("com.qtai.domain.ai.api.admin.monitoring"));
+        assertThat(List.of(
+                ListAdminAiValidationChecklistsUseCase.class,
+                CreateAdminAiValidationChecklistUseCase.class,
+                ActivateAdminAiValidationChecklistUseCase.class,
+                RetireAdminAiValidationChecklistUseCase.class
+        ))
+                .allSatisfy(useCase -> assertThat(useCase.getPackageName())
+                        .isEqualTo("com.qtai.domain.ai.api.admin.checklist"));
+        assertThat(List.of(
+                CreateValidationReferenceJobUseCase.class,
+                GetValidationReferenceJobUseCase.class,
+                ExpireValidationReferenceJobUseCase.class,
+                RegisterAiValidationLogUseCase.class
+        ))
+                .allSatisfy(useCase -> assertThat(useCase.getPackageName())
+                        .isEqualTo("com.qtai.domain.ai.api.validation"));
     }
 
     @Test
@@ -120,7 +187,9 @@ class AiUseCaseContractTest {
         assertThat(USE_CASE_DTOS)
                 .allSatisfy(dto -> {
                     assertThat(dto.isRecord()).isTrue();
-                    assertThat(dto.getPackageName()).isEqualTo("com.qtai.domain.ai.api.dto");
+                    assertThat(dto.getPackageName())
+                            .startsWith("com.qtai.domain.ai.api.")
+                            .endsWith(".dto");
                     assertThat(dto.getSimpleName()).matches(".*(Command|Query|Result|Response|Item)$");
                 });
     }
@@ -162,6 +231,18 @@ class AiUseCaseContractTest {
         assertThat(List.of(GetAdminAiAssetQuery.class.getRecordComponents()))
                 .extracting(RecordComponent::getName)
                 .contains("adminId", "memberRole", "adminRole", "assetId");
+        assertThat(List.of(ReviewAiAssetCommand.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains(
+                        "reviewerId",
+                        "assetId",
+                        "memberRole",
+                        "adminRole",
+                        "action",
+                        "reason",
+                        "activateForTarget",
+                        "reviewedAt"
+                );
     }
 
     @Test
@@ -175,6 +256,41 @@ class AiUseCaseContractTest {
         assertThat(List.of(ChangeAdminAiValidationChecklistStatusCommand.class.getRecordComponents()))
                 .extracting(RecordComponent::getName)
                 .contains("adminId", "memberRole", "adminRole", "checklistId");
+    }
+
+    @Test
+    void adminAiBatchRunLogDtosIncludeAdminAuthorizationContextAndFilters() {
+        assertThat(List.of(ListAdminAiBatchRunLogsQuery.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("adminId", "memberRole", "adminRole", "batchName", "status", "from", "to", "page", "size");
+        assertThat(List.of(AdminAiBatchRunLogItem.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains(
+                        "id",
+                        "batchName",
+                        "status",
+                        "createdCount",
+                        "failedCount",
+                        "processedCount",
+                        "errorType",
+                        "errorMessage",
+                        "startedAt",
+                        "finishedAt",
+                        "createdAt"
+                );
+        assertThat(List.of(AdminAiBatchRunLogListResponse.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("content", "page", "size", "totalElements", "totalPages", "first", "last", "sort");
+    }
+
+    @Test
+    void adminAiMonitoringDtosIncludeAdminAuthorizationContextAndSummarySections() {
+        assertThat(List.of(GetAdminAiMonitoringQuery.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("adminId", "memberRole", "adminRole", "from", "to");
+        assertThat(List.of(AdminAiMonitoringResponse.class.getRecordComponents()))
+                .extracting(RecordComponent::getName)
+                .contains("period", "generationJobs", "validation", "batchRuns", "qa", "checklists");
     }
 
     @Test

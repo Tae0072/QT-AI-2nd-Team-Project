@@ -133,6 +133,53 @@ class GlobalExceptionHandlerTest {
                 .contains("Integer 형식이 아닙니다");
     }
 
+    @Test
+    @DisplayName("DataIntegrityViolationException(동시성 UNIQUE 위반) → 409 + C0003 (기존 500 누출 방지)")
+    void dataIntegrityViolation_returns_409() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleDataIntegrityViolation(
+                new org.springframework.dao.DataIntegrityViolationException("Duplicate entry for key uk_..."));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        ApiResponse<Void> body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.error().code()).isEqualTo("C0003");
+    }
+
+    @Test
+    @DisplayName("HttpMessageNotReadableException(잘못된 JSON) → 400 + C0002 (기존 500 방지)")
+    void notReadable_returns_400() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleNotReadable(
+                new org.springframework.http.converter.HttpMessageNotReadableException(
+                        "JSON parse error",
+                        new org.springframework.mock.http.MockHttpInputMessage(new byte[0])));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().error().code()).isEqualTo("C0002");
+    }
+
+    @Test
+    @DisplayName("AccessDeniedException(@PreAuthorize 거부) → 403 + M0003 (기존 500 방지)")
+    void accessDenied_returns_403() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleAccessDenied(
+                new org.springframework.security.access.AccessDeniedException("denied"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().error().code()).isEqualTo("M0003");
+    }
+
+    @Test
+    @DisplayName("ConstraintViolationException(@RequestParam 검증) → 400 + C0002 (기존 500 방지)")
+    void constraintViolation_returns_400() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleConstraintViolation(
+                new jakarta.validation.ConstraintViolationException("page: 0 이상", java.util.Set.of()));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().error().code()).isEqualTo("C0002");
+    }
+
     // ── 테스트용 더미 컨트롤러 ──
 
     @RestController

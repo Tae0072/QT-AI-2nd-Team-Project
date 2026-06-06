@@ -1491,15 +1491,16 @@
 
 ```json
 {
-  "checklistVersionId": 4,
   "reason": "출처와 표현이 검증 기준을 충족합니다.",
   "activateForTarget": true
 }
 ```
 
-- **승인 조건:** `checklistVersionId`는 활성 체크리스트여야 하며, 산출물의 최신 검증 로그가 해당 버전으로 존재해야 한다. 누락 시 `409 CHECKLIST_VERSION_REQUIRED` 또는 `422 AI_VALIDATION_FAILED`를 반환한다.
+- **승인 조건:** 관리자는 `checklistVersionId`를 입력하지 않는다. 서버는 `assetId` 기준 최신 `layer = 1`, `reviewerType = AUTO` 검증 로그와 최신 `layer = 2`, `reviewerType = ADVISOR` 검증 로그를 조회하고, 두 최신 로그가 모두 `PASSED`일 때만 승인한다. 두 검증 로그 중 하나라도 없거나 결과가 `PASSED`가 아니면 `409 INVALID_STATUS_TRANSITION`을 반환한다. 관리자 승인 대상이 아닌 `SUMMARY`, `GLOSSARY` 산출물은 `400 INVALID_INPUT`으로 차단한다.
+- **노출본 연결:** `activateForTarget=true`이고 산출물이 `EXPLANATION + BIBLE_VERSE`이면 기존 `verse_explanations` ACTIVE 해설을 비활성화하고, 해당 asset payload의 `explanations[]`에서 `verseId == targetId`인 항목을 새 `APPROVED + ACTIVE` 해설로 연결한다. `QT_PASSAGE`, `SIMULATOR`, glossary term 연결은 별도 PR 범위다.
+- **반려/숨김 요청:** `reject`, `hide`는 `reason`만 받는다. `reason` 원문은 감사 로그 snapshot에 저장하지 않는다. `EXPLANATION + BIBLE_VERSE` 산출물 hide 시 해당 asset이 게시한 `verse_explanations` 노출본은 `HIDDEN + activeUniqueKey=NULL`로 전환해 사용자 조회에서 제외한다.
 - **상태 전이:** `VALIDATING -> APPROVED | REJECTED`, `APPROVED -> HIDDEN`, `REJECTED -> 재생성 요청 가능`
-- **감사 로그:** 승인/반려/숨김/재생성/평가 후보 등록은 모두 `audit_logs`에 기록한다.
+- **감사 로그:** 승인/반려/숨김/재생성/평가 후보 등록은 모두 `audit_logs`에 기록한다. AI 산출물 검수 감사 snapshot에는 asset 식별자, 상태, 대상 정보만 저장하고 payload 원문, prompt/provider 원문, reason 원문은 저장하지 않는다.
 
 재생성 요청:
 
@@ -1725,21 +1726,59 @@
 - **Method + URL:** `GET /api/v1/admin/audit-logs?actorType=ADMIN&actionType=AI_ASSET_APPROVE&from=2026-05-01&to=2026-05-17&page=0&size=50`
 - **인증:** ADMIN + OPERATOR/REVIEWER/SUPER_ADMIN
 - **ERD:** `audit_logs`, `admin_users`, `service_accounts`
-- **주의:** 수정/삭제 API를 제공하지 않는다.
+- **범위:** 이번 API는 AI 검수/재생성 감사 로그 조회만 지원한다. `actionType`은 `AI_ASSET_APPROVE`, `AI_ASSET_REJECT`, `AI_ASSET_HIDE`, `AI_REGENERATE_REQUEST`만 허용하고, `targetType`은 `AI_GENERATED_ASSET`만 허용한다. `actionType` 또는 `targetType`이 없으면 위 AI 범위로 기본 조회한다.
+- **필터:** `actorType`, `actorId`, `actionType`, `targetType`, `targetId`, `from`, `to`, `page`, `size`
+- **기간:** `from`, `to`는 KST 기준 `yyyy-MM-dd`이며 `from`은 inclusive, `to`는 해당 날짜의 다음 날 00:00 exclusive로 적용한다.
+- **정렬:** `createdAt desc, id desc` 고정
+- **응답:** 기존 관리자 목록 API와 같은 page envelope를 사용한다. `content[]`는 `id`, `adminUserId`, `actorType`, `actorId`, `actorLabel`, `actionType`, `targetType`, `targetId`, `beforeJson`, `afterJson`, `createdAt`을 반환한다.
+- **보안:** `beforeJson`, `afterJson`은 저장 단계에서 sanitize된 snapshot만 반환한다. reason 원문, payload 원문, prompt/provider 원문, secret/token/password 계열 값은 새로 생성하거나 복원하지 않는다.
+- **주의:** 수정/삭제 API를 제공하지 않는다. 전체 도메인 audit 조회, export, 상세 diff viewer, audit 조회 자체 감사 로그 기록은 별도 PR에서 다룬다.
 
-### 4.7.9 AI 운영 모니터링
+```json
+{
+  "content": [
+    {
+      "id": 11,
+      "adminUserId": null,
+      "actorType": "ADMIN",
+      "actorId": 7,
+      "actorLabel": "ADMIN:7",
+      "actionType": "AI_ASSET_HIDE",
+      "targetType": "AI_GENERATED_ASSET",
+      "targetId": 500,
+      "beforeJson": "{\"status\":\"APPROVED\"}",
+      "afterJson": "{\"status\":\"HIDDEN\"}",
+      "createdAt": "2026-06-02T10:30:00+09:00"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "sort": "createdAt,desc,id,desc"
+}
+```
 
-- **Method + URL:** `GET /api/v1/admin/ai/monitoring?from=2026-05-01&to=2026-05-17`
+### 4.7.9 AI 운영 모니터링 집계
+
+- **Method + URL:** `GET /api/v1/admin/ai/monitoring?from=2026-06-01&to=2026-06-02`
 - **인증:** ADMIN + OPERATOR/REVIEWER/SUPER_ADMIN
 - **연결 화면:** AD-08
-- **ERD:** `ai_generation_jobs`, `ai_generated_assets`, `ai_validation_logs`, `ai_qa_requests`, `ai_validation_checklist_versions`
-- **권한 상세:** `OPERATOR`는 실패율, 대기 건수, 차단 건수 같은 운영 집계만 조회한다. AI 산출물 목록/상세 원문 조회는 `/api/v1/admin/ai/assets/**`에서 `REVIEWER/SUPER_ADMIN`만 수행한다.
+- **ERD:** `ai_generation_jobs`, `ai_generated_assets`, `ai_validation_logs`, `ai_validation_checklist_versions`, `ai_batch_run_logs`
+- **기간:** `from`, `to`는 KST 기준 `yyyy-MM-dd`이며 `from`은 inclusive, `to`는 다음 날 00:00 exclusive로 집계한다. 둘 다 없으면 KST 오늘 날짜를 기본 기간으로 사용한다.
+- **권한 상세:** `OPERATOR`는 운영 집계만 조회할 수 있다. AI 산출물 목록/상세 원문 조회는 `/api/v1/admin/ai/assets/**`에서 `REVIEWER/SUPER_ADMIN`만 수행한다.
+- **집계 기준:** `queued/running`은 현재 active backlog 기준, `succeeded/failed`는 기간 내 `finishedAt` 기준이다. `waitingAssets`는 현재 `VALIDATING` asset 수이며, validation/batch run 집계는 기간 기준이다.
+- **Q&A:** `ai_qa_requests`가 아직 구현되지 않았으므로 이번 API에서는 `qa`를 0값과 빈 목록으로 반환한다.
+- **보안:** raw prompt, provider raw response, asset payload/content, secret/token/password 계열 값은 반환하지 않는다. batch error message는 저장 단계에서 redaction/truncate된 값만 반환한다.
 
 ```json
 {
   "period": {
-    "from": "2026-05-01",
-    "to": "2026-05-17"
+    "from": "2026-06-01",
+    "to": "2026-06-02",
+    "timezone": "Asia/Seoul"
   },
   "generationJobs": {
     "queued": 3,
@@ -1751,6 +1790,7 @@
     "waitingAssets": 8,
     "passCount": 110,
     "failCount": 10,
+    "needsReviewCount": 2,
     "failureReasons": [
       {
         "resultCode": "SOURCE_MISSING",
@@ -1758,25 +1798,73 @@
       }
     ]
   },
-  "qa": {
-    "requested": 90,
-    "answered": 70,
-    "blocked": 12,
-    "failed": 8,
-    "blockedReasons": [
+  "batchRuns": {
+    "succeeded": 5,
+    "partialFailed": 1,
+    "failed": 2,
+    "latestFailures": [
       {
-        "blockedReason": "VALUE_JUDGMENT",
-        "count": 6
+        "id": 12,
+        "batchName": "AI_DAILY_QT_VERSE_EXPLANATION_SEED",
+        "status": "FAILED",
+        "errorType": "ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND",
+        "errorMessage": "active prompt not found",
+        "createdAt": "2026-06-02T00:05:02+09:00"
       }
     ]
   },
+  "qa": {
+    "requested": 0,
+    "answered": 0,
+    "blocked": 0,
+    "failed": 0,
+    "blockedReasons": []
+  },
   "checklists": [
     {
-      "checklistType": "QA",
-      "activeVersion": "2026.05.1",
+      "checklistType": "EXPLANATION",
+      "activeVersion": "2026.06.1",
       "passRate": 0.91
     }
   ]
+}
+```
+
+### 4.7.10 AI Batch 실행 로그 조회
+
+- **Method + URL:** `GET /api/v1/admin/ai/batch-run-logs?batchName=AI_DAILY_QT_VERSE_EXPLANATION_SEED&status=FAILED&from=2026-06-01&to=2026-06-02&page=0&size=20`
+- **인증:** ADMIN + OPERATOR/REVIEWER/SUPER_ADMIN
+- **연결 화면:** AD-08
+- **ERD:** `ai_batch_run_logs`
+- **주의:** 이 API는 DB에 저장된 batch 실행 로그 목록만 반환한다. 운영 집계는 `GET /api/v1/admin/ai/monitoring`에서 조회한다.
+- **필터:** `batchName`, `status`, `from`, `to`, `page`, `size`
+- **정렬:** `createdAt desc, id desc` 고정
+- **보안:** `errorMessage`는 저장 단계에서 redaction/truncate된 값만 반환하며 provider raw response, prompt 원문, secret/token/password 계열 값을 새로 저장하거나 복원하지 않는다.
+
+```json
+{
+  "content": [
+    {
+      "id": 12,
+      "batchName": "AI_DAILY_QT_VERSE_EXPLANATION_SEED",
+      "status": "FAILED",
+      "createdCount": 0,
+      "failedCount": 1,
+      "processedCount": 0,
+      "errorType": "ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND",
+      "errorMessage": "active prompt not found",
+      "startedAt": "2026-06-02T00:05:00+09:00",
+      "finishedAt": "2026-06-02T00:05:01+09:00",
+      "createdAt": "2026-06-02T00:05:02+09:00"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "sort": "createdAt,desc,id,desc"
 }
 ```
 
@@ -2262,7 +2350,7 @@
 | 63 | POST | `/api/v1/admin/ai/assets/{assetId}/evaluation-candidates` | REVIEWER/SUPER_ADMIN | 평가 케이스 후보 등록 |
 | 64 | POST | `/api/v1/admin/members/{memberId}/suspend` | OPERATOR | 회원 제재 |
 | 65 | POST | `/api/v1/admin/members/{memberId}/activate` | OPERATOR | 회원 제재 해제 |
-| 66 | GET | `/api/v1/admin/ai/monitoring` | OPERATOR/REVIEWER/SUPER_ADMIN | AI 운영 모니터링 |
+| 66 | GET | `/api/v1/admin/ai/monitoring` | OPERATOR/REVIEWER/SUPER_ADMIN | AI 운영 모니터링 집계 |
 | 67 | GET | `/api/v1/admin/ai/validation-checklists` | REVIEWER/SUPER_ADMIN | 검증 체크리스트 목록 |
 | 68 | POST | `/api/v1/admin/ai/validation-checklists` | REVIEWER/SUPER_ADMIN | 검증 체크리스트 생성 |
 | 69 | POST | `/api/v1/admin/ai/validation-checklists/{id}/activate` | REVIEWER/SUPER_ADMIN | 검증 체크리스트 활성화 |
@@ -2285,6 +2373,7 @@
 | 86 | PATCH | `/api/v1/admin/notices/{id}` | OPERATOR | 공지 수정 |
 | 87 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
 | 88 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
+| 89 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
 
 ---
 
