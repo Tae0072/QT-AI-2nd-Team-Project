@@ -82,8 +82,14 @@ class QtServiceCacheTest {
         }
 
         @Bean
-        QtPassageLookup qtPassageLookup(QtPassageRepository repo, Clock clock) {
-            return new QtPassageLookup(repo, clock, new TodayQtRangeResolver(repo));
+        BibleBookLookup bibleBookLookup() {
+            // 캐시 동작만 검증하므로 range 해석은 미스(empty)여도 무방하다.
+            return org.mockito.Mockito.mock(BibleBookLookup.class);
+        }
+
+        @Bean
+        QtPassageLookup qtPassageLookup(QtPassageRepository repo, Clock clock, BibleBookLookup bibleBookLookup) {
+            return new QtPassageLookup(repo, clock, new TodayQtRangeResolver(bibleBookLookup));
         }
 
         @Bean
