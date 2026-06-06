@@ -8,11 +8,15 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 class TodayQtRangeResolver {
 
-    private final QtPassageRepository qtPassageRepository;
+    private final BibleBookLookup bibleBookLookup;
 
+    /**
+     * QT 본문의 장/절(qt 소유)과 권 메타(bible api 조회)를 합쳐 범위 응답을 만든다(리뷰 §5.2 #1).
+     * 권을 못 찾으면 null을 반환해 호출부가 범위 없이 처리한다.
+     */
     TodayQtRangeResponse resolve(QtPassage passage) {
-        return qtPassageRepository.findRangeByQtPassageId(passage.getId())
-                .map(TodayQtRangeMapper::toResponse)
+        return bibleBookLookup.findById(passage.getBookId())
+                .map(book -> TodayQtRangeMapper.toResponse(book, passage))
                 .orElse(null);
     }
 }
