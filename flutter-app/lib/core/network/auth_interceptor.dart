@@ -29,6 +29,12 @@ class AuthInterceptor extends Interceptor {
   /// refresh를 시도하지 않고 즉시 에러를 전달한다.
   static const _retriedKey = '_authRetried';
 
+  /// 인증 엔드포인트 — 여기서의 401은 "로그인/재발급 실패"이지 만료가 아니므로
+  /// refresh·전역 로그아웃을 트리거하지 않고 그대로 호출부에 전달한다(P1-12).
+  static const _authPaths = ['/auth/kakao', '/auth/refresh', '/auth/logout'];
+
+  bool _isAuthPath(String path) => _authPaths.any(path.contains);
+
   /// refresh 호출 횟수 추적 (테스트에서 single-flight 검증용).
   int refreshCallCount = 0;
 
@@ -55,6 +61,12 @@ class AuthInterceptor extends Interceptor {
   Future<void> onError(
       DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode != 401) {
+      return handler.next(err);
+    }
+
+    // /auth/** 의 401은 로그인/재발급 실패다 — refresh·전역 로그아웃을 트리거하지 않고
+    // 그대로 전달해 호출부가 "로그인 실패" 안내를 할 수 있게 한다 (P1-12).
+    if (_isAuthPath(err.requestOptions.path)) {
       return handler.next(err);
     }
 
