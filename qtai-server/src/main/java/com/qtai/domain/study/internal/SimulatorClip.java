@@ -38,7 +38,8 @@ public class SimulatorClip extends BaseEntity {
     @JoinColumn(name = "component_library_version_id", nullable = false)
     private SimulatorComponentLibraryVersion componentLibraryVersion;
 
-    @Column(name = "scene_script_json", nullable = false, columnDefinition = "TEXT")
+    // 마이그레이션 V15는 LONGTEXT — 엔티티 columnDefinition을 DDL과 일치시켜 MySQL ddl-auto=validate 정합 보장(P2).
+    @Column(name = "scene_script_json", nullable = false, columnDefinition = "LONGTEXT")
     private String sceneScriptJson;
 
     @Enumerated(EnumType.STRING)
