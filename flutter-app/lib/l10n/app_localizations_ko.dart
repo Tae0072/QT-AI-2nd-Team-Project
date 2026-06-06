@@ -187,4 +187,49 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get noteSaveFailed => '저장에 실패했습니다. 다시 시도해 주세요';
+
+  @override
+  String get fmtBold => '굵게';
+
+  @override
+  String get fmtItalic => '기울임';
+
+  @override
+  String get fmtHeading => '제목';
+
+  @override
+  String get fmtList => '목록';
+
+  @override
+  String get fmtQuote => '인용';
+
+  @override
+  String get fmtCheckbox => '체크박스';
+
+  @override
+  String get fmtDivider => '구분선';
+
+  @override
+  String calSavedThisMonth(int days) {
+    return '이번 달 $days일 저장';
+  }
+
+  @override
+  String calNoteCount(int count) {
+    return '노트 $count개';
+  }
+
+  @override
+  String calStreak(int days) {
+    return '연속 $days일 🔥';
+  }
+
+  @override
+  String get noteShareAsText => '텍스트로 공유';
+
+  @override
+  String get noteShareAsImage => '이미지로 공유';
+
+  @override
+  String get noteShareImageFailed => '이미지 공유에 실패했습니다';
 }

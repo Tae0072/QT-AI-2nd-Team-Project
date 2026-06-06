@@ -62,5 +62,19 @@
   "noteEditTitleOrBodyRequired": "제목이나 본문을 입력해 주세요",
   "noteSaved": "저장되었습니다",
   "noteDraftSaved": "임시저장되었습니다",
-  "noteSaveFailed": "저장에 실패했습니다. 다시 시도해 주세요"
+  "noteSaveFailed": "저장에 실패했습니다. 다시 시도해 주세요",
+
+  "fmtBold": "굵게",
+  "fmtItalic": "기울임",
+  "fmtHeading": "제목",
+  "fmtList": "목록",
+  "fmtQuote": "인용",
+  "fmtCheckbox": "체크박스",
+  "fmtDivider": "구분선",
+  "calSavedThisMonth": "이번 달 {days}일 저장",
+  "calNoteCount": "노트 {count}개",
+  "calStreak": "연속 {days}일 🔥",
+  "noteShareAsText": "텍스트로 공유",
+  "noteShareAsImage": "이미지로 공유",
+  "noteShareImageFailed": "이미지 공유에 실패했습니다"
 }

@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../models/note_models.dart';
 
 /// 노트 외부 공유 바텀시트를 띄운다. (N-04에서 호출)
@@ -39,6 +40,7 @@ class _NoteShareSheetState extends State<_NoteShareSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -57,7 +59,7 @@ class _NoteShareSheetState extends State<_NoteShareSheet> {
                   child: OutlinedButton.icon(
                     onPressed: _busy ? null : _shareAsText,
                     icon: const Icon(Icons.text_fields),
-                    label: const Text('텍스트로 공유'),
+                    label: Text(l.noteShareAsText),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -65,7 +67,7 @@ class _NoteShareSheetState extends State<_NoteShareSheet> {
                   child: FilledButton.icon(
                     onPressed: _busy ? null : _shareAsImage,
                     icon: const Icon(Icons.image_outlined),
-                    label: const Text('이미지로 공유'),
+                    label: Text(l.noteShareAsImage),
                   ),
                 ),
               ],
@@ -104,7 +106,7 @@ class _NoteShareSheetState extends State<_NoteShareSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이미지 공유에 실패했습니다')),
+        SnackBar(content: Text(AppLocalizations.of(context).noteShareImageFailed)),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -145,6 +147,7 @@ class _ShareCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -157,7 +160,7 @@ class _ShareCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            detail.title.isEmpty ? '(제목 없음)' : detail.title,
+            detail.title.isEmpty ? l.noteUntitled : detail.title,
             style: theme.textTheme.titleMedium,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,

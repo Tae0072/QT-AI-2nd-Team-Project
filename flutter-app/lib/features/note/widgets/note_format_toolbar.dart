@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
+
 /// 노트 본문용 마크다운 서식 툴바 (N-03 작성/수정 공통).
 ///
 /// 백엔드 body는 평문(text)이라, 진짜 리치텍스트 대신 마크다운 "마커 문자"를
@@ -12,18 +14,19 @@ class NoteFormatToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return SizedBox(
       height: 44,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
-          _btn(Icons.format_bold, '굵게', () => _wrap('**')),
-          _btn(Icons.format_italic, '기울임', () => _wrap('*')),
-          _btn(Icons.title, '제목', () => _linePrefix('# ')),
-          _btn(Icons.format_list_bulleted, '목록', () => _linePrefix('- ')),
-          _btn(Icons.format_quote, '인용', () => _linePrefix('> ')),
-          _btn(Icons.check_box_outlined, '체크박스', () => _linePrefix('- [ ] ')),
-          _btn(Icons.horizontal_rule, '구분선', () => _insertBlock('---')),
+          _btn(Icons.format_bold, l.fmtBold, () => _wrap('**')),
+          _btn(Icons.format_italic, l.fmtItalic, () => _wrap('*')),
+          _btn(Icons.title, l.fmtHeading, () => _linePrefix('# ')),
+          _btn(Icons.format_list_bulleted, l.fmtList, () => _linePrefix('- ')),
+          _btn(Icons.format_quote, l.fmtQuote, () => _linePrefix('> ')),
+          _btn(Icons.check_box_outlined, l.fmtCheckbox, () => _linePrefix('- [ ] ')),
+          _btn(Icons.horizontal_rule, l.fmtDivider, () => _insertBlock('---')),
         ],
       ),
     );

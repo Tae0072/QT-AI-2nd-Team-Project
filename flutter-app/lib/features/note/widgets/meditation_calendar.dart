@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
@@ -104,15 +105,16 @@ class _SummaryBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Text('이번 달 ${summary.savedDays}일 저장',
+          Text(l.calSavedThisMonth(summary.savedDays),
               style: theme.textTheme.bodyMedium),
-          Text('노트 ${summary.savedNoteCount}개', style: theme.textTheme.bodyMedium),
-          Text('연속 ${summary.meditationStreakDays}일 🔥',
+          Text(l.calNoteCount(summary.savedNoteCount), style: theme.textTheme.bodyMedium),
+          Text(l.calStreak(summary.meditationStreakDays),
               style: theme.textTheme.bodyMedium),
         ],
       ),

@@ -68,5 +68,28 @@
   "noteEditTitleOrBodyRequired": "Please enter a title or content",
   "noteSaved": "Saved",
   "noteDraftSaved": "Saved as draft",
-  "noteSaveFailed": "Failed to save. Please try again."
+  "noteSaveFailed": "Failed to save. Please try again.",
+
+  "fmtBold": "Bold",
+  "fmtItalic": "Italic",
+  "fmtHeading": "Heading",
+  "fmtList": "List",
+  "fmtQuote": "Quote",
+  "fmtCheckbox": "Checkbox",
+  "fmtDivider": "Divider",
+  "calSavedThisMonth": "Saved {days} days this month",
+  "@calSavedThisMonth": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "calNoteCount": "{count} notes",
+  "@calNoteCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "calStreak": "{days}-day streak 🔥",
+  "@calStreak": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "noteShareAsText": "Share as text",
+  "noteShareAsImage": "Share as image",
+  "noteShareImageFailed": "Failed to share image"
 }

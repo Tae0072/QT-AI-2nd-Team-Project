@@ -457,6 +457,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to save. Please try again.'**
   String get noteSaveFailed;
+
+  /// No description provided for @fmtBold.
+  ///
+  /// In en, this message translates to:
+  /// **'Bold'**
+  String get fmtBold;
+
+  /// No description provided for @fmtItalic.
+  ///
+  /// In en, this message translates to:
+  /// **'Italic'**
+  String get fmtItalic;
+
+  /// No description provided for @fmtHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Heading'**
+  String get fmtHeading;
+
+  /// No description provided for @fmtList.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get fmtList;
+
+  /// No description provided for @fmtQuote.
+  ///
+  /// In en, this message translates to:
+  /// **'Quote'**
+  String get fmtQuote;
+
+  /// No description provided for @fmtCheckbox.
+  ///
+  /// In en, this message translates to:
+  /// **'Checkbox'**
+  String get fmtCheckbox;
+
+  /// No description provided for @fmtDivider.
+  ///
+  /// In en, this message translates to:
+  /// **'Divider'**
+  String get fmtDivider;
+
+  /// No description provided for @calSavedThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved {days} days this month'**
+  String calSavedThisMonth(int days);
+
+  /// No description provided for @calNoteCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} notes'**
+  String calNoteCount(int count);
+
+  /// No description provided for @calStreak.
+  ///
+  /// In en, this message translates to:
+  /// **'{days}-day streak 🔥'**
+  String calStreak(int days);
+
+  /// No description provided for @noteShareAsText.
+  ///
+  /// In en, this message translates to:
+  /// **'Share as text'**
+  String get noteShareAsText;
+
+  /// No description provided for @noteShareAsImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Share as image'**
+  String get noteShareAsImage;
+
+  /// No description provided for @noteShareImageFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to share image'**
+  String get noteShareImageFailed;
 }
 
 class _AppLocalizationsDelegate
