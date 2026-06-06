@@ -103,13 +103,16 @@ public class MemberMissionProgress {
      * 달성 상태에서 미달성으로 되돌아가더라도(데이터 정정 등) 기존 completed_at은 유지한다.
      *
      * @param currentCount 재계산된 현재 달성 수치
+     * @param targetCountSnapshot 재계산 시점의 미션 목표치(미션 정의 target 변경 반영)
      * @param progressRate 재계산된 진행률(0.00~100.00)
      * @param reachedTarget 이번 계산에서 목표 달성 여부
      * @param now           계산 수행 시각
      */
-    public void applyCalculation(int currentCount, BigDecimal progressRate,
+    public void applyCalculation(int currentCount, int targetCountSnapshot, BigDecimal progressRate,
                                  boolean reachedTarget, LocalDateTime now) {
         this.currentCount = currentCount;
+        // 미션 정의의 target이 바뀌면 snapshot도 함께 갱신해 progressRate(=current/target)와 정합을 맞춘다(P1-9).
+        this.targetCountSnapshot = targetCountSnapshot;
         this.progressRate = progressRate;
         if (reachedTarget && this.completedAt == null) {
             this.completedAt = now;

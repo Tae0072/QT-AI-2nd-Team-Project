@@ -78,4 +78,23 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     List<Note> findSavedCalendarNotes(@Param("memberId") Long memberId,
                                       @Param("startAt") LocalDateTime startAt,
                                       @Param("endAt") LocalDateTime endAt);
+
+    /**
+     * 연속 묵상(streak) 계산용 — 저장된 묵상 노트의 savedAt을 범위로 조회 (P1-9).
+     *
+     * <p>streak은 월 경계를 넘어 연속으로 인정되므로(2026-06-05 Lead 결정), 달력의 월 범위가
+     * 아니라 anchor 이전 충분한 윈도를 조회해 호출자가 일자 집합으로 환산한다.
+     */
+    @Query("""
+            SELECT n.savedAt FROM Note n
+            WHERE n.memberId = :memberId
+              AND n.status = com.qtai.domain.note.api.NoteStatus.SAVED
+              AND n.deletedAt IS NULL
+              AND n.savedAt IS NOT NULL
+              AND n.savedAt >= :startAt
+              AND n.savedAt < :endAt
+            """)
+    List<LocalDateTime> findSavedMeditationTimestamps(@Param("memberId") Long memberId,
+                                                      @Param("startAt") LocalDateTime startAt,
+                                                      @Param("endAt") LocalDateTime endAt);
 }
