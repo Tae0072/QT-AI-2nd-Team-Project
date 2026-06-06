@@ -47,6 +47,7 @@ class QtServiceTest {
     private QtPassageVerseRepository qtPassageVerseRepository;
     private TodayQtRangeResolver rangeResolver;
     private GetNoteUseCase getNoteUseCase;
+    private com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase getQtStudyAvailabilityUseCase;
     private QtService qtService;
 
     /** 공개 게이트 기준 '오늘' — 2026-06-01 (KST). */
@@ -62,12 +63,18 @@ class QtServiceTest {
         qtPassageVerseRepository = Mockito.mock(QtPassageVerseRepository.class);
         rangeResolver = Mockito.mock(TodayQtRangeResolver.class);
         getNoteUseCase = Mockito.mock(GetNoteUseCase.class);
+        getQtStudyAvailabilityUseCase =
+                Mockito.mock(com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase.class);
+        // 기본 가용성: 콘텐츠 없음 — 개별 테스트에서 필요 시 override
+        when(getQtStudyAvailabilityUseCase.getAvailability(any(), any()))
+                .thenReturn(new com.qtai.domain.study.api.dto.QtStudyAvailability("MISSING", false));
         qtService = new QtService(
                 passageLookup,
                 qtPassageRepository,
                 qtPassageVerseRepository,
                 rangeResolver,
                 getNoteUseCase,
+                getQtStudyAvailabilityUseCase,
                 FIXED_CLOCK
         );
     }
@@ -329,6 +336,37 @@ class QtServiceTest {
             TodayQtResponse response = qtService.getPassage(null, 7L);
 
             assertThat(response.qtPassageId()).isEqualTo(7L);
+        }
+
+        @Test
+        @DisplayName("Today QT 100%(§6) — 승인 클립·해설이 있으면 READY/true로 enrich (하드코딩 회귀 방지)")
+        void study_가용성_enrich_성공() {
+            QtPassage passage = QtPassageFixture.createPassage(5L,
+                    LocalDate.of(2026, 5, 26), "태초에 하나님이");
+            when(qtPassageRepository.findById(5L)).thenReturn(Optional.of(passage));
+            when(getQtStudyAvailabilityUseCase.getAvailability(eq(5L), any()))
+                    .thenReturn(new com.qtai.domain.study.api.dto.QtStudyAvailability("READY", true));
+
+            TodayQtResponse response = qtService.getPassage(100L, 5L);
+
+            assertThat(response.simulatorStatus()).isEqualTo("READY");
+            assertThat(response.hasExplanation()).isTrue();
+        }
+
+        @Test
+        @DisplayName("study 가용성 조회 실패 시 응답은 기본값(MISSING/false)으로 유지된다")
+        void study_가용성_실패_fallback() {
+            QtPassage passage = QtPassageFixture.createPassage(5L,
+                    LocalDate.of(2026, 5, 26), "태초에 하나님이");
+            when(qtPassageRepository.findById(5L)).thenReturn(Optional.of(passage));
+            when(getQtStudyAvailabilityUseCase.getAvailability(any(), any()))
+                    .thenThrow(new RuntimeException("study service down"));
+
+            TodayQtResponse response = qtService.getPassage(100L, 5L);
+
+            assertThat(response.qtPassageId()).isEqualTo(5L);
+            assertThat(response.simulatorStatus()).isEqualTo("MISSING");
+            assertThat(response.hasExplanation()).isFalse();
         }
     }
 

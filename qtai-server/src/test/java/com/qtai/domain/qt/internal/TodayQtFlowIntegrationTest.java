@@ -31,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>고정 Clock으로 "오늘"을 결정 — 04:00 배치 이후 → today 본문 HIT 경로</li>
  *   <li>시뮬레이터 상태는 허용 enum(READY/MISSING/FAILED/DISABLED)만 반환</li>
- *   <li>본문이 없을 때 DISABLED + MISS로 안전하게 응답(00:00~04:00 정책의 04:00 이후)</li>
+ *   <li>본문이 없을 때 MISSING + MISS로 안전하게 응답(00:00~04:00 정책의 04:00 이후)</li>
  *   <li>note 도메인 실호출 — 드래프트 없는 회원은 draftNoteId=null (cross-domain 무결성)</li>
  * </ul>
  */
@@ -98,12 +98,13 @@ class TodayQtFlowIntegrationTest {
     }
 
     @Test
-    void 오늘_본문이_없으면_DISABLED와_MISS로_안전하게_응답한다() {
+    void 오늘_본문이_없으면_MISSING과_MISS로_안전하게_응답한다() {
         // 본문 시드 없음 (04:00 이후 → 어제 fallback 없이 MISS)
+        // 본문 부재는 MISSING(콘텐츠 없음) — DISABLED는 운영자 비활성 전용 의미
         TodayQtResponse res = getTodayQtUseCase.getToday(MEMBER_WITHOUT_DRAFT);
 
         assertThat(res.qtPassageId()).isNull();
-        assertThat(res.simulatorStatus()).isEqualTo("DISABLED");
+        assertThat(res.simulatorStatus()).isEqualTo("MISSING");
         assertThat(res.cacheStatus()).isEqualTo("MISS");
     }
 }
