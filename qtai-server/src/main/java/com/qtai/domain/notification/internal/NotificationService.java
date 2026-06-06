@@ -33,17 +33,46 @@ public class NotificationService implements
         SendNotificationUseCase, ListNotificationUseCase, MarkAsReadUseCase {
 
     private final NotificationRepository notificationRepository;
+    // 수신자 존재·활성 검증 + 수신 설정 확인용 (타 도메인은 api 포트로만, CLAUDE.md §4)
+    private final com.qtai.domain.member.api.GetMemberUseCase getMemberUseCase;
+    private final com.qtai.domain.member.api.GetSettingsUseCase getSettingsUseCase;
     private final Clock clock;
+
+    /** 사용자 수신 설정(OFF)을 무시하고 항상 보내는 시스템·법적 성격의 알림 유형. */
+    private static final java.util.Set<NotificationType> ALWAYS_SEND_TYPES =
+            java.util.EnumSet.of(NotificationType.REPORT_RESULT, NotificationType.NOTICE);
 
     // ── SendNotificationUseCase ──
 
     @Override
     @Transactional
     public void send(NotificationSendRequest request) {
-        // TODO: 수신 회원 존재·활성 상태 검증 — GetMemberUseCase 연동 후 WITHDRAWN 회원 차단 예정.
-        // 현재는 member 도메인 의존 없이 저장 허용 (MVP 단계).
         if (request.memberId() == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "알림 수신 memberId 는 null 일 수 없습니다.");
+        }
+
+        NotificationType notificationType;
+        try {
+            notificationType = NotificationType.valueOf(request.type());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "지원하지 않는 알림 유형: " + request.type());
+        }
+
+        // 수신자 존재·활성 검증 — 탈퇴/없는 회원에게는 알림을 만들지 않는다(조용히 skip).
+        // (members FK 위반으로 500 나던 경로를 사전 차단)
+        try {
+            getMemberUseCase.getMemberPublic(request.memberId());
+        } catch (BusinessException e) {
+            log.debug("알림 수신자 비활성/없음 — skip: memberId={}, type={}",
+                    request.memberId(), notificationType);
+            return;
+        }
+
+        // 사용자 수신 설정(OFF) 존중 — 단 시스템·법적 알림(REPORT_RESULT/NOTICE)은 항상 발송.
+        if (!ALWAYS_SEND_TYPES.contains(notificationType) && !isNotificationEnabled(request.memberId())) {
+            log.debug("수신 설정 OFF — skip: memberId={}, type={}", request.memberId(), notificationType);
+            return;
         }
 
         // eventKey 중복 시 멱등 처리 — 동일 이벤트 알림을 두 번 저장하지 않는다.
@@ -53,14 +82,6 @@ public class NotificationService implements
             log.debug("중복 eventKey 무시 (멱등): memberId={}, eventKey={}",
                     request.memberId(), request.eventKey());
             return;
-        }
-
-        NotificationType notificationType;
-        try {
-            notificationType = NotificationType.valueOf(request.type());
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT,
-                    "지원하지 않는 알림 유형: " + request.type());
         }
 
         Notification notification = Notification.builder()
@@ -128,6 +149,17 @@ public class NotificationService implements
     }
 
     // ── private ──
+
+    /** 수신자의 알림 수신 설정. 조회 실패 시 보수적으로 true(발송 허용). */
+    private boolean isNotificationEnabled(Long memberId) {
+        try {
+            Boolean enabled = getSettingsUseCase.getSettings(memberId).notificationEnabled();
+            return enabled == null || enabled;
+        } catch (RuntimeException e) {
+            log.debug("수신 설정 조회 실패 — 기본 허용: memberId={}", memberId);
+            return true;
+        }
+    }
 
     private NotificationResponse toResponse(Notification n) {
         return new NotificationResponse(

@@ -34,6 +34,7 @@ class CommentServiceTest {
     private CommentRepository commentRepository;
     private SharingPostRepository sharingPostRepository;
     private GetMemberUseCase getMemberUseCase;
+    private com.qtai.domain.notification.api.SendNotificationUseCase sendNotificationUseCase;
     private CommentService commentService;
 
     @BeforeEach
@@ -41,7 +42,9 @@ class CommentServiceTest {
         commentRepository = mock(CommentRepository.class);
         sharingPostRepository = mock(SharingPostRepository.class);
         getMemberUseCase = mock(GetMemberUseCase.class);
-        commentService = new CommentService(commentRepository, sharingPostRepository, getMemberUseCase);
+        sendNotificationUseCase = mock(com.qtai.domain.notification.api.SendNotificationUseCase.class);
+        commentService = new CommentService(
+                commentRepository, sharingPostRepository, getMemberUseCase, sendNotificationUseCase);
     }
 
     @Test
