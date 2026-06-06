@@ -15,7 +15,6 @@ class BibleBrowserScreen extends ConsumerStatefulWidget {
 }
 
 class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
-  late Future<List<BibleBook>> _booksFuture;
   final _chapterController = TextEditingController(text: '1');
   final _verseFromController = TextEditingController(text: '1');
   final _verseToController = TextEditingController();
@@ -24,12 +23,6 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
   BibleVerseRange? _range;
   Object? _error;
   bool _isSearching = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _booksFuture = ref.read(bibleRepositoryProvider).getBooks();
-  }
 
   @override
   void dispose() {
@@ -97,29 +90,22 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final booksAsync = ref.watch(bibleBooksProvider);
     return Scaffold(
       appBar: AppBar(title: Text(l.bibleBrowserTitle)),
-      body: FutureBuilder<List<BibleBook>>(
-        future: _booksFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return LoadingView(message: l.bibleBooksLoading);
-          }
-
-          if (snapshot.hasError) {
-            return ErrorView(
-              message: '${l.bibleBooksLoadError}\n${snapshot.error}',
-              onRetry: () {
-                setState(() {
-                  _booksFuture = ref.read(bibleRepositoryProvider).getBooks();
-                  _error = null;
-                  _range = null;
-                });
-              },
-            );
-          }
-
-          final books = snapshot.data ?? const <BibleBook>[];
+      body: booksAsync.whenOrDefault(
+        loading: () => LoadingView(message: l.bibleBooksLoading),
+        error: (e, _) => ErrorView(
+          message: '${l.bibleBooksLoadError}\n$e',
+          onRetry: () {
+            ref.invalidate(bibleBooksProvider);
+            setState(() {
+              _error = null;
+              _range = null;
+            });
+          },
+        ),
+        data: (books) {
           if (books.isEmpty) {
             return EmptyView(message: l.bibleBooksEmpty);
           }
