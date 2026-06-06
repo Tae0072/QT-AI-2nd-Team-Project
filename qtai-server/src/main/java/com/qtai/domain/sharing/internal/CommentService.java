@@ -41,9 +41,9 @@ public class CommentService implements CommentUseCase {
         if (!post.isCommentsEnabled()) {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
-        // 3. 댓글 저장 후 실제 행 수로 commentCount 재계산.
+        // 3. 댓글 저장 후 commentCount를 원자적으로 동기화 (P1-2 lost update 방지).
         Comment saved = commentRepository.save(Comment.of(postId, memberId, request.body()));
-        post.syncCommentCount(commentRepository.countBySharingPostIdAndIsDeletedFalse(postId));
+        sharingPostRepository.syncCommentCount(postId);
         // 4. 작성자 현재 닉네임 조회(박제 아님). 방금 내가 쓴 댓글이라 ownedByMe=true.
         String nickname = getMemberUseCase.getMemberPublic(memberId).nickname();
         return toResponse(saved, nickname, true);
@@ -81,9 +81,9 @@ public class CommentService implements CommentUseCase {
         // 이미 삭제된 댓글이면 아무것도 안 함(멱등). 새로 삭제할 때만 카운트 갱신.
         if (!comment.isDeleted()) {
             comment.markDeleted();
-            long count = commentRepository.countBySharingPostIdAndIsDeletedFalse(comment.getSharingPostId());
-            sharingPostRepository.findById(comment.getSharingPostId())
-                    .ifPresent(post -> post.syncCommentCount(count));
+            // 원자적 동기화 (P1-2). 삭제 플래그 변경(dirty)을 먼저 flush해야 정확하므로
+            // syncCommentCount의 flushAutomatically=true가 markDeleted를 반영한다.
+            sharingPostRepository.syncCommentCount(comment.getSharingPostId());
         }
     }
 

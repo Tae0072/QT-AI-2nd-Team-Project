@@ -217,24 +217,25 @@ public class SharingPostService
             throw new BusinessException(ErrorCode.DUPLICATE_LIKE);
         }
         postLikeRepository.save(PostLike.of(postId, memberId));
-        // 실제 행 수를 세어 likeCount에 반영(COUNT 재계산). post는 관리 엔티티라 dirty checking으로 UPDATE.
+        // 원자적 UPDATE로 likeCount를 실제 행 수에 동기화 (P1-2 lost update 방지).
+        // managed 엔티티를 mutate하지 않으므로 dirty-checking이 atomic UPDATE를 덮어쓰지 않는다.
+        sharingPostRepository.syncLikeCount(postId);
         long count = postLikeRepository.countBySharingPostId(postId);
-        post.syncLikeCount(count);
         return new LikeResponse(count, true);
     }
 
     /**
-     * 좋아요 취소(F-10). 멱등 — 누른 적 없어도 조용히 끝낸다. likeCount는 재계산한다.
+     * 좋아요 취소(F-10). 멱등 — 누른 적 없어도 조용히 끝낸다. likeCount는 원자적으로 재계산한다.
      */
     @Override
     @Transactional
     public void unlike(Long memberId, Long postId) {
-        SharingPost post = sharingPostRepository.findByIdAndStatus(postId, SharingPostStatus.PUBLISHED)
+        // 존재 확인만 — 카운터 동기화는 원자 UPDATE로 처리(managed 엔티티 dirty checking 미사용).
+        sharingPostRepository.findByIdAndStatus(postId, SharingPostStatus.PUBLISHED)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SHARING_POST_NOT_FOUND));
         // 행이 없어도 0건 삭제로 끝나 예외 없음(멱등).
         postLikeRepository.deleteBySharingPostIdAndMemberId(postId, memberId);
-        long count = postLikeRepository.countBySharingPostId(postId);
-        post.syncLikeCount(count);
+        sharingPostRepository.syncLikeCount(postId);
     }
 
     /**
