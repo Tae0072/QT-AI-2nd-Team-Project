@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
@@ -22,15 +23,16 @@ class NoteListScreen extends ConsumerWidget {
     final selectedCategory = ref.watch(noteCategoryFilterProvider);
     final showCalendar = ref.watch(noteCalendarViewProvider);
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('노트'),
+        title: Text(l.noteListTitle),
         centerTitle: true,
         // ✏️ 목록↔달력 전환 토글. 상태는 noteCalendarViewProvider에 둬 화면 전체가 따라 바뀜.
         actions: [
           IconButton(
-            tooltip: showCalendar ? '목록 보기' : '달력 보기',
+            tooltip: showCalendar ? l.noteViewList : l.noteViewCalendar,
             icon: Icon(showCalendar
                 ? Icons.view_list_outlined
                 : Icons.calendar_month_outlined),
@@ -60,7 +62,7 @@ class NoteListScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               children: [
                 _CategoryChip(
-                    label: '전체', value: null, selected: selectedCategory),
+                    label: l.noteFilterAll, value: null, selected: selectedCategory),
                 for (final entry in noteCategoryLabels.entries)
                   _CategoryChip(
                     label: entry.value,
@@ -76,7 +78,7 @@ class NoteListScreen extends ConsumerWidget {
             child: notesAsync.whenOrDefault(
               data: (response) {
                 if (response.items.isEmpty) {
-                  return const EmptyView(message: '작성한 노트가 없습니다');
+                  return EmptyView(message: l.noteEmpty);
                 }
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(notesProvider),
@@ -87,7 +89,7 @@ class NoteListScreen extends ConsumerWidget {
                       final item = response.items[index];
                       return ListTile(
                         title: Text(
-                          item.title.isEmpty ? '(제목 없음)' : item.title,
+                          item.title.isEmpty ? l.noteUntitled : item.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -102,7 +104,7 @@ class NoteListScreen extends ConsumerWidget {
                             // 임시저장(DRAFT) 표시
                             if (item.status == 'DRAFT') ...[
                               const SizedBox(width: 8),
-                              Text('임시저장',
+                              Text(l.noteDraft,
                                   style: theme.textTheme.bodySmall
                                       ?.copyWith(color: Colors.orange)),
                             ],

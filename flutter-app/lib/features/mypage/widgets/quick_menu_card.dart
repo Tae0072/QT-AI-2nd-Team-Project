@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
+
 /// 알림·찬양 요약 + 설정 메뉴 카드.
 ///
 /// 대시보드 하단에 배치되며, 알림 카운트와 찬양 저장 곡 수를 표시한다.
@@ -22,12 +24,13 @@ class QuickMenuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Card(
       child: Column(
         children: [
           _MenuItem(
             icon: Icons.notifications_outlined,
-            label: '알림',
+            label: l.qmNotifications,
             trailing: unreadNotificationCount > 0
                 ? _Badge(count: unreadNotificationCount)
                 : null,
@@ -36,9 +39,9 @@ class QuickMenuCard extends StatelessWidget {
           const Divider(height: 1, indent: 56),
           _MenuItem(
             icon: Icons.music_note_outlined,
-            label: '나의 찬양',
+            label: l.qmMyPraise,
             trailing: Text(
-              '$savedSongCount곡',
+              l.qmSongCount(savedSongCount),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.outline,
                   ),
@@ -48,7 +51,7 @@ class QuickMenuCard extends StatelessWidget {
           const Divider(height: 1, indent: 56),
           _MenuItem(
             icon: Icons.settings_outlined,
-            label: '설정',
+            label: l.qmSettings,
             onTap: onSettingsTap,
           ),
         ],

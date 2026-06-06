@@ -31,3 +31,24 @@ final mySharingPostsProvider =
     FutureProvider.autoDispose<MySharingPostListResponse>((ref) {
   return ref.watch(sharingRepositoryProvider).getMySharingPosts();
 });
+
+/// 나눔 상세 + 댓글 묶음 (S-02 화면 데이터).
+class SharingDetailData {
+  final SharingPostDetail detail;
+  final List<CommentItem> comments;
+
+  const SharingDetailData({required this.detail, required this.comments});
+}
+
+/// 나눔 상세(S-02) 데이터 — 상세 + (댓글 허용 시) 댓글 목록.
+///
+/// ② Riverpod 일관화: 화면이 직접 setState로 조회하던 것을 Provider로 일원화한다.
+/// 좋아요/댓글/삭제/신고 후 `ref.invalidate(sharingPostDetailProvider(postId))`로 새로고침한다.
+final sharingPostDetailProvider = FutureProvider.autoDispose
+    .family<SharingDetailData, int>((ref, postId) async {
+  final repo = ref.watch(sharingRepositoryProvider);
+  final detail = await repo.getSharingPostDetail(postId);
+  final comments =
+      detail.commentsEnabled ? await repo.getComments(postId) : <CommentItem>[];
+  return SharingDetailData(detail: detail, comments: comments);
+});

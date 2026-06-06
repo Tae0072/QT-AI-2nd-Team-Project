@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/models/bible_reference.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
@@ -48,7 +49,7 @@ void main() {
           todayQtPassageProvider.overrideWith((ref) async => passage),
           sharedPreferencesProvider.overrideWithValue(prefs),
         ],
-        child: const MaterialApp(home: TodayQtScreen()),
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: const TodayQtScreen()),
       ),
     );
     await tester.pumpAndSettle();

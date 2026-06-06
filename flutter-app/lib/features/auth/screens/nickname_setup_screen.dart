@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 
 import '../../../core/network/api_client.dart';
 import '../providers/auth_providers.dart';
@@ -26,19 +27,20 @@ class _NicknameSetupScreenState extends ConsumerState<NicknameSetupScreen> {
   }
 
   String? _validateNickname(String? value) {
+    final l = AppLocalizations.of(context);
     if (value == null || value.trim().isEmpty) {
-      return '닉네임을 입력해주세요';
+      return l.nicknameRequired;
     }
     if (value.trim().length < 2) {
-      return '닉네임은 2자 이상이어야 합니다';
+      return l.nicknameMinLength;
     }
     if (value.trim().length > 10) {
-      return '닉네임은 10자 이하여야 합니다';
+      return l.nicknameMaxLength;
     }
     // 한글, 영문, 숫자만 허용
     final regex = RegExp(r'^[가-힣a-zA-Z0-9]+$');
     if (!regex.hasMatch(value.trim())) {
-      return '한글, 영문, 숫자만 사용할 수 있습니다';
+      return l.nicknameInvalidChars;
     }
     return null;
   }
@@ -64,7 +66,7 @@ class _NicknameSetupScreenState extends ConsumerState<NicknameSetupScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = '닉네임 설정에 실패했습니다. 다시 시도해주세요.';
+        _errorMessage = AppLocalizations.of(context).nicknameSetupFailed;
       });
     } finally {
       if (mounted) {
@@ -75,6 +77,7 @@ class _NicknameSetupScreenState extends ConsumerState<NicknameSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -87,14 +90,14 @@ class _NicknameSetupScreenState extends ConsumerState<NicknameSetupScreen> {
                 const SizedBox(height: 60),
 
                 Text(
-                  '반갑습니다!',
+                  l.nicknameWelcome,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '사용할 닉네임을 설정해주세요',
+                  l.nicknameSetupPrompt,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -108,7 +111,7 @@ class _NicknameSetupScreenState extends ConsumerState<NicknameSetupScreen> {
                   validator: _validateNickname,
                   maxLength: 10,
                   decoration: InputDecoration(
-                    hintText: '닉네임 (2~10자)',
+                    hintText: l.nicknameHint,
                     filled: true,
                     fillColor: Colors.grey[100],
                     border: OutlineInputBorder(
@@ -139,7 +142,7 @@ class _NicknameSetupScreenState extends ConsumerState<NicknameSetupScreen> {
 
                 // 안내 텍스트
                 Text(
-                  '한글, 영문, 숫자 조합 가능 (2~10자)',
+                  l.nicknameHelper,
                   style: TextStyle(color: Colors.grey[500], fontSize: 13),
                 ),
 
@@ -178,9 +181,9 @@ class _NicknameSetupScreenState extends ConsumerState<NicknameSetupScreen> {
                             height: 24,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text(
-                            '시작하기',
-                            style: TextStyle(
+                        : Text(
+                            l.nicknameStartButton,
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:qtai_app/core/config/app_config.dart';
 import 'package:qtai_app/features/onboarding/providers/onboarding_providers.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/routes/app_router.dart';
 
 void main() {
@@ -64,8 +65,11 @@ void main() {
 
     testWidgets('login route renders 카카오로 시작하기 텍스트', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
+        ProviderScope(
           child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
             onGenerateRoute: AppRouter.onGenerateRoute,
             initialRoute: '/login',
           ),
@@ -78,6 +82,9 @@ void main() {
     testWidgets('unknown route renders error message', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           onGenerateRoute: AppRouter.onGenerateRoute,
           initialRoute: '/nonexistent',
         ),
@@ -95,6 +102,9 @@ void main() {
         ProviderScope(
           overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
           child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
             onGenerateRoute: AppRouter.onGenerateRoute,
             initialRoute: '/onboarding',
           ),
@@ -136,6 +146,9 @@ void main() {
         ProviderScope(
           child: MaterialApp(
             navigatorKey: navKey,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
             initialRoute: AppRouter.login,
             onGenerateInitialRoutes: (name) =>
                 [AppRouter.onGenerateRoute(RouteSettings(name: name))],

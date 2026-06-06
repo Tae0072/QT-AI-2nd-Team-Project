@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../bible/screens/bible_browser_screen.dart';
 import '../../bible/screens/today_qt_screen.dart';
 import '../../mypage/screens/mypage_screen.dart';
@@ -28,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
@@ -38,31 +40,31 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: (index) => setState(() => _currentIndex = index),
         // 탭이 4개 이상이면 type: fixed를 줘야 라벨이 항상 보인다.
         type: BottomNavigationBarType.fixed,
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.wb_sunny_outlined),
-            activeIcon: Icon(Icons.wb_sunny),
-            label: '오늘',
+            icon: const Icon(Icons.wb_sunny_outlined),
+            activeIcon: const Icon(Icons.wb_sunny),
+            label: l.navToday,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book_outlined),
-            activeIcon: Icon(Icons.menu_book),
-            label: '성경',
+            icon: const Icon(Icons.menu_book_outlined),
+            activeIcon: const Icon(Icons.menu_book),
+            label: l.navBible,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
-            label: '나눔',
+            icon: const Icon(Icons.chat_bubble_outline),
+            activeIcon: const Icon(Icons.chat_bubble),
+            label: l.navShare,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.edit_note_outlined),
-            activeIcon: Icon(Icons.edit_note),
-            label: '노트',
+            icon: const Icon(Icons.edit_note_outlined),
+            activeIcon: const Icon(Icons.edit_note),
+            label: l.navNote,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: '마이',
+            icon: const Icon(Icons.person_outline),
+            activeIcon: const Icon(Icons.person),
+            label: l.navMy,
           ),
         ],
       ),

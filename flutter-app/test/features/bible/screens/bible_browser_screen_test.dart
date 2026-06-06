@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/screens/bible_browser_screen.dart';
@@ -17,7 +18,7 @@ void main() {
         overrides: [
           bibleRepositoryProvider.overrideWithValue(repository),
         ],
-        child: const MaterialApp(home: BibleBrowserScreen()),
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: const BibleBrowserScreen()),
       ),
     );
     await tester.pumpAndSettle();

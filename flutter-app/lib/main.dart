@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -46,6 +47,9 @@ class QTAIApp extends ConsumerWidget {
         title: 'QT AI',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           backgroundColor: AppTheme.bgSunken,
           body: Center(
@@ -67,8 +71,12 @@ class QTAIApp extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text('매일, 말씀 앞에 머무는 시간',
-                    style: TextStyle(fontSize: 17, color: AppTheme.textMuted)),
+                Builder(
+                  builder: (context) => Text(
+                    AppLocalizations.of(context).splashSubtitle,
+                    style: const TextStyle(fontSize: 17, color: AppTheme.textMuted),
+                  ),
+                ),
               ],
             ),
           ),
@@ -90,6 +98,9 @@ class QTAIApp extends ConsumerWidget {
       title: 'QT AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('ko'),
       initialRoute: initialRoute,
       // 초기 스택을 단일 라우트로 생성한다.
       // 기본 동작은 '/home' → ['/', '/home'] 2단 스택을 만들어 루트 탭 화면에도
