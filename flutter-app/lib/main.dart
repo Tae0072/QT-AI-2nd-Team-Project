@@ -91,6 +91,12 @@ class QTAIApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
       initialRoute: initialRoute,
+      // 초기 스택을 단일 라우트로 생성한다.
+      // 기본 동작은 '/home' → ['/', '/home'] 2단 스택을 만들어 루트 탭 화면에도
+      // 뒤로가기(←)가 떠버린다. 루트 라우트 하나만 두어 canPop()=false로 만들고,
+      // 마이페이지→설정 등 push된 하위 화면에서만 ←가 동작하게 한다.
+      onGenerateInitialRoutes: (name) =>
+          [AppRouter.onGenerateRoute(RouteSettings(name: name))],
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }
