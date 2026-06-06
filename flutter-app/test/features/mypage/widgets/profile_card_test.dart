@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/mypage/models/dashboard_response.dart';
 import 'package:qtai_app/features/mypage/widgets/profile_card.dart';
 
@@ -9,7 +10,10 @@ void main() {
       const profile = ProfileSummary(memberId: 1, nickname: '테스트유저');
 
       await tester.pumpWidget(
-        const MaterialApp(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: Scaffold(
             body: ProfileCard(profile: profile),
           ),
@@ -24,7 +28,10 @@ void main() {
       const profile = ProfileSummary(memberId: 1, nickname: '테스트유저');
 
       await tester.pumpWidget(
-        const MaterialApp(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: Scaffold(
             body: ProfileCard(profile: profile),
           ),
@@ -40,6 +47,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: Scaffold(
             body: ProfileCard(
               profile: profile,
