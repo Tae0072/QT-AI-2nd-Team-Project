@@ -39,6 +39,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonLoading => 'Loading...';
 
   @override
+  String get commonBack => 'Back';
+
+  @override
   String get loginHeadline => 'Daily meditation, made simplest.';
 
   @override
@@ -124,4 +127,67 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noteDraft => 'Draft';
+
+  @override
+  String get noteModeWrite => 'New';
+
+  @override
+  String get noteShareTooltip => 'Share';
+
+  @override
+  String get noteShared => 'Shared';
+
+  @override
+  String get noteNoContent => '(No content)';
+
+  @override
+  String get noteDeleteConfirmTitle => 'Delete this note?';
+
+  @override
+  String get noteDeleteConfirmBody => 'Deleted notes cannot be recovered.';
+
+  @override
+  String get noteDeleted => 'Deleted';
+
+  @override
+  String get noteDeleteFailed => 'Failed to delete. Please try again.';
+
+  @override
+  String get noteSectionFelt => 'Reflections';
+
+  @override
+  String get noteSectionVerse => 'Verse to remember';
+
+  @override
+  String get noteSectionApply => 'How to apply';
+
+  @override
+  String get noteSectionPray => 'Prayer';
+
+  @override
+  String get noteQuotedVerses => 'Quoted verses';
+
+  @override
+  String get noteLoadFailed => 'Couldn\'t load the note';
+
+  @override
+  String get noteEditTitleLabel => 'Title (optional)';
+
+  @override
+  String get noteEditBodyLabel => 'Content';
+
+  @override
+  String get noteEditBodyRequired => 'Please enter the content';
+
+  @override
+  String get noteEditTitleOrBodyRequired => 'Please enter a title or content';
+
+  @override
+  String get noteSaved => 'Saved';
+
+  @override
+  String get noteDraftSaved => 'Saved as draft';
+
+  @override
+  String get noteSaveFailed => 'Failed to save. Please try again.';
 }

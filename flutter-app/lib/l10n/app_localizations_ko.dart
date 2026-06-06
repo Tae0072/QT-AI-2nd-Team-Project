@@ -39,6 +39,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get commonLoading => '불러오는 중...';
 
   @override
+  String get commonBack => '뒤로';
+
+  @override
   String get loginHeadline => '매일의 묵상을\n가장 단순하게.';
 
   @override
@@ -121,4 +124,67 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get noteDraft => '임시저장';
+
+  @override
+  String get noteModeWrite => '작성';
+
+  @override
+  String get noteShareTooltip => '공유';
+
+  @override
+  String get noteShared => '공유됨';
+
+  @override
+  String get noteNoContent => '(내용 없음)';
+
+  @override
+  String get noteDeleteConfirmTitle => '노트를 삭제할까요?';
+
+  @override
+  String get noteDeleteConfirmBody => '삭제한 노트는 되돌릴 수 없습니다.';
+
+  @override
+  String get noteDeleted => '삭제되었습니다';
+
+  @override
+  String get noteDeleteFailed => '삭제에 실패했습니다. 다시 시도해 주세요';
+
+  @override
+  String get noteSectionFelt => '느낀 점';
+
+  @override
+  String get noteSectionVerse => '기억할 구절';
+
+  @override
+  String get noteSectionApply => '적용할 점';
+
+  @override
+  String get noteSectionPray => '기도';
+
+  @override
+  String get noteQuotedVerses => '인용 구절';
+
+  @override
+  String get noteLoadFailed => '노트를 불러오지 못했습니다';
+
+  @override
+  String get noteEditTitleLabel => '제목 (선택)';
+
+  @override
+  String get noteEditBodyLabel => '본문';
+
+  @override
+  String get noteEditBodyRequired => '본문을 입력해 주세요';
+
+  @override
+  String get noteEditTitleOrBodyRequired => '제목이나 본문을 입력해 주세요';
+
+  @override
+  String get noteSaved => '저장되었습니다';
+
+  @override
+  String get noteDraftSaved => '임시저장되었습니다';
+
+  @override
+  String get noteSaveFailed => '저장에 실패했습니다. 다시 시도해 주세요';
 }

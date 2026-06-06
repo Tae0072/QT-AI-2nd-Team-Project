@@ -158,6 +158,12 @@ abstract class AppLocalizations {
   /// **'Loading...'**
   String get commonLoading;
 
+  /// No description provided for @commonBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get commonBack;
+
   /// No description provided for @loginHeadline.
   ///
   /// In en, this message translates to:
@@ -325,6 +331,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Draft'**
   String get noteDraft;
+
+  /// No description provided for @noteModeWrite.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get noteModeWrite;
+
+  /// No description provided for @noteShareTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get noteShareTooltip;
+
+  /// No description provided for @noteShared.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared'**
+  String get noteShared;
+
+  /// No description provided for @noteNoContent.
+  ///
+  /// In en, this message translates to:
+  /// **'(No content)'**
+  String get noteNoContent;
+
+  /// No description provided for @noteDeleteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this note?'**
+  String get noteDeleteConfirmTitle;
+
+  /// No description provided for @noteDeleteConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted notes cannot be recovered.'**
+  String get noteDeleteConfirmBody;
+
+  /// No description provided for @noteDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted'**
+  String get noteDeleted;
+
+  /// No description provided for @noteDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete. Please try again.'**
+  String get noteDeleteFailed;
+
+  /// No description provided for @noteSectionFelt.
+  ///
+  /// In en, this message translates to:
+  /// **'Reflections'**
+  String get noteSectionFelt;
+
+  /// No description provided for @noteSectionVerse.
+  ///
+  /// In en, this message translates to:
+  /// **'Verse to remember'**
+  String get noteSectionVerse;
+
+  /// No description provided for @noteSectionApply.
+  ///
+  /// In en, this message translates to:
+  /// **'How to apply'**
+  String get noteSectionApply;
+
+  /// No description provided for @noteSectionPray.
+  ///
+  /// In en, this message translates to:
+  /// **'Prayer'**
+  String get noteSectionPray;
+
+  /// No description provided for @noteQuotedVerses.
+  ///
+  /// In en, this message translates to:
+  /// **'Quoted verses'**
+  String get noteQuotedVerses;
+
+  /// No description provided for @noteLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the note'**
+  String get noteLoadFailed;
+
+  /// No description provided for @noteEditTitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Title (optional)'**
+  String get noteEditTitleLabel;
+
+  /// No description provided for @noteEditBodyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Content'**
+  String get noteEditBodyLabel;
+
+  /// No description provided for @noteEditBodyRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter the content'**
+  String get noteEditBodyRequired;
+
+  /// No description provided for @noteEditTitleOrBodyRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a title or content'**
+  String get noteEditTitleOrBodyRequired;
+
+  /// No description provided for @noteSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get noteSaved;
+
+  /// No description provided for @noteDraftSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved as draft'**
+  String get noteDraftSaved;
+
+  /// No description provided for @noteSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save. Please try again.'**
+  String get noteSaveFailed;
 }
 
 class _AppLocalizationsDelegate

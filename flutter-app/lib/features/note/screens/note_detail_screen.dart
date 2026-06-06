@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
@@ -23,10 +24,11 @@ class NoteDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // family provider에 noteId를 넘겨 이 노트 전용 상세를 watch한다.
     final detailAsync = ref.watch(noteDetailProvider(noteId));
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('노트'),
+        title: Text(l.noteListTitle),
         centerTitle: true,
         // 액션 버튼은 상세를 받은 뒤에야 카테고리를 알 수 있으므로,
         // detail이 data일 때만 [수정]/[삭제]를 만든다(로딩/에러 땐 안 보임).
@@ -53,11 +55,12 @@ class _Actions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     return Row(
       children: [
         // 외부 공유는 카테고리 무관 제공(텍스트/카드 이미지).
         IconButton(
-          tooltip: '공유',
+          tooltip: l.noteShareTooltip,
           icon: const Icon(Icons.ios_share),
           onPressed: () => showNoteShareSheet(context, detail),
         ),
@@ -67,12 +70,12 @@ class _Actions extends ConsumerWidget {
         // TODO(v2): 묵상은 QT 4섹션 화면, 설교는 절 선택 화면(B-03)이 생기면 연결.
         if (writableNoteCategories.contains(detail.category))
           IconButton(
-            tooltip: '수정',
+            tooltip: l.commonEdit,
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => _goEdit(context, ref),
           ),
         IconButton(
-          tooltip: '삭제',
+          tooltip: l.commonDelete,
           icon: const Icon(Icons.delete_outline),
           onPressed: () => _confirmDelete(context, ref),
         ),
@@ -94,19 +97,20 @@ class _Actions extends ConsumerWidget {
 
   /// 삭제 확인창 → 삭제 → 목록 새로고침 후 뒤로. (08 §8.2: 되돌리기 어려운 동작은 확인 절차)
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final l = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('노트를 삭제할까요?'),
-        content: const Text('삭제한 노트는 되돌릴 수 없습니다.'),
+        title: Text(l.noteDeleteConfirmTitle),
+        content: Text(l.noteDeleteConfirmBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('취소'),
+            child: Text(l.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('삭제'),
+            child: Text(l.commonDelete),
           ),
         ],
       ),
@@ -121,12 +125,12 @@ class _Actions extends ConsumerWidget {
       if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('삭제되었습니다')));
+          .showSnackBar(SnackBar(content: Text(l.noteDeleted)));
     } catch (e) {
       // ✏️ 실패 시 화면 유지 + 안내(되돌리기 어려운 동작이라 실패를 명확히 알림).
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('삭제에 실패했습니다. 다시 시도해 주세요')));
+          SnackBar(content: Text(l.noteDeleteFailed)));
     }
   }
 }
@@ -140,13 +144,14 @@ class _DetailBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         // 제목
         Text(
-          detail.title.isEmpty ? '(제목 없음)' : detail.title,
+          detail.title.isEmpty ? l.noteUntitled : detail.title,
           style: theme.textTheme.titleLarge,
         ),
         const SizedBox(height: 8),
@@ -160,13 +165,13 @@ class _DetailBody extends StatelessWidget {
             ),
             if (detail.status == 'DRAFT') ...[
               const SizedBox(width: 8),
-              Text('임시저장',
+              Text(l.noteDraft,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: Colors.orange)),
             ],
             if (detail.shared) ...[
               const SizedBox(width: 8),
-              Text('공유됨',
+              Text(l.noteShared,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.secondary)),
             ],
@@ -177,20 +182,20 @@ class _DetailBody extends StatelessWidget {
         // ✏️ 카테고리 분기: 묵상은 4섹션, 그 외(자유노트)는 body 한 덩이.
         if (detail.isFreeNote)
           Text(
-            (detail.body?.isNotEmpty ?? false) ? detail.body! : '(내용 없음)',
+            (detail.body?.isNotEmpty ?? false) ? detail.body! : l.noteNoContent,
             style: theme.textTheme.bodyLarge,
           )
         else ...[
-          _Section(label: '느낀 점', text: detail.rememberSection),
-          _Section(label: '기억할 구절', text: detail.interpretSection),
-          _Section(label: '적용할 점', text: detail.applySection),
-          _Section(label: '기도', text: detail.praySection),
+          _Section(label: l.noteSectionFelt, text: detail.rememberSection),
+          _Section(label: l.noteSectionVerse, text: detail.interpretSection),
+          _Section(label: l.noteSectionApply, text: detail.applySection),
+          _Section(label: l.noteSectionPray, text: detail.praySection),
         ],
 
         // 인용 절(있을 때만 표시) — V1은 보기 전용
         if (detail.verses.isNotEmpty) ...[
           const Divider(height: 24),
-          Text('인용 구절', style: theme.textTheme.titleSmall),
+          Text(l.noteQuotedVerses, style: theme.textTheme.titleSmall),
           const SizedBox(height: 4),
           for (final v in detail.verses)
             Text('· ${v.bookCode} ${v.chapterNo ?? ''}:${v.verseNo ?? ''}',
