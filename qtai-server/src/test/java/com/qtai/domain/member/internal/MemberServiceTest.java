@@ -167,6 +167,19 @@ class MemberServiceTest {
                 .extracting("errorCode").isEqualTo(ErrorCode.DUPLICATE_NICKNAME);
     }
 
+    @Test
+    void changeNickname_시스템_예약접두사_user_차단() {
+        // P1-4: 임시 닉네임 접두사 'user_' 사칭 차단
+        Member member = createMember(1L, "original");
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> memberService.changeNickname(1L, new NicknameChangeRequest("user_1234")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
+        // 예약어는 중복 조회 전에 차단된다
+        verify(memberRepository, org.mockito.Mockito.never()).existsByNickname("user_1234");
+    }
+
     // ── updateProfile ──
 
     @Test
