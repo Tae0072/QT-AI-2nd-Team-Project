@@ -145,4 +145,18 @@ class SimulatorClipPublishServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
     }
+
+    @Test
+    @DisplayName("게시 게이팅: scene JSON이 최대 길이(200,000자)를 초과하면 INVALID_INPUT (저장 안 함)")
+    void publish_rejectsOversizedSceneScript() {
+        when(componentLibraryVersionRepository.findById(5L))
+                .thenReturn(Optional.of(mock(SimulatorComponentLibraryVersion.class)));
+        // 유효 JSON 형식이지만 200,000자 상한을 초과하는 본문 (LONGTEXT 보호 상한 경계)
+        String oversized = "{\"d\":\"" + "x".repeat(200_001) + "\"}";
+
+        assertThatThrownBy(() -> service.publishApprovedSimulatorClip(command(oversized)))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(simulatorClipRepository, never()).save(any());
+    }
 }
