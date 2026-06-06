@@ -196,6 +196,7 @@ class JpaEntityDdlTest {
                 10L,
                 99L,
                 100L,
+                99L,
                 JournalEventType.JOURNAL_UPDATED,
                 NoteStatus.DRAFT,
                 NoteStatus.SAVED,
