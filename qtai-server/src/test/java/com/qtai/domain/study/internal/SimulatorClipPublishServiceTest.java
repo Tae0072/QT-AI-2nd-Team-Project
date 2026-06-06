@@ -110,4 +110,39 @@ class SimulatorClipPublishServiceTest {
 
         assertThat(result.hiddenCount()).isZero();
     }
+
+    @Test
+    @DisplayName("게시 게이팅: qtPassageId가 0 이하면 INVALID_INPUT (저장 안 함)")
+    void publish_rejectsNonPositiveQtPassageId() {
+        PublishApprovedSimulatorClipCommand invalid = new PublishApprovedSimulatorClipCommand(
+                0L, "제목", 5L, "{}", 900L,
+                OffsetDateTime.parse("2026-06-01T04:00:00+09:00"));
+
+        assertThatThrownBy(() -> service.publishApprovedSimulatorClip(invalid))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(simulatorClipRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("게시 게이팅: title이 공백이면 INVALID_INPUT (저장 안 함)")
+    void publish_rejectsBlankTitle() {
+        PublishApprovedSimulatorClipCommand invalid = new PublishApprovedSimulatorClipCommand(
+                100L, "   ", 5L, "{}", 900L,
+                OffsetDateTime.parse("2026-06-01T04:00:00+09:00"));
+
+        assertThatThrownBy(() -> service.publishApprovedSimulatorClip(invalid))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(simulatorClipRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("숨김 게이팅: aiAssetId가 0 이하면 INVALID_INPUT (노출 클립 조회 안 함)")
+    void hide_rejectsNonPositiveAiAssetId() {
+        assertThatThrownBy(() -> service.hidePublishedSimulatorClip(
+                new HidePublishedSimulatorClipCommand(0L)))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+    }
 }
