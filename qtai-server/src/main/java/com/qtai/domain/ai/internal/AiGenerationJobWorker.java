@@ -16,6 +16,7 @@ class AiGenerationJobWorker {
     private final AiBatchMonitoringService monitoringService;
     private final boolean enabled;
     private final int batchSize;
+    private final long runningTimeoutMs;
     private final Clock clock;
 
     AiGenerationJobWorker(
@@ -23,12 +24,14 @@ class AiGenerationJobWorker {
             AiBatchMonitoringService monitoringService,
             @Value("${ai.generation.worker.enabled:true}") boolean enabled,
             @Value("${ai.generation.worker.batch-size:5}") int batchSize,
+            @Value("${ai.generation.worker.running-timeout-ms:300000}") long runningTimeoutMs,
             Clock clock
     ) {
         this.runner = runner;
         this.monitoringService = monitoringService;
         this.enabled = enabled;
         this.batchSize = batchSize;
+        this.runningTimeoutMs = runningTimeoutMs;
         this.clock = clock;
     }
 
@@ -36,6 +39,16 @@ class AiGenerationJobWorker {
     void pollQueuedJobs() {
         if (!enabled) {
             return;
+        }
+        // 폴링마다 먼저 고착 RUNNING job을 회수(P1-3). 회수 실패는 본 폴링을 막지 않는다.
+        try {
+            int sweptCount = runner.sweepStaleRunningJobs(runningTimeoutMs, batchSize);
+            if (sweptCount > 0) {
+                log.warn("AI generation worker swept stale RUNNING jobs. sweptCount={}", sweptCount);
+            }
+        } catch (RuntimeException exception) {
+            log.warn("AI generation worker stale-sweep failed. errorType={}, errorMessage={}",
+                    exception.getClass().getSimpleName(), exception.getMessage());
         }
         OffsetDateTime startedAt = now();
         try {
