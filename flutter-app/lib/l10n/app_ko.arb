@@ -9,5 +9,26 @@
   "commonEdit": "수정",
   "commonClose": "닫기",
   "commonRetry": "다시 시도",
-  "commonLoading": "불러오는 중..."
+  "commonLoading": "불러오는 중...",
+
+  "loginHeadline": "매일의 묵상을\n가장 단순하게.",
+  "loginSubtitle": "오늘의 QT 본문과 검증된 해설을 읽고,\n나만의 묵상 노트를 남겨보세요.",
+  "loginKakaoButton": "카카오로 시작하기",
+  "loginFailed": "로그인에 실패했습니다. 다시 시도해주세요.",
+  "loginLegalPrefix": "계속 진행하면 ",
+  "loginTermsOfService": "이용약관",
+  "loginLegalAnd": " 및 ",
+  "loginPrivacyPolicy": "개인정보처리방침",
+  "loginLegalSuffix": "에\n동의하는 것으로 간주합니다.",
+
+  "nicknameWelcome": "반갑습니다!",
+  "nicknameSetupPrompt": "사용할 닉네임을 설정해주세요",
+  "nicknameHint": "닉네임 (2~10자)",
+  "nicknameHelper": "한글, 영문, 숫자 조합 가능 (2~10자)",
+  "nicknameStartButton": "시작하기",
+  "nicknameRequired": "닉네임을 입력해주세요",
+  "nicknameMinLength": "닉네임은 2자 이상이어야 합니다",
+  "nicknameMaxLength": "닉네임은 10자 이하여야 합니다",
+  "nicknameInvalidChars": "한글, 영문, 숫자만 사용할 수 있습니다",
+  "nicknameSetupFailed": "닉네임 설정에 실패했습니다. 다시 시도해주세요."
 }

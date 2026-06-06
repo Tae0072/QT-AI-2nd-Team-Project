@@ -37,4 +37,64 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonLoading => 'Loading...';
+
+  @override
+  String get loginHeadline => 'Daily meditation, made simplest.';
+
+  @override
+  String get loginSubtitle =>
+      'Read today\'s QT passage and verified commentary, and leave your own meditation notes.';
+
+  @override
+  String get loginKakaoButton => 'Start with Kakao';
+
+  @override
+  String get loginFailed => 'Login failed. Please try again.';
+
+  @override
+  String get loginLegalPrefix => 'By continuing, you agree to the ';
+
+  @override
+  String get loginTermsOfService => 'Terms of Service';
+
+  @override
+  String get loginLegalAnd => ' and ';
+
+  @override
+  String get loginPrivacyPolicy => 'Privacy Policy';
+
+  @override
+  String get loginLegalSuffix => '.';
+
+  @override
+  String get nicknameWelcome => 'Welcome!';
+
+  @override
+  String get nicknameSetupPrompt => 'Please set a nickname to use';
+
+  @override
+  String get nicknameHint => 'Nickname (2-10 chars)';
+
+  @override
+  String get nicknameHelper =>
+      'Korean, English, and numbers allowed (2-10 chars)';
+
+  @override
+  String get nicknameStartButton => 'Get started';
+
+  @override
+  String get nicknameRequired => 'Please enter a nickname';
+
+  @override
+  String get nicknameMinLength => 'Nickname must be at least 2 characters';
+
+  @override
+  String get nicknameMaxLength => 'Nickname must be 10 characters or fewer';
+
+  @override
+  String get nicknameInvalidChars =>
+      'Only Korean, English, and numbers are allowed';
+
+  @override
+  String get nicknameSetupFailed => 'Failed to set nickname. Please try again.';
 }

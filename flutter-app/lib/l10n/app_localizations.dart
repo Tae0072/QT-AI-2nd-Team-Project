@@ -157,6 +157,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Loading...'**
   String get commonLoading;
+
+  /// No description provided for @loginHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily meditation, made simplest.'**
+  String get loginHeadline;
+
+  /// No description provided for @loginSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Read today\'s QT passage and verified commentary, and leave your own meditation notes.'**
+  String get loginSubtitle;
+
+  /// No description provided for @loginKakaoButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Start with Kakao'**
+  String get loginKakaoButton;
+
+  /// No description provided for @loginFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Login failed. Please try again.'**
+  String get loginFailed;
+
+  /// No description provided for @loginLegalPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'By continuing, you agree to the '**
+  String get loginLegalPrefix;
+
+  /// No description provided for @loginTermsOfService.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms of Service'**
+  String get loginTermsOfService;
+
+  /// No description provided for @loginLegalAnd.
+  ///
+  /// In en, this message translates to:
+  /// **' and '**
+  String get loginLegalAnd;
+
+  /// No description provided for @loginPrivacyPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get loginPrivacyPolicy;
+
+  /// No description provided for @loginLegalSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **'.'**
+  String get loginLegalSuffix;
+
+  /// No description provided for @nicknameWelcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome!'**
+  String get nicknameWelcome;
+
+  /// No description provided for @nicknameSetupPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Please set a nickname to use'**
+  String get nicknameSetupPrompt;
+
+  /// No description provided for @nicknameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Nickname (2-10 chars)'**
+  String get nicknameHint;
+
+  /// No description provided for @nicknameHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Korean, English, and numbers allowed (2-10 chars)'**
+  String get nicknameHelper;
+
+  /// No description provided for @nicknameStartButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get nicknameStartButton;
+
+  /// No description provided for @nicknameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a nickname'**
+  String get nicknameRequired;
+
+  /// No description provided for @nicknameMinLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Nickname must be at least 2 characters'**
+  String get nicknameMinLength;
+
+  /// No description provided for @nicknameMaxLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Nickname must be 10 characters or fewer'**
+  String get nicknameMaxLength;
+
+  /// No description provided for @nicknameInvalidChars.
+  ///
+  /// In en, this message translates to:
+  /// **'Only Korean, English, and numbers are allowed'**
+  String get nicknameInvalidChars;
+
+  /// No description provided for @nicknameSetupFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to set nickname. Please try again.'**
+  String get nicknameSetupFailed;
 }
 
 class _AppLocalizationsDelegate
