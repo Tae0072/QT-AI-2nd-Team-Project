@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/constants/post_category.dart';
+import '../../../core/theme/app_dimens.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../models/sharing_post_response.dart';
 import '../providers/sharing_providers.dart';
@@ -110,7 +112,7 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: AppPad.all16,
               child: Text(l.sharingReportPrompt),
             ),
             for (final entry in reasons.entries)
@@ -210,7 +212,7 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
   Widget _buildContent(AppLocalizations l, ThemeData theme,
       SharingPostDetail detail, List<CommentItem> comments) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: AppPad.all16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -279,7 +281,7 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
             // 댓글 목록
             if (comments.isEmpty)
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: AppPad.all16,
                 child: Text(l.sharingNoComments,
                     style: const TextStyle(color: Colors.grey)),
               )
@@ -301,7 +303,7 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
                 ),
           ] else
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: AppPad.all16,
               child: Text(l.sharingCommentsDisabled,
                   style: const TextStyle(color: Colors.grey)),
             ),
@@ -328,7 +330,7 @@ class _SnapshotCard extends StatelessWidget {
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: AppPad.all16,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -347,7 +349,7 @@ class _SnapshotCard extends StatelessWidget {
                   children: [
                     Text(detail.nicknameSnapshot,
                         style: theme.textTheme.titleSmall),
-                    Text(_categoryLabel(detail.category),
+                    Text(postCategoryLabel(detail.category),
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: Colors.grey)),
                   ],
@@ -363,22 +365,5 @@ class _SnapshotCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _categoryLabel(String category) {
-    switch (category) {
-      case 'MEDITATION':
-        return '묵상';
-      case 'SERMON':
-        return '설교';
-      case 'PRAYER':
-        return '기도';
-      case 'GRATITUDE':
-        return '감사';
-      case 'REPENTANCE':
-        return '회개';
-      default:
-        return category;
-    }
   }
 }

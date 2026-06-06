@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/constants/post_category.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../models/sharing_post_response.dart';
@@ -62,7 +63,7 @@ class _MyPostTile extends ConsumerWidget {
       ),
       subtitle: Row(
         children: [
-          Text(_categoryLabel(post.category),
+          Text(postCategoryLabel(post.category),
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.primary)),
           const SizedBox(width: 8),
@@ -144,22 +145,5 @@ class _MyPostTile extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  String _categoryLabel(String category) {
-    switch (category) {
-      case 'MEDITATION':
-        return '묵상';
-      case 'SERMON':
-        return '설교';
-      case 'PRAYER':
-        return '기도';
-      case 'GRATITUDE':
-        return '감사';
-      case 'REPENTANCE':
-        return '회개';
-      default:
-        return category;
-    }
   }
 }
