@@ -53,8 +53,10 @@ class QtPassageLookup {
      *
      * @return 공용 캐시 응답 (draftNoteId=null)
      */
+    // 캐시 키는 주입 Clock 빈(@clock = Asia/Seoul)으로 오늘 날짜를 산출한다(P2). 기존엔 SpEL이
+    // 시스템 시계를 직접 호출해 메서드가 쓰는 주입 Clock과 어긋날 수 있었다(테스트·시간대 일관성).
     @Cacheable(cacheNames = "todayQt",
-            key = "T(java.time.LocalDate).now(T(java.time.ZoneId).of('Asia/Seoul')).toString()",
+            key = "T(java.time.LocalDate).now(@clock).toString()",
             unless = "!#result.cacheStatus().equals('HIT')")
     public TodayQtResponse findTodayPassage() {
         ZonedDateTime nowKst = ZonedDateTime.now(clock).withZoneSameInstant(KST);
