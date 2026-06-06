@@ -448,4 +448,84 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sharingCommentsDisabled => 'Comments are disabled for this post';
+
+  @override
+  String get emptyDefault => 'No data.';
+
+  @override
+  String get mypageTitle => 'My page';
+
+  @override
+  String get mypagePartialError => 'Couldn\'t load some info';
+
+  @override
+  String get mypageViewProfile => 'View profile';
+
+  @override
+  String get withdrawTitle => 'Delete account';
+
+  @override
+  String get withdrawConfirm => 'Withdraw';
+
+  @override
+  String get withdrawBody =>
+      'When you withdraw, your account is deactivated, and your personal data and records are kept for 2 years per applicable law, then automatically deleted.\n\nIf you log in again with the same Kakao account within that period, your account and records are restored.\n\nAre you sure you want to withdraw?';
+
+  @override
+  String get qmNotifications => 'Notifications';
+
+  @override
+  String get qmMyPraise => 'My praise';
+
+  @override
+  String get qmSettings => 'Settings';
+
+  @override
+  String qmSongCount(int count) {
+    return '$count songs';
+  }
+
+  @override
+  String get statsTitle => 'My meditation';
+
+  @override
+  String get statsWeek => 'This week';
+
+  @override
+  String get statsMonth => 'This month';
+
+  @override
+  String get statsStreak => 'Streak';
+
+  @override
+  String statsDays(int days) {
+    return '$days days';
+  }
+
+  @override
+  String get notifMarkAllRead => 'Mark all read';
+
+  @override
+  String get notifUnreadOnly => 'Unread only';
+
+  @override
+  String get notifEmpty => 'No notifications';
+
+  @override
+  String get timeJustNow => 'Just now';
+
+  @override
+  String timeMinutesAgo(int minutes) {
+    return '$minutes min ago';
+  }
+
+  @override
+  String timeHoursAgo(int hours) {
+    return '$hours hr ago';
+  }
+
+  @override
+  String timeDaysAgo(int days) {
+    return '$days days ago';
+  }
 }

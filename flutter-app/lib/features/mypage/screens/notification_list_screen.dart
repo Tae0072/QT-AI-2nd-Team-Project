@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../providers/mypage_providers.dart';
 
@@ -17,10 +18,11 @@ class NotificationListScreen extends ConsumerWidget {
     final notificationsAsync = ref.watch(notificationsProvider);
     final unreadOnly = ref.watch(unreadOnlyFilterProvider);
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('알림'),
+        title: Text(l.qmNotifications),
         centerTitle: true,
         actions: [
           TextButton(
@@ -30,7 +32,7 @@ class NotificationListScreen extends ConsumerWidget {
               ref.invalidate(notificationsProvider);
               ref.invalidate(dashboardProvider);
             },
-            child: const Text('모두 읽음'),
+            child: Text(l.notifMarkAllRead),
           ),
         ],
       ),
@@ -42,7 +44,7 @@ class NotificationListScreen extends ConsumerWidget {
             child: Row(
               children: [
                 FilterChip(
-                  label: const Text('미읽음만'),
+                  label: Text(l.notifUnreadOnly),
                   selected: unreadOnly,
                   onSelected: (value) {
                     ref.read(unreadOnlyFilterProvider.notifier).state = value;
@@ -57,8 +59,8 @@ class NotificationListScreen extends ConsumerWidget {
             child: notificationsAsync.whenOrDefault(
               data: (response) {
                 if (response.items.isEmpty) {
-                  return const Center(
-                    child: Text('알림이 없습니다', style: TextStyle(color: Colors.grey)),
+                  return Center(
+                    child: Text(l.notifEmpty, style: const TextStyle(color: Colors.grey)),
                   );
                 }
 
@@ -81,7 +83,7 @@ class NotificationListScreen extends ConsumerWidget {
                           ),
                         ),
                         subtitle: Text(
-                          _formatDate(item.createdAt),
+                          _formatDate(l, item.createdAt),
                           style: theme.textTheme.bodySmall,
                         ),
                         onTap: () async {
@@ -104,13 +106,13 @@ class NotificationListScreen extends ConsumerWidget {
     );
   }
 
-  String _formatDate(DateTime dateTime) {
+  String _formatDate(AppLocalizations l, DateTime dateTime) {
     final now = DateTime.now();
     final diff = now.difference(dateTime);
-    if (diff.inMinutes < 1) return '방금 전';
-    if (diff.inHours < 1) return '${diff.inMinutes}분 전';
-    if (diff.inDays < 1) return '${diff.inHours}시간 전';
-    if (diff.inDays < 7) return '${diff.inDays}일 전';
+    if (diff.inMinutes < 1) return l.timeJustNow;
+    if (diff.inHours < 1) return l.timeMinutesAgo(diff.inMinutes);
+    if (diff.inDays < 1) return l.timeHoursAgo(diff.inHours);
+    if (diff.inDays < 7) return l.timeDaysAgo(diff.inDays);
     return '${dateTime.month}/${dateTime.day}';
   }
 }

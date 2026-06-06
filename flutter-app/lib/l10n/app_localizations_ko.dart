@@ -441,4 +441,84 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get sharingCommentsDisabled => '댓글이 비활성화된 글입니다';
+
+  @override
+  String get emptyDefault => '데이터가 없습니다.';
+
+  @override
+  String get mypageTitle => '마이페이지';
+
+  @override
+  String get mypagePartialError => '일부 정보를 불러오지 못했습니다';
+
+  @override
+  String get mypageViewProfile => '프로필 보기';
+
+  @override
+  String get withdrawTitle => '회원 탈퇴';
+
+  @override
+  String get withdrawConfirm => '탈퇴';
+
+  @override
+  String get withdrawBody =>
+      '탈퇴 시 계정은 비활성화되며, 개인정보와 작성 기록은 관련 법령에 따라 2년간 보관 후 자동 삭제됩니다.\n\n보관 기간 내 같은 카카오 계정으로 다시 로그인하면 계정과 기록이 복구됩니다.\n\n정말 탈퇴하시겠습니까?';
+
+  @override
+  String get qmNotifications => '알림';
+
+  @override
+  String get qmMyPraise => '나의 찬양';
+
+  @override
+  String get qmSettings => '설정';
+
+  @override
+  String qmSongCount(int count) {
+    return '$count곡';
+  }
+
+  @override
+  String get statsTitle => '나의 묵상';
+
+  @override
+  String get statsWeek => '이번 주';
+
+  @override
+  String get statsMonth => '이번 달';
+
+  @override
+  String get statsStreak => '연속';
+
+  @override
+  String statsDays(int days) {
+    return '$days일';
+  }
+
+  @override
+  String get notifMarkAllRead => '모두 읽음';
+
+  @override
+  String get notifUnreadOnly => '미읽음만';
+
+  @override
+  String get notifEmpty => '알림이 없습니다';
+
+  @override
+  String get timeJustNow => '방금 전';
+
+  @override
+  String timeMinutesAgo(int minutes) {
+    return '$minutes분 전';
+  }
+
+  @override
+  String timeHoursAgo(int hours) {
+    return '$hours시간 전';
+  }
+
+  @override
+  String timeDaysAgo(int days) {
+    return '$days일 전';
+  }
 }

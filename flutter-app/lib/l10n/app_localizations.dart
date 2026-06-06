@@ -949,6 +949,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Comments are disabled for this post'**
   String get sharingCommentsDisabled;
+
+  /// No description provided for @emptyDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'No data.'**
+  String get emptyDefault;
+
+  /// No description provided for @mypageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My page'**
+  String get mypageTitle;
+
+  /// No description provided for @mypagePartialError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load some info'**
+  String get mypagePartialError;
+
+  /// No description provided for @mypageViewProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'View profile'**
+  String get mypageViewProfile;
+
+  /// No description provided for @withdrawTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account'**
+  String get withdrawTitle;
+
+  /// No description provided for @withdrawConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw'**
+  String get withdrawConfirm;
+
+  /// No description provided for @withdrawBody.
+  ///
+  /// In en, this message translates to:
+  /// **'When you withdraw, your account is deactivated, and your personal data and records are kept for 2 years per applicable law, then automatically deleted.\n\nIf you log in again with the same Kakao account within that period, your account and records are restored.\n\nAre you sure you want to withdraw?'**
+  String get withdrawBody;
+
+  /// No description provided for @qmNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get qmNotifications;
+
+  /// No description provided for @qmMyPraise.
+  ///
+  /// In en, this message translates to:
+  /// **'My praise'**
+  String get qmMyPraise;
+
+  /// No description provided for @qmSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get qmSettings;
+
+  /// No description provided for @qmSongCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} songs'**
+  String qmSongCount(int count);
+
+  /// No description provided for @statsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My meditation'**
+  String get statsTitle;
+
+  /// No description provided for @statsWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get statsWeek;
+
+  /// No description provided for @statsMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get statsMonth;
+
+  /// No description provided for @statsStreak.
+  ///
+  /// In en, this message translates to:
+  /// **'Streak'**
+  String get statsStreak;
+
+  /// No description provided for @statsDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{days} days'**
+  String statsDays(int days);
+
+  /// No description provided for @notifMarkAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get notifMarkAllRead;
+
+  /// No description provided for @notifUnreadOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread only'**
+  String get notifUnreadOnly;
+
+  /// No description provided for @notifEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications'**
+  String get notifEmpty;
+
+  /// No description provided for @timeJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Just now'**
+  String get timeJustNow;
+
+  /// No description provided for @timeMinutesAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min ago'**
+  String timeMinutesAgo(int minutes);
+
+  /// No description provided for @timeHoursAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} hr ago'**
+  String timeHoursAgo(int hours);
+
+  /// No description provided for @timeDaysAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{days} days ago'**
+  String timeDaysAgo(int days);
 }
 
 class _AppLocalizationsDelegate
