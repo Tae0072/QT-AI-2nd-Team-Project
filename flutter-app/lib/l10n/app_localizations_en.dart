@@ -283,4 +283,76 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ttsPrepareFailed => 'Couldn\'t prepare the audio';
+
+  @override
+  String get onbSkip => 'Skip';
+
+  @override
+  String get onbNext => 'Next';
+
+  @override
+  String get onbStart => 'Get started';
+
+  @override
+  String get commonRefresh => 'Refresh';
+
+  @override
+  String get bibleTodayQt => 'Today\'s QT';
+
+  @override
+  String get bibleTodayLoading => 'Loading today\'s passage...';
+
+  @override
+  String get bibleTodayLoadError => 'Couldn\'t load today\'s passage.';
+
+  @override
+  String get bibleExplanation => 'Commentary';
+
+  @override
+  String get bibleSimulator => 'Simulator';
+
+  @override
+  String get bibleMeditationNote => 'Write meditation note';
+
+  @override
+  String bibleComingSoon(String feature) {
+    return 'The $feature screen is coming soon.';
+  }
+
+  @override
+  String get bibleBrowserTitle => 'Bible';
+
+  @override
+  String get bibleChapterError =>
+      'Chapter and verse must be numbers of 1 or more.';
+
+  @override
+  String get bibleBooksLoading => 'Loading the list of books...';
+
+  @override
+  String get bibleBooksLoadError => 'Couldn\'t load the list of books.';
+
+  @override
+  String get bibleBooksEmpty => 'No books available.';
+
+  @override
+  String get bibleChapter => 'Chapter';
+
+  @override
+  String get bibleVerseFrom => 'From verse';
+
+  @override
+  String get bibleVerseTo => 'To verse';
+
+  @override
+  String get bibleSame => 'Same';
+
+  @override
+  String get bibleSearch => 'Search';
+
+  @override
+  String get bibleVersesLoadError => 'Couldn\'t load the passage.';
+
+  @override
+  String get bibleSelectPrompt => 'Select a passage to look up.';
 }

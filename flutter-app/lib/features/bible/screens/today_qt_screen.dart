@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../tts/widgets/qt_tts_button.dart';
 import '../models/bible_models.dart';
@@ -28,10 +29,11 @@ class TodayQtScreen extends ConsumerWidget {
     final passage = ref.watch(todayQtPassageProvider);
     final data = passage.valueOrNull;
     final fullText = data == null ? '' : _fullTextOf(data);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('오늘 QT'),
+        title: Text(l.bibleTodayQt),
         actions: [
           // 본문 읽기(TTS) — 아이콘 하나로 재생/정지 토글
           if (data != null && fullText.isNotEmpty)
@@ -41,16 +43,16 @@ class TodayQtScreen extends ConsumerWidget {
               qtPassageId: data.qtPassageId,
             ),
           IconButton(
-            tooltip: '새로고침',
+            tooltip: l.commonRefresh,
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.invalidate(todayQtPassageProvider),
           ),
         ],
       ),
       body: passage.whenOrDefault(
-        loading: () => const LoadingView(message: '오늘 본문을 불러오는 중입니다.'),
+        loading: () => LoadingView(message: l.bibleTodayLoading),
         error: (error, _) => ErrorView(
-          message: '오늘 본문을 불러오지 못했습니다.\n$error',
+          message: '${l.bibleTodayLoadError}\n$error',
           onRetry: () => ref.invalidate(todayQtPassageProvider),
         ),
         data: (data) => _TodayQtContent(data: data),
@@ -120,7 +122,7 @@ class _ActionRow extends StatelessWidget {
 
   void _showComingSoon(BuildContext context, String feature) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature 화면은 곧 제공됩니다.')),
+      SnackBar(content: Text(AppLocalizations.of(context).bibleComingSoon(feature))),
     );
   }
 
@@ -134,6 +136,7 @@ class _ActionRow extends StatelessWidget {
     // 각 상세 화면 연결은 후속 작업(서버 계약 파리티 우선).
     final simulatorReady = qtPassageId != null && simulatorStatus == 'READY';
     final explanationReady = qtPassageId != null && hasExplanation;
+    final l = AppLocalizations.of(context);
 
     return Wrap(
       spacing: 8,
@@ -141,24 +144,24 @@ class _ActionRow extends StatelessWidget {
       children: [
         FilledButton.icon(
           onPressed: explanationReady
-              ? () => _showComingSoon(context, '해설')
+              ? () => _showComingSoon(context, l.bibleExplanation)
               : null,
           icon: const Icon(Icons.menu_book_outlined),
-          label: const Text('해설'),
+          label: Text(l.bibleExplanation),
         ),
         OutlinedButton.icon(
           onPressed: simulatorReady
-              ? () => _showComingSoon(context, '시뮬레이터')
+              ? () => _showComingSoon(context, l.bibleSimulator)
               : null,
           icon: const Icon(Icons.movie_outlined),
-          label: const Text('시뮬레이터'),
+          label: Text(l.bibleSimulator),
         ),
         OutlinedButton.icon(
           onPressed: qtPassageId == null
               ? null
-              : () => _showComingSoon(context, '묵상 노트 작성'),
+              : () => _showComingSoon(context, l.bibleMeditationNote),
           icon: const Icon(Icons.edit_note_outlined),
-          label: const Text('노트'),
+          label: Text(l.navNote),
         ),
       ],
     );

@@ -625,6 +625,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t prepare the audio'**
   String get ttsPrepareFailed;
+
+  /// No description provided for @onbSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get onbSkip;
+
+  /// No description provided for @onbNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get onbNext;
+
+  /// No description provided for @onbStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get onbStart;
+
+  /// No description provided for @commonRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get commonRefresh;
+
+  /// No description provided for @bibleTodayQt.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s QT'**
+  String get bibleTodayQt;
+
+  /// No description provided for @bibleTodayLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading today\'s passage...'**
+  String get bibleTodayLoading;
+
+  /// No description provided for @bibleTodayLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load today\'s passage.'**
+  String get bibleTodayLoadError;
+
+  /// No description provided for @bibleExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Commentary'**
+  String get bibleExplanation;
+
+  /// No description provided for @bibleSimulator.
+  ///
+  /// In en, this message translates to:
+  /// **'Simulator'**
+  String get bibleSimulator;
+
+  /// No description provided for @bibleMeditationNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Write meditation note'**
+  String get bibleMeditationNote;
+
+  /// No description provided for @bibleComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'The {feature} screen is coming soon.'**
+  String bibleComingSoon(String feature);
+
+  /// No description provided for @bibleBrowserTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bible'**
+  String get bibleBrowserTitle;
+
+  /// No description provided for @bibleChapterError.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter and verse must be numbers of 1 or more.'**
+  String get bibleChapterError;
+
+  /// No description provided for @bibleBooksLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the list of books...'**
+  String get bibleBooksLoading;
+
+  /// No description provided for @bibleBooksLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the list of books.'**
+  String get bibleBooksLoadError;
+
+  /// No description provided for @bibleBooksEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No books available.'**
+  String get bibleBooksEmpty;
+
+  /// No description provided for @bibleChapter.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter'**
+  String get bibleChapter;
+
+  /// No description provided for @bibleVerseFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'From verse'**
+  String get bibleVerseFrom;
+
+  /// No description provided for @bibleVerseTo.
+  ///
+  /// In en, this message translates to:
+  /// **'To verse'**
+  String get bibleVerseTo;
+
+  /// No description provided for @bibleSame.
+  ///
+  /// In en, this message translates to:
+  /// **'Same'**
+  String get bibleSame;
+
+  /// No description provided for @bibleSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get bibleSearch;
+
+  /// No description provided for @bibleVersesLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the passage.'**
+  String get bibleVersesLoadError;
+
+  /// No description provided for @bibleSelectPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a passage to look up.'**
+  String get bibleSelectPrompt;
 }
 
 class _AppLocalizationsDelegate

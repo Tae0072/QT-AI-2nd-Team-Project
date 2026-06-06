@@ -277,4 +277,75 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get ttsPrepareFailed => '음성을 준비하지 못했습니다';
+
+  @override
+  String get onbSkip => '건너뛰기';
+
+  @override
+  String get onbNext => '다음';
+
+  @override
+  String get onbStart => '시작하기';
+
+  @override
+  String get commonRefresh => '새로고침';
+
+  @override
+  String get bibleTodayQt => '오늘 QT';
+
+  @override
+  String get bibleTodayLoading => '오늘 본문을 불러오는 중입니다.';
+
+  @override
+  String get bibleTodayLoadError => '오늘 본문을 불러오지 못했습니다.';
+
+  @override
+  String get bibleExplanation => '해설';
+
+  @override
+  String get bibleSimulator => '시뮬레이터';
+
+  @override
+  String get bibleMeditationNote => '묵상 노트 작성';
+
+  @override
+  String bibleComingSoon(String feature) {
+    return '$feature 화면은 곧 제공됩니다.';
+  }
+
+  @override
+  String get bibleBrowserTitle => '성경본문';
+
+  @override
+  String get bibleChapterError => '장과 절은 1 이상의 숫자로 입력해 주세요.';
+
+  @override
+  String get bibleBooksLoading => '성경 권 목록을 불러오는 중입니다.';
+
+  @override
+  String get bibleBooksLoadError => '성경 권 목록을 불러오지 못했습니다.';
+
+  @override
+  String get bibleBooksEmpty => '성경 권 목록이 없습니다.';
+
+  @override
+  String get bibleChapter => '장';
+
+  @override
+  String get bibleVerseFrom => '시작절';
+
+  @override
+  String get bibleVerseTo => '끝절';
+
+  @override
+  String get bibleSame => '동일';
+
+  @override
+  String get bibleSearch => '조회';
+
+  @override
+  String get bibleVersesLoadError => '성경본문을 불러오지 못했습니다.';
+
+  @override
+  String get bibleSelectPrompt => '조회할 성경본문을 선택해 주세요.';
 }
