@@ -17,6 +17,8 @@ import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -64,22 +66,59 @@ class MeditationCalendarServiceTest {
     }
 
     @Test
-    @DisplayName("streak is counted backward from earlier of month end and KST today")
+    @DisplayName("streak: 오늘(05-28) 저장됐으면 오늘부터 연속 카운트")
     void getCalendar_calculatesStreak() {
         YearMonth month = YearMonth.of(2026, 5);
-        when(noteRepository.findSavedCalendarNotes(
-                10L,
-                LocalDateTime.of(2026, 5, 1, 0, 0),
-                LocalDateTime.of(2026, 6, 1, 0, 0)))
+        when(noteRepository.findSavedCalendarNotes(eq(10L), any(), any())).thenReturn(List.of());
+        // streak은 별도 윈도 조회를 쓴다 — 26·27·28 저장 → 오늘(28) 기준 연속 3
+        when(noteRepository.findSavedMeditationTimestamps(eq(10L), any(), any()))
                 .thenReturn(List.of(
-                        note(1L, NoteCategory.MEDITATION, LocalDateTime.of(2026, 5, 26, 9, 0)),
-                        note(2L, NoteCategory.MEDITATION, LocalDateTime.of(2026, 5, 27, 9, 0)),
-                        note(3L, NoteCategory.PRAYER, LocalDateTime.of(2026, 5, 28, 9, 0))
+                        LocalDateTime.of(2026, 5, 26, 9, 0),
+                        LocalDateTime.of(2026, 5, 27, 9, 0),
+                        LocalDateTime.of(2026, 5, 28, 9, 0)
                 ));
 
         MeditationCalendarResponse response = service.getCalendar(10L, month);
 
         assertThat(response.summary().meditationStreakDays()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("streak(P1-9): 오늘 미저장이어도 어제까지 연속을 인정한다 (04:00 배치 시점 0 방지)")
+    void getCalendar_streakAnchorsAtYesterdayWhenTodayMissing() {
+        // 오늘=05-28(고정 clock). 오늘은 미저장, 25·26·27 저장 → 어제(27) 기준 연속 3
+        YearMonth month = YearMonth.of(2026, 5);
+        when(noteRepository.findSavedCalendarNotes(eq(10L), any(), any())).thenReturn(List.of());
+        when(noteRepository.findSavedMeditationTimestamps(eq(10L), any(), any()))
+                .thenReturn(List.of(
+                        LocalDateTime.of(2026, 5, 25, 9, 0),
+                        LocalDateTime.of(2026, 5, 26, 9, 0),
+                        LocalDateTime.of(2026, 5, 27, 9, 0)
+                ));
+
+        MeditationCalendarResponse response = service.getCalendar(10L, month);
+
+        assertThat(response.summary().meditationStreakDays()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("streak(P1-9): 월 경계를 넘어 연속으로 인정한다")
+    void getCalendar_streakCrossesMonthBoundary() {
+        // 오늘=05-28. 04-30 ~ 05-28 연속 저장이면 월 경계를 넘어 streak이 끊기지 않는다.
+        YearMonth month = YearMonth.of(2026, 5);
+        when(noteRepository.findSavedCalendarNotes(eq(10L), any(), any())).thenReturn(List.of());
+        java.util.List<LocalDateTime> timestamps = new java.util.ArrayList<>();
+        for (java.time.LocalDate d = java.time.LocalDate.of(2026, 4, 30);
+             !d.isAfter(java.time.LocalDate.of(2026, 5, 28)); d = d.plusDays(1)) {
+            timestamps.add(d.atTime(9, 0));
+        }
+        when(noteRepository.findSavedMeditationTimestamps(eq(10L), any(), any()))
+                .thenReturn(timestamps);
+
+        MeditationCalendarResponse response = service.getCalendar(10L, month);
+
+        // 4/30, 5/1..5/28 = 29일 연속
+        assertThat(response.summary().meditationStreakDays()).isEqualTo(29);
     }
 
     @Test
