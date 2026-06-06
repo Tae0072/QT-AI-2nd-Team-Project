@@ -45,14 +45,13 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("작성 정상: 저장 + commentCount 재계산 + 현재 닉네임 + ownedByMe=true")
+    @DisplayName("작성 정상: 저장 + commentCount 원자 동기화 + 현재 닉네임 + ownedByMe=true")
     void create_savesAndSyncsCount() {
         SharingPost post = post(1L, true, 0);
         when(sharingPostRepository.findByIdAndStatus(1L, SharingPostStatus.PUBLISHED))
                 .thenReturn(Optional.of(post));
         when(commentRepository.save(any(Comment.class)))
                 .thenReturn(comment(410L, 1L, 10L, "좋은 묵상이네요", false));
-        when(commentRepository.countBySharingPostIdAndIsDeletedFalse(1L)).thenReturn(1L);
         when(getMemberUseCase.getMemberPublic(10L)).thenReturn(new MemberPublicResponse(10L, "하늘QT", null));
 
         CommentResponse response = commentService.create(10L, 1L, new CommentCreateRequest("좋은 묵상이네요"));
@@ -61,8 +60,9 @@ class CommentServiceTest {
         assertThat(response.nickname()).isEqualTo("하늘QT");
         assertThat(response.body()).isEqualTo("좋은 묵상이네요");
         assertThat(response.ownedByMe()).isTrue();
-        assertThat(post.getCommentCount()).isEqualTo(1); // 0 → 1로 동기화
         verify(commentRepository).save(any(Comment.class));
+        // P1-2: dirty-checking 대신 원자 UPDATE로 카운터 동기화
+        verify(sharingPostRepository).syncCommentCount(1L);
     }
 
     @Test
@@ -136,18 +136,16 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("삭제 정상: 본인 댓글이면 soft delete + commentCount 재계산")
+    @DisplayName("삭제 정상: 본인 댓글이면 soft delete + commentCount 원자 동기화")
     void delete_ownSoftDeletes() {
         Comment comment = comment(410L, 1L, 10L, "지울 댓글", false);
         when(commentRepository.findById(410L)).thenReturn(Optional.of(comment));
-        when(commentRepository.countBySharingPostIdAndIsDeletedFalse(1L)).thenReturn(2L);
-        SharingPost post = post(1L, true, 3);
-        when(sharingPostRepository.findById(1L)).thenReturn(Optional.of(post));
 
         commentService.delete(10L, 410L);
 
         assertThat(comment.isDeleted()).isTrue();          // 소프트 삭제됨
-        assertThat(post.getCommentCount()).isEqualTo(2);   // 3 → 2로 재계산
+        // P1-2: 원자 UPDATE로 카운터 동기화 (findById→dirty checking 패턴 제거)
+        verify(sharingPostRepository).syncCommentCount(1L);
     }
 
     @Test
@@ -184,8 +182,8 @@ class CommentServiceTest {
 
         commentService.delete(10L, 410L); // 예외 없음
 
-        verify(commentRepository, never()).countBySharingPostIdAndIsDeletedFalse(anyLong());
-        verify(sharingPostRepository, never()).findById(anyLong());
+        // 이미 삭제된 댓글은 카운터 동기화도 하지 않는다(멱등)
+        verify(sharingPostRepository, never()).syncCommentCount(anyLong());
     }
 
     // ─────────────────────────────────────────────────────

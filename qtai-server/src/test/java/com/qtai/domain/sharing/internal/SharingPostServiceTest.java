@@ -418,7 +418,8 @@ class SharingPostServiceTest {
         assertThat(response.likeCount()).isEqualTo(1); // 위 countBy와 같은 값
         assertThat(response.likedByMe()).isEqualTo(true); // 방금 눌렀으니?
         verify(postLikeRepository).save(any(PostLike.class)); // 좋아요 행을 저장했나
-        assertThat(post.getLikeCount()).isEqualTo(1); // syncLikeCount로 post에도 반영됐나
+        // P1-2: dirty-checking 대신 원자 UPDATE로 카운터 동기화
+        verify(sharingPostRepository).syncLikeCount(1L);
     }
 
     @Test
@@ -452,17 +453,17 @@ class SharingPostServiceTest {
     }
 
     @Test
-    @DisplayName("좋아요 취소: deleteBy 호출 + likeCount를 실제 행 수(0)로 재계산")
+    @DisplayName("좋아요 취소: deleteBy 호출 + likeCount를 원자 UPDATE로 동기화")
     void unlike_deletesAndSyncsCount() {
         SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 1, 0);
         when(sharingPostRepository.findByIdAndStatus(1L, SharingPostStatus.PUBLISHED))
                 .thenReturn(Optional.of(post));
-        when(postLikeRepository.countBySharingPostId(1L)).thenReturn(0L);
 
         sharingPostService.unlike(10L, 1L);
 
         verify(postLikeRepository).deleteBySharingPostIdAndMemberId(1L, 10L);
-        assertThat(post.getLikeCount()).isEqualTo(0); // 1 → 0으로 동기화
+        // P1-2: 원자 UPDATE로 카운터 동기화
+        verify(sharingPostRepository).syncLikeCount(1L);
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.qtai.domain.sharing.internal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -10,6 +11,32 @@ import java.util.Collection;
 import java.util.Optional;
 
 public interface SharingPostRepository extends JpaRepository<SharingPost, Long> {
+
+    /**
+     * 좋아요 수를 실제 행 수로 원자적 동기화 (P1-2 lost update 방지).
+     *
+     * <p>기존 "COUNT 재계산 후 managed 엔티티 dirty checking" 패턴은 동시 요청 시
+     * 각자 읽은 값을 덮어써 카운터가 영구히 어긋났다. 단일 UPDATE+서브쿼리는 DB에서
+     * 원자적으로 실행돼 정확하며, 어긋난 값도 자가 치유한다. flush로 직전 INSERT를
+     * 반영하고, clear로 stale 엔티티 캐시를 비운다.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE sharing_posts
+               SET like_count = (SELECT COUNT(*) FROM post_likes WHERE sharing_post_id = :postId)
+             WHERE id = :postId
+            """, nativeQuery = true)
+    void syncLikeCount(@Param("postId") Long postId);
+
+    /** 댓글 수를 실제(삭제 제외) 행 수로 원자적 동기화 (P1-2). */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE sharing_posts
+               SET comment_count = (SELECT COUNT(*) FROM comments
+                                     WHERE sharing_post_id = :postId AND is_deleted = FALSE)
+             WHERE id = :postId
+            """, nativeQuery = true)
+    void syncCommentCount(@Param("postId") Long postId);
 
     /**
      * 상세 조회용. PUBLISHED 상태만 반환하므로 HIDDEN/DELETED/없는 글은 비어 있고,

@@ -190,6 +190,42 @@ class SharingPostRepositoryIntegrationTest {
                 .containsExactlyInAnyOrder(SharingPostStatus.PUBLISHED, SharingPostStatus.HIDDEN);
     }
 
+    @Test
+    @DisplayName("syncLikeCount: like_count를 실제 post_likes 행 수로 원자적 동기화한다 (P1-2)")
+    void syncLikeCount_setsCountFromRows() {
+        SharingPost post = persistPost(SharingPostStatus.PUBLISHED, "PRAYER", "글", "본문");
+        // 카운터를 일부러 어긋난 값(99)으로 만들어 두고 동기화가 자가 치유하는지 확인
+        setField(post, "likeCount", 99);
+        em.persist(PostLike.of(post.getId(), 10L));
+        em.persist(PostLike.of(post.getId(), 11L));
+        em.flush();
+        em.clear();
+
+        sharingPostRepository.syncLikeCount(post.getId());
+
+        SharingPost reloaded = sharingPostRepository.findById(post.getId()).orElseThrow();
+        assertThat(reloaded.getLikeCount()).isEqualTo(2); // 99 → 2로 자가 치유
+    }
+
+    @Test
+    @DisplayName("syncCommentCount: comment_count를 삭제 제외 실제 행 수로 원자적 동기화한다 (P1-2)")
+    void syncCommentCount_setsCountFromRows() {
+        SharingPost post = persistPost(SharingPostStatus.PUBLISHED, "PRAYER", "글", "본문");
+        setField(post, "commentCount", 99);
+        em.persist(Comment.of(post.getId(), 10L, "댓글1"));
+        em.persist(Comment.of(post.getId(), 11L, "댓글2"));
+        Comment deleted = Comment.of(post.getId(), 12L, "삭제될 댓글");
+        deleted.markDeleted();
+        em.persist(deleted); // 삭제된 댓글은 카운트에서 제외돼야 함
+        em.flush();
+        em.clear();
+
+        sharingPostRepository.syncCommentCount(post.getId());
+
+        SharingPost reloaded = sharingPostRepository.findById(post.getId()).orElseThrow();
+        assertThat(reloaded.getCommentCount()).isEqualTo(2); // 삭제 1건 제외, 99 → 2
+    }
+
     // ─────────────────────────────────────────────────────
     // 헬퍼 — noteId는 UNIQUE라 매 건 다른 값을 준다.
     // ─────────────────────────────────────────────────────
