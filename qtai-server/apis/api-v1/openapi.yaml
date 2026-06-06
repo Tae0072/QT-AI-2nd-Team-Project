@@ -3358,11 +3358,6 @@ components:
         sourceLabel:
           type: string
           example: QT-AI verified content
-        aiAssetId:
-          type: integer
-          format: int64
-          nullable: true
-          example: 500
     QtGlossaryTermItem:
       type: object
       required:

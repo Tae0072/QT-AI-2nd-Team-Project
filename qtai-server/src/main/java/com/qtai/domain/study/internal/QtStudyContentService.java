@@ -65,12 +65,12 @@ public class QtStudyContentService implements GetQtStudyContentUseCase {
     }
 
     private QtStudyContentResponse.ExplanationItem toExplanationItem(ApprovedVerseExplanationResponse response) {
+        // response.aiAssetId()는 내부 추적용 — 사용자 응답 DTO로 전달하지 않는다(P2).
         return new QtStudyContentResponse.ExplanationItem(
                 response.verseId(),
                 response.summary(),
                 response.explanation(),
-                response.sourceLabel(),
-                response.aiAssetId()
+                response.sourceLabel()
         );
     }
 
