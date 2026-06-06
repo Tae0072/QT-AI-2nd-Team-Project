@@ -49,14 +49,29 @@ public class CommentService implements CommentUseCase {
         return toResponse(saved, nickname, true);
     }
 
+    /** 탈퇴·정지 등으로 공개 프로필이 없는 작성자의 표시용 닉네임. */
+    static final String WITHDRAWN_MEMBER_NICKNAME = "(탈퇴한 회원)";
+
     @Override
     public CommentListResponse list(Long memberId, Long postId, Pageable pageable) {
         Page<Comment> page = commentRepository
                 .findBySharingPostIdAndIsDeletedFalseOrderByCreatedAtAsc(postId, pageable);
+
+        // 버그 수정(2026-06-05): 댓글마다 getMemberPublic을 호출(N+1)했고, 그 단건 계약은
+        // 탈퇴 회원에 MEMBER_NOT_FOUND를 던져 탈퇴자 댓글 1건이 목록 전체를 404로 깨뜨렸다.
+        // → 활성 회원 일괄 조회 1회 + 누락 id는 "(탈퇴한 회원)" 폴백.
+        java.util.Set<Long> authorIds = page.getContent().stream()
+                .map(Comment::getMemberId)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        java.util.Map<Long, String> nicknames = getMemberUseCase.getActivePublicProfiles(authorIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        com.qtai.domain.member.api.dto.MemberPublicResponse::id,
+                        com.qtai.domain.member.api.dto.MemberPublicResponse::nickname));
+
         List<CommentResponse> content = page.getContent().stream()
                 .map(comment -> toResponse(
                         comment,
-                        getMemberUseCase.getMemberPublic(comment.getMemberId()).nickname(),
+                        nicknames.getOrDefault(comment.getMemberId(), WITHDRAWN_MEMBER_NICKNAME),
                         comment.getMemberId().equals(memberId)))
                 .toList();
         return new CommentListResponse(

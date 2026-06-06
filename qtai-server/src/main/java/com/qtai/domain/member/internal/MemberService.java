@@ -58,6 +58,28 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
         );
     }
 
+    /**
+     * 활성 회원 공개 프로필 일괄 조회 — 목록 N+1 방지용.
+     *
+     * <p>단건 {@link #getMemberPublic}과 달리 탈퇴·정지 회원은 예외 없이
+     * 결과에서 제외한다. 호출자(댓글 목록 등)는 누락 id를 자체 표시 정책으로
+     * 폴백한다 — 탈퇴 회원 1명이 목록 API 전체를 404로 깨뜨리던 결함의 수정 계약.
+     */
+    @Override
+    public java.util.List<MemberPublicResponse> getActivePublicProfiles(java.util.Collection<Long> memberIds) {
+        if (memberIds == null || memberIds.isEmpty()) {
+            return java.util.List.of();
+        }
+        return memberRepository.findAllById(new java.util.LinkedHashSet<>(memberIds)).stream()
+                .filter(Member::isActive)
+                .map(member -> new MemberPublicResponse(
+                        member.getId(),
+                        member.getNickname(),
+                        member.getProfileImageUrl()
+                ))
+                .toList();
+    }
+
     // ── UpdateProfileUseCase ──
 
     @Override

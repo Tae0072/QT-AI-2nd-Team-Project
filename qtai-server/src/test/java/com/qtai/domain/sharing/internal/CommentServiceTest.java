@@ -95,14 +95,16 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("목록: 살아있는 댓글을 현재 닉네임·ownedByMe와 함께 매핑한다")
+    @DisplayName("목록: 살아있는 댓글을 현재 닉네임·ownedByMe와 함께 매핑한다 (작성자 일괄 조회 1회)")
     void list_mapsComments() {
         Comment mine = comment(1L, 1L, 10L, "내 댓글", false);
         Comment others = comment(2L, 1L, 11L, "남 댓글", false);
         when(commentRepository.findBySharingPostIdAndIsDeletedFalseOrderByCreatedAtAsc(eq(1L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(mine, others), PageRequest.of(0, 20), 2L));
-        when(getMemberUseCase.getMemberPublic(10L)).thenReturn(new MemberPublicResponse(10L, "하늘QT", null));
-        when(getMemberUseCase.getMemberPublic(11L)).thenReturn(new MemberPublicResponse(11L, "은혜QT", null));
+        when(getMemberUseCase.getActivePublicProfiles(any()))
+                .thenReturn(List.of(
+                        new MemberPublicResponse(10L, "하늘QT", null),
+                        new MemberPublicResponse(11L, "은혜QT", null)));
 
         CommentListResponse response = commentService.list(10L, 1L, PageRequest.of(0, 20));
 
@@ -110,6 +112,27 @@ class CommentServiceTest {
         assertThat(response.content().get(0).nickname()).isEqualTo("하늘QT");
         assertThat(response.content().get(0).ownedByMe()).isTrue();  // 작성자 10 == 조회자 10
         assertThat(response.content().get(1).ownedByMe()).isFalse(); // 작성자 11 != 10
+        // N+1 회귀 방지 — 단건 공개 프로필 조회는 더 이상 사용하지 않는다
+        verify(getMemberUseCase, never()).getMemberPublic(anyLong());
+    }
+
+    @Test
+    @DisplayName("목록: 탈퇴 회원 댓글이 있어도 404 없이 '(탈퇴한 회원)'으로 폴백한다 (회귀 방지)")
+    void list_withdrawnAuthorFallsBackInsteadOf404() {
+        Comment active = comment(1L, 1L, 10L, "활성 회원 댓글", false);
+        Comment withdrawn = comment(2L, 1L, 99L, "탈퇴 회원 댓글", false);
+        when(commentRepository.findBySharingPostIdAndIsDeletedFalseOrderByCreatedAtAsc(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(active, withdrawn), PageRequest.of(0, 20), 2L));
+        // 일괄 조회 계약: 탈퇴 회원(99)은 결과에서 제외되어 돌아온다 — 예외가 아니라 누락
+        when(getMemberUseCase.getActivePublicProfiles(any()))
+                .thenReturn(List.of(new MemberPublicResponse(10L, "하늘QT", null)));
+
+        CommentListResponse response = commentService.list(10L, 1L, PageRequest.of(0, 20));
+
+        assertThat(response.content()).hasSize(2);
+        assertThat(response.content().get(0).nickname()).isEqualTo("하늘QT");
+        assertThat(response.content().get(1).nickname())
+                .isEqualTo(CommentService.WITHDRAWN_MEMBER_NICKNAME);
     }
 
     @Test
