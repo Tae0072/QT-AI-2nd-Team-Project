@@ -125,6 +125,15 @@ class AiServiceTest {
     }
 
     @Test
+    void createAiGenerationJob_SIMULATOR는_미지원으로_생성단계에서_거부() {
+        // P2: SIMULATOR 핸들러 비활성 — 큐잉 후 즉시 FAILED 대신 생성 단계에서 NOT_IMPLEMENTED로 거부.
+        assertThatThrownBy(() -> aiService.createAiGenerationJob(createJobCommand("SIMULATOR", "QT_PASSAGE")))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOT_IMPLEMENTED));
+        verify(generationJobRepository, never()).saveAndFlush(any(AiGenerationJob.class));
+    }
+
+    @Test
     void createAiGenerationJobMapsUniqueConstraintRaceToStatusTransitionError() {
         when(promptVersionRepository.findById(3L)).thenReturn(Optional.of(promptVersion(3L, AiPromptType.EXPLANATION)));
         when(generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(

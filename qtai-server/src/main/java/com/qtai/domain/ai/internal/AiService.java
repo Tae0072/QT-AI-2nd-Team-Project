@@ -65,6 +65,11 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         requireValidCommand(command);
 
         AiGenerationJobType jobType = parseJobType(command.jobType());
+        // SIMULATOR 생성 핸들러는 비활성(SimulatorGenerationJobHandler) — 큐잉 후 즉시 FAILED 대신
+        // 생성 단계에서 명확히 거부한다(P2). 시뮬레이터는 사전 제작/검증 경로를 사용한다(CLAUDE.md §6).
+        if (jobType == AiGenerationJobType.SIMULATOR) {
+            throw new BusinessException(ErrorCode.NOT_IMPLEMENTED, "SIMULATOR_GENERATION_NOT_SUPPORTED");
+        }
         AiTargetType targetType = parseTargetType(command.targetType());
         AiPromptVersion promptVersionEntity = requireUsablePromptVersion(command.promptVersionId(), jobType);
         if (generationJobRepository.existsByJobTypeAndTargetTypeAndTargetIdAndStatusIn(

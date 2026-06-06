@@ -120,12 +120,12 @@ class AdminAiValidationChecklistServiceTest {
 
         assertThat(response.id()).isEqualTo(4L);
         assertThat(response.status()).isEqualTo("DRAFT");
-        assertThat(response.createdByAdminId()).isNull();
+        assertThat(response.createdByAdminId()).isEqualTo(7L); // P2: 생성자(admin) 기록 — 기존 null 저장 버그 수정
 
         ArgumentCaptor<AiValidationChecklistVersion> versionCaptor =
                 ArgumentCaptor.forClass(AiValidationChecklistVersion.class);
         verify(repository).save(versionCaptor.capture());
-        assertThat(versionCaptor.getValue().getCreatedByAdminId()).isNull();
+        assertThat(versionCaptor.getValue().getCreatedByAdminId()).isEqualTo(7L);
 
         ArgumentCaptor<AuditLogWriteRequest> auditCaptor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
         verify(auditLogUseCase).write(auditCaptor.capture());
