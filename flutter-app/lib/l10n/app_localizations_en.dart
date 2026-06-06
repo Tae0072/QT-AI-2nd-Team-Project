@@ -355,4 +355,97 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bibleSelectPrompt => 'Select a passage to look up.';
+
+  @override
+  String get sharingMine => 'My sharing';
+
+  @override
+  String get sharingSearchHint => 'Search posts';
+
+  @override
+  String get sharingFeedEmpty => 'No posts yet';
+
+  @override
+  String get sharingMineEmpty => 'You haven\'t shared anything';
+
+  @override
+  String get sharingHidden => 'Hidden';
+
+  @override
+  String get sharingShow => 'Make public again';
+
+  @override
+  String get sharingHide => 'Hide';
+
+  @override
+  String get sharingActionFailed => 'Action failed. Please try again.';
+
+  @override
+  String get sharingDeleteConfirmTitle => 'Delete this post?';
+
+  @override
+  String get sharingDeleteConfirmBody => 'This can\'t be undone.';
+
+  @override
+  String get sharingCommentFailed => 'Failed to post comment';
+
+  @override
+  String get sharingCommentDeleteFailed => 'Failed to delete comment';
+
+  @override
+  String get reportSpam => 'Spam/Ads';
+
+  @override
+  String get reportHate => 'Hate/Abuse';
+
+  @override
+  String get reportSexual => 'Sexual content';
+
+  @override
+  String get reportEtc => 'Other';
+
+  @override
+  String get sharingReportPrompt => 'Select a report reason';
+
+  @override
+  String get sharingReportSubmitted => 'Report submitted';
+
+  @override
+  String get sharingReportFailed => 'Failed to report';
+
+  @override
+  String get sharingUnlikeFailed => 'Failed to remove like';
+
+  @override
+  String get sharingLikeFailed => 'Failed to like';
+
+  @override
+  String get sharingDeleteTitle => 'Delete post';
+
+  @override
+  String get sharingDeleteConfirmBody2 => 'Delete? This can\'t be undone.';
+
+  @override
+  String get sharingDeleteFailed => 'Failed to delete';
+
+  @override
+  String get sharingDetailTitle => 'Post';
+
+  @override
+  String get sharingReport => 'Report';
+
+  @override
+  String get sharingLoadFailed => 'Couldn\'t load the post';
+
+  @override
+  String get sharingComments => 'Comments';
+
+  @override
+  String get sharingCommentHint => 'Write a comment';
+
+  @override
+  String get sharingNoComments => 'Be the first to comment';
+
+  @override
+  String get sharingCommentsDisabled => 'Comments are disabled for this post';
 }

@@ -348,4 +348,97 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get bibleSelectPrompt => '조회할 성경본문을 선택해 주세요.';
+
+  @override
+  String get sharingMine => '내 나눔';
+
+  @override
+  String get sharingSearchHint => '나눔 글 검색';
+
+  @override
+  String get sharingFeedEmpty => '나눔 글이 없습니다';
+
+  @override
+  String get sharingMineEmpty => '공유한 글이 없습니다';
+
+  @override
+  String get sharingHidden => '숨김';
+
+  @override
+  String get sharingShow => '공개로 되돌리기';
+
+  @override
+  String get sharingHide => '숨기기';
+
+  @override
+  String get sharingActionFailed => '처리에 실패했습니다. 다시 시도해 주세요';
+
+  @override
+  String get sharingDeleteConfirmTitle => '나눔 글을 삭제할까요?';
+
+  @override
+  String get sharingDeleteConfirmBody => '삭제하면 되돌릴 수 없습니다.';
+
+  @override
+  String get sharingCommentFailed => '댓글 작성에 실패했습니다';
+
+  @override
+  String get sharingCommentDeleteFailed => '댓글 삭제에 실패했습니다';
+
+  @override
+  String get reportSpam => '스팸/광고';
+
+  @override
+  String get reportHate => '혐오/욕설';
+
+  @override
+  String get reportSexual => '선정성';
+
+  @override
+  String get reportEtc => '기타';
+
+  @override
+  String get sharingReportPrompt => '신고 사유를 선택하세요';
+
+  @override
+  String get sharingReportSubmitted => '신고가 접수되었습니다';
+
+  @override
+  String get sharingReportFailed => '신고에 실패했습니다';
+
+  @override
+  String get sharingUnlikeFailed => '좋아요 취소에 실패했습니다';
+
+  @override
+  String get sharingLikeFailed => '좋아요에 실패했습니다';
+
+  @override
+  String get sharingDeleteTitle => '나눔 글 삭제';
+
+  @override
+  String get sharingDeleteConfirmBody2 => '삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.';
+
+  @override
+  String get sharingDeleteFailed => '삭제에 실패했습니다';
+
+  @override
+  String get sharingDetailTitle => '나눔 상세';
+
+  @override
+  String get sharingReport => '신고';
+
+  @override
+  String get sharingLoadFailed => '글을 불러올 수 없습니다';
+
+  @override
+  String get sharingComments => '댓글';
+
+  @override
+  String get sharingCommentHint => '댓글을 입력하세요';
+
+  @override
+  String get sharingNoComments => '첫 댓글을 남겨보세요';
+
+  @override
+  String get sharingCommentsDisabled => '댓글이 비활성화된 글입니다';
 }

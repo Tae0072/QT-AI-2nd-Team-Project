@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../models/sharing_post_response.dart';
 import '../providers/sharing_providers.dart';
 
@@ -66,7 +67,7 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('댓글 작성에 실패했습니다')),
+          SnackBar(content: Text(AppLocalizations.of(context).sharingCommentFailed)),
         );
       }
     } finally {
@@ -83,7 +84,7 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('댓글 삭제에 실패했습니다')),
+          SnackBar(content: Text(AppLocalizations.of(context).sharingCommentDeleteFailed)),
         );
       }
     }
@@ -91,11 +92,12 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
 
   /// 신고 바텀시트 → 사유 선택 시 POST /reports.
   Future<void> _showReportSheet() async {
-    const reasons = {
-      'SPAM': '스팸/광고',
-      'HATE': '혐오/욕설',
-      'SEXUAL': '선정성',
-      'ETC': '기타',
+    final l = AppLocalizations.of(context);
+    final reasons = {
+      'SPAM': l.reportSpam,
+      'HATE': l.reportHate,
+      'SEXUAL': l.reportSexual,
+      'ETC': l.reportEtc,
     };
     final reason = await showModalBottomSheet<String>(
       context: context,
@@ -103,9 +105,9 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('신고 사유를 선택하세요'),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(l.sharingReportPrompt),
             ),
             for (final entry in reasons.entries)
               ListTile(
@@ -125,13 +127,13 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('신고가 접수되었습니다')),
+          SnackBar(content: Text(l.sharingReportSubmitted)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('신고에 실패했습니다')),
+          SnackBar(content: Text(l.sharingReportFailed)),
         );
       }
     }
@@ -151,21 +153,22 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_detail!.likedByMe ? '좋아요 취소에 실패했습니다' : '좋아요에 실패했습니다')),
+          SnackBar(content: Text(_detail!.likedByMe ? AppLocalizations.of(context).sharingUnlikeFailed : AppLocalizations.of(context).sharingLikeFailed)),
         );
       }
     }
   }
 
   Future<void> _deletePost() async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('나눔 글 삭제'),
-        content: const Text('삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.'),
+        title: Text(l.sharingDeleteTitle),
+        content: Text(l.sharingDeleteConfirmBody2),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('삭제', style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l.commonCancel)),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(l.commonDelete, style: const TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -179,7 +182,7 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('삭제에 실패했습니다')),
+          SnackBar(content: Text(l.sharingDeleteFailed)),
         );
       }
     }
@@ -188,17 +191,18 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('나눔 상세'),
+        title: Text(l.sharingDetailTitle),
         centerTitle: true,
         actions: [
           if (_detail != null && _detail!.ownedByMe)
             IconButton(icon: const Icon(Icons.delete_outline), onPressed: _deletePost),
           IconButton(
             icon: const Icon(Icons.flag_outlined),
-            tooltip: '신고',
+            tooltip: l.sharingReport,
             onPressed: _showReportSheet,
           ),
         ],
@@ -206,7 +210,7 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _detail == null
-              ? const Center(child: Text('글을 불러올 수 없습니다'))
+              ? Center(child: Text(l.sharingLoadFailed))
               : SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -244,7 +248,7 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
 
                       // 댓글 영역
                       if (_detail!.commentsEnabled) ...[
-                        Text('댓글', style: theme.textTheme.titleMedium),
+                        Text(l.sharingComments, style: theme.textTheme.titleMedium),
                         const SizedBox(height: 8),
                         // 댓글 입력 줄
                         Row(
@@ -252,10 +256,10 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
                             Expanded(
                               child: TextField(
                                 controller: _commentController,
-                                decoration: const InputDecoration(
-                                  hintText: '댓글을 입력하세요',
+                                decoration: InputDecoration(
+                                  hintText: l.sharingCommentHint,
                                   isDense: true,
-                                  border: OutlineInputBorder(),
+                                  border: const OutlineInputBorder(),
                                 ),
                                 minLines: 1,
                                 maxLines: 3,
@@ -275,10 +279,10 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
                         const SizedBox(height: 8),
                         // 댓글 목록
                         if (_comments.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Text('첫 댓글을 남겨보세요',
-                                style: TextStyle(color: Colors.grey)),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(l.sharingNoComments,
+                                style: const TextStyle(color: Colors.grey)),
                           )
                         else
                           for (final c in _comments)
@@ -297,9 +301,9 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
                                   : null,
                             ),
                       ] else
-                        const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Text('댓글이 비활성화된 글입니다', style: TextStyle(color: Colors.grey)),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(l.sharingCommentsDisabled, style: const TextStyle(color: Colors.grey)),
                         ),
                     ],
                   ),

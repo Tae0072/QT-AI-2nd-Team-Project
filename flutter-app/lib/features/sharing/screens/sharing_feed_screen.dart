@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../providers/sharing_providers.dart';
@@ -31,15 +32,16 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
     final postsAsync = ref.watch(sharingPostsProvider);
     final selectedCategory = ref.watch(sharingCategoryFilterProvider);
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('나눔'),
+        title: Text(l.navShare),
         centerTitle: true,
         actions: [
           // 내 나눔 관리(M-05)로 진입 — 내가 공유한 글의 숨김/되돌리기/삭제.
           IconButton(
-            tooltip: '내 나눔',
+            tooltip: l.sharingMine,
             icon: const Icon(Icons.manage_accounts_outlined),
             onPressed: () =>
                 Navigator.of(context).pushNamed(AppRouter.mySharing),
@@ -54,7 +56,7 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: '나눔 글 검색',
+                hintText: l.sharingSearchHint,
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -95,8 +97,8 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
             child: postsAsync.whenOrDefault(
               data: (response) {
                 if (response.items.isEmpty) {
-                  return const Center(
-                    child: Text('나눔 글이 없습니다', style: TextStyle(color: Colors.grey)),
+                  return Center(
+                    child: Text(l.sharingFeedEmpty, style: const TextStyle(color: Colors.grey)),
                   );
                 }
 

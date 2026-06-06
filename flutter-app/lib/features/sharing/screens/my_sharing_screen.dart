@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../models/sharing_post_response.dart';
@@ -17,13 +18,14 @@ class MySharingScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final postsAsync = ref.watch(mySharingPostsProvider);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('내 나눔'), centerTitle: true),
+      appBar: AppBar(title: Text(l.sharingMine), centerTitle: true),
       body: postsAsync.whenOrDefault(
         data: (response) {
           if (response.items.isEmpty) {
-            return const EmptyView(message: '공유한 글이 없습니다');
+            return EmptyView(message: l.sharingMineEmpty);
           }
           // ✏️ 당겨서 새로고침 — provider를 무효화하면 최신 목록을 다시 받는다.
           return RefreshIndicator(
@@ -50,10 +52,11 @@ class _MyPostTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return ListTile(
       title: Text(
-        post.titleSnapshot.isEmpty ? '(제목 없음)' : post.titleSnapshot,
+        post.titleSnapshot.isEmpty ? l.noteUntitled : post.titleSnapshot,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -65,7 +68,7 @@ class _MyPostTile extends ConsumerWidget {
           const SizedBox(width: 8),
           // ✏️ 상태 뱃지: 숨김이면 회색 '숨김', 공개중이면 표시 안 함(기본).
           if (post.isHidden)
-            Text('숨김',
+            Text(l.sharingHidden,
                 style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
           const Spacer(),
           // 좋아요/댓글 수
@@ -83,10 +86,10 @@ class _MyPostTile extends ConsumerWidget {
         onSelected: (action) => _onAction(context, ref, action),
         itemBuilder: (_) => [
           if (post.isHidden)
-            const PopupMenuItem(value: 'show', child: Text('공개로 되돌리기'))
+            PopupMenuItem(value: 'show', child: Text(l.sharingShow))
           else
-            const PopupMenuItem(value: 'hide', child: Text('숨기기')),
-          const PopupMenuItem(value: 'delete', child: Text('삭제')),
+            PopupMenuItem(value: 'hide', child: Text(l.sharingHide)),
+          PopupMenuItem(value: 'delete', child: Text(l.commonDelete)),
         ],
       ),
       // 항목 탭 → 상세(S-02)
@@ -97,6 +100,7 @@ class _MyPostTile extends ConsumerWidget {
 
   Future<void> _onAction(
       BuildContext context, WidgetRef ref, String action) async {
+    final l = AppLocalizations.of(context);
     final repo = ref.read(sharingRepositoryProvider);
     try {
       switch (action) {
@@ -118,24 +122,25 @@ class _MyPostTile extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('처리에 실패했습니다. 다시 시도해 주세요')));
+          .showSnackBar(SnackBar(content: Text(l.sharingActionFailed)));
     }
   }
 
   /// 삭제 확인창 (08 §8.2: 되돌리기 어려운 동작은 확인 절차).
   Future<bool?> _confirmDelete(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('나눔 글을 삭제할까요?'),
-        content: const Text('삭제하면 되돌릴 수 없습니다.'),
+        title: Text(l.sharingDeleteConfirmTitle),
+        content: Text(l.sharingDeleteConfirmBody),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('취소')),
+              child: Text(l.commonCancel)),
           FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('삭제')),
+              child: Text(l.commonDelete)),
         ],
       ),
     );

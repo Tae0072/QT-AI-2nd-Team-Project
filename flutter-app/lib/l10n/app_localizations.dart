@@ -763,6 +763,192 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select a passage to look up.'**
   String get bibleSelectPrompt;
+
+  /// No description provided for @sharingMine.
+  ///
+  /// In en, this message translates to:
+  /// **'My sharing'**
+  String get sharingMine;
+
+  /// No description provided for @sharingSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search posts'**
+  String get sharingSearchHint;
+
+  /// No description provided for @sharingFeedEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No posts yet'**
+  String get sharingFeedEmpty;
+
+  /// No description provided for @sharingMineEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t shared anything'**
+  String get sharingMineEmpty;
+
+  /// No description provided for @sharingHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden'**
+  String get sharingHidden;
+
+  /// No description provided for @sharingShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Make public again'**
+  String get sharingShow;
+
+  /// No description provided for @sharingHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get sharingHide;
+
+  /// No description provided for @sharingActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Action failed. Please try again.'**
+  String get sharingActionFailed;
+
+  /// No description provided for @sharingDeleteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this post?'**
+  String get sharingDeleteConfirmTitle;
+
+  /// No description provided for @sharingDeleteConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This can\'t be undone.'**
+  String get sharingDeleteConfirmBody;
+
+  /// No description provided for @sharingCommentFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to post comment'**
+  String get sharingCommentFailed;
+
+  /// No description provided for @sharingCommentDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete comment'**
+  String get sharingCommentDeleteFailed;
+
+  /// No description provided for @reportSpam.
+  ///
+  /// In en, this message translates to:
+  /// **'Spam/Ads'**
+  String get reportSpam;
+
+  /// No description provided for @reportHate.
+  ///
+  /// In en, this message translates to:
+  /// **'Hate/Abuse'**
+  String get reportHate;
+
+  /// No description provided for @reportSexual.
+  ///
+  /// In en, this message translates to:
+  /// **'Sexual content'**
+  String get reportSexual;
+
+  /// No description provided for @reportEtc.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get reportEtc;
+
+  /// No description provided for @sharingReportPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a report reason'**
+  String get sharingReportPrompt;
+
+  /// No description provided for @sharingReportSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Report submitted'**
+  String get sharingReportSubmitted;
+
+  /// No description provided for @sharingReportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to report'**
+  String get sharingReportFailed;
+
+  /// No description provided for @sharingUnlikeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to remove like'**
+  String get sharingUnlikeFailed;
+
+  /// No description provided for @sharingLikeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to like'**
+  String get sharingLikeFailed;
+
+  /// No description provided for @sharingDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete post'**
+  String get sharingDeleteTitle;
+
+  /// No description provided for @sharingDeleteConfirmBody2.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete? This can\'t be undone.'**
+  String get sharingDeleteConfirmBody2;
+
+  /// No description provided for @sharingDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete'**
+  String get sharingDeleteFailed;
+
+  /// No description provided for @sharingDetailTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Post'**
+  String get sharingDetailTitle;
+
+  /// No description provided for @sharingReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get sharingReport;
+
+  /// No description provided for @sharingLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the post'**
+  String get sharingLoadFailed;
+
+  /// No description provided for @sharingComments.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments'**
+  String get sharingComments;
+
+  /// No description provided for @sharingCommentHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write a comment'**
+  String get sharingCommentHint;
+
+  /// No description provided for @sharingNoComments.
+  ///
+  /// In en, this message translates to:
+  /// **'Be the first to comment'**
+  String get sharingNoComments;
+
+  /// No description provided for @sharingCommentsDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments are disabled for this post'**
+  String get sharingCommentsDisabled;
 }
 
 class _AppLocalizationsDelegate
