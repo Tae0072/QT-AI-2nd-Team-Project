@@ -15,3 +15,6 @@ out/
 
 # Test / Coverage
 **/jacoco.exec
+
+# 로컬 외부 설정 (개발용 시크릿 — 커밋 금지, CLAUDE.md §8)
+/config/
