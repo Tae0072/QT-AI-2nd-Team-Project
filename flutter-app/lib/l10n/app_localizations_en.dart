@@ -528,4 +528,139 @@ class AppLocalizationsEn extends AppLocalizations {
   String timeDaysAgo(int days) {
     return '$days days ago';
   }
+
+  @override
+  String get settingsNotification => 'Notifications';
+
+  @override
+  String get settingsNotificationDesc => 'Receive push notifications';
+
+  @override
+  String get settingsFontSize => 'Font size';
+
+  @override
+  String get settingsFontSizeDesc => 'Set the body text size';
+
+  @override
+  String get settingsFontSmall => 'Small';
+
+  @override
+  String get settingsFontMedium => 'Medium';
+
+  @override
+  String get settingsFontLarge => 'Large';
+
+  @override
+  String get settingsTts => 'TTS reading settings';
+
+  @override
+  String get settingsTtsDesc =>
+      'Set the reading voice and scope (passage/commentary)';
+
+  @override
+  String get praiseTitle => 'Praise';
+
+  @override
+  String get praiseMyTab => 'My praise';
+
+  @override
+  String get praiseCurationTab => 'Curation';
+
+  @override
+  String get praiseMyEmpty => 'No saved praise songs\nSave songs from Curation';
+
+  @override
+  String get praiseDeleted => 'Praise song deleted';
+
+  @override
+  String get praiseCurationEmpty => 'No curated songs';
+
+  @override
+  String get praiseSaved => 'Saved to my praise';
+
+  @override
+  String get praiseAlreadySaved => 'Already saved';
+
+  @override
+  String get profileTitle => 'Profile';
+
+  @override
+  String get profileEmail => 'Email';
+
+  @override
+  String get profileJoinDate => 'Joined';
+
+  @override
+  String get profileLogout => 'Log out';
+
+  @override
+  String get profileNickname => 'Nickname';
+
+  @override
+  String get profileNewNickname => 'New nickname';
+
+  @override
+  String get profileNicknameHint2 => '2-20 chars';
+
+  @override
+  String get profileNicknameAvailable => 'This nickname is available.';
+
+  @override
+  String get profileNicknameTaken => 'This nickname is already in use.';
+
+  @override
+  String get profileChange => 'Change';
+
+  @override
+  String get profileNicknameChanged => 'Nickname changed.';
+
+  @override
+  String get profileNicknameChangeFailed => 'Failed to change nickname.';
+
+  @override
+  String get profileLogoutFailed => 'Failed to log out.';
+
+  @override
+  String get profileWithdrawFailed => 'Failed to process withdrawal.';
+
+  @override
+  String get ttsVoice => 'Reading voice';
+
+  @override
+  String get ttsVoiceDesc => 'Set the voice that reads the QT passage';
+
+  @override
+  String get ttsReadBible => 'Read passage (Korean)';
+
+  @override
+  String get ttsReadBibleDesc => 'Reads the Korean QT passage';
+
+  @override
+  String get ttsReadExplanation => 'Read commentary';
+
+  @override
+  String get ttsReadExplanationDesc =>
+      'Reads the commentary. If on together with passage reading, it reads after the passage';
+
+  @override
+  String get ttsAtLeastOne =>
+      'At least one of passage or commentary must be on';
+
+  @override
+  String get ttsServerError => 'Can\'t connect to the TTS server';
+
+  @override
+  String get ttsCustomVoice => 'Custom voice';
+
+  @override
+  String get ttsDefaultVoice => 'Default voice';
+
+  @override
+  String get ttsFinetuned => 'Trained';
+
+  @override
+  String get ttsVoicesLoading => 'Loading the voice list';
+
+  @override
+  String get ttsVoicesError => 'Couldn\'t load the voice list';
 }

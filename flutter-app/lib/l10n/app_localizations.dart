@@ -1087,6 +1087,270 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{days} days ago'**
   String timeDaysAgo(int days);
+
+  /// No description provided for @settingsNotification.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get settingsNotification;
+
+  /// No description provided for @settingsNotificationDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Receive push notifications'**
+  String get settingsNotificationDesc;
+
+  /// No description provided for @settingsFontSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Font size'**
+  String get settingsFontSize;
+
+  /// No description provided for @settingsFontSizeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the body text size'**
+  String get settingsFontSizeDesc;
+
+  /// No description provided for @settingsFontSmall.
+  ///
+  /// In en, this message translates to:
+  /// **'Small'**
+  String get settingsFontSmall;
+
+  /// No description provided for @settingsFontMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get settingsFontMedium;
+
+  /// No description provided for @settingsFontLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Large'**
+  String get settingsFontLarge;
+
+  /// No description provided for @settingsTts.
+  ///
+  /// In en, this message translates to:
+  /// **'TTS reading settings'**
+  String get settingsTts;
+
+  /// No description provided for @settingsTtsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the reading voice and scope (passage/commentary)'**
+  String get settingsTtsDesc;
+
+  /// No description provided for @praiseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Praise'**
+  String get praiseTitle;
+
+  /// No description provided for @praiseMyTab.
+  ///
+  /// In en, this message translates to:
+  /// **'My praise'**
+  String get praiseMyTab;
+
+  /// No description provided for @praiseCurationTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Curation'**
+  String get praiseCurationTab;
+
+  /// No description provided for @praiseMyEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved praise songs\nSave songs from Curation'**
+  String get praiseMyEmpty;
+
+  /// No description provided for @praiseDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Praise song deleted'**
+  String get praiseDeleted;
+
+  /// No description provided for @praiseCurationEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No curated songs'**
+  String get praiseCurationEmpty;
+
+  /// No description provided for @praiseSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to my praise'**
+  String get praiseSaved;
+
+  /// No description provided for @praiseAlreadySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Already saved'**
+  String get praiseAlreadySaved;
+
+  /// No description provided for @profileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profileTitle;
+
+  /// No description provided for @profileEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get profileEmail;
+
+  /// No description provided for @profileJoinDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Joined'**
+  String get profileJoinDate;
+
+  /// No description provided for @profileLogout.
+  ///
+  /// In en, this message translates to:
+  /// **'Log out'**
+  String get profileLogout;
+
+  /// No description provided for @profileNickname.
+  ///
+  /// In en, this message translates to:
+  /// **'Nickname'**
+  String get profileNickname;
+
+  /// No description provided for @profileNewNickname.
+  ///
+  /// In en, this message translates to:
+  /// **'New nickname'**
+  String get profileNewNickname;
+
+  /// No description provided for @profileNicknameHint2.
+  ///
+  /// In en, this message translates to:
+  /// **'2-20 chars'**
+  String get profileNicknameHint2;
+
+  /// No description provided for @profileNicknameAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This nickname is available.'**
+  String get profileNicknameAvailable;
+
+  /// No description provided for @profileNicknameTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'This nickname is already in use.'**
+  String get profileNicknameTaken;
+
+  /// No description provided for @profileChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get profileChange;
+
+  /// No description provided for @profileNicknameChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Nickname changed.'**
+  String get profileNicknameChanged;
+
+  /// No description provided for @profileNicknameChangeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to change nickname.'**
+  String get profileNicknameChangeFailed;
+
+  /// No description provided for @profileLogoutFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to log out.'**
+  String get profileLogoutFailed;
+
+  /// No description provided for @profileWithdrawFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to process withdrawal.'**
+  String get profileWithdrawFailed;
+
+  /// No description provided for @ttsVoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading voice'**
+  String get ttsVoice;
+
+  /// No description provided for @ttsVoiceDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the voice that reads the QT passage'**
+  String get ttsVoiceDesc;
+
+  /// No description provided for @ttsReadBible.
+  ///
+  /// In en, this message translates to:
+  /// **'Read passage (Korean)'**
+  String get ttsReadBible;
+
+  /// No description provided for @ttsReadBibleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Reads the Korean QT passage'**
+  String get ttsReadBibleDesc;
+
+  /// No description provided for @ttsReadExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Read commentary'**
+  String get ttsReadExplanation;
+
+  /// No description provided for @ttsReadExplanationDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Reads the commentary. If on together with passage reading, it reads after the passage'**
+  String get ttsReadExplanationDesc;
+
+  /// No description provided for @ttsAtLeastOne.
+  ///
+  /// In en, this message translates to:
+  /// **'At least one of passage or commentary must be on'**
+  String get ttsAtLeastOne;
+
+  /// No description provided for @ttsServerError.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t connect to the TTS server'**
+  String get ttsServerError;
+
+  /// No description provided for @ttsCustomVoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom voice'**
+  String get ttsCustomVoice;
+
+  /// No description provided for @ttsDefaultVoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Default voice'**
+  String get ttsDefaultVoice;
+
+  /// No description provided for @ttsFinetuned.
+  ///
+  /// In en, this message translates to:
+  /// **'Trained'**
+  String get ttsFinetuned;
+
+  /// No description provided for @ttsVoicesLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the voice list'**
+  String get ttsVoicesLoading;
+
+  /// No description provided for @ttsVoicesError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the voice list'**
+  String get ttsVoicesError;
 }
 
 class _AppLocalizationsDelegate

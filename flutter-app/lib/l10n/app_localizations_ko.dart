@@ -521,4 +521,136 @@ class AppLocalizationsKo extends AppLocalizations {
   String timeDaysAgo(int days) {
     return '$days일 전';
   }
+
+  @override
+  String get settingsNotification => '알림 수신';
+
+  @override
+  String get settingsNotificationDesc => '푸시 알림을 받습니다';
+
+  @override
+  String get settingsFontSize => '폰트 크기';
+
+  @override
+  String get settingsFontSizeDesc => '본문 글자 크기를 설정합니다';
+
+  @override
+  String get settingsFontSmall => '작게';
+
+  @override
+  String get settingsFontMedium => '보통';
+
+  @override
+  String get settingsFontLarge => '크게';
+
+  @override
+  String get settingsTts => 'TTS 읽기 설정';
+
+  @override
+  String get settingsTtsDesc => '읽기 목소리와 읽기 범위(본문/해설)를 설정합니다';
+
+  @override
+  String get praiseTitle => '찬양';
+
+  @override
+  String get praiseMyTab => '내 찬양';
+
+  @override
+  String get praiseCurationTab => '큐레이션';
+
+  @override
+  String get praiseMyEmpty => '저장한 찬양이 없습니다\n큐레이션에서 찬양을 저장해보세요';
+
+  @override
+  String get praiseDeleted => '찬양이 삭제되었습니다';
+
+  @override
+  String get praiseCurationEmpty => '등록된 큐레이션 곡이 없습니다';
+
+  @override
+  String get praiseSaved => '내 찬양에 저장되었습니다';
+
+  @override
+  String get praiseAlreadySaved => '이미 저장된 곡입니다';
+
+  @override
+  String get profileTitle => '프로필';
+
+  @override
+  String get profileEmail => '이메일';
+
+  @override
+  String get profileJoinDate => '가입일';
+
+  @override
+  String get profileLogout => '로그아웃';
+
+  @override
+  String get profileNickname => '닉네임';
+
+  @override
+  String get profileNewNickname => '새 닉네임';
+
+  @override
+  String get profileNicknameHint2 => '2~20자';
+
+  @override
+  String get profileNicknameAvailable => '사용 가능한 닉네임입니다.';
+
+  @override
+  String get profileNicknameTaken => '이미 사용 중인 닉네임입니다.';
+
+  @override
+  String get profileChange => '변경';
+
+  @override
+  String get profileNicknameChanged => '닉네임이 변경되었습니다.';
+
+  @override
+  String get profileNicknameChangeFailed => '닉네임 변경에 실패했습니다.';
+
+  @override
+  String get profileLogoutFailed => '로그아웃에 실패했습니다.';
+
+  @override
+  String get profileWithdrawFailed => '탈퇴 처리에 실패했습니다.';
+
+  @override
+  String get ttsVoice => '읽기 목소리';
+
+  @override
+  String get ttsVoiceDesc => 'QT 본문을 읽어주는 목소리를 설정합니다';
+
+  @override
+  String get ttsReadBible => '본문 읽기 (한글)';
+
+  @override
+  String get ttsReadBibleDesc => 'QT 한글 본문을 읽어줍니다';
+
+  @override
+  String get ttsReadExplanation => '해설 읽기';
+
+  @override
+  String get ttsReadExplanationDesc => '본문 해설을 읽어줍니다. 본문 읽기와 함께 켜면 본문 후에 읽습니다';
+
+  @override
+  String get ttsAtLeastOne => '본문과 해설 중 최소 한 가지는 켜져 있어야 합니다';
+
+  @override
+  String get ttsServerError => 'TTS 서버에 연결할 수 없습니다';
+
+  @override
+  String get ttsCustomVoice => '커스텀 목소리';
+
+  @override
+  String get ttsDefaultVoice => '기본 목소리';
+
+  @override
+  String get ttsFinetuned => '학습됨';
+
+  @override
+  String get ttsVoicesLoading => '목소리 목록을 불러오는 중입니다';
+
+  @override
+  String get ttsVoicesError => '목소리 목록을 불러올 수 없습니다';
 }
