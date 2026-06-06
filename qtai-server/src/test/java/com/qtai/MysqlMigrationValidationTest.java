@@ -48,8 +48,9 @@ class MysqlMigrationValidationTest {
         registry.add("spring.flyway.locations", () -> "classpath:db/migration");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.jpa.properties.hibernate.dialect", () -> "org.hibernate.dialect.MySQLDialect");
-        // 검증 중 배치 워커가 DB에 접근하지 않도록 비활성화
+        // 검증 중 배치 워커/재처리기가 DB에 접근하지 않도록 비활성화
         registry.add("ai.generation.worker.enabled", () -> "false");
+        registry.add("journal.reprocessor.enabled", () -> "false");
     }
 
     /** 실 MySQL에 전 마이그레이션 적용 + 엔티티 validate 통과 시 컨텍스트가 뜨면 성공. */

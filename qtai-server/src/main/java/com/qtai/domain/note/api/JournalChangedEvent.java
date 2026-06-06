@@ -8,6 +8,7 @@ public record JournalChangedEvent(
         Long memberId,
         Long noteId,
         Long qtPassageId,
+        Long previousQtPassageId,
         JournalEventType eventType,
         NoteStatus previousStatus,
         NoteStatus currentStatus,

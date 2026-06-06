@@ -22,7 +22,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -56,7 +55,7 @@ class NoteServiceTest {
     private GetBibleVerseUseCase getBibleVerseUseCase;
     private NoteQtClient noteQtClient;
     private com.qtai.domain.sharing.api.MarkSourceNoteDeletedUseCase markSourceNoteDeletedUseCase;
-    private ApplicationEventPublisher eventPublisher;
+    private JournalEventOutbox journalOutbox;
     private NoteService noteService;
     private ArgumentCaptor<Iterable<NoteVerse>> noteVersesCaptor;
     private Pageable pageable;
@@ -69,7 +68,7 @@ class NoteServiceTest {
         getBibleVerseUseCase = mock(GetBibleVerseUseCase.class);
         noteQtClient = mock(NoteQtClient.class);
         markSourceNoteDeletedUseCase = mock(com.qtai.domain.sharing.api.MarkSourceNoteDeletedUseCase.class);
-        eventPublisher = mock(ApplicationEventPublisher.class);
+        journalOutbox = mock(JournalEventOutbox.class);
         Clock clock = Clock.fixed(Instant.parse("2026-05-28T03:00:00Z"), ZoneId.of("Asia/Seoul"));
         noteService = new NoteService(
                 noteRepository,
@@ -77,7 +76,7 @@ class NoteServiceTest {
                 getBibleVerseUseCase,
                 noteQtClient,
                 markSourceNoteDeletedUseCase,
-                eventPublisher,
+                journalOutbox,
                 clock
         );
         noteVersesCaptor = ArgumentCaptor.forClass(Iterable.class);
@@ -193,12 +192,13 @@ class NoteServiceTest {
 
         noteService.create(10L, command);
 
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        verify(journalOutbox).append(eventCaptor.capture());
         JournalChangedEvent event = eventCaptor.getValue();
         assertThat(event.eventId()).isNotNull();
         assertThat(event.memberId()).isEqualTo(10L);
         assertThat(event.noteId()).isEqualTo(99L);
         assertThat(event.qtPassageId()).isEqualTo(100L);
+        assertThat(event.previousQtPassageId()).isNull(); // 신규 생성은 이전 본문 없음
         assertThat(event.eventType()).isEqualTo(JournalEventType.JOURNAL_CREATED);
         assertThat(event.previousStatus()).isNull();
         assertThat(event.currentStatus()).isEqualTo(NoteStatus.DRAFT);
@@ -323,7 +323,7 @@ class NoteServiceTest {
         verify(noteVerseRepository).saveAll(any());
         verify(getBibleVerseUseCase).getVerses(List.of(3L, 2L));
         verify(getBibleVerseUseCase, never()).getVerse(any());
-        verify(eventPublisher, never()).publishEvent(any());
+        verify(journalOutbox, never()).append(any());
     }
 
     @Test
@@ -565,12 +565,14 @@ class NoteServiceTest {
 
         noteService.update(10L, 1L, command);
 
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        verify(journalOutbox).append(eventCaptor.capture());
         JournalChangedEvent event = eventCaptor.getValue();
         assertThat(event.eventType()).isEqualTo(JournalEventType.JOURNAL_UPDATED);
         assertThat(event.previousStatus()).isEqualTo(NoteStatus.DRAFT);
         assertThat(event.currentStatus()).isEqualTo(NoteStatus.SAVED);
         assertThat(event.noteId()).isEqualTo(1L);
+        assertThat(event.qtPassageId()).isEqualTo(100L);
+        assertThat(event.previousQtPassageId()).isEqualTo(100L); // 본문 동일 — 이전 본문 보존
     }
 
     @Test
@@ -709,11 +711,12 @@ class NoteServiceTest {
 
         noteService.delete(10L, 1L);
 
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        verify(journalOutbox).append(eventCaptor.capture());
         JournalChangedEvent event = eventCaptor.getValue();
         assertThat(event.eventType()).isEqualTo(JournalEventType.JOURNAL_DELETED);
         assertThat(event.previousStatus()).isEqualTo(NoteStatus.SAVED);
         assertThat(event.currentStatus()).isEqualTo(NoteStatus.DELETED);
+        assertThat(event.previousQtPassageId()).isEqualTo(100L); // 삭제 직전 본문 보존
     }
 
     @Test
@@ -750,7 +753,7 @@ class NoteServiceTest {
         assertThatNoException().isThrownBy(() -> noteService.delete(10L, 1L));
         assertThat(note.getDeletedAt()).isSameAs(deletedAt);
         assertThat(note.getStatus()).isEqualTo(NoteStatus.DELETED);
-        verify(eventPublisher, never()).publishEvent(any());
+        verify(journalOutbox, never()).append(any());
         // 이미 삭제된 노트는 나눔 글 통지도 다시 보내지 않는다
         verify(markSourceNoteDeletedUseCase, never()).markSourceNoteDeleted(any(), any());
     }
