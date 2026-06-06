@@ -116,10 +116,18 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
 
     // ── private helpers ──
 
+    /** 시스템이 부여하는 임시 닉네임 접두사 — 사용자 닉네임으로는 예약(사칭 방지). */
+    private static final String RESERVED_NICKNAME_PREFIX = "user_";
+
     private void changeNicknameInternal(Member member, String newNickname) {
         if (!member.isNicknameChangeable(clock)) {
             throw new BusinessException(ErrorCode.NICKNAME_LOCKED,
                     "닉네임은 " + member.getNicknameUnlockAt() + " 이후에 변경할 수 있습니다.");
+        }
+        // 임시 닉네임 접두사(user_) 사칭 차단 — 시스템 예약 접두사
+        if (newNickname.startsWith(RESERVED_NICKNAME_PREFIX)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "'" + RESERVED_NICKNAME_PREFIX + "'로 시작하는 닉네임은 사용할 수 없습니다.");
         }
         if (memberRepository.existsByNickname(newNickname)) {
             throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
