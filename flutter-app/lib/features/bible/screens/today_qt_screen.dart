@@ -94,7 +94,11 @@ class _TodayQtContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _ActionRow(qtPassageId: null),
+          _ActionRow(
+            qtPassageId: data.qtPassageId,
+            simulatorStatus: data.simulatorStatus,
+            hasExplanation: data.hasExplanation,
+          ),
           const SizedBox(height: 20),
           for (final verse in data.verses) _VerseTile(verse: verse),
         ],
@@ -105,27 +109,54 @@ class _TodayQtContent extends StatelessWidget {
 
 class _ActionRow extends StatelessWidget {
   final int? qtPassageId;
+  final String simulatorStatus;
+  final bool hasExplanation;
 
-  const _ActionRow({required this.qtPassageId});
+  const _ActionRow({
+    required this.qtPassageId,
+    required this.simulatorStatus,
+    required this.hasExplanation,
+  });
+
+  void _showComingSoon(BuildContext context, String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$feature 화면은 곧 제공됩니다.')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    // 버그 수정(2026-06-05): 서버 simulatorStatus/hasExplanation을 파싱하지 않고
+    // 버튼을 영구 비활성(qtPassageId: null 고정)하던 단절 수정.
+    // 활성 조건은 고정 제품 결정(CLAUDE.md §6)을 따른다:
+    //  - 시뮬레이터 버튼은 simulatorStatus == READY 일 때만 활성화
+    //  - 해설 버튼은 승인 해설 존재(hasExplanation) 시 활성화
+    // 각 상세 화면 연결은 후속 작업(서버 계약 파리티 우선).
+    final simulatorReady = qtPassageId != null && simulatorStatus == 'READY';
+    final explanationReady = qtPassageId != null && hasExplanation;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
         FilledButton.icon(
-          onPressed: qtPassageId == null ? null : () {},
+          onPressed: explanationReady
+              ? () => _showComingSoon(context, '해설')
+              : null,
           icon: const Icon(Icons.menu_book_outlined),
           label: const Text('해설'),
         ),
         OutlinedButton.icon(
-          onPressed: qtPassageId == null ? null : () {},
+          onPressed: simulatorReady
+              ? () => _showComingSoon(context, '시뮬레이터')
+              : null,
           icon: const Icon(Icons.movie_outlined),
           label: const Text('시뮬레이터'),
         ),
         OutlinedButton.icon(
-          onPressed: () {},
+          onPressed: qtPassageId == null
+              ? null
+              : () => _showComingSoon(context, '묵상 노트 작성'),
           icon: const Icon(Icons.edit_note_outlined),
           label: const Text('노트'),
         ),
