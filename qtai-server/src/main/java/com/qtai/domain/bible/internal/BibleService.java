@@ -9,6 +9,7 @@ import com.qtai.domain.bible.api.dto.BibleVerseBookResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +27,10 @@ public class BibleService implements ListBibleBooksUseCase, GetBibleVerseUseCase
     private final BibleBookRepository bibleBookRepository;
     private final BibleRepository bibleRepository;
 
+    // 66권 고정 참조 데이터 — CacheConfig에 등록만 되고 미사용이던 "bibleBooks" 캐시를 실제 사용(P2).
+    // qt 범위 해석(BibleBookLookup) 등 반복 호출 비용을 줄인다(24h TTL).
     @Override
+    @Cacheable("bibleBooks")
     public List<BibleBookResponse> listBibleBooks() {
         return bibleBookRepository.findAllByOrderByDisplayOrderAsc().stream()
                 .map(this::toBookResponse)
