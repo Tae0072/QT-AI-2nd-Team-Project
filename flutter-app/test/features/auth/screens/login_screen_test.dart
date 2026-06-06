@@ -21,7 +21,7 @@ void main() {
     testWidgets('카카오 로그인 버튼이 표시된다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: LoginScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: LoginScreen()),
         ),
       );
       await tester.pump();
@@ -32,7 +32,7 @@ void main() {
     testWidgets('헤드라인이 표시된다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: LoginScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: LoginScreen()),
         ),
       );
       await tester.pump();
@@ -43,7 +43,7 @@ void main() {
     testWidgets('카카오 로그인 버튼은 ElevatedButton이다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: LoginScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: LoginScreen()),
         ),
       );
       await tester.pump();
@@ -54,7 +54,7 @@ void main() {
     testWidgets('초기 상태에서 에러 메시지가 없다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: LoginScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: LoginScreen()),
         ),
       );
       await tester.pump();

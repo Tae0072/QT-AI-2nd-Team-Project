@@ -21,7 +21,7 @@ void main() {
     testWidgets('환영 메시지가 표시된다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: NicknameSetupScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: NicknameSetupScreen()),
         ),
       );
       await tester.pump();
@@ -33,7 +33,7 @@ void main() {
     testWidgets('닉네임 입력 필드가 존재한다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: NicknameSetupScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: NicknameSetupScreen()),
         ),
       );
       await tester.pump();
@@ -44,7 +44,7 @@ void main() {
     testWidgets('시작하기 버튼이 표시된다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: NicknameSetupScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: NicknameSetupScreen()),
         ),
       );
       await tester.pump();
@@ -55,7 +55,7 @@ void main() {
     testWidgets('안내 텍스트가 표시된다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: NicknameSetupScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: NicknameSetupScreen()),
         ),
       );
       await tester.pump();
@@ -66,7 +66,7 @@ void main() {
     testWidgets('빈 닉네임 제출 시 유효성 검증 에러가 표시된다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: NicknameSetupScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: NicknameSetupScreen()),
         ),
       );
       await tester.pump();
@@ -81,7 +81,7 @@ void main() {
     testWidgets('1자 닉네임 제출 시 최소 길이 에러가 표시된다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: NicknameSetupScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: NicknameSetupScreen()),
         ),
       );
       await tester.pump();
@@ -97,7 +97,7 @@ void main() {
         (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: NicknameSetupScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: NicknameSetupScreen()),
         ),
       );
       await tester.pump();
@@ -113,7 +113,7 @@ void main() {
     testWidgets('특수문자 닉네임 제출 시 유효성 검증 에러가 표시된다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: NicknameSetupScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: NicknameSetupScreen()),
         ),
       );
       await tester.pump();
@@ -128,7 +128,7 @@ void main() {
     testWidgets('초기 상태에서 에러 메시지가 없다', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: NicknameSetupScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: Locale('ko'), home: NicknameSetupScreen()),
         ),
       );
       await tester.pump();
