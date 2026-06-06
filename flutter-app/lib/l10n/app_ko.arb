@@ -1,0 +1,13 @@
+{
+  "@@locale": "ko",
+  "appTitle": "QT AI",
+  "splashSubtitle": "매일, 말씀 앞에 머무는 시간",
+  "commonSave": "저장",
+  "commonCancel": "취소",
+  "commonConfirm": "확인",
+  "commonDelete": "삭제",
+  "commonEdit": "수정",
+  "commonClose": "닫기",
+  "commonRetry": "다시 시도",
+  "commonLoading": "불러오는 중..."
+}

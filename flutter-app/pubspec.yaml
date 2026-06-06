@@ -10,6 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # 국제화(다국어)
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+
   # 상태 관리
   flutter_riverpod: ^2.6.1
   riverpod_annotation: ^2.6.1
@@ -47,5 +52,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true
   assets:
     - assets/icons/

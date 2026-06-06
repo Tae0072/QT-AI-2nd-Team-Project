@@ -1,0 +1,19 @@
+{
+  "@@locale": "en",
+  "appTitle": "QT AI",
+  "@appTitle": {
+    "description": "App name shown in the title bar"
+  },
+  "splashSubtitle": "Time to dwell on the Word, every day",
+  "@splashSubtitle": {
+    "description": "Subtitle shown on the splash screen"
+  },
+  "commonSave": "Save",
+  "commonCancel": "Cancel",
+  "commonConfirm": "Confirm",
+  "commonDelete": "Delete",
+  "commonEdit": "Edit",
+  "commonClose": "Close",
+  "commonRetry": "Retry",
+  "commonLoading": "Loading..."
+}
