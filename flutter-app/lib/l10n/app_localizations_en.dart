@@ -235,4 +235,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noteShareImageFailed => 'Failed to share image';
+
+  @override
+  String get navToday => 'Today';
+
+  @override
+  String get navBible => 'Bible';
+
+  @override
+  String get navShare => 'Sharing';
+
+  @override
+  String get navNote => 'Notes';
+
+  @override
+  String get navMy => 'My';
+
+  @override
+  String get ttsRead => 'Read passage';
+
+  @override
+  String get ttsStop => 'Stop reading';
+
+  @override
+  String get ttsNoExplanationInfo => 'No commentary info for today\'s QT';
+
+  @override
+  String get ttsNoExplanationReady => 'No commentary is ready yet';
+
+  @override
+  String get ttsOnlyBodyNoExplanation =>
+      'No commentary yet, reading the passage only';
+
+  @override
+  String get ttsExplanationLoadFailed => 'Couldn\'t load the commentary';
+
+  @override
+  String get ttsOnlyBodyExplanationFailed =>
+      'Couldn\'t load commentary, reading the passage only';
+
+  @override
+  String get ttsTokenMissing => 'TTS token is not set';
+
+  @override
+  String get ttsTurnOnReadItems =>
+      'Turn on items to read (passage/commentary) in settings';
+
+  @override
+  String get ttsPrepareFailed => 'Couldn\'t prepare the audio';
 }

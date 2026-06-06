@@ -535,6 +535,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to share image'**
   String get noteShareImageFailed;
+
+  /// No description provided for @navToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get navToday;
+
+  /// No description provided for @navBible.
+  ///
+  /// In en, this message translates to:
+  /// **'Bible'**
+  String get navBible;
+
+  /// No description provided for @navShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing'**
+  String get navShare;
+
+  /// No description provided for @navNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get navNote;
+
+  /// No description provided for @navMy.
+  ///
+  /// In en, this message translates to:
+  /// **'My'**
+  String get navMy;
+
+  /// No description provided for @ttsRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read passage'**
+  String get ttsRead;
+
+  /// No description provided for @ttsStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop reading'**
+  String get ttsStop;
+
+  /// No description provided for @ttsNoExplanationInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'No commentary info for today\'s QT'**
+  String get ttsNoExplanationInfo;
+
+  /// No description provided for @ttsNoExplanationReady.
+  ///
+  /// In en, this message translates to:
+  /// **'No commentary is ready yet'**
+  String get ttsNoExplanationReady;
+
+  /// No description provided for @ttsOnlyBodyNoExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'No commentary yet, reading the passage only'**
+  String get ttsOnlyBodyNoExplanation;
+
+  /// No description provided for @ttsExplanationLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the commentary'**
+  String get ttsExplanationLoadFailed;
+
+  /// No description provided for @ttsOnlyBodyExplanationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load commentary, reading the passage only'**
+  String get ttsOnlyBodyExplanationFailed;
+
+  /// No description provided for @ttsTokenMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'TTS token is not set'**
+  String get ttsTokenMissing;
+
+  /// No description provided for @ttsTurnOnReadItems.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on items to read (passage/commentary) in settings'**
+  String get ttsTurnOnReadItems;
+
+  /// No description provided for @ttsPrepareFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t prepare the audio'**
+  String get ttsPrepareFailed;
 }
 
 class _AppLocalizationsDelegate

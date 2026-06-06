@@ -76,5 +76,21 @@
   "calStreak": "연속 {days}일 🔥",
   "noteShareAsText": "텍스트로 공유",
   "noteShareAsImage": "이미지로 공유",
-  "noteShareImageFailed": "이미지 공유에 실패했습니다"
+  "noteShareImageFailed": "이미지 공유에 실패했습니다",
+
+  "navToday": "오늘",
+  "navBible": "성경",
+  "navShare": "나눔",
+  "navNote": "노트",
+  "navMy": "마이",
+  "ttsRead": "본문 읽기",
+  "ttsStop": "읽기 정지",
+  "ttsNoExplanationInfo": "오늘 QT의 해설 정보가 없습니다",
+  "ttsNoExplanationReady": "아직 준비된 해설이 없습니다",
+  "ttsOnlyBodyNoExplanation": "해설이 아직 없어 본문만 읽습니다",
+  "ttsExplanationLoadFailed": "해설을 불러오지 못했습니다",
+  "ttsOnlyBodyExplanationFailed": "해설을 불러오지 못해 본문만 읽습니다",
+  "ttsTokenMissing": "TTS 토큰이 설정되지 않았습니다",
+  "ttsTurnOnReadItems": "설정에서 읽을 항목(본문/주석)을 켜 주세요",
+  "ttsPrepareFailed": "음성을 준비하지 못했습니다"
 }

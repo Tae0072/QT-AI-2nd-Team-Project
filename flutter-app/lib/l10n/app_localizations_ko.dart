@@ -232,4 +232,49 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get noteShareImageFailed => '이미지 공유에 실패했습니다';
+
+  @override
+  String get navToday => '오늘';
+
+  @override
+  String get navBible => '성경';
+
+  @override
+  String get navShare => '나눔';
+
+  @override
+  String get navNote => '노트';
+
+  @override
+  String get navMy => '마이';
+
+  @override
+  String get ttsRead => '본문 읽기';
+
+  @override
+  String get ttsStop => '읽기 정지';
+
+  @override
+  String get ttsNoExplanationInfo => '오늘 QT의 해설 정보가 없습니다';
+
+  @override
+  String get ttsNoExplanationReady => '아직 준비된 해설이 없습니다';
+
+  @override
+  String get ttsOnlyBodyNoExplanation => '해설이 아직 없어 본문만 읽습니다';
+
+  @override
+  String get ttsExplanationLoadFailed => '해설을 불러오지 못했습니다';
+
+  @override
+  String get ttsOnlyBodyExplanationFailed => '해설을 불러오지 못해 본문만 읽습니다';
+
+  @override
+  String get ttsTokenMissing => 'TTS 토큰이 설정되지 않았습니다';
+
+  @override
+  String get ttsTurnOnReadItems => '설정에서 읽을 항목(본문/주석)을 켜 주세요';
+
+  @override
+  String get ttsPrepareFailed => '음성을 준비하지 못했습니다';
 }

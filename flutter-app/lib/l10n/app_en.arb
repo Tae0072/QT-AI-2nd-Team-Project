@@ -91,5 +91,21 @@
   },
   "noteShareAsText": "Share as text",
   "noteShareAsImage": "Share as image",
-  "noteShareImageFailed": "Failed to share image"
+  "noteShareImageFailed": "Failed to share image",
+
+  "navToday": "Today",
+  "navBible": "Bible",
+  "navShare": "Sharing",
+  "navNote": "Notes",
+  "navMy": "My",
+  "ttsRead": "Read passage",
+  "ttsStop": "Stop reading",
+  "ttsNoExplanationInfo": "No commentary info for today's QT",
+  "ttsNoExplanationReady": "No commentary is ready yet",
+  "ttsOnlyBodyNoExplanation": "No commentary yet, reading the passage only",
+  "ttsExplanationLoadFailed": "Couldn't load the commentary",
+  "ttsOnlyBodyExplanationFailed": "Couldn't load commentary, reading the passage only",
+  "ttsTokenMissing": "TTS token is not set",
+  "ttsTurnOnReadItems": "Turn on items to read (passage/commentary) in settings",
+  "ttsPrepareFailed": "Couldn't prepare the audio"
 }
