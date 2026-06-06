@@ -128,7 +128,7 @@ public class AdminAiValidationChecklistService implements
                 checklistType,
                 command.version(),
                 command.contentHash(),
-                null,
+                command.adminId(), // 생성자(admin) 기록 — 기존엔 null로 저장돼 감사 추적 불가했음(P2)
                 now
         ));
         writeAudit(command.adminId(), "CHECKLIST_CREATE", version.getId(), null, snapshot(version, now));
