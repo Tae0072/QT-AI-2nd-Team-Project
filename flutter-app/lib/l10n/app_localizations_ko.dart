@@ -94,4 +94,31 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get nicknameSetupFailed => '닉네임 설정에 실패했습니다. 다시 시도해주세요.';
+
+  @override
+  String get noteNewTitle => '새 노트';
+
+  @override
+  String get noteCategoryPrompt => '어떤 노트를 작성할까요?';
+
+  @override
+  String get noteListTitle => '노트';
+
+  @override
+  String get noteViewList => '목록 보기';
+
+  @override
+  String get noteViewCalendar => '달력 보기';
+
+  @override
+  String get noteFilterAll => '전체';
+
+  @override
+  String get noteEmpty => '작성한 노트가 없습니다';
+
+  @override
+  String get noteUntitled => '(제목 없음)';
+
+  @override
+  String get noteDraft => '임시저장';
 }

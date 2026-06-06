@@ -271,6 +271,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to set nickname. Please try again.'**
   String get nicknameSetupFailed;
+
+  /// No description provided for @noteNewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New note'**
+  String get noteNewTitle;
+
+  /// No description provided for @noteCategoryPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'What kind of note?'**
+  String get noteCategoryPrompt;
+
+  /// No description provided for @noteListTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get noteListTitle;
+
+  /// No description provided for @noteViewList.
+  ///
+  /// In en, this message translates to:
+  /// **'List view'**
+  String get noteViewList;
+
+  /// No description provided for @noteViewCalendar.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar view'**
+  String get noteViewCalendar;
+
+  /// No description provided for @noteFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get noteFilterAll;
+
+  /// No description provided for @noteEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No notes yet'**
+  String get noteEmpty;
+
+  /// No description provided for @noteUntitled.
+  ///
+  /// In en, this message translates to:
+  /// **'(Untitled)'**
+  String get noteUntitled;
+
+  /// No description provided for @noteDraft.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get noteDraft;
 }
 
 class _AppLocalizationsDelegate

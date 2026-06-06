@@ -36,5 +36,15 @@
   "nicknameMinLength": "Nickname must be at least 2 characters",
   "nicknameMaxLength": "Nickname must be 10 characters or fewer",
   "nicknameInvalidChars": "Only Korean, English, and numbers are allowed",
-  "nicknameSetupFailed": "Failed to set nickname. Please try again."
+  "nicknameSetupFailed": "Failed to set nickname. Please try again.",
+
+  "noteNewTitle": "New note",
+  "noteCategoryPrompt": "What kind of note?",
+  "noteListTitle": "Notes",
+  "noteViewList": "List view",
+  "noteViewCalendar": "Calendar view",
+  "noteFilterAll": "All",
+  "noteEmpty": "No notes yet",
+  "noteUntitled": "(Untitled)",
+  "noteDraft": "Draft"
 }

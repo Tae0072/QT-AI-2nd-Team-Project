@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
 import 'note_edit_screen.dart';
@@ -13,15 +14,16 @@ class NoteCategorySelectScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('새 노트'), centerTitle: true),
+      appBar: AppBar(title: Text(l.noteNewTitle), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('어떤 노트를 작성할까요?',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(l.noteCategoryPrompt,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           ),
           // 작성 가능한 카테고리 목록(writableNoteCategories)을 돌며 버튼을 만든다.
           // 카테고리가 늘거나 줄어도 이 목록만 고치면 화면이 따라 바뀐다.

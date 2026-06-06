@@ -97,4 +97,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nicknameSetupFailed => 'Failed to set nickname. Please try again.';
+
+  @override
+  String get noteNewTitle => 'New note';
+
+  @override
+  String get noteCategoryPrompt => 'What kind of note?';
+
+  @override
+  String get noteListTitle => 'Notes';
+
+  @override
+  String get noteViewList => 'List view';
+
+  @override
+  String get noteViewCalendar => 'Calendar view';
+
+  @override
+  String get noteFilterAll => 'All';
+
+  @override
+  String get noteEmpty => 'No notes yet';
+
+  @override
+  String get noteUntitled => '(Untitled)';
+
+  @override
+  String get noteDraft => 'Draft';
 }
