@@ -37,4 +37,17 @@ public interface VerifyAdminRoleUseCase {
      * @throws com.qtai.common.exception.BusinessException ADMIN_USER_NOT_FOUND, ADMIN_USER_DISABLED, ADMIN_ROLE_INSUFFICIENT
      */
     AdminUserInfo verifyRole(Long memberId, String requiredRole);
+
+    /**
+     * 허용 역할 목록 중 하나라도 충족하면 통과하는 권한 검증.
+     *
+     * <p>SUPER_ADMIN은 모든 역할을 포함하므로 목록에 없어도 항상 통과한다.
+     * (예: requiredRoles=["OPERATOR","REVIEWER"]면 OPERATOR/REVIEWER/SUPER_ADMIN 허용)
+     *
+     * @param memberId      JWT에서 추출한 회원 ID
+     * @param requiredRoles 허용 관리자 역할 문자열 목록 (비어 있으면 ADMIN_ROLE_INSUFFICIENT)
+     * @return 관리자 정보 (adminUserId, adminRole)
+     * @throws com.qtai.common.exception.BusinessException ADMIN_USER_NOT_FOUND, ADMIN_USER_DISABLED, ADMIN_ROLE_INSUFFICIENT
+     */
+    AdminUserInfo verifyAnyRole(Long memberId, java.util.Collection<String> requiredRoles);
 }

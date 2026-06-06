@@ -16,6 +16,8 @@ final class AiWebExceptionResponses {
         HttpStatus status = switch (exception.getErrorCode()) {
             case UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
             case FORBIDDEN -> HttpStatus.FORBIDDEN;
+            // 관리자 2차 권한(DB) 검증 실패 — ErrorCode 정의(403)와 동일하게 매핑
+            case ADMIN_USER_NOT_FOUND, ADMIN_USER_DISABLED, ADMIN_ROLE_INSUFFICIENT -> HttpStatus.FORBIDDEN;
             case INVALID_INPUT -> HttpStatus.BAD_REQUEST;
             case INVALID_STATUS_TRANSITION -> HttpStatus.CONFLICT;
             case AI_GENERATION_JOB_NOT_FOUND, AI_ASSET_NOT_FOUND, CHECKLIST_NOT_FOUND,
