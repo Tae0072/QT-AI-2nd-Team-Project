@@ -146,6 +146,9 @@ void main() {
         ProviderScope(
           child: MaterialApp(
             navigatorKey: navKey,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
             initialRoute: AppRouter.login,
             onGenerateInitialRoutes: (name) =>
                 [AppRouter.onGenerateRoute(RouteSettings(name: name))],
