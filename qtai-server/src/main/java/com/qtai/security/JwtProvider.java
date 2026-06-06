@@ -25,7 +25,7 @@ import java.util.Date;
  * <p>토큰 구조:
  * <ul>
  *   <li>Access Token : sub=memberId, role claim, 30분 만료</li>
- *   <li>Refresh Token : sub=memberId, 30일 만료 (무효화는 호출자에서 Redis 관리)</li>
+ *   <li>Refresh Token : sub=memberId, 14일 만료 (무효화는 호출자에서 Redis 관리)</li>
  * </ul>
  *
  * <p>로그에 token 값 절대 남기지 않는다 (CLAUDE.md §9).
