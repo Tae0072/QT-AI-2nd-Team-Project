@@ -132,6 +132,30 @@ class MemberServiceTest {
     }
 
     @Test
+    void changeNickname_앞뒤_공백_trim_적용() {
+        // P2: changeNickname 경로도 updateProfile처럼 trim 일원화 — 중복 검사·저장이 trim 값 기준이어야 한다.
+        Member member = createMember(1L, "oldNick");
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+        when(memberRepository.existsByNickname("trimmed")).thenReturn(false);
+
+        MemberResponse response = memberService.changeNickname(1L, new NicknameChangeRequest("  trimmed  "));
+
+        assertThat(response.nickname()).isEqualTo("trimmed");
+        verify(memberRepository).existsByNickname("trimmed"); // 공백 포함 원문이 아니라 trim 값으로 검사
+    }
+
+    @Test
+    void changeNickname_공백만_입력_거부() {
+        Member member = createMember(1L, "oldNick");
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> memberService.changeNickname(1L, new NicknameChangeRequest("   ")))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+    }
+
+    @Test
     void changeNickname_7일_잠금_위반() {
         Member member = createMember(1L, "locked");
         // 닉네임을 방금 변경한 상태 시뮬레이션
