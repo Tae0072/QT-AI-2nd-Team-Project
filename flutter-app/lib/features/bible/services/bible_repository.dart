@@ -69,26 +69,15 @@ class BibleRepository {
     );
   }
 
-  Future<TodayQtPassage> getTodayQtPassage({
-    String fallbackReferenceText = '고린도전서(1 Corinthians)1:10 - 1:17',
-  }) async {
+  Future<TodayQtPassage> getTodayQtPassage() async {
     final todayQt = await getTodayQt();
     final todayRange = todayQt.range;
 
+    // 버그 수정(2026-06-05): range가 없을 때 하드코딩된 고린도전서 본문을
+    // '오늘 QT'처럼 보여주던 fallback 제거 — 말씀 앱에서 다른 본문을 오늘
+    // 본문으로 표시하는 것은 치명적 오동작이다. 준비 전이면 오류로 알린다.
     if (todayRange == null) {
-      if (todayQt.qtPassageId == null) {
-        throw StateError('오늘 QT 본문 범위가 아직 준비되지 않았습니다.');
-      }
-      final fallback = await getPassageFromReferenceText(fallbackReferenceText);
-      return TodayQtPassage(
-        qtPassageId: todayQt.qtPassageId,
-        passageDate: todayQt.passageDate,
-        title: todayQt.title,
-        cacheStatus: todayQt.cacheStatus,
-        reference: fallback.reference,
-        book: fallback.book,
-        verses: fallback.verses,
-      );
+      throw StateError('오늘 QT 본문 범위가 아직 준비되지 않았습니다.');
     }
 
     final verseRange = await getVerses(
@@ -103,6 +92,9 @@ class BibleRepository {
       passageDate: todayQt.passageDate,
       title: todayQt.title,
       cacheStatus: todayQt.cacheStatus,
+      simulatorStatus: todayQt.simulatorStatus,
+      hasExplanation: todayQt.hasExplanation,
+      draftNoteId: todayQt.draftNoteId,
       reference: todayRange.toReference(),
       book: verseRange.book,
       verses: verseRange.verses,

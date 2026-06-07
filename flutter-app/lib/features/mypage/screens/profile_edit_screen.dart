@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/network/error_interceptor.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../auth/providers/auth_providers.dart';
@@ -42,6 +43,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Future<void> _saveNickname() async {
+    final l = AppLocalizations.of(context);
     final nickname = _nicknameController.text.trim();
     if (nickname.isEmpty || nickname.length < 2) return;
 
@@ -57,7 +59,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       if (mounted) {
         setState(() => _isEditing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('닉네임이 변경되었습니다.')),
+          SnackBar(content: Text(l.profileNicknameChanged)),
         );
       }
     } on ApiError catch (e) {
@@ -69,7 +71,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('닉네임 변경에 실패했습니다.')),
+          SnackBar(content: Text(l.profileNicknameChangeFailed)),
         );
       }
     } finally {
@@ -78,6 +80,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Future<void> _handleLogout() async {
+    final l = AppLocalizations.of(context);
     try {
       final authRepository = ref.read(authRepositoryProvider);
       await authRepository.logout();
@@ -90,29 +93,41 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('로그아웃에 실패했습니다.')),
+          SnackBar(content: Text(l.profileLogoutFailed)),
         );
       }
     }
   }
 
   Future<void> _showWithdrawDialog() async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showWithdrawDialog(context);
     if (confirmed != true || !mounted) return;
 
     try {
+      // 1) 서버 탈퇴 — 토큰이 살아있는 상태에서 호출
       final repository = ref.read(myPageRepositoryProvider);
       await repository.withdraw();
 
+      // 2) 카카오 연결끊기(unlink) + 로컬 토큰 삭제
+      //    (미정리 시 stale JWT가 남아 자동로그인/재로그인 흐름이 깨진다)
+      final authRepository = ref.read(authRepositoryProvider);
+      await authRepository.cleanupAfterWithdraw();
+
+      // 3) 인증 상태 전환 — main.dart의 ValueKey(initialRoute)가 바뀌며
+      //    Navigator가 재생성되어 로그인 화면으로 이동한다.
+      //    (상태를 바꾸지 않으면 재로그인 성공 시 setAuthenticated()가
+      //    동일 값이라 화면 전환이 일어나지 않는 버그가 있었다)
+      ref.read(authStatusProvider.notifier).setUnauthenticated();
+
       if (mounted) {
-        // 토큰 정리 후 로그인 화면으로 이동
         Navigator.of(context)
             .pushNamedAndRemoveUntil('/login', (route) => false);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('탈퇴 처리에 실패했습니다.')),
+          SnackBar(content: Text(l.profileWithdrawFailed)),
         );
       }
     }
@@ -122,10 +137,11 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(profileProvider);
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('프로필'),
+        title: Text(l.profileTitle),
         centerTitle: true,
       ),
       body: profileAsync.whenOrDefault(
@@ -163,7 +179,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               if (member.email != null)
                 ListTile(
                   leading: const Icon(Icons.email_outlined),
-                  title: const Text('이메일'),
+                  title: Text(l.profileEmail),
                   subtitle: Text(member.email!),
                 ),
 
@@ -171,7 +187,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               if (member.createdAt != null)
                 ListTile(
                   leading: const Icon(Icons.calendar_today_outlined),
-                  title: const Text('가입일'),
+                  title: Text(l.profileJoinDate),
                   subtitle: Text(
                     '${member.createdAt!.year}년 '
                     '${member.createdAt!.month}월 '
@@ -185,7 +201,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               OutlinedButton.icon(
                 onPressed: _handleLogout,
                 icon: const Icon(Icons.logout),
-                label: const Text('로그아웃'),
+                label: Text(l.profileLogout),
               ),
 
               const SizedBox(height: 12),
@@ -194,7 +210,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               TextButton(
                 onPressed: _showWithdrawDialog,
                 child: Text(
-                  '회원 탈퇴',
+                  l.withdrawTitle,
                   style: TextStyle(color: theme.colorScheme.error),
                 ),
               ),
@@ -208,6 +224,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Widget _buildNicknameSection(
       bool isChangeable, DateTime? unlockAt, ThemeData theme) {
     final nicknameAvailable = ref.watch(nicknameAvailableProvider);
+    final l = AppLocalizations.of(context);
 
     if (_isEditing) {
       return Card(
@@ -221,8 +238,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 onChanged: _onNicknameChanged,
                 maxLength: 20,
                 decoration: InputDecoration(
-                  labelText: '새 닉네임',
-                  hintText: '2~20자',
+                  labelText: l.profileNewNickname,
+                  hintText: l.profileNicknameHint2,
                   suffixIcon: nicknameAvailable.when(
                     data: (available) {
                       if (available == null) return null;
@@ -250,7 +267,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      available ? '사용 가능한 닉네임입니다.' : '이미 사용 중인 닉네임입니다.',
+                      available ? l.profileNicknameAvailable : l.profileNicknameTaken,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: available ? Colors.green : Colors.red,
                       ),
@@ -268,7 +285,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     onPressed: _isSaving
                         ? null
                         : () => setState(() => _isEditing = false),
-                    child: const Text('취소'),
+                    child: Text(l.commonCancel),
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
@@ -283,7 +300,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                             child:
                                 CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('변경'),
+                        : Text(l.profileChange),
                   ),
                 ],
               ),
@@ -296,7 +313,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     // 닉네임 표시 모드
     return ListTile(
       leading: const Icon(Icons.badge_outlined),
-      title: const Text('닉네임'),
+      title: Text(l.profileNickname),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -315,7 +332,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       ),
       trailing: FilledButton.tonal(
         onPressed: isChangeable ? () => setState(() => _isEditing = true) : null,
-        child: const Text('변경'),
+        child: Text(l.profileChange),
       ),
     );
   }

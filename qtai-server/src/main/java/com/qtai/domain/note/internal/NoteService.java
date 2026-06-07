@@ -28,7 +28,6 @@ import com.qtai.domain.note.api.dto.NoteVerseItem;
 import com.qtai.domain.note.api.dto.UpdateNoteCommand;
 import com.qtai.domain.note.client.qt.NoteQtClient;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -57,7 +56,10 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     private final NoteVerseRepository noteVerseRepository;
     private final GetBibleVerseUseCase getBibleVerseUseCase;
     private final NoteQtClient noteQtClient;
-    private final ApplicationEventPublisher eventPublisher;
+    // 나눔 글 원본 삭제 통지(명세 §4.3.7) — sharing api 포트 (CLAUDE.md §4)
+    private final com.qtai.domain.sharing.api.MarkSourceNoteDeletedUseCase markSourceNoteDeletedUseCase;
+    // 노트 변경 이벤트를 같은 트랜잭션에서 적재하는 아웃박스(P1-10) — 기존 eventPublisher 대체
+    private final JournalEventOutbox journalOutbox;
     private final Clock clock;
 
     @Override
@@ -121,7 +123,7 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         Note saved = saveNoteForCreate(note);
         replaceNoteVerses(saved.getId(), input.verseIds());
         if (saved.getCategory() == NoteCategory.MEDITATION) {
-            publishJournalEvent(saved, JournalEventType.JOURNAL_CREATED, null);
+            publishJournalEvent(saved, JournalEventType.JOURNAL_CREATED, null, null);
         }
         return new NoteCreateResponse(
                 saved.getId(),
@@ -163,7 +165,7 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         );
         replaceNoteVerses(note.getId(), input.verseIds());
         if (shouldPublishJournalUpdate(before, note)) {
-            publishJournalEvent(note, JournalEventType.JOURNAL_UPDATED, before.status());
+            publishJournalEvent(note, JournalEventType.JOURNAL_UPDATED, before.status(), before.qtPassageId());
         }
         return new NoteUpdateResponse(
                 note.getId(),
@@ -190,9 +192,13 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         }
         NoteStatus previousStatus = note.getStatus();
         boolean meditationNote = note.getCategory() == NoteCategory.MEDITATION;
-        note.delete(LocalDateTime.now(clock));
+        LocalDateTime deletedAt = LocalDateTime.now(clock);
+        note.delete(deletedAt);
+        // 이 노트로 발행된 나눔 글에 원본 삭제 시각 기록(명세 §4.3.7 — 유지+안내).
+        // 같은 트랜잭션에서 처리해 노트 삭제와 기록의 정합을 보장한다.
+        markSourceNoteDeletedUseCase.markSourceNoteDeleted(noteId, deletedAt);
         if (meditationNote) {
-            publishJournalEvent(note, JournalEventType.JOURNAL_DELETED, previousStatus);
+            publishJournalEvent(note, JournalEventType.JOURNAL_DELETED, previousStatus, note.getQtPassageId());
         }
     }
 
@@ -246,12 +252,16 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 || !Objects.equals(before.deletedAt(), note.getDeletedAt());
     }
 
-    private void publishJournalEvent(Note note, JournalEventType eventType, NoteStatus previousStatus) {
-        eventPublisher.publishEvent(new JournalChangedEvent(
+    private void publishJournalEvent(Note note, JournalEventType eventType,
+                                     NoteStatus previousStatus, Long previousQtPassageId) {
+        // 노트 변경과 같은 트랜잭션에서 PENDING 이벤트를 적재한다(트랜잭션 아웃박스, P1-10).
+        // 후속 처리(PROCESSED 전이/재시도)는 JournalEventReprocessor가 비동기로 수행한다.
+        journalOutbox.append(new JournalChangedEvent(
                 UUID.randomUUID(),
                 note.getMemberId(),
                 note.getId(),
                 note.getQtPassageId(),
+                previousQtPassageId,
                 eventType,
                 previousStatus,
                 note.getStatus(),

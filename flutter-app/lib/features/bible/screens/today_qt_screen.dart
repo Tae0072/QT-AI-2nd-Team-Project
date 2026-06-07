@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../music/widgets/music_toggle_button.dart';
 import '../../tts/widgets/qt_tts_button.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
@@ -28,10 +30,11 @@ class TodayQtScreen extends ConsumerWidget {
     final passage = ref.watch(todayQtPassageProvider);
     final data = passage.valueOrNull;
     final fullText = data == null ? '' : _fullTextOf(data);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('오늘 QT'),
+        title: Text(l.bibleTodayQt),
         actions: [
           // 본문 읽기(TTS) — 아이콘 하나로 재생/정지 토글
           if (data != null && fullText.isNotEmpty)
@@ -40,17 +43,19 @@ class TodayQtScreen extends ConsumerWidget {
               qtDate: _qtDateOf(data),
               qtPassageId: data.qtPassageId,
             ),
+          // 배경음악 켜기/끄기 — TTS 버튼 오른쪽 음표 토글
+          const MusicToggleButton(),
           IconButton(
-            tooltip: '새로고침',
+            tooltip: l.commonRefresh,
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.invalidate(todayQtPassageProvider),
           ),
         ],
       ),
       body: passage.whenOrDefault(
-        loading: () => const LoadingView(message: '오늘 본문을 불러오는 중입니다.'),
+        loading: () => LoadingView(message: l.bibleTodayLoading),
         error: (error, _) => ErrorView(
-          message: '오늘 본문을 불러오지 못했습니다.\n$error',
+          message: '${l.bibleTodayLoadError}\n$error',
           onRetry: () => ref.invalidate(todayQtPassageProvider),
         ),
         data: (data) => _TodayQtContent(data: data),
@@ -94,7 +99,11 @@ class _TodayQtContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _ActionRow(qtPassageId: null),
+          _ActionRow(
+            qtPassageId: data.qtPassageId,
+            simulatorStatus: data.simulatorStatus,
+            hasExplanation: data.hasExplanation,
+          ),
           const SizedBox(height: 20),
           for (final verse in data.verses) _VerseTile(verse: verse),
         ],
@@ -105,29 +114,57 @@ class _TodayQtContent extends StatelessWidget {
 
 class _ActionRow extends StatelessWidget {
   final int? qtPassageId;
+  final String simulatorStatus;
+  final bool hasExplanation;
 
-  const _ActionRow({required this.qtPassageId});
+  const _ActionRow({
+    required this.qtPassageId,
+    required this.simulatorStatus,
+    required this.hasExplanation,
+  });
+
+  void _showComingSoon(BuildContext context, String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context).bibleComingSoon(feature))),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    // 버그 수정(2026-06-05): 서버 simulatorStatus/hasExplanation을 파싱하지 않고
+    // 버튼을 영구 비활성(qtPassageId: null 고정)하던 단절 수정.
+    // 활성 조건은 고정 제품 결정(CLAUDE.md §6)을 따른다:
+    //  - 시뮬레이터 버튼은 simulatorStatus == READY 일 때만 활성화
+    //  - 해설 버튼은 승인 해설 존재(hasExplanation) 시 활성화
+    // 각 상세 화면 연결은 후속 작업(서버 계약 파리티 우선).
+    final simulatorReady = qtPassageId != null && simulatorStatus == 'READY';
+    final explanationReady = qtPassageId != null && hasExplanation;
+    final l = AppLocalizations.of(context);
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
         FilledButton.icon(
-          onPressed: qtPassageId == null ? null : () {},
+          onPressed: explanationReady
+              ? () => _showComingSoon(context, l.bibleExplanation)
+              : null,
           icon: const Icon(Icons.menu_book_outlined),
-          label: const Text('해설'),
+          label: Text(l.bibleExplanation),
         ),
         OutlinedButton.icon(
-          onPressed: qtPassageId == null ? null : () {},
+          onPressed: simulatorReady
+              ? () => _showComingSoon(context, l.bibleSimulator)
+              : null,
           icon: const Icon(Icons.movie_outlined),
-          label: const Text('시뮬레이터'),
+          label: Text(l.bibleSimulator),
         ),
         OutlinedButton.icon(
-          onPressed: () {},
+          onPressed: qtPassageId == null
+              ? null
+              : () => _showComingSoon(context, l.bibleMeditationNote),
           icon: const Icon(Icons.edit_note_outlined),
-          label: const Text('노트'),
+          label: Text(l.navNote),
         ),
       ],
     );

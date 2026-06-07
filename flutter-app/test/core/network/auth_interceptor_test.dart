@@ -69,6 +69,32 @@ void main() {
       }
     });
 
+    test('/auth/** 의 401은 refresh를 트리거하지 않고 그대로 전달한다 (P1-12)', () async {
+      final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'));
+      final dioAdapter = DioAdapter(dio: dio);
+      final interceptor = AuthInterceptor(dio);
+      dio.interceptors.add(interceptor);
+
+      // 카카오 로그인 401 (로그인 실패) — refresh 시도 없이 바로 401이 전달돼야 함
+      dioAdapter.onPost(
+        '/auth/kakao',
+        (server) => server.reply(401, {
+          'success': false,
+          'error': {'code': 'M0009', 'message': '카카오 인증 실패'},
+        }),
+        data: {'accessToken': 'bad'},
+      );
+
+      try {
+        await dio.post('/auth/kakao', data: {'accessToken': 'bad'});
+        fail('Should have thrown');
+      } on DioException catch (e) {
+        expect(e.response?.statusCode, 401);
+      }
+      // refresh 엔드포인트를 호출하지 않았어야 한다 (로그인 실패 → 로그아웃 루프 방지)
+      expect(interceptor.refreshCallCount, 0);
+    });
+
     test('error without response passes through', () async {
       final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080/api/v1'));
       final dioAdapter = DioAdapter(dio: dio);

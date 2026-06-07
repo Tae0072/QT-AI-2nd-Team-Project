@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../tts/providers/tts_providers.dart';
 
 /// TTS 읽기 설정 화면.
@@ -14,10 +15,11 @@ class TtsSettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TTS 읽기 설정'),
+        title: Text(l.settingsTts),
         centerTitle: true,
       ),
       body: ListView(
@@ -25,8 +27,8 @@ class TtsSettingsScreen extends ConsumerWidget {
         children: [
           // 읽기 목소리
           ListTile(
-            title: const Text('읽기 목소리'),
-            subtitle: const Text('QT 본문을 읽어주는 목소리를 설정합니다'),
+            title: Text(l.ttsVoice),
+            subtitle: Text(l.ttsVoiceDesc),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -48,8 +50,8 @@ class TtsSettingsScreen extends ConsumerWidget {
           // 읽기 범위 — 본문(한글) / 해설
           // 둘 다 켜면 본문을 읽은 후 이어서 해설을 읽는다.
           SwitchListTile(
-            title: const Text('본문 읽기 (한글)'),
-            subtitle: const Text('QT 한글 본문을 읽어줍니다'),
+            title: Text(l.ttsReadBible),
+            subtitle: Text(l.ttsReadBibleDesc),
             value: ref.watch(ttsReadBibleProvider),
             onChanged: (value) => _setReadScope(
               context, ref,
@@ -59,8 +61,8 @@ class TtsSettingsScreen extends ConsumerWidget {
             ),
           ),
           SwitchListTile(
-            title: const Text('해설 읽기'),
-            subtitle: const Text('본문 해설을 읽어줍니다. 본문 읽기와 함께 켜면 본문 후에 읽습니다'),
+            title: Text(l.ttsReadExplanation),
+            subtitle: Text(l.ttsReadExplanationDesc),
             value: ref.watch(ttsReadExplanationProvider),
             onChanged: (value) => _setReadScope(
               context, ref,
@@ -84,7 +86,7 @@ class TtsSettingsScreen extends ConsumerWidget {
   }) {
     if (!bible && !explanation) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('본문과 해설 중 최소 한 가지는 켜져 있어야 합니다')),
+        SnackBar(content: Text(AppLocalizations.of(context).ttsAtLeastOne)),
       );
       return;
     }
@@ -94,6 +96,7 @@ class TtsSettingsScreen extends ConsumerWidget {
 
   /// 목소리 선택 BottomSheet.
   void _showVoiceSelector(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final voicesAsync = ref.read(ttsVoicesProvider);
     final current = ref.read(selectedVoiceProvider);
 
@@ -101,7 +104,7 @@ class TtsSettingsScreen extends ConsumerWidget {
       data: (voices) {
         if (voices.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('TTS 서버에 연결할 수 없습니다')),
+            SnackBar(content: Text(l.ttsServerError)),
           );
           return;
         }
@@ -125,10 +128,10 @@ class TtsSettingsScreen extends ConsumerWidget {
                         : null,
                   ),
                   title: Text(v.displayName),
-                  subtitle: Text(v.type == 'custom' ? '커스텀 목소리' : '기본 목소리'),
+                  subtitle: Text(v.type == 'custom' ? l.ttsCustomVoice : l.ttsDefaultVoice),
                   trailing: v.hasFinetuned
-                      ? const Chip(
-                          label: Text('학습됨', style: TextStyle(fontSize: 10)))
+                      ? Chip(
+                          label: Text(l.ttsFinetuned, style: const TextStyle(fontSize: 10)))
                       : null,
                   onTap: () {
                     ref.read(selectedVoiceProvider.notifier).select(v.name);
@@ -142,12 +145,12 @@ class TtsSettingsScreen extends ConsumerWidget {
       },
       loading: () {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('목소리 목록을 불러오는 중입니다')),
+          SnackBar(content: Text(l.ttsVoicesLoading)),
         );
       },
       error: (_, __) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('목소리 목록을 불러올 수 없습니다')),
+          SnackBar(content: Text(l.ttsVoicesError)),
         );
       },
     );

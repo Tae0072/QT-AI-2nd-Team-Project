@@ -38,7 +38,8 @@ public class SimulatorClip extends BaseEntity {
     @JoinColumn(name = "component_library_version_id", nullable = false)
     private SimulatorComponentLibraryVersion componentLibraryVersion;
 
-    @Column(name = "scene_script_json", nullable = false, columnDefinition = "TEXT")
+    // 마이그레이션 V15는 LONGTEXT — 엔티티 columnDefinition을 DDL과 일치시켜 MySQL ddl-auto=validate 정합 보장(P2).
+    @Column(name = "scene_script_json", nullable = false, columnDefinition = "LONGTEXT")
     private String sceneScriptJson;
 
     @Enumerated(EnumType.STRING)
@@ -50,4 +51,33 @@ public class SimulatorClip extends BaseEntity {
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
+
+    /**
+     * AI 산출물 승인본으로부터 사용자 노출용 시뮬레이터 클립을 생성한다 (P1-11).
+     *
+     * <p>VerseExplanation.approvedFromAiAsset과 대칭. 같은 본문에 여러 클립이 존재할 수 있고
+     * 사용자 조회는 최신 APPROVED를 고르므로 active_unique_key는 두지 않는다.
+     */
+    public static SimulatorClip approvedFromAiAsset(
+            Long qtPassageId,
+            String title,
+            SimulatorComponentLibraryVersion componentLibraryVersion,
+            String sceneScriptJson,
+            Long aiAssetId,
+            LocalDateTime approvedAt) {
+        SimulatorClip clip = new SimulatorClip();
+        clip.qtPassageId = qtPassageId;
+        clip.title = title;
+        clip.componentLibraryVersion = componentLibraryVersion;
+        clip.sceneScriptJson = sceneScriptJson;
+        clip.aiAssetId = aiAssetId;
+        clip.status = SimulatorClipStatus.APPROVED;
+        clip.approvedAt = approvedAt;
+        return clip;
+    }
+
+    /** 승인 노출본을 숨긴다(긴급 차단·재검토). APPROVED → HIDDEN. */
+    public void hide() {
+        this.status = SimulatorClipStatus.HIDDEN;
+    }
 }

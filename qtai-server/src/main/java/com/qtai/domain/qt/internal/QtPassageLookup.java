@@ -53,8 +53,10 @@ class QtPassageLookup {
      *
      * @return 공용 캐시 응답 (draftNoteId=null)
      */
+    // 캐시 키는 주입 Clock 빈(@clock = Asia/Seoul)으로 오늘 날짜를 산출한다(P2). 기존엔 SpEL이
+    // 시스템 시계를 직접 호출해 메서드가 쓰는 주입 Clock과 어긋날 수 있었다(테스트·시간대 일관성).
     @Cacheable(cacheNames = "todayQt",
-            key = "T(java.time.LocalDate).now(T(java.time.ZoneId).of('Asia/Seoul')).toString()",
+            key = "T(java.time.LocalDate).now(@clock).toString()",
             unless = "!#result.cacheStatus().equals('HIT')")
     public TodayQtResponse findTodayPassage() {
         ZonedDateTime nowKst = ZonedDateTime.now(clock).withZoneSameInstant(KST);
@@ -80,8 +82,8 @@ class QtPassageLookup {
                 passage.getId(),
                 passage.getQtDate().toString(),
                 passage.getTitle(),
-                "MISSING",    // simulatorStatus: 시뮬레이터 도메인 연동 전 기본값
-                false,        // hasExplanation: AI 해설 도메인 연동 전 기본값
+                "MISSING",    // simulatorStatus 기본값 — QtService가 캐시 밖에서 study 가용성으로 enrich
+                false,        // hasExplanation 기본값 — QtService가 캐시 밖에서 study 가용성으로 enrich
                 null,         // draftNoteId: QtService에서 enrich
                 cacheStatus,
                 rangeResolver.resolve(passage)
@@ -93,6 +95,7 @@ class QtPassageLookup {
     }
 
     private TodayQtResponse emptyResponse(String cacheStatus) {
-        return new TodayQtResponse(null, null, null, "DISABLED", false, null, cacheStatus);
+        // DISABLED는 '운영자 비활성' 의미 — 본문 부재는 콘텐츠 없음(MISSING)으로 표현한다
+        return new TodayQtResponse(null, null, null, "MISSING", false, null, cacheStatus);
     }
 }

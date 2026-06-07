@@ -2,12 +2,19 @@ import 'package:dio/dio.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import '../../../core/storage/secure_storage.dart';
+import 'kakao_auth_client.dart';
 
 /// 인증 관련 API 호출 및 토큰 관리.
+///
+/// 카카오 SDK 호출은 [KakaoAuthClient] 포트를 통한다 —
+/// 싱글톤(UserApi.instance) 직접 의존을 끊어 단위 테스트를 가능하게 한다.
 class AuthRepository {
   final Dio _dio;
+  final KakaoAuthClient _kakao;
 
-  AuthRepository({required Dio dio}) : _dio = dio;
+  AuthRepository({required Dio dio, KakaoAuthClient? kakaoAuthClient})
+      : _dio = dio,
+        _kakao = kakaoAuthClient ?? SdkKakaoAuthClient();
 
   /// 카카오 로그인 → 서버 JWT 발급.
   ///
@@ -17,17 +24,23 @@ class AuthRepository {
   /// 4. SecureStorage에 저장
   Future<LoginResult> loginWithKakao() async {
     // 1) 카카오 로그인
-    OAuthToken kakaoToken;
-    if (await isKakaoTalkInstalled()) {
-      kakaoToken = await UserApi.instance.loginWithKakaoTalk();
+    // 탈퇴 직후 첫 로그인은 Prompt.login으로 카카오 계정 재인증(이메일/비번 입력)을
+    // 강제한다 — '완전히 새로 가입하는' 경험 제공 (2026-06-05 Lead 결정).
+    final forceRelogin = await SecureStorage.getForceKakaoRelogin();
+    String kakaoAccessToken;
+    if (forceRelogin) {
+      kakaoAccessToken =
+          await _kakao.loginWithKakaoAccount(prompts: [Prompt.login]);
+    } else if (await _kakao.isKakaoTalkAvailable()) {
+      kakaoAccessToken = await _kakao.loginWithKakaoTalk();
     } else {
-      kakaoToken = await UserApi.instance.loginWithKakaoAccount();
+      kakaoAccessToken = await _kakao.loginWithKakaoAccount();
     }
 
     // 2) 서버에 카카오 토큰 전달 → JWT 발급
     final response = await _dio.post(
       '/auth/kakao',
-      data: {'kakaoAccessToken': kakaoToken.accessToken},
+      data: {'kakaoAccessToken': kakaoAccessToken},
     );
 
     final data = response.data['data'] as Map<String, dynamic>;
@@ -37,9 +50,10 @@ class AuthRepository {
     final member = data['member'] as Map<String, dynamic>?;
     final isNewMember = member?['onboardingRequired'] as bool? ?? false;
 
-    // 3) 토큰 저장
+    // 3) 토큰 저장 + 재인증 강제 플래그 해제(1회성)
     await SecureStorage.setAccessToken(accessToken);
     await SecureStorage.setRefreshToken(refreshToken);
+    await SecureStorage.clearForceKakaoRelogin();
 
     return LoginResult(
       accessToken: accessToken,
@@ -48,29 +62,46 @@ class AuthRepository {
     );
   }
 
-  /// 로그아웃 — 로컬 토큰 우선 삭제 후 서버/카카오 폐기.
+  /// 로그아웃 — 서버 폐기를 먼저 시도하고, 어떤 경우에도 로컬 토큰을 삭제한다.
   ///
-  /// SecureStorage를 먼저 삭제하여 서버/카카오 호출 실패 시에도
-  /// 로컬 인증 상태가 반드시 초기화되도록 한다.
+  /// 서버 `/auth/logout`은 인터셉터가 SecureStorage의 access token을 헤더에
+  /// 붙여 호출하므로, 로컬 토큰 삭제보다 먼저 호출해야 Redis refresh token이
+  /// 정상 폐기된다 (기존: 토큰을 먼저 지워 무인증 호출 → 서버 폐기 실패 버그).
+  /// 서버/카카오 호출이 실패해도 finally에서 로컬 토큰은 반드시 삭제한다.
   Future<void> logout() async {
-    // 1) 로컬 토큰 우선 삭제 (부분 실패 시에도 로그아웃 보장)
-    final refreshToken = await SecureStorage.getRefreshToken();
-    await SecureStorage.clearTokens();
-
-    // 2) 서버 Refresh Token 폐기 (Redis 삭제)
     try {
-      if (refreshToken != null && refreshToken.isNotEmpty) {
-        await _dio.post('/auth/logout');
+      // 1) 서버 Refresh Token 폐기 (Redis 삭제) — 토큰이 살아있는 상태에서 호출
+      await _dio.post('/auth/logout');
+    } catch (_) {
+      // 서버 호출 실패해도 로컬 정리는 계속 진행
+    } finally {
+      // 2) 카카오 SDK 로그아웃 (세션 종료 — 연결은 유지)
+      try {
+        await _kakao.logout();
+      } catch (_) {
+        // 카카오 로그아웃 실패해도 무시
       }
-    } catch (_) {
-      // 서버 호출 실패해도 로컬 토큰은 이미 삭제됨
+      // 3) 로컬 토큰 삭제 — 어떤 경우에도 로컬 인증 상태 초기화 보장
+      await SecureStorage.clearTokens();
     }
+  }
 
-    // 3) 카카오 SDK 로그아웃
+  /// 회원 탈퇴 후 로컬 정리 — 카카오 연결끊기(unlink) + 로컬 토큰 삭제.
+  ///
+  /// 서버 탈퇴(DELETE /me)가 성공한 뒤 호출한다.
+  /// unlink는 카카오 계정에서 QT-AI 앱 연결 자체를 해제하므로,
+  /// 재로그인 시 동의화면부터 다시 시작한다 (탈퇴 후에도 카카오에
+  /// 내 정보가 자동으로 뜨는 현상 방지). unlink 실패는 무시하고
+  /// 로컬 토큰은 반드시 삭제한다.
+  Future<void> cleanupAfterWithdraw() async {
     try {
-      await UserApi.instance.logout();
+      await _kakao.unlink();
     } catch (_) {
-      // 카카오 로그아웃 실패해도 무시
+      // 카카오 연결끊기 실패해도 로컬 정리는 계속 진행
+    } finally {
+      await SecureStorage.clearTokens();
+      // 다음 로그인 1회는 카카오 계정 재인증(이메일/비번 입력)부터 시작
+      await SecureStorage.setForceKakaoRelogin();
     }
   }
 

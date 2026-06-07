@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../bible/providers/bible_providers.dart';
 import '../providers/tts_providers.dart';
 
@@ -69,6 +72,7 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
   /// 반환: (낭독 텍스트, 캐시 범위 표시) — 읽을 내용이 없으면 텍스트가 빈 문자열.
   /// 둘 다 켜져 있으면 본문 → [2초] 묵음 → 해설 순서로 읽는다.
   Future<(String, String)> _composeText({required bool autoPlay}) async {
+    final l = AppLocalizations.of(context);
     final readBible = ref.read(ttsReadBibleProvider);
     final readExplanation = ref.read(ttsReadExplanationProvider);
 
@@ -82,7 +86,7 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
 
     if (readExplanation) {
       if (widget.qtPassageId == null) {
-        if (autoPlay && parts.isEmpty) _showMessage('오늘 QT의 해설 정보가 없습니다');
+        if (autoPlay && parts.isEmpty) _showMessage(l.ttsNoExplanationInfo);
       } else {
         try {
           final content = await ref
@@ -94,15 +98,15 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
             scope += 'e';
           } else if (autoPlay) {
             _showMessage(parts.isEmpty
-                ? '아직 준비된 해설이 없습니다'
-                : '해설이 아직 없어 본문만 읽습니다');
+                ? l.ttsNoExplanationReady
+                : l.ttsOnlyBodyNoExplanation);
           }
         } catch (_) {
           // 해설 조회 실패 — 본문만이라도 읽고, 해설 전용이면 안내
           if (autoPlay) {
             _showMessage(parts.isEmpty
-                ? '해설을 불러오지 못했습니다'
-                : '해설을 불러오지 못해 본문만 읽습니다');
+                ? l.ttsExplanationLoadFailed
+                : l.ttsOnlyBodyExplanationFailed);
           }
         }
       }
@@ -121,12 +125,13 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
   /// 음성을 생성(또는 캐시에서 로드)해 플레이어에 세팅한다.
   /// [autoPlay]가 true면 준비 완료 후 바로 재생한다.
   Future<void> _prepareAudio({bool autoPlay = false}) async {
+    final l = AppLocalizations.of(context);
     final repo = ref.read(ttsRepositoryProvider);
     final voice = ref.read(selectedVoiceProvider);
     final token = ref.read(ttsTokenProvider);
 
     if (token.isEmpty) {
-      if (autoPlay) _showMessage('TTS 토큰이 설정되지 않았습니다');
+      if (autoPlay) _showMessage(l.ttsTokenMissing);
       return;
     }
     if (_isGenerating) return;
@@ -136,7 +141,7 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
     try {
       final (text, scope) = await _composeText(autoPlay: autoPlay);
       if (text.isEmpty) {
-        if (autoPlay) _showMessage('설정에서 읽을 항목(본문/주석)을 켜 주세요');
+        if (autoPlay) _showMessage(l.ttsTurnOnReadItems);
         return;
       }
 
@@ -151,10 +156,15 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
       );
 
       if (!mounted) return;
-      await _player.setFilePath(audioPath);
+      // 웹은 파일 경로가 없어 data URI(setUrl), 기기는 파일 경로(setFilePath)로 로드.
+      if (kIsWeb) {
+        await _player.setUrl(audioPath);
+      } else {
+        await _player.setFilePath(audioPath);
+      }
       if (autoPlay) await _player.play();
     } catch (_) {
-      if (mounted && autoPlay) _showMessage('음성을 준비하지 못했습니다');
+      if (mounted && autoPlay) _showMessage(l.ttsPrepareFailed);
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
@@ -181,6 +191,7 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     // 설정(목소리/읽기 범위)이 바뀌면 음성을 다시 준비한다.
     ref.listen<String>(selectedVoiceProvider, (prev, next) {
@@ -215,7 +226,7 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
 
     final playing = _player.playing;
     return IconButton(
-      tooltip: playing ? '읽기 정지' : '본문 읽기',
+      tooltip: playing ? l.ttsStop : l.ttsRead,
       onPressed: _onTap,
       icon: ImageIcon(
         const AssetImage('assets/icons/tts_voice.png'),

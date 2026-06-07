@@ -34,6 +34,7 @@ class CommentServiceTest {
     private CommentRepository commentRepository;
     private SharingPostRepository sharingPostRepository;
     private GetMemberUseCase getMemberUseCase;
+    private com.qtai.domain.notification.api.SendNotificationUseCase sendNotificationUseCase;
     private CommentService commentService;
 
     @BeforeEach
@@ -41,18 +42,19 @@ class CommentServiceTest {
         commentRepository = mock(CommentRepository.class);
         sharingPostRepository = mock(SharingPostRepository.class);
         getMemberUseCase = mock(GetMemberUseCase.class);
-        commentService = new CommentService(commentRepository, sharingPostRepository, getMemberUseCase);
+        sendNotificationUseCase = mock(com.qtai.domain.notification.api.SendNotificationUseCase.class);
+        commentService = new CommentService(
+                commentRepository, sharingPostRepository, getMemberUseCase, sendNotificationUseCase);
     }
 
     @Test
-    @DisplayName("작성 정상: 저장 + commentCount 재계산 + 현재 닉네임 + ownedByMe=true")
+    @DisplayName("작성 정상: 저장 + commentCount 원자 동기화 + 현재 닉네임 + ownedByMe=true")
     void create_savesAndSyncsCount() {
         SharingPost post = post(1L, true, 0);
         when(sharingPostRepository.findByIdAndStatus(1L, SharingPostStatus.PUBLISHED))
                 .thenReturn(Optional.of(post));
         when(commentRepository.save(any(Comment.class)))
                 .thenReturn(comment(410L, 1L, 10L, "좋은 묵상이네요", false));
-        when(commentRepository.countBySharingPostIdAndIsDeletedFalse(1L)).thenReturn(1L);
         when(getMemberUseCase.getMemberPublic(10L)).thenReturn(new MemberPublicResponse(10L, "하늘QT", null));
 
         CommentResponse response = commentService.create(10L, 1L, new CommentCreateRequest("좋은 묵상이네요"));
@@ -61,8 +63,9 @@ class CommentServiceTest {
         assertThat(response.nickname()).isEqualTo("하늘QT");
         assertThat(response.body()).isEqualTo("좋은 묵상이네요");
         assertThat(response.ownedByMe()).isTrue();
-        assertThat(post.getCommentCount()).isEqualTo(1); // 0 → 1로 동기화
         verify(commentRepository).save(any(Comment.class));
+        // P1-2: dirty-checking 대신 원자 UPDATE로 카운터 동기화
+        verify(sharingPostRepository).syncCommentCount(1L);
     }
 
     @Test
@@ -95,14 +98,16 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("목록: 살아있는 댓글을 현재 닉네임·ownedByMe와 함께 매핑한다")
+    @DisplayName("목록: 살아있는 댓글을 현재 닉네임·ownedByMe와 함께 매핑한다 (작성자 일괄 조회 1회)")
     void list_mapsComments() {
         Comment mine = comment(1L, 1L, 10L, "내 댓글", false);
         Comment others = comment(2L, 1L, 11L, "남 댓글", false);
         when(commentRepository.findBySharingPostIdAndIsDeletedFalseOrderByCreatedAtAsc(eq(1L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(mine, others), PageRequest.of(0, 20), 2L));
-        when(getMemberUseCase.getMemberPublic(10L)).thenReturn(new MemberPublicResponse(10L, "하늘QT", null));
-        when(getMemberUseCase.getMemberPublic(11L)).thenReturn(new MemberPublicResponse(11L, "은혜QT", null));
+        when(getMemberUseCase.getActivePublicProfiles(any()))
+                .thenReturn(List.of(
+                        new MemberPublicResponse(10L, "하늘QT", null),
+                        new MemberPublicResponse(11L, "은혜QT", null)));
 
         CommentListResponse response = commentService.list(10L, 1L, PageRequest.of(0, 20));
 
@@ -110,21 +115,40 @@ class CommentServiceTest {
         assertThat(response.content().get(0).nickname()).isEqualTo("하늘QT");
         assertThat(response.content().get(0).ownedByMe()).isTrue();  // 작성자 10 == 조회자 10
         assertThat(response.content().get(1).ownedByMe()).isFalse(); // 작성자 11 != 10
+        // N+1 회귀 방지 — 단건 공개 프로필 조회는 더 이상 사용하지 않는다
+        verify(getMemberUseCase, never()).getMemberPublic(anyLong());
     }
 
     @Test
-    @DisplayName("삭제 정상: 본인 댓글이면 soft delete + commentCount 재계산")
+    @DisplayName("목록: 탈퇴 회원 댓글이 있어도 404 없이 '(탈퇴한 회원)'으로 폴백한다 (회귀 방지)")
+    void list_withdrawnAuthorFallsBackInsteadOf404() {
+        Comment active = comment(1L, 1L, 10L, "활성 회원 댓글", false);
+        Comment withdrawn = comment(2L, 1L, 99L, "탈퇴 회원 댓글", false);
+        when(commentRepository.findBySharingPostIdAndIsDeletedFalseOrderByCreatedAtAsc(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(active, withdrawn), PageRequest.of(0, 20), 2L));
+        // 일괄 조회 계약: 탈퇴 회원(99)은 결과에서 제외되어 돌아온다 — 예외가 아니라 누락
+        when(getMemberUseCase.getActivePublicProfiles(any()))
+                .thenReturn(List.of(new MemberPublicResponse(10L, "하늘QT", null)));
+
+        CommentListResponse response = commentService.list(10L, 1L, PageRequest.of(0, 20));
+
+        assertThat(response.content()).hasSize(2);
+        assertThat(response.content().get(0).nickname()).isEqualTo("하늘QT");
+        assertThat(response.content().get(1).nickname())
+                .isEqualTo(CommentService.WITHDRAWN_MEMBER_NICKNAME);
+    }
+
+    @Test
+    @DisplayName("삭제 정상: 본인 댓글이면 soft delete + commentCount 원자 동기화")
     void delete_ownSoftDeletes() {
         Comment comment = comment(410L, 1L, 10L, "지울 댓글", false);
         when(commentRepository.findById(410L)).thenReturn(Optional.of(comment));
-        when(commentRepository.countBySharingPostIdAndIsDeletedFalse(1L)).thenReturn(2L);
-        SharingPost post = post(1L, true, 3);
-        when(sharingPostRepository.findById(1L)).thenReturn(Optional.of(post));
 
         commentService.delete(10L, 410L);
 
         assertThat(comment.isDeleted()).isTrue();          // 소프트 삭제됨
-        assertThat(post.getCommentCount()).isEqualTo(2);   // 3 → 2로 재계산
+        // P1-2: 원자 UPDATE로 카운터 동기화 (findById→dirty checking 패턴 제거)
+        verify(sharingPostRepository).syncCommentCount(1L);
     }
 
     @Test
@@ -161,8 +185,8 @@ class CommentServiceTest {
 
         commentService.delete(10L, 410L); // 예외 없음
 
-        verify(commentRepository, never()).countBySharingPostIdAndIsDeletedFalse(anyLong());
-        verify(sharingPostRepository, never()).findById(anyLong());
+        // 이미 삭제된 댓글은 카운터 동기화도 하지 않는다(멱등)
+        verify(sharingPostRepository, never()).syncCommentCount(anyLong());
     }
 
     // ─────────────────────────────────────────────────────

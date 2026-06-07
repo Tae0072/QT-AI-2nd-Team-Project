@@ -14,6 +14,39 @@ void main() {
   });
 
   group('ErrorInterceptor', () {
+    test('2xx인데 success=false면 ApiError로 변환해 에러로 던진다 (P1-12 Null cast 방지)', () async {
+      dioAdapter.onGet(
+        '/test',
+        (server) => server.reply(200, {
+          'success': false,
+          'data': null,
+          'error': {'code': 'C0002', 'message': '잘못된 요청'},
+          'traceId': 'trace-2xx',
+        }),
+      );
+
+      try {
+        await dio.get('/test');
+        fail('Should have thrown');
+      } on DioException catch (e) {
+        expect(e.error, isA<ApiError>());
+        final apiError = e.error as ApiError;
+        expect(apiError.code, 'C0002');
+        expect(apiError.traceId, 'trace-2xx');
+      }
+    });
+
+    test('2xx success=true는 정상 통과한다', () async {
+      dioAdapter.onGet(
+        '/test',
+        (server) => server.reply(200, {'success': true, 'data': {'ok': 1}}),
+      );
+
+      final res = await dio.get('/test');
+      expect(res.statusCode, 200);
+      expect((res.data as Map)['success'], true);
+    });
+
     test('표준 에러 envelope — ApiError로 변환', () async {
       dioAdapter.onGet(
         '/test',

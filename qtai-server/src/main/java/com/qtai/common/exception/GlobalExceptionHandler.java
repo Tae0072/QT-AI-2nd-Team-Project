@@ -1,12 +1,18 @@
 package com.qtai.common.exception;
 
 import com.qtai.common.dto.ApiResponse;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
@@ -72,8 +78,76 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 동시 요청으로 인한 DB 제약(UNIQUE 등) 위반 — 409 Conflict.
+     *
+     * <p>여러 서비스가 {@code existsBy} 사전검사 후 INSERT하는 패턴이라, 더블탭·재시도 시
+     * 사전검사를 통과한 두 요청이 동시에 INSERT하면 UNIQUE 위반이 발생한다. 이를 잡지 않으면
+     * 도메인 의도(중복=409)와 달리 500이 누출된다. 도메인별 세부 코드(S0003 등)로 더 정교하게
+     * 변환하고 싶으면 각 서비스에서 먼저 catch하고, 여기로 도달한 건은 공통 충돌로 처리한다.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+        log.warn("DataIntegrityViolation(동시성 또는 제약 위반): {}", e.getMostSpecificCause().getMessage());
+        ErrorCode code = ErrorCode.INVALID_STATUS_TRANSITION; // C0003 / 409
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(code.getCode(), "이미 처리되었거나 중복된 요청입니다."));
+    }
+
+    /**
+     * 읽을 수 없는 요청 본문(잘못된 JSON 등) — 400. 기본 처리(500) 방지.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotReadable(HttpMessageNotReadableException e) {
+        log.warn("HttpMessageNotReadable: {}", e.getMostSpecificCause().getMessage());
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.error(ErrorCode.INVALID_INPUT.getCode(), "요청 본문을 해석할 수 없습니다."));
+    }
+
+    /**
+     * {@code @RequestParam}/{@code @PathVariable} 등의 제약 위반 — 400. 기본 처리(500) 방지.
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(ConstraintViolationException e) {
+        String message = e.getConstraintViolations().stream()
+                .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("유효성 검증 실패");
+        log.warn("ConstraintViolation: {}", message);
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.error(ErrorCode.INVALID_INPUT.getCode(), message));
+    }
+
+    /**
+     * 메서드 보안({@code @PreAuthorize}) 거부 — 403. 기본 처리(500) 방지.
+     * (SecurityFilterChain의 accessDeniedHandler는 필터 레벨만 담당)
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException e) {
+        log.warn("AccessDenied: {}", e.getMessage());
+        ErrorCode code = ErrorCode.FORBIDDEN;
+        return ResponseEntity
+                .status(code.getHttpStatus())
+                .body(ApiResponse.error(code.getCode(), code.getMessage()));
+    }
+
+    /**
+     * 존재하지 않는 경로 — 404. (DispatcherServlet의 throw-exception-if-no-handler 설정 시)
+     * 기본 처리(500) 방지.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResource(NoResourceFoundException e) {
+        log.warn("NoResourceFound: {}", e.getResourcePath());
+        ErrorCode code = ErrorCode.RESOURCE_NOT_FOUND;
+        return ResponseEntity
+                .status(code.getHttpStatus())
+                .body(ApiResponse.error(code.getCode(), code.getMessage()));
+    }
+
+    /**
      * 최후 안전망 — 위 핸들러에 매칭되지 않는 모든 예외를 500으로 처리.
-     * IOException, AccessDeniedException 등 빈번한 예외는 추후 명시적 핸들러로 분리 예정.
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnexpected(Exception e) {

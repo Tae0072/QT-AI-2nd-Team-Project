@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
@@ -89,6 +90,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
 
   /// 저장 처리. status = 'SAVED'(저장) | 'DRAFT'(임시저장).
   Future<void> _save(String status) async {
+    final l = AppLocalizations.of(context);
     final title = _titleController.text.trim();
     final body = _bodyController.text.trim();
 
@@ -96,11 +98,11 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     // 저장(SAVED)은 04 명세상 본문이 필수라 비면 막는다.
     // 임시저장(DRAFT)은 작성 중 보관이 목적이라, 제목·본문 둘 다 빈 경우만 막는다.
     if (status == 'SAVED' && body.isEmpty) {
-      _showMessage('본문을 입력해 주세요');
+      _showMessage(l.noteEditBodyRequired);
       return;
     }
     if (status == 'DRAFT' && title.isEmpty && body.isEmpty) {
-      _showMessage('제목이나 본문을 입력해 주세요');
+      _showMessage(l.noteEditTitleOrBodyRequired);
       return;
     }
 
@@ -133,12 +135,12 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
           (route) => route.settings.name == AppRouter.noteList || route.isFirst,
         );
       }
-      _showMessage(status == 'SAVED' ? '저장되었습니다' : '임시저장되었습니다');
+      _showMessage(status == 'SAVED' ? l.noteSaved : l.noteDraftSaved);
     } catch (e) {
       // ✏️ 실패 시 저장되지 않았음을 명확히 알리고 화면은 유지(재시도 가능).
       if (!mounted) return;
       setState(() => _saving = false);
-      _showMessage('저장에 실패했습니다. 다시 시도해 주세요');
+      _showMessage(l.noteSaveFailed);
     }
   }
 
@@ -149,28 +151,29 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final category = _args.category ?? 'PRAYER';
-    final modeLabel = _args.isEdit ? '수정' : '작성';
+    final modeLabel = _args.isEdit ? l.commonEdit : l.noteModeWrite;
 
     // ✏️ 편집모드에서 기존 노트를 불러오는 동안/실패 시 폼 대신 상태 화면을 보여준다.
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: Text('노트 $modeLabel'), centerTitle: true),
+        appBar: AppBar(title: Text('${l.noteListTitle} $modeLabel'), centerTitle: true),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     if (_loadError) {
       return Scaffold(
-        appBar: AppBar(title: Text('노트 $modeLabel'), centerTitle: true),
+        appBar: AppBar(title: Text('${l.noteListTitle} $modeLabel'), centerTitle: true),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('노트를 불러오지 못했습니다'),
+              Text(l.noteLoadFailed),
               const SizedBox(height: 8),
               OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('뒤로'),
+                child: Text(l.commonBack),
               ),
             ],
           ),
@@ -180,7 +183,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${noteCategoryLabel(category)} 노트 $modeLabel'),
+        title: Text('${noteCategoryLabel(category)} ${l.noteListTitle} $modeLabel'),
         centerTitle: true,
       ),
       body: AbsorbPointer(
@@ -192,9 +195,9 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
             children: [
               TextField(
                 controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: '제목 (선택)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.noteEditTitleLabel,
+                  border: const OutlineInputBorder(),
                 ),
                 textInputAction: TextInputAction.next,
               ),
@@ -205,10 +208,10 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
               Expanded(
                 child: TextField(
                   controller: _bodyController,
-                  decoration: const InputDecoration(
-                    labelText: '본문',
+                  decoration: InputDecoration(
+                    labelText: l.noteEditBodyLabel,
                     alignLabelWithHint: true,
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                   maxLines: null, // 여러 줄 입력
                   expands: true,
@@ -221,7 +224,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: _saving ? null : () => _save('DRAFT'),
-                      child: const Text('임시저장'),
+                      child: Text(l.noteDraft),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -234,7 +237,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
                               width: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('저장'),
+                          : Text(l.commonSave),
                     ),
                   ),
                 ],

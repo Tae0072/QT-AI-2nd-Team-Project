@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/config/app_config.dart';
+import 'core/dev/web_dev_access.dart'; // [WEB_DEV_ACCESS] 개발 종료 시 삭제
 import 'core/theme/app_theme.dart';
 import 'features/auth/providers/auth_providers.dart';
 import 'features/onboarding/providers/onboarding_providers.dart';
@@ -38,7 +40,9 @@ class QTAIApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final onboardingComplete = ref.watch(onboardingCompleteProvider);
     final authStatus = ref.watch(authStatusProvider);
-    final forceHome = AppConfig.instance.isDev && _devForceHome;
+    // [WEB_DEV_ACCESS] 웹 개발용 로그인 우회 (개발 종료 시 이 두 줄과 web_dev_access.dart 삭제)
+    final webBypass = webDevNoLogin;
+    final forceHome = (AppConfig.instance.isDev && _devForceHome) || webBypass;
 
     // 인증 상태 확인 중이면 스플래시(로딩) 표시
     if (authStatus == AuthStatus.unknown && !forceHome) {
@@ -46,6 +50,9 @@ class QTAIApp extends ConsumerWidget {
         title: 'QT AI',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           backgroundColor: AppTheme.bgSunken,
           body: Center(
@@ -67,8 +74,12 @@ class QTAIApp extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text('매일, 말씀 앞에 머무는 시간',
-                    style: TextStyle(fontSize: 17, color: AppTheme.textMuted)),
+                Builder(
+                  builder: (context) => Text(
+                    AppLocalizations.of(context).splashSubtitle,
+                    style: const TextStyle(fontSize: 17, color: AppTheme.textMuted),
+                  ),
+                ),
               ],
             ),
           ),
@@ -81,7 +92,7 @@ class QTAIApp extends ConsumerWidget {
       onboardingComplete: onboardingComplete,
       authStatus: authStatus,
       isDev: AppConfig.instance.isDev,
-      devForceHome: _devForceHome,
+      devForceHome: _devForceHome || webBypass, // [WEB_DEV_ACCESS]
     );
 
     return MaterialApp(
@@ -90,7 +101,16 @@ class QTAIApp extends ConsumerWidget {
       title: 'QT AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('ko'),
       initialRoute: initialRoute,
+      // 초기 스택을 단일 라우트로 생성한다.
+      // 기본 동작은 '/home' → ['/', '/home'] 2단 스택을 만들어 루트 탭 화면에도
+      // 뒤로가기(←)가 떠버린다. 루트 라우트 하나만 두어 canPop()=false로 만들고,
+      // 마이페이지→설정 등 push된 하위 화면에서만 ←가 동작하게 한다.
+      onGenerateInitialRoutes: (name) =>
+          [AppRouter.onGenerateRoute(RouteSettings(name: name))],
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }

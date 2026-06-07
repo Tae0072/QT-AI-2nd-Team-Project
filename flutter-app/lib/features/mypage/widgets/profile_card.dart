@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../models/dashboard_response.dart';
 
 /// 대시보드 상단 프로필 카드.
@@ -21,6 +22,7 @@ class ProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Card(
       child: InkWell(
@@ -52,7 +54,7 @@ class ProfileCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '프로필 보기',
+                      l.mypageViewProfile,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.outline,
                       ),

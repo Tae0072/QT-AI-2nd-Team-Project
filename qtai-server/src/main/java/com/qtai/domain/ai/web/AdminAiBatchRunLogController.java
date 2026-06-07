@@ -19,9 +19,14 @@ import com.qtai.domain.ai.api.admin.monitoring.dto.ListAdminAiBatchRunLogsQuery;
 public class AdminAiBatchRunLogController {
 
     private final ListAdminAiBatchRunLogsUseCase listUseCase;
+    private final AdminAiAuthentication adminAiAuthentication;
 
-    public AdminAiBatchRunLogController(ListAdminAiBatchRunLogsUseCase listUseCase) {
+    public AdminAiBatchRunLogController(
+            ListAdminAiBatchRunLogsUseCase listUseCase,
+            AdminAiAuthentication adminAiAuthentication
+    ) {
         this.listUseCase = listUseCase;
+        this.adminAiAuthentication = adminAiAuthentication;
     }
 
     @GetMapping
@@ -34,7 +39,7 @@ public class AdminAiBatchRunLogController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        AdminAiAuthentication adminAuthentication = AdminAiAuthentication.requireMonitoring(authentication);
+        AdminAiAuthentication.AdminAiPrincipal adminAuthentication = adminAiAuthentication.requireMonitoring(authentication);
         AdminAiBatchRunLogListResponse response = listUseCase.listAdminAiBatchRunLogs(
                 new ListAdminAiBatchRunLogsQuery(
                         adminAuthentication.adminId(),

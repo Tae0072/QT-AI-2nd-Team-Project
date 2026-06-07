@@ -217,4 +217,133 @@ class AdminServiceTest {
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
                         .isEqualTo(ErrorCode.ADMIN_ROLE_INSUFFICIENT));
     }
+
+    // ─── verifyAnyRole ──────────────────────────────
+
+    @Test
+    @DisplayName("verifyAnyRole: 허용 목록 중 하나(REVIEWER)와 일치하면 통과")
+    void verifyAnyRole_허용_목록_중_하나와_일치하면_통과() {
+        // given
+        Long memberId = 11L;
+        AdminUser reviewer = createActiveAdmin(memberId, AdminRole.REVIEWER);
+        when(adminUserRepository.findByMemberId(memberId)).thenReturn(Optional.of(reviewer));
+
+        // when
+        AdminUserInfo result = adminService.verifyAnyRole(
+                memberId, java.util.List.of("OPERATOR", "REVIEWER"));
+
+        // then
+        assertThat(result.adminRole()).isEqualTo("REVIEWER");
+        assertThat(result.memberId()).isEqualTo(memberId);
+    }
+
+    @Test
+    @DisplayName("verifyAnyRole: SUPER_ADMIN은 목록에 없어도 우월권으로 통과")
+    void verifyAnyRole_SUPER_ADMIN은_목록에_없어도_통과() {
+        // given
+        Long memberId = 12L;
+        AdminUser superAdmin = createActiveAdmin(memberId, AdminRole.SUPER_ADMIN);
+        when(adminUserRepository.findByMemberId(memberId)).thenReturn(Optional.of(superAdmin));
+
+        // when
+        AdminUserInfo result = adminService.verifyAnyRole(
+                memberId, java.util.List.of("OPERATOR", "REVIEWER"));
+
+        // then
+        assertThat(result.adminRole()).isEqualTo("SUPER_ADMIN");
+    }
+
+    @Test
+    @DisplayName("verifyAnyRole: 빈 목록이어도 SUPER_ADMIN은 우월권으로 통과 (계약)")
+    void verifyAnyRole_빈_목록이어도_SUPER_ADMIN은_통과() {
+        // given
+        Long memberId = 15L;
+        AdminUser superAdmin = createActiveAdmin(memberId, AdminRole.SUPER_ADMIN);
+        when(adminUserRepository.findByMemberId(memberId)).thenReturn(Optional.of(superAdmin));
+
+        // when: requiredRoles가 비어 있어도
+        AdminUserInfo result = adminService.verifyAnyRole(memberId, java.util.List.of());
+
+        // then: SUPER_ADMIN 우월권으로 통과 (인터페이스 계약)
+        assertThat(result.adminRole()).isEqualTo("SUPER_ADMIN");
+    }
+
+    @Test
+    @DisplayName("verifyAnyRole: 무효 역할 문자열만 있어도 SUPER_ADMIN은 통과 (계약)")
+    void verifyAnyRole_무효_문자열만_있어도_SUPER_ADMIN은_통과() {
+        // given
+        Long memberId = 16L;
+        AdminUser superAdmin = createActiveAdmin(memberId, AdminRole.SUPER_ADMIN);
+        when(adminUserRepository.findByMemberId(memberId)).thenReturn(Optional.of(superAdmin));
+
+        // when: 알 수 없는 역할 문자열만 전달돼도
+        AdminUserInfo result = adminService.verifyAnyRole(
+                memberId, java.util.List.of("UNKNOWN_ROLE", "TYPO"));
+
+        // then: SUPER_ADMIN 우월권으로 통과
+        assertThat(result.adminRole()).isEqualTo("SUPER_ADMIN");
+    }
+
+    @Test
+    @DisplayName("verifyAnyRole: 목록 불일치(CONTENT_CREATOR)는 ADMIN_ROLE_INSUFFICIENT")
+    void verifyAnyRole_목록_불일치는_ADMIN_ROLE_INSUFFICIENT() {
+        // given
+        Long memberId = 13L;
+        AdminUser contentCreator = createActiveAdmin(memberId, AdminRole.CONTENT_CREATOR);
+        when(adminUserRepository.findByMemberId(memberId)).thenReturn(Optional.of(contentCreator));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.verifyAnyRole(
+                memberId, java.util.List.of("OPERATOR", "REVIEWER")))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.ADMIN_ROLE_INSUFFICIENT));
+    }
+
+    @Test
+    @DisplayName("verifyAnyRole: 빈 목록은 ADMIN_ROLE_INSUFFICIENT (SUPER_ADMIN 제외)")
+    void verifyAnyRole_빈_목록은_ADMIN_ROLE_INSUFFICIENT() {
+        // given
+        Long memberId = 14L;
+        AdminUser operator = createActiveAdmin(memberId, AdminRole.OPERATOR);
+        when(adminUserRepository.findByMemberId(memberId)).thenReturn(Optional.of(operator));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.verifyAnyRole(memberId, java.util.List.of()))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.ADMIN_ROLE_INSUFFICIENT));
+    }
+
+    @Test
+    @DisplayName("verifyAnyRole: 잘못된 역할 문자열은 건너뛰고 유효한 역할로 판정")
+    void verifyAnyRole_잘못된_역할_문자열은_건너뛴다() {
+        // given
+        Long memberId = 15L;
+        AdminUser reviewer = createActiveAdmin(memberId, AdminRole.REVIEWER);
+        when(adminUserRepository.findByMemberId(memberId)).thenReturn(Optional.of(reviewer));
+
+        // when: 잘못된 문자열이 섞여 있어도 유효한 REVIEWER 매칭으로 통과
+        AdminUserInfo result = adminService.verifyAnyRole(
+                memberId, java.util.List.of("INVALID_ROLE", "REVIEWER"));
+
+        // then
+        assertThat(result.adminRole()).isEqualTo("REVIEWER");
+    }
+
+    @Test
+    @DisplayName("verifyAnyRole: 비활성 관리자는 역할 무관 ADMIN_USER_DISABLED")
+    void verifyAnyRole_비활성_관리자는_차단() {
+        // given
+        Long memberId = 16L;
+        AdminUser disabled = createDisabledAdmin(memberId, AdminRole.SUPER_ADMIN);
+        when(adminUserRepository.findByMemberId(memberId)).thenReturn(Optional.of(disabled));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.verifyAnyRole(
+                memberId, java.util.List.of("OPERATOR")))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.ADMIN_USER_DISABLED));
+    }
 }

@@ -50,6 +50,7 @@ class SharingPostServiceTest {
     private PostLikeRepository postLikeRepository;
     private GetNoteUseCase getNoteUseCase;
     private GetMemberUseCase getMemberUseCase;
+    private com.qtai.domain.notification.api.SendNotificationUseCase sendNotificationUseCase;
     private SharingPostService sharingPostService;
     private Pageable pageable;
 
@@ -59,8 +60,10 @@ class SharingPostServiceTest {
         postLikeRepository = mock(PostLikeRepository.class);
         getNoteUseCase = mock(GetNoteUseCase.class);
         getMemberUseCase = mock(GetMemberUseCase.class);
+        sendNotificationUseCase = mock(com.qtai.domain.notification.api.SendNotificationUseCase.class);
         sharingPostService = new SharingPostService(
-                sharingPostRepository, postLikeRepository, getNoteUseCase, getMemberUseCase);
+                sharingPostRepository, postLikeRepository, getNoteUseCase, getMemberUseCase,
+                sendNotificationUseCase);
         pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishedAt"));
     }
 
@@ -418,7 +421,30 @@ class SharingPostServiceTest {
         assertThat(response.likeCount()).isEqualTo(1); // 위 countBy와 같은 값
         assertThat(response.likedByMe()).isEqualTo(true); // 방금 눌렀으니?
         verify(postLikeRepository).save(any(PostLike.class)); // 좋아요 행을 저장했나
-        assertThat(post.getLikeCount()).isEqualTo(1); // syncLikeCount로 post에도 반영됐나
+        // P1-2: dirty-checking 대신 원자 UPDATE로 카운터 동기화
+        verify(sharingPostRepository).syncLikeCount(1L);
+        // P1-13: 작성자(99)에게 LIKE 알림 발송, eventKey는 멱등용
+        var notiCaptor = ArgumentCaptor.forClass(
+                com.qtai.domain.notification.api.dto.NotificationSendRequest.class);
+        verify(sendNotificationUseCase).send(notiCaptor.capture());
+        assertThat(notiCaptor.getValue().memberId()).isEqualTo(99L); // 글 작성자
+        assertThat(notiCaptor.getValue().type()).isEqualTo("LIKE");
+        assertThat(notiCaptor.getValue().eventKey()).isEqualTo("LIKE:1:10");
+    }
+
+    @Test
+    @DisplayName("좋아요 알림: 본인 글 자추천이면 알림을 보내지 않는다 (P1-13)")
+    void like_selfLike_doesNotNotify() {
+        SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 0, 0);
+        setField(post, "memberId", 10L); // 작성자 == 좋아요 누르는 사람
+        when(sharingPostRepository.findByIdAndStatus(1L, SharingPostStatus.PUBLISHED))
+                .thenReturn(Optional.of(post));
+        when(postLikeRepository.existsBySharingPostIdAndMemberId(1L, 10L)).thenReturn(false);
+        when(postLikeRepository.countBySharingPostId(1L)).thenReturn(1L);
+
+        sharingPostService.like(10L, 1L);
+
+        verify(sendNotificationUseCase, never()).send(any());
     }
 
     @Test
@@ -452,17 +478,17 @@ class SharingPostServiceTest {
     }
 
     @Test
-    @DisplayName("좋아요 취소: deleteBy 호출 + likeCount를 실제 행 수(0)로 재계산")
+    @DisplayName("좋아요 취소: deleteBy 호출 + likeCount를 원자 UPDATE로 동기화")
     void unlike_deletesAndSyncsCount() {
         SharingPost post = sharingPost(1L, "하늘QT", "글", "PRAYER", "본문", null, 1, 0);
         when(sharingPostRepository.findByIdAndStatus(1L, SharingPostStatus.PUBLISHED))
                 .thenReturn(Optional.of(post));
-        when(postLikeRepository.countBySharingPostId(1L)).thenReturn(0L);
 
         sharingPostService.unlike(10L, 1L);
 
         verify(postLikeRepository).deleteBySharingPostIdAndMemberId(1L, 10L);
-        assertThat(post.getLikeCount()).isEqualTo(0); // 1 → 0으로 동기화
+        // P1-2: 원자 UPDATE로 카운터 동기화
+        verify(sharingPostRepository).syncLikeCount(1L);
     }
 
     @Test

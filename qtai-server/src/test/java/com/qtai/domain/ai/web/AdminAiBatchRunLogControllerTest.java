@@ -35,12 +35,17 @@ import com.qtai.domain.ai.api.admin.monitoring.dto.ListAdminAiBatchRunLogsQuery;
 class AdminAiBatchRunLogControllerTest {
 
     private ListAdminAiBatchRunLogsUseCase listUseCase;
+    private com.qtai.support.StubVerifyAdminRoleUseCase verifyAdminRoleUseCase;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         listUseCase = org.mockito.Mockito.mock(ListAdminAiBatchRunLogsUseCase.class);
-        AdminAiBatchRunLogController controller = new AdminAiBatchRunLogController(listUseCase);
+        verifyAdminRoleUseCase = new com.qtai.support.StubVerifyAdminRoleUseCase();
+        AdminAiBatchRunLogController controller = new AdminAiBatchRunLogController(
+                listUseCase,
+                new AdminAiAuthentication(verifyAdminRoleUseCase)
+        );
         ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json()
                 .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .build();
@@ -105,7 +110,8 @@ class AdminAiBatchRunLogControllerTest {
                 ArgumentCaptor.forClass(ListAdminAiBatchRunLogsQuery.class);
         verify(listUseCase).listAdminAiBatchRunLogs(queryCaptor.capture());
         ListAdminAiBatchRunLogsQuery query = queryCaptor.getValue();
-        assertThat(query.adminId()).isEqualTo(7L);
+        // DB 검증 통일 후 adminId = admin_users.id (스텁 규약: memberId + 100)
+        assertThat(query.adminId()).isEqualTo(7L + com.qtai.support.StubVerifyAdminRoleUseCase.ADMIN_USER_ID_OFFSET);
         assertThat(query.memberRole()).isEqualTo("ADMIN");
         assertThat(query.adminRole()).isEqualTo("OPERATOR");
         assertThat(query.batchName()).isEqualTo("AI_DAILY_QT_VERSE_EXPLANATION_SEED");
@@ -131,7 +137,7 @@ class AdminAiBatchRunLogControllerTest {
         mockMvc.perform(get("/api/v1/admin/ai/batch-run-logs")
                         .principal(adminPrincipal(7L, "ADMIN_ROLE_CONTENT_CREATOR")))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("M0003"));
+                .andExpect(jsonPath("$.error.code").value("AD0003"));
         mockMvc.perform(get("/api/v1/admin/ai/batch-run-logs")
                         .principal(adminPrincipal(7L, "ADMIN_ROLE_OPERATOR")))
                 .andExpect(status().isOk());
@@ -150,8 +156,12 @@ class AdminAiBatchRunLogControllerTest {
                 "createdAt,desc,id,desc");
     }
 
-    private static Authentication adminPrincipal(Long principal, String adminRole) {
-        return principal(principal, "ROLE_ADMIN", adminRole);
+    /** 관리자 토큰 생성 + 스텁 admin_users 등록 (ADMIN_ROLE_* 접두 제거 후 역할 등록). */
+    private Authentication adminPrincipal(Long memberId, String adminRole) {
+        if (adminRole.startsWith("ADMIN_ROLE_")) {
+            verifyAdminRoleUseCase.register(memberId, adminRole.substring("ADMIN_ROLE_".length()));
+        }
+        return principal(memberId, "ROLE_ADMIN", adminRole);
     }
 
     private static Authentication principal(Long principal, String... authorities) {

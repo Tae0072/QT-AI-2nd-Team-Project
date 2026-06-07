@@ -111,6 +111,36 @@ class AuthServiceTest {
     }
 
     @Test
+    void login_신규회원_닉네임충돌시_임시닉네임은_20자_이내를_유지한다() {
+        // 회귀 방지(P1-4): 10자리 kakaoId + 닉네임 충돌 시 기존 fallback은 24자라
+        // VARCHAR(20)을 넘겨 INSERT 실패 → 잘못된 KAKAO_AUTH_FAILED로 가입 불가였다.
+        long kakaoId = 9999999999L; // 10자리
+        LoginRequest request = new LoginRequest("kakao-token");
+        KakaoUserInfo kakaoUser = createKakaoUserInfo(kakaoId);
+        Member newMember = createMember(10L, kakaoId, MemberStatus.ACTIVE);
+
+        when(kakaoOAuthClient.getUserInfo("kakao-token")).thenReturn(kakaoUser);
+        when(memberRepository.findByKakaoId(kakaoId)).thenReturn(Optional.empty());
+        // 기본 닉네임은 이미 선점됨 → 충돌 fallback 경로 진입
+        when(memberRepository.existsByNickname(org.mockito.ArgumentMatchers.startsWith("user_")))
+                .thenReturn(false);
+        when(memberRepository.existsByNickname("user_9999999999")).thenReturn(true);
+
+        org.mockito.ArgumentCaptor<Member> memberCaptor = org.mockito.ArgumentCaptor.forClass(Member.class);
+        when(memberRepository.save(memberCaptor.capture())).thenReturn(newMember);
+        when(authProviderRepository.save(any(MemberAuthProvider.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(jwtProvider.issueAccessToken(10L, "USER")).thenReturn("access-jwt");
+        when(jwtProvider.issueRefreshToken(10L)).thenReturn("refresh-jwt");
+
+        authService.login(request);
+
+        String savedNickname = memberCaptor.getValue().getNickname();
+        assertThat(savedNickname).hasSizeLessThanOrEqualTo(20);
+        assertThat(savedNickname).startsWith("user_");
+    }
+
+    @Test
     void login_동시가입_경합시_재조회_성공() {
         // 첫 transactionTemplate.execute()에서 DataIntegrityViolationException 발생
         // 두 번째 호출에서 이미 생성된 회원 재조회 성공

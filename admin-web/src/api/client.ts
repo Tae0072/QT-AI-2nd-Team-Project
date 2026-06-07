@@ -1,0 +1,53 @@
+import axios, { AxiosError } from 'axios';
+import { API_BASE_URL } from '../config/env';
+import { getToken, clearToken } from '../auth/tokenStorage';
+import type { ApiResponse } from './types';
+
+// ===== 모든 API 호출이 함께 쓰는 axios 인스턴스 =====
+// - baseURL    : 모든 요청 앞에 붙는 공통 주소 (예: /api/v1)
+// - 요청 가로채기 : 저장된 ADMIN 토큰을 Authorization 헤더에 자동으로 붙인다.
+// - 응답 가로채기 : 에러를 사람이 읽기 좋은 메시지로 정리하고, 401이면 토큰을 비운다.
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 15000,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// [요청 보내기 전] 토큰이 있으면 'Authorization: Bearer {token}' 자동 첨부
+apiClient.interceptors.request.use((config) => {
+  const token = getToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// [응답 받은 후] 에러 공통 처리
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<ApiResponse<unknown>>) => {
+    const status = error.response?.status;
+    const apiError = error.response?.data?.error;
+
+    // 토큰 만료/인증 실패면 저장 토큰을 비워 로그인 화면으로 유도한다.
+    if (status === 401) {
+      clearToken();
+    }
+
+    const message =
+      apiError?.message ?? error.message ?? '알 수 없는 오류가 발생했습니다.';
+    return Promise.reject(new Error(message));
+  },
+);
+
+// 공통 봉투({ success, data, error })에서 data 만 꺼내는 도우미.
+// 각 도메인 API 함수는 이 함수를 통해 실제 데이터만 돌려받는다.
+export async function unwrap<T>(
+  promise: Promise<{ data: ApiResponse<T> }>,
+): Promise<T> {
+  const res = await promise;
+  if (!res.data.success || res.data.data === null) {
+    throw new Error(res.data.error?.message ?? '응답이 올바르지 않습니다.');
+  }
+  return res.data.data;
+}

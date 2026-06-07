@@ -40,12 +40,22 @@ class NotificationServiceTest {
             Clock.fixed(Instant.parse("2026-05-26T12:00:00Z"), ZoneId.of("Asia/Seoul"));
 
     private NotificationRepository notificationRepository;
+    private com.qtai.domain.member.api.GetMemberUseCase getMemberUseCase;
+    private com.qtai.domain.member.api.GetSettingsUseCase getSettingsUseCase;
     private NotificationService notificationService;
 
     @BeforeEach
     void setUp() {
         notificationRepository = Mockito.mock(NotificationRepository.class);
-        notificationService = new NotificationService(notificationRepository, FIXED_CLOCK);
+        getMemberUseCase = Mockito.mock(com.qtai.domain.member.api.GetMemberUseCase.class);
+        getSettingsUseCase = Mockito.mock(com.qtai.domain.member.api.GetSettingsUseCase.class);
+        // 기본: 수신자는 활성 회원 + 수신 설정 ON (개별 테스트에서 override)
+        when(getMemberUseCase.getMemberPublic(any()))
+                .thenReturn(new com.qtai.domain.member.api.dto.MemberPublicResponse(1L, "수신자", null));
+        when(getSettingsUseCase.getSettings(any()))
+                .thenReturn(new com.qtai.domain.member.api.dto.SettingsResponse(true, "MEDIUM", true, 70, "ALL"));
+        notificationService = new NotificationService(
+                notificationRepository, getMemberUseCase, getSettingsUseCase, FIXED_CLOCK);
     }
 
     // ── send ──
@@ -126,6 +136,46 @@ class NotificationServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
         verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    void send_탈퇴_또는_없는_수신자는_저장하지_않고_skip() {
+        // P1-13: 수신자가 비활성/없으면 getMemberPublic이 MEMBER_NOT_FOUND → 조용히 skip (FK 위반 사전 차단)
+        when(getMemberUseCase.getMemberPublic(1L))
+                .thenThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        NotificationSendRequest request = new NotificationSendRequest(
+                1L, "LIKE", "좋아요 알림", null, null, "SHARING_POST", 10L, "LIKE_1_10");
+
+        notificationService.send(request); // 예외 없이 종료
+
+        verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    void send_수신_설정_OFF면_사회알림은_skip() {
+        // P1-13: notification_enabled=false면 LIKE/COMMENT는 저장하지 않는다
+        when(getSettingsUseCase.getSettings(1L))
+                .thenReturn(new com.qtai.domain.member.api.dto.SettingsResponse(false, "MEDIUM", true, 70, "ALL"));
+        NotificationSendRequest request = new NotificationSendRequest(
+                1L, "LIKE", "좋아요 알림", null, null, "SHARING_POST", 10L, "LIKE_1_10");
+
+        notificationService.send(request);
+
+        verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    void send_수신_설정_OFF여도_REPORT_RESULT는_항상_발송() {
+        // P1-13: 시스템·법적 알림은 사용자 설정과 무관하게 발송
+        when(getSettingsUseCase.getSettings(1L))
+                .thenReturn(new com.qtai.domain.member.api.dto.SettingsResponse(false, "MEDIUM", true, 70, "ALL"));
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(inv -> inv.getArgument(0));
+        NotificationSendRequest request = new NotificationSendRequest(
+                1L, "REPORT_RESULT", "신고 처리 결과", null, null, "REPORT", 5L, "REPORT_RESULT:5");
+
+        notificationService.send(request);
+
+        verify(notificationRepository).save(any());
     }
 
     // ── countUnread ──

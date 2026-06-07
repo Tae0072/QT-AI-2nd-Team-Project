@@ -104,21 +104,9 @@ public class SharingPost extends BaseEntity {
         return post;
     }
 
-    /**
-     * 좋아요 수를 실제 {@code post_likes} 행 수로 맞춘다(COUNT 재계산 방식).
-     * 관리 상태 엔티티에 호출하면 dirty checking으로 {@code like_count} UPDATE가 나간다.
-     */
-    public void syncLikeCount(long count) {
-        this.likeCount = (int) count;
-    }
-
-    /**
-     * 댓글 수를 실제 {@code comments}(삭제 안 된) 행 수로 맞춘다(COUNT 재계산 방식).
-     * 관리 상태 엔티티에 호출하면 dirty checking으로 {@code comment_count} UPDATE가 나간다.
-     */
-    public void syncCommentCount(long count) {
-        this.commentCount = (int) count;
-    }
+    // like_count/comment_count 동기화는 동시성 lost update를 피하기 위해
+    // SharingPostRepository.syncLikeCount/syncCommentCount의 원자적 UPDATE로 처리한다 (P1-2).
+    // (기존 dirty-checking 방식 setter는 동시 요청 시 카운터가 어긋나 제거)
 
     /**
      * 나눔 게시글을 삭제한다(soft delete, 04 §4.4.6). {@code status=DELETED} + {@code deletedAt} 기록.
@@ -151,5 +139,21 @@ public class SharingPost extends BaseEntity {
         }
         this.status = SharingPostStatus.PUBLISHED;
         this.hiddenAt = null;
+    }
+
+    /**
+     * 원본 노트 삭제 시각 기록 (명세 §4.3.7 — 유지+안내 표시).
+     *
+     * <p>게시글은 스냅샷이므로 상태는 바꾸지 않고 안내 판단용 시각만 남긴다.
+     * 이미 기록된 경우 최초 시각을 보존한다(멱등).
+     *
+     * @return 새로 기록했으면 true, 이미 기록돼 있었으면 false
+     */
+    public boolean markSourceNoteDeleted(LocalDateTime deletedAt) {
+        if (this.sourceNoteUnsharedAt != null) {
+            return false;
+        }
+        this.sourceNoteUnsharedAt = deletedAt;
+        return true;
     }
 }
