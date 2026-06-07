@@ -59,7 +59,7 @@ class MemberSettingsServiceTest {
         MemberSettings existing = MemberSettings.createDefault(MEMBER_ID);
         given(settingsRepository.findByMemberId(MEMBER_ID)).willReturn(Optional.of(existing));
 
-        SettingsUpdateRequest request = new SettingsUpdateRequest(false, null);
+        SettingsUpdateRequest request = new SettingsUpdateRequest(false, null, null, null, null);
         SettingsResponse response = settingsService.updateSettings(MEMBER_ID, request);
 
         assertThat(response.notificationEnabled()).isFalse();
@@ -71,7 +71,7 @@ class MemberSettingsServiceTest {
         MemberSettings existing = MemberSettings.createDefault(MEMBER_ID);
         given(settingsRepository.findByMemberId(MEMBER_ID)).willReturn(Optional.of(existing));
 
-        SettingsUpdateRequest request = new SettingsUpdateRequest(null, "LARGE");
+        SettingsUpdateRequest request = new SettingsUpdateRequest(null, "LARGE", null, null, null);
         SettingsResponse response = settingsService.updateSettings(MEMBER_ID, request);
 
         assertThat(response.notificationEnabled()).isTrue();
@@ -83,7 +83,7 @@ class MemberSettingsServiceTest {
         MemberSettings existing = MemberSettings.createDefault(MEMBER_ID);
         given(settingsRepository.findByMemberId(MEMBER_ID)).willReturn(Optional.of(existing));
 
-        SettingsUpdateRequest request = new SettingsUpdateRequest(false, "SMALL");
+        SettingsUpdateRequest request = new SettingsUpdateRequest(false, "SMALL", null, null, null);
         SettingsResponse response = settingsService.updateSettings(MEMBER_ID, request);
 
         assertThat(response.notificationEnabled()).isFalse();
@@ -95,7 +95,7 @@ class MemberSettingsServiceTest {
         MemberSettings existing = MemberSettings.createDefault(MEMBER_ID);
         given(settingsRepository.findByMemberId(MEMBER_ID)).willReturn(Optional.of(existing));
 
-        SettingsUpdateRequest request = new SettingsUpdateRequest(null, "INVALID");
+        SettingsUpdateRequest request = new SettingsUpdateRequest(null, "INVALID", null, null, null);
 
         assertThatThrownBy(() -> settingsService.updateSettings(MEMBER_ID, request))
                 .isInstanceOf(BusinessException.class)
@@ -107,9 +107,49 @@ class MemberSettingsServiceTest {
         MemberSettings existing = MemberSettings.createDefault(MEMBER_ID);
         given(settingsRepository.findByMemberId(MEMBER_ID)).willReturn(Optional.of(existing));
 
-        SettingsUpdateRequest request = new SettingsUpdateRequest(null, "small");
+        SettingsUpdateRequest request = new SettingsUpdateRequest(null, "small", null, null, null);
         SettingsResponse response = settingsService.updateSettings(MEMBER_ID, request);
 
         assertThat(response.fontSize()).isEqualTo("SMALL");
+    }
+
+    @Test
+    void updateSettings_음악_설정을_변경한다() {
+        MemberSettings existing = MemberSettings.createDefault(MEMBER_ID);
+        given(settingsRepository.findByMemberId(MEMBER_ID)).willReturn(Optional.of(existing));
+
+        SettingsUpdateRequest request =
+                new SettingsUpdateRequest(null, null, false, 30, "HYMN");
+        SettingsResponse response = settingsService.updateSettings(MEMBER_ID, request);
+
+        assertThat(response.musicEnabled()).isFalse();
+        assertThat(response.musicVolume()).isEqualTo(30);
+        assertThat(response.musicCategory()).isEqualTo("HYMN");
+    }
+
+    @Test
+    void updateSettings_음악_볼륨은_0_100_범위로_보정된다() {
+        MemberSettings existing = MemberSettings.createDefault(MEMBER_ID);
+        given(settingsRepository.findByMemberId(MEMBER_ID)).willReturn(Optional.of(existing));
+
+        SettingsResponse over = settingsService.updateSettings(
+                MEMBER_ID, new SettingsUpdateRequest(null, null, null, 150, null));
+        assertThat(over.musicVolume()).isEqualTo(100);
+
+        SettingsResponse under = settingsService.updateSettings(
+                MEMBER_ID, new SettingsUpdateRequest(null, null, null, -10, null));
+        assertThat(under.musicVolume()).isEqualTo(0);
+    }
+
+    @Test
+    void getSettings_음악_기본값은_ON_70_BGM() {
+        given(settingsRepository.findByMemberId(MEMBER_ID))
+                .willReturn(Optional.of(MemberSettings.createDefault(MEMBER_ID)));
+
+        SettingsResponse response = settingsService.getSettings(MEMBER_ID);
+
+        assertThat(response.musicEnabled()).isTrue();
+        assertThat(response.musicVolume()).isEqualTo(70);
+        assertThat(response.musicCategory()).isEqualTo("BGM");
     }
 }
