@@ -53,7 +53,7 @@ class NotificationServiceTest {
         when(getMemberUseCase.getMemberPublic(any()))
                 .thenReturn(new com.qtai.domain.member.api.dto.MemberPublicResponse(1L, "수신자", null));
         when(getSettingsUseCase.getSettings(any()))
-                .thenReturn(new com.qtai.domain.member.api.dto.SettingsResponse(true, "MEDIUM"));
+                .thenReturn(new com.qtai.domain.member.api.dto.SettingsResponse(true, "MEDIUM", true, 70, "ALL"));
         notificationService = new NotificationService(
                 notificationRepository, getMemberUseCase, getSettingsUseCase, FIXED_CLOCK);
     }
@@ -155,7 +155,7 @@ class NotificationServiceTest {
     void send_수신_설정_OFF면_사회알림은_skip() {
         // P1-13: notification_enabled=false면 LIKE/COMMENT는 저장하지 않는다
         when(getSettingsUseCase.getSettings(1L))
-                .thenReturn(new com.qtai.domain.member.api.dto.SettingsResponse(false, "MEDIUM"));
+                .thenReturn(new com.qtai.domain.member.api.dto.SettingsResponse(false, "MEDIUM", true, 70, "ALL"));
         NotificationSendRequest request = new NotificationSendRequest(
                 1L, "LIKE", "좋아요 알림", null, null, "SHARING_POST", 10L, "LIKE_1_10");
 
@@ -168,7 +168,7 @@ class NotificationServiceTest {
     void send_수신_설정_OFF여도_REPORT_RESULT는_항상_발송() {
         // P1-13: 시스템·법적 알림은 사용자 설정과 무관하게 발송
         when(getSettingsUseCase.getSettings(1L))
-                .thenReturn(new com.qtai.domain.member.api.dto.SettingsResponse(false, "MEDIUM"));
+                .thenReturn(new com.qtai.domain.member.api.dto.SettingsResponse(false, "MEDIUM", true, 70, "ALL"));
         when(notificationRepository.save(any(Notification.class))).thenAnswer(inv -> inv.getArgument(0));
         NotificationSendRequest request = new NotificationSendRequest(
                 1L, "REPORT_RESULT", "신고 처리 결과", null, null, "REPORT", 5L, "REPORT_RESULT:5");

@@ -75,6 +75,18 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () =>
                     Navigator.of(context).pushNamed(AppRouter.ttsSettings),
               ),
+
+              const Divider(),
+
+              // 음악 설정 — 전용 화면 (배경음악 on/off, 볼륨, 종류)
+              ListTile(
+                leading: const Icon(Icons.music_note_outlined),
+                title: const Text('음악 설정'),
+                subtitle: const Text('배경음악 켜기/끄기, 볼륨, 종류'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    Navigator.of(context).pushNamed(AppRouter.musicSettings),
+              ),
             ],
           );
         },

@@ -32,7 +32,7 @@ class DomainBoundaryArchTest {
 
     private static final String[] DOMAINS = {
             "admin", "ai", "audit", "bible", "member",
-            "mission", "note", "notification", "praise",
+            "mission", "music", "note", "notification", "praise",
             "qt", "report", "sharing", "study"
     };
 
@@ -61,6 +61,10 @@ class DomainBoundaryArchTest {
     @ArchTest
     static final ArchRule mission_internal은_mission만_접근 =
             internalAccessOnlyByOwnDomain("mission");
+
+    @ArchTest
+    static final ArchRule music_internal은_music만_접근 =
+            internalAccessOnlyByOwnDomain("music");
 
     @ArchTest
     static final ArchRule note_internal은_note만_접근 =
@@ -115,6 +119,10 @@ class DomainBoundaryArchTest {
     @ArchTest
     static final ArchRule mission_web은_다른_도메인_web에_의존하지_않는다 =
             webDoesNotDependOnOtherDomainWeb("mission");
+
+    @ArchTest
+    static final ArchRule music_web은_다른_도메인_web에_의존하지_않는다 =
+            webDoesNotDependOnOtherDomainWeb("music");
 
     @ArchTest
     static final ArchRule note_web은_다른_도메인_web에_의존하지_않는다 =
