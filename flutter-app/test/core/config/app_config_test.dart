@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qtai_app/core/config/app_config.dart';
 
 void main() {
   setUp(() => AppConfig.reset());
-  tearDown(() => AppConfig.reset());
+  tearDown(() {
+    AppConfig.reset();
+    debugDefaultTargetPlatformOverride = null;
+  });
 
   group('AppConfig', () {
     test('initializeForTest로 dev 환경 설정', () {
@@ -11,6 +15,20 @@ void main() {
       expect(AppConfig.instance.isDev, isTrue);
       expect(AppConfig.instance.isProd, isFalse);
       expect(AppConfig.instance.baseUrl, contains('localhost'));
+    });
+
+    test('dev/Android 에뮬레이터는 10.0.2.2 호스트로 분기', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      AppConfig.initialize();
+      expect(AppConfig.instance.baseUrl, contains('10.0.2.2'));
+      expect(AppConfig.instance.ttsBaseUrl, contains('10.0.2.2'));
+    });
+
+    test('dev/iOS는 localhost 호스트로 분기', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      AppConfig.initialize();
+      expect(AppConfig.instance.baseUrl, contains('localhost'));
+      expect(AppConfig.instance.ttsBaseUrl, contains('localhost'));
     });
 
     test('initializeForTest로 prod 환경 설정', () {
