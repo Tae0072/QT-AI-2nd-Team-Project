@@ -111,10 +111,19 @@ class MyPageRepository {
   }
 
   /// 설정 수정.
-  Future<SettingsData> updateSettings({bool? notificationEnabled, String? fontSize}) async {
+  Future<SettingsData> updateSettings({
+    bool? notificationEnabled,
+    String? fontSize,
+    bool? musicEnabled,
+    int? musicVolume,
+    String? musicCategory,
+  }) async {
     final body = <String, dynamic>{};
     if (notificationEnabled != null) body['notificationEnabled'] = notificationEnabled;
     if (fontSize != null) body['fontSize'] = fontSize;
+    if (musicEnabled != null) body['musicEnabled'] = musicEnabled;
+    if (musicVolume != null) body['musicVolume'] = musicVolume;
+    if (musicCategory != null) body['musicCategory'] = musicCategory;
     final response = await _dio.patch('/me/settings', data: body);
     final data = response.data['data'] as Map<String, dynamic>;
     return SettingsData.fromJson(data);

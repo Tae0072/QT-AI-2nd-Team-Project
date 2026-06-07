@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../bible/screens/bible_browser_screen.dart';
 import '../../bible/screens/today_qt_screen.dart';
+import '../../music/providers/music_providers.dart';
+import '../../music/widgets/background_music_host.dart';
 import '../../mypage/screens/mypage_screen.dart';
 import '../../note/screens/note_list_screen.dart';
 import '../../sharing/screens/sharing_feed_screen.dart';
@@ -31,9 +34,24 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: Consumer(
+        builder: (context, ref, child) => Listener(
+          behavior: HitTestBehavior.translucent,
+          // 웹 브라우저는 사용자 제스처 전 자동재생이 막히므로 첫 터치에 재생을 시도한다.
+          onPointerDown: (_) =>
+              ref.read(musicControllerProvider.notifier).notifyUserGesture(),
+          child: child,
+        ),
+        child: Stack(
+          children: [
+            IndexedStack(
+              index: _currentIndex,
+              children: _screens,
+            ),
+            // 전역 배경음악 호스트(보이지 않음) — 메인 진입 후 자동재생, 탭 이동·하위 화면에서도 유지.
+            const BackgroundMusicHost(),
+          ],
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,

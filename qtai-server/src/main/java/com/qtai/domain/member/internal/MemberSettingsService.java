@@ -36,6 +36,9 @@ public class MemberSettingsService implements GetSettingsUseCase, UpdateSettings
         if (request.fontSize() != null) {
             settings.updateFontSize(parseFontSize(request.fontSize()));
         }
+        settings.updateMusicEnabled(request.musicEnabled());
+        settings.updateMusicVolume(request.musicVolume());
+        settings.updateMusicCategory(request.musicCategory());
         return toResponse(settings);
     }
 
@@ -56,7 +59,10 @@ public class MemberSettingsService implements GetSettingsUseCase, UpdateSettings
     private SettingsResponse toResponse(MemberSettings settings) {
         return new SettingsResponse(
                 settings.getNotificationEnabled(),
-                settings.getFontSize().name()
+                settings.getFontSize().name(),
+                settings.getMusicEnabled(),
+                settings.getMusicVolume(),
+                settings.getMusicCategory()
         );
     }
 }

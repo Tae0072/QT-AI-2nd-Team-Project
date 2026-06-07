@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../music/widgets/music_toggle_button.dart';
 import '../../tts/widgets/qt_tts_button.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
@@ -42,6 +43,8 @@ class TodayQtScreen extends ConsumerWidget {
               qtDate: _qtDateOf(data),
               qtPassageId: data.qtPassageId,
             ),
+          // 배경음악 켜기/끄기 — TTS 버튼 오른쪽 음표 토글
+          const MusicToggleButton(),
           IconButton(
             tooltip: l.commonRefresh,
             icon: const Icon(Icons.refresh),

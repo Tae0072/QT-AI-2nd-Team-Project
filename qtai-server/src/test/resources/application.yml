@@ -22,3 +22,9 @@ security:
 kakao:
   api:
     user-info-url: https://kapi.kakao.com/v2/user/me
+
+# 배경음악 번들 시드 비활성(테스트는 음원 리소스를 적재하지 않는다)
+qtai:
+  music:
+    seed:
+      enabled: false

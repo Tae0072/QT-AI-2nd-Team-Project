@@ -64,7 +64,7 @@ class MemberSettingsControllerTest {
     @Test
     void GET_설정_조회_정상() throws Exception {
         given(getSettingsUseCase.getSettings(MEMBER_ID))
-                .willReturn(new SettingsResponse(true, "MEDIUM"));
+                .willReturn(new SettingsResponse(true, "MEDIUM", true, 70, "ALL"));
 
         mockMvc.perform(get("/api/v1/me/settings"))
                 .andExpect(status().isOk())
@@ -76,7 +76,7 @@ class MemberSettingsControllerTest {
     @Test
     void PATCH_설정_수정_정상() throws Exception {
         given(updateSettingsUseCase.updateSettings(eq(MEMBER_ID), any(SettingsUpdateRequest.class)))
-                .willReturn(new SettingsResponse(false, "LARGE"));
+                .willReturn(new SettingsResponse(false, "LARGE", true, 70, "ALL"));
 
         mockMvc.perform(patch("/api/v1/me/settings")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -91,6 +91,28 @@ class MemberSettingsControllerTest {
         mockMvc.perform(patch("/api/v1/me/settings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fontSize\":\"INVALID\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void PATCH_음악_설정_수정_정상() throws Exception {
+        given(updateSettingsUseCase.updateSettings(eq(MEMBER_ID), any(SettingsUpdateRequest.class)))
+                .willReturn(new SettingsResponse(true, "MEDIUM", false, 30, "HYMN"));
+
+        mockMvc.perform(patch("/api/v1/me/settings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"musicEnabled\":false,\"musicVolume\":30,\"musicCategory\":\"HYMN\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.musicEnabled").value(false))
+                .andExpect(jsonPath("$.data.musicVolume").value(30))
+                .andExpect(jsonPath("$.data.musicCategory").value("HYMN"));
+    }
+
+    @Test
+    void PATCH_잘못된_musicVolume_400() throws Exception {
+        mockMvc.perform(patch("/api/v1/me/settings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"musicVolume\":999}"))
                 .andExpect(status().isBadRequest());
     }
 }
