@@ -7,12 +7,12 @@
 
 관리자 전용 웹(`admin-web/`)의 전체 구조 골격을 생성하고 빌드 검증까지 완료했다.
 기술 스택은 React + Vite + TypeScript + Ant Design으로 확정(Lead 승인). AD-01~08 화면은 빈 골격 상태이며 다음 단계에서 실제 구현한다.
-**git 커밋은 워킹트리 비정상 상태로 보류**했다(아래 §4).
+admin-web만 분리해 `feature/admin-web-scaffold` 브랜치로 커밋·PR했다(T의 다른 작업은 미포함).
 
 ## 2. 산출물
 
-- 신규 폴더 `admin-web/` (총 38개 파일, `node_modules`/`dist` 제외)
-  - 빌드 설정 9 + API 11 + 인증/권한 5 + 레이아웃·라우팅 3 + 화면 11(공통 1 포함) + README 1 등
+- 신규 폴더 `admin-web/` (약 40개 파일, `node_modules`/`dist` 제외)
+  - 빌드 설정 + API 11 + 인증/권한 5 + 레이아웃·라우팅 3 + 화면 11(공통 1 포함) + README 1
 - 문서 2: 본 리포트, 워크플로우
 
 ## 3. 검증 결과 (2~3회 점검)
@@ -27,34 +27,17 @@
 
 빌드 경고: 단일 청크가 500kB 초과(antd 포함). 골격 단계에선 정상이며, 추후 코드 분할(dynamic import)로 개선 가능.
 
-> 검증은 사용자 폴더(`D:\...\admin-web`)를 더럽히지 않도록 sandbox 임시 경로(`/tmp/admin-web-verify`)에 복사해 수행했다. 따라서 사용자 폴더에는 `node_modules`/`dist`가 생성되지 않았다(설치는 사용자가 직접 `npm install`).
+> 검증은 사용자 폴더를 더럽히지 않도록 sandbox 임시 경로(`/tmp/admin-web-verify`)에 복사해 수행했다. 따라서 사용자 폴더에는 `node_modules`/`dist`가 생성되지 않았다(설치는 사용자가 직접 `npm install`).
 
-## 4. 중요: git 상태 (조치 필요)
+## 4. Git 처리
 
-현재 구현 저장소 워킹트리는 비정상 상태다.
-
-- 체크아웃 브랜치: `feature/music-background-play` — **커밋이 하나도 없는(unborn) 상태**.
-- 워킹트리: 프로젝트 전체 파일이 `A`(staged)로 잡혀 있음(배경음악 등 진행 중 작업 포함 추정).
-- `admin-web/`는 `??`(untracked).
-- `dev`(957a99f)보다 `origin/dev`(c640d6b)가 2커밋 앞섬(#313 웹지원, #315 배경음악).
-
-이 상태에서 임의로 `git commit`/브랜치 전환을 하면 T의 다른 작업이 섞이거나 유실될 수 있어 **자동 커밋을 하지 않았다.**
-
-### 권장 처리 절차 (T 확인 후)
-
-1. 현재 staged 내용이 무엇인지 먼저 확인: `git status`
-2. 진행 중 작업과 분리가 필요하면 정리(예: 의도한 브랜치로 이동/스태시) 후,
-3. `dev` 최신화: `git checkout dev && git pull`
-4. 작업 브랜치 생성: `git checkout -b feat/admin-web-scaffold`
-5. admin-web만 추가: `git add admin-web doc/workspaces/Lead_강태오/...2026-06-07_admin-web-scaffold*`
-6. 커밋: `feat(admin-web): 관리자 웹 전체 구조 골격 (React+Vite+TS+antd, AD-01~08)`
-7. push 후 `dev` 대상 PR.
-
-> 메모: 이 환경의 git/커밋은 Windows MinGit 경로 이슈가 있었으므로, 커밋은 T가 직접 수행하는 편이 안전하다.
+- 작업 시작 시 워킹트리에 T의 미커밋 작업(웹 실행 지원 코드 수정 등)이 섞여 있어, `git stash`로 보관 후 분리 진행.
+- `origin/dev` 기반 `feature/admin-web-scaffold` 브랜치 생성 → `admin-web/` + 본 문서 2개만 `git add` → 커밋 → push → `dev` 대상 PR 생성.
+- 작업 후 원래 브랜치로 복귀하여 `git stash pop`으로 T의 작업 상태 원복.
+- 커밋: `feat(admin-web): 관리자 웹 전체 구조 골격 (React+Vite+TS+antd, AD-01~08)`
 
 ## 5. 남은 작업 / TODO
 
-- [ ] git: 위 절차로 `feat/admin-web-scaffold` 브랜치 커밋·PR (T)
 - [ ] 화면별 실제 구현(표/폼/모달/페이지네이션)
 - [ ] 세부 권한별 메뉴 노출·접근 제어(`menu.ts` requiredRoles 최종 확정 — `04` 권한표 대조)
 - [ ] 카카오 웹 로그인 / 서버 OAuth 연동
