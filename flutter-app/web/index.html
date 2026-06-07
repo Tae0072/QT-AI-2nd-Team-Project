@@ -31,6 +31,11 @@
 
   <title>qtai_app</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- [WEB_KAKAO_LOGIN · DRAFT] 카카오 JavaScript SDK (웹 로그인 서버 OAuth = B안).
+       실제 사용 시: Kakao 개발자 콘솔에 Web 플랫폼/도메인(localhost:3000 등)·Redirect URI 등록 + JavaScript 키 필요.
+       버전은 카카오 공식 문서의 최신본으로 갱신하고 integrity 속성 추가 권장. 미사용(모바일) 빌드엔 영향 없음. -->
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
   <!--

@@ -76,6 +76,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 인증 없이 허용 (CLAUDE.md §5)
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/kakao").permitAll()
+                        // 웹 카카오 로그인(서버 OAuth, B안 · DRAFT) — 강사/Lead 검토 후 정식화
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/kakao/web").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
                         // H2 콘솔 (local 프로파일 전용 — prod엔 엔드포인트 없음)
                         .requestMatchers("/h2-console/**").permitAll()

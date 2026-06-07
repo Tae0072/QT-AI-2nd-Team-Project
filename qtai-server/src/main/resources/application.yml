@@ -42,6 +42,13 @@ security:
 kakao:
   api:
     user-info-url: https://kapi.kakao.com/v2/user/me
+  # 웹 카카오 로그인(서버 OAuth, B안) — DRAFT. CLAUDE.md §1(서버 OAuth 미사용) 결정과 충돌 → 강사/Lead 검토 후 사용.
+  # 실제 동작에는 Kakao 개발자 콘솔에 Web 플랫폼/Redirect URI 등록 + 아래 키 주입 필요.
+  oauth:
+    token-url: ${KAKAO_TOKEN_URL:https://kauth.kakao.com/oauth/token}
+    rest-api-key: ${KAKAO_REST_API_KEY:}
+    client-secret: ${KAKAO_CLIENT_SECRET:}
+    redirect-uri: ${KAKAO_WEB_REDIRECT_URI:http://localhost:3000/auth/kakao/callback}
 
 external:
   llm:

@@ -62,6 +62,30 @@ class AuthRepository {
     );
   }
 
+  /// [WEB_KAKAO_LOGIN · DRAFT] 웹 카카오 로그인 — 인가 코드를 서버에 보내 JWT를 발급받는다.
+  ///
+  /// 웹은 Kakao.Auth.authorize 리다이렉트로 받은 `code`를 POST /auth/kakao/web 에 전달한다.
+  /// (서버 OAuth B안 — CLAUDE.md §1과 충돌, 강사/Lead 검토 전제. 토큰 저장은 [loginWithKakao]와 동일.)
+  Future<LoginResult> loginWithKakaoWebCode(String code) async {
+    final response = await _dio.post('/auth/kakao/web', data: {'code': code});
+
+    final data = response.data['data'] as Map<String, dynamic>;
+    final accessToken = data['accessToken'] as String;
+    final refreshToken = data['refreshToken'] as String;
+    final member = data['member'] as Map<String, dynamic>?;
+    final isNewMember = member?['onboardingRequired'] as bool? ?? false;
+
+    await SecureStorage.setAccessToken(accessToken);
+    await SecureStorage.setRefreshToken(refreshToken);
+    await SecureStorage.clearForceKakaoRelogin();
+
+    return LoginResult(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      isNewMember: isNewMember,
+    );
+  }
+
   /// 로그아웃 — 서버 폐기를 먼저 시도하고, 어떤 경우에도 로컬 토큰을 삭제한다.
   ///
   /// 서버 `/auth/logout`은 인터셉터가 SecureStorage의 access token을 헤더에
