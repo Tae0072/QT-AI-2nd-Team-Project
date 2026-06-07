@@ -1,7 +1,10 @@
-import 'dart:io';
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../../../core/config/app_config.dart';
+import '../../../core/platform/file_storage.dart';
 
 /// TTS API 호출 및 음성 파일 관리.
 ///
@@ -38,6 +41,29 @@ class TtsRepository {
     String format = 'mp3',
     String? cacheKey,
   }) async {
+    // 웹(브라우저)은 파일 저장이 불가하므로, 음성을 메모리(bytes)로 받아
+    // data URI로 만들어 그대로 재생한다. (TTS 서버의 CORS 허용이 필요)
+    if (kIsWeb) {
+      final response = await _dio.post(
+        '$_baseUrl/qt/read',
+        data: {
+          'text': text,
+          'voice': voice,
+          'tau': tau,
+          'format': format,
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $_ttsToken',
+            'Content-Type': 'application/json',
+          },
+          responseType: ResponseType.bytes,
+        ),
+      );
+      final bytes = response.data as List<int>;
+      return 'data:audio/$format;base64,${base64Encode(bytes)}';
+    }
+
     // 캐시 확인
     if (cacheKey != null) {
       final cached = await _getCachedFile(cacheKey, format);
@@ -45,11 +71,11 @@ class TtsRepository {
     }
 
     // API 호출 — 음성 파일을 직접 다운로드
-    final dir = await _cacheDir();
+    final dirPath = await ensureCacheDir('tts_cache');
     final filename = cacheKey != null
         ? '$cacheKey.$format'
         : 'qt_${DateTime.now().millisecondsSinceEpoch}.$format';
-    final savePath = '${dir.path}/$filename';
+    final savePath = '$dirPath/$filename';
 
     await _dio.download(
       '$_baseUrl/qt/read',
@@ -89,32 +115,19 @@ class TtsRepository {
     }
   }
 
-  /// 캐시 디렉토리.
-  Future<Directory> _cacheDir() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final dir = Directory('${appDir.path}/tts_cache');
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-    return dir;
-  }
-
-  /// 캐시된 파일 경로 반환. 없으면 null.
+  /// 캐시된 파일 경로 반환. 없으면 null. (웹은 캐시 미지원 → 항상 null)
   Future<String?> _getCachedFile(String key, String format) async {
-    final dir = await _cacheDir();
-    final file = File('${dir.path}/$key.$format');
-    if (await file.exists()) {
-      return file.path;
-    }
-    return null;
+    if (kIsWeb) return null;
+    final dirPath = await ensureCacheDir('tts_cache');
+    final path = '$dirPath/$key.$format';
+    return await fileExists(path) ? path : null;
   }
 
-  /// 캐시 전체 삭제.
+  /// 캐시 전체 삭제. (웹은 no-op)
   Future<void> clearCache() async {
-    final dir = await _cacheDir();
-    if (await dir.exists()) {
-      await dir.delete(recursive: true);
-    }
+    if (kIsWeb) return;
+    final dirPath = await ensureCacheDir('tts_cache');
+    await deleteDirIfExists(dirPath);
   }
 }
 

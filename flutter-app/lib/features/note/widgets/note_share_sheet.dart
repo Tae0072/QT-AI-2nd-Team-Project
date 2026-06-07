@@ -1,11 +1,11 @@
-import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:qtai_app/core/platform/file_storage.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../models/note_models.dart';
 
@@ -95,14 +95,27 @@ class _NoteShareSheetState extends State<_NoteShareSheet> {
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       final bytes = byteData!.buffer.asUint8List();
 
-      // ✏️ 공유는 실제 파일 경로가 안정적이라 임시 디렉터리에 저장 후 넘긴다.
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/qt_note_${detail.id}.png');
-      await file.writeAsBytes(bytes);
-
-      await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path)], text: detail.title),
-      );
+      // 웹은 파일 시스템이 없어 바이트로 직접 공유하고,
+      // 기기는 임시 파일에 저장한 경로로 공유한다(기존 동작 유지).
+      if (kIsWeb) {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [
+              XFile.fromData(
+                bytes,
+                mimeType: 'image/png',
+                name: 'qt_note_${detail.id}.png',
+              ),
+            ],
+            text: detail.title,
+          ),
+        );
+      } else {
+        final path = await saveTempBytes('qt_note_${detail.id}.png', bytes);
+        await SharePlus.instance.share(
+          ShareParams(files: [XFile(path)], text: detail.title),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

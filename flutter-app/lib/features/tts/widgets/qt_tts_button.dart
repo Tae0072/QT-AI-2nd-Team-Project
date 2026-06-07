@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
@@ -155,7 +156,12 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
       );
 
       if (!mounted) return;
-      await _player.setFilePath(audioPath);
+      // 웹은 파일 경로가 없어 data URI(setUrl), 기기는 파일 경로(setFilePath)로 로드.
+      if (kIsWeb) {
+        await _player.setUrl(audioPath);
+      } else {
+        await _player.setFilePath(audioPath);
+      }
       if (autoPlay) await _player.play();
     } catch (_) {
       if (mounted && autoPlay) _showMessage(l.ttsPrepareFailed);
