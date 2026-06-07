@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/dev/web_dev_access.dart'; // [WEB_DEV_ACCESS] 개발 종료 시 삭제
 import '../../../core/network/api_client.dart';
 import '../../../core/network/auth_interceptor.dart';
 import '../services/auth_repository.dart';
@@ -33,6 +34,12 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
 
   Future<void> _checkAuthStatus() async {
     if (_repository == null) return;
+    // [WEB_DEV_ACCESS] 웹 개발 우회: 토큰 없이도 인증 상태로 취급
+    // (서버는 X-Dev-User-Id 헤더로 인증). 개발 종료 시 이 if 블록 제거.
+    if (webDevNoLogin) {
+      state = AuthStatus.authenticated;
+      return;
+    }
     final hasToken = await _repository.hasToken();
     state = hasToken ? AuthStatus.authenticated : AuthStatus.unauthenticated;
   }
