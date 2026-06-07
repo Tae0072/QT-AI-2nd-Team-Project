@@ -93,8 +93,9 @@ public class DevSecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:3000", "http://127.0.0.1:3000"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*")); // X-Dev-User-Id, Content-Type 포함
+        config.setAllowedHeaders(List.of("Content-Type", "X-Dev-User-Id", "Authorization"));
         config.setMaxAge(3600L);
+        config.setAllowCredentials(false); // dev-only; WARNING: bind dev server to 127.0.0.1 / internal network only, never expose externally - X-Dev-User-Id header can impersonate any member
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
