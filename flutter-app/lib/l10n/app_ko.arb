@@ -71,6 +71,7 @@
   "notePublishNeedSave": "저장을 완료한 노트만 공개할 수 있어요",
   "notePublishSuccess": "나눔에 공개되었습니다",
   "notePublishFailed": "나눔 공개에 실패했습니다. 다시 시도해 주세요",
+  "notePublishAlready": "이미 나눔에 공개된 노트예요",
   "notePublishView": "보기",
 
   "fmtBold": "굵게",

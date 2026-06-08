@@ -506,6 +506,12 @@ abstract class AppLocalizations {
   /// **'Failed to share. Please try again'**
   String get notePublishFailed;
 
+  /// No description provided for @notePublishAlready.
+  ///
+  /// In en, this message translates to:
+  /// **'This note is already shared'**
+  String get notePublishAlready;
+
   /// No description provided for @notePublishView.
   ///
   /// In en, this message translates to:

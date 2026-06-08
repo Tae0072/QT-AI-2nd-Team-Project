@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -142,10 +143,17 @@ class _Actions extends ConsumerWidget {
         ),
       );
     } catch (e) {
-      //   실패 시 공유본이 생기지 않았음을 알리고 화면은 유지(재시도 가능).
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.notePublishFailed)));
+      // ✏️ 409(DUPLICATE_SHARING_POST) = 이미 공개된 노트 → 실패가 아니라 "이미 했음" 안내.
+      //   현재 서버 갭으로 공개 후에도 버튼이 안 사라져 재탭이 가능하므로, 그 경우 친절한
+      //   안내로 바꿔 "버그처럼 보이는" 회귀를 막는다(백엔드 visibility 갱신은 후속 PR).
+      final isAlreadyShared = e is DioException && e.response?.statusCode == 409;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              isAlreadyShared ? l.notePublishAlready : l.notePublishFailed),
+        ),
+      );
     }
   }
 

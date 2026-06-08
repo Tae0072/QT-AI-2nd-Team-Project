@@ -213,6 +213,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notePublishFailed => '나눔 공개에 실패했습니다. 다시 시도해 주세요';
 
   @override
+  String get notePublishAlready => '이미 나눔에 공개된 노트예요';
+
+  @override
   String get notePublishView => '보기';
 
   @override

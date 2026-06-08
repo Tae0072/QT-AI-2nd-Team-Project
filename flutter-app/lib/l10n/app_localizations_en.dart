@@ -217,6 +217,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notePublishFailed => 'Failed to share. Please try again';
 
   @override
+  String get notePublishAlready => 'This note is already shared';
+
+  @override
   String get notePublishView => 'View';
 
   @override

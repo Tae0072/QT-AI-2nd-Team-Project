@@ -77,6 +77,7 @@
   "notePublishNeedSave": "Only saved notes can be shared",
   "notePublishSuccess": "Shared to the feed",
   "notePublishFailed": "Failed to share. Please try again",
+  "notePublishAlready": "This note is already shared",
   "notePublishView": "View",
 
   "fmtBold": "Bold",
