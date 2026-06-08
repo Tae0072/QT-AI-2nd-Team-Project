@@ -3,6 +3,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http_mock_adapter/http_mock_adapter.dart';
+import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/services/bible_repository.dart';
 
 void main() {
@@ -82,6 +83,35 @@ void main() {
       expect(result.reference.displayText, '고린도전서 1:10-17');
       expect(result.book.code, '1CO');
       expect(result.verses.single.verseNo, 10);
+      // §6 버튼 게이팅 입력 — 서버 simulatorStatus/hasExplanation/draftNoteId 파싱 회귀 방지
+      expect(result.simulatorStatus, 'MISSING');
+      expect(result.hasExplanation, isFalse);
+      expect(result.draftNoteId, isNull);
+    });
+
+    test('READY 상태와 해설 존재 여부를 그대로 파싱하고, 미지의 상태값은 MISSING으로 방어한다', () {
+      final ready = TodayQtSummary.fromJson(const {
+        'qtPassageId': 7,
+        'passageDate': '2026-06-03',
+        'title': 't',
+        'simulatorStatus': 'READY',
+        'hasExplanation': true,
+        'draftNoteId': 42,
+        'cacheStatus': 'HIT',
+        'range': null,
+      });
+      expect(ready.simulatorStatus, 'READY');
+      expect(ready.hasExplanation, isTrue);
+      expect(ready.draftNoteId, 42);
+
+      final unknown = TodayQtSummary.fromJson(const {
+        'qtPassageId': 7,
+        'simulatorStatus': 'SOMETHING_NEW',
+        'cacheStatus': 'HIT',
+        'range': null,
+      });
+      expect(unknown.simulatorStatus, 'MISSING'); // 미지 값 → 버튼 비활성 방어
+      expect(unknown.hasExplanation, isFalse);
     });
 
     test('서버에 오늘 QT 범위가 없으면 옛 fallback 본문을 표시하지 않는다', () async {

@@ -13,20 +13,21 @@ class BibleBrowserScreen extends ConsumerStatefulWidget {
 }
 
 class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
-  static const _fallbackVerseCount = 50;
+  static const _defaultVerseCount = 1;
 
   late Future<List<BibleBook>> _booksFuture;
   String? _selectedBookCode;
   int _selectedChapter = 1;
   int _verseFrom = 1;
   int _verseTo = 1;
-  int _verseCount = _fallbackVerseCount;
+  int _verseCount = _defaultVerseCount;
   int _chapterRequestId = 0;
 
   BibleVerseRange? _range;
   Object? _error;
   bool _isSearching = false;
   bool _isLoadingChapter = false;
+  bool _chapterLoadFailed = false;
   bool _showEnglish = false;
 
   @override
@@ -45,7 +46,10 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
 
   Future<void> _loadChapterVerseCount(String bookCode, int chapter) async {
     final requestId = ++_chapterRequestId;
-    setState(() => _isLoadingChapter = true);
+    setState(() {
+      _isLoadingChapter = true;
+      _chapterLoadFailed = false;
+    });
     try {
       final chapterRange =
           await ref.read(bibleRepositoryProvider).getChapterVerses(
@@ -57,20 +61,25 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
       }
       final count = chapterRange.verses.length;
       setState(() {
-        _verseCount = count < 1 ? _fallbackVerseCount : count;
+        _verseCount = count < 1 ? _defaultVerseCount : count;
         _verseFrom = _verseFrom.clamp(1, _verseCount);
         _verseTo = _verseTo.clamp(_verseFrom, _verseCount);
         _isLoadingChapter = false;
+        _chapterLoadFailed = false;
+        _error = null;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted || requestId != _chapterRequestId) {
         return;
       }
       setState(() {
-        _verseCount = _fallbackVerseCount;
+        _verseCount = _defaultVerseCount;
         _verseFrom = _verseFrom.clamp(1, _verseCount);
         _verseTo = _verseTo.clamp(_verseFrom, _verseCount);
         _isLoadingChapter = false;
+        _chapterLoadFailed = true;
+        _range = null;
+        _error = StateError('절 목록을 불러오지 못했습니다. 다시 시도해 주세요. ($error)');
       });
     }
   }
@@ -116,7 +125,8 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
       _selectedChapter = _selectedChapter.clamp(1, chapterCount);
       _verseFrom = 1;
       _verseTo = 1;
-      _verseCount = _fallbackVerseCount;
+      _verseCount = _defaultVerseCount;
+      _chapterLoadFailed = false;
       _range = null;
       _error = null;
     });
@@ -128,7 +138,8 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
       _selectedChapter = chapter;
       _verseFrom = 1;
       _verseTo = 1;
-      _verseCount = _fallbackVerseCount;
+      _verseCount = _defaultVerseCount;
+      _chapterLoadFailed = false;
       _range = null;
       _error = null;
     });
@@ -190,6 +201,7 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
             error: _error,
             isSearching: _isSearching,
             isLoadingChapter: _isLoadingChapter,
+            isChapterLoadFailed: _chapterLoadFailed,
             showEnglish: _showEnglish,
             onBookChanged: _selectBook,
             onChapterChanged: (chapter) =>
@@ -226,6 +238,7 @@ class _BibleBrowserContent extends StatelessWidget {
   final Object? error;
   final bool isSearching;
   final bool isLoadingChapter;
+  final bool isChapterLoadFailed;
   final bool showEnglish;
   final ValueChanged<BibleBook> onBookChanged;
   final ValueChanged<int> onChapterChanged;
@@ -246,6 +259,7 @@ class _BibleBrowserContent extends StatelessWidget {
     required this.error,
     required this.isSearching,
     required this.isLoadingChapter,
+    required this.isChapterLoadFailed,
     required this.showEnglish,
     required this.onBookChanged,
     required this.onChapterChanged,
@@ -276,6 +290,7 @@ class _BibleBrowserContent extends StatelessWidget {
                 verseTo: verseTo,
                 verseCount: verseCount,
                 isLoadingChapter: isLoadingChapter,
+                isChapterLoadFailed: isChapterLoadFailed,
                 onBookChanged: onBookChanged,
                 onChapterChanged: onChapterChanged,
                 onVerseFromChanged: onVerseFromChanged,
@@ -311,6 +326,7 @@ class _BibleRangePicker extends StatelessWidget {
   final int verseTo;
   final int verseCount;
   final bool isLoadingChapter;
+  final bool isChapterLoadFailed;
   final ValueChanged<BibleBook> onBookChanged;
   final ValueChanged<int> onChapterChanged;
   final ValueChanged<int> onVerseFromChanged;
@@ -327,6 +343,7 @@ class _BibleRangePicker extends StatelessWidget {
     required this.verseTo,
     required this.verseCount,
     required this.isLoadingChapter,
+    required this.isChapterLoadFailed,
     required this.onBookChanged,
     required this.onChapterChanged,
     required this.onVerseFromChanged,
@@ -340,8 +357,10 @@ class _BibleRangePicker extends StatelessWidget {
     final selectedBookIndex = books.indexWhere(
       (book) => book.code == selectedBook.code,
     );
+    final safeChapterCount = chapterCount < 1 ? 1 : chapterCount;
+    final safeVerseCount = verseCount < 1 ? 1 : verseCount;
     final endVerseItems = [
-      for (var verse = verseFrom; verse <= verseCount; verse++) verse,
+      for (var verse = verseFrom; verse <= safeVerseCount; verse++) verse,
     ];
 
     return Column(
@@ -367,7 +386,9 @@ class _BibleRangePicker extends StatelessWidget {
                   label: '장',
                   selectedIndex: selectedChapter - 1,
                   items: [
-                    for (var chapter = 1; chapter <= chapterCount; chapter++)
+                    for (var chapter = 1;
+                        chapter <= safeChapterCount;
+                        chapter++)
                       '$chapter'
                   ],
                   onSelectedIndexChanged: (index) =>
@@ -381,7 +402,8 @@ class _BibleRangePicker extends StatelessWidget {
                   label: '시작절',
                   selectedIndex: verseFrom - 1,
                   items: [
-                    for (var verse = 1; verse <= verseCount; verse++) '$verse'
+                    for (var verse = 1; verse <= safeVerseCount; verse++)
+                      '$verse'
                   ],
                   onSelectedIndexChanged: (index) =>
                       onVerseFromChanged(index + 1),
@@ -411,7 +433,9 @@ class _BibleRangePicker extends StatelessWidget {
               child: Text(
                 isLoadingChapter
                     ? '절 목록을 맞추는 중입니다.'
-                    : '${selectedBook.koreanName} $selectedChapter:$verseFrom-$verseTo',
+                    : isChapterLoadFailed
+                        ? '절 목록을 불러오지 못했습니다.'
+                        : '${selectedBook.koreanName} $selectedChapter:$verseFrom-$verseTo',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelLarge,
@@ -419,7 +443,10 @@ class _BibleRangePicker extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             FilledButton.icon(
-              onPressed: isSearching ? null : onSearch,
+              onPressed:
+                  (isSearching || isLoadingChapter || isChapterLoadFailed)
+                      ? null
+                      : onSearch,
               icon: isSearching
                   ? const SizedBox(
                       width: 18,

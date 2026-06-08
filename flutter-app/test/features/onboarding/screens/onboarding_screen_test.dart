@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/onboarding/models/onboarding_page_data.dart';
 import 'package:qtai_app/features/onboarding/screens/onboarding_screen.dart';
 
@@ -31,6 +32,9 @@ void main() {
 
   Widget buildWidget({VoidCallback? onComplete}) {
     return MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('ko'),
       home: OnboardingScreen(
         onComplete: onComplete ?? () {},
         pages: testPages,

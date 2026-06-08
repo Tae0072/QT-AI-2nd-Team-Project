@@ -239,12 +239,7 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
      * 새 트랜잭션에서 재조회한다.
      */
     private Member registerNewMember(KakaoUserInfo kakaoUser) {
-        String tempNickname = "user_" + kakaoUser.id();
-        // 닉네임 충돌 시 UUID suffix 추가
-        if (memberRepository.existsByNickname(tempNickname)) {
-            tempNickname = "user_" + kakaoUser.id() + "_"
-                    + UUID.randomUUID().toString().substring(0, 8);
-        }
+        String tempNickname = generateTempNickname(kakaoUser.id());
 
         Member member = Member.builder()
                 .kakaoId(kakaoUser.id())
@@ -264,5 +259,42 @@ public class AuthService implements LoginUseCase, LogoutUseCase, RefreshTokenUse
 
         log.info("신규 회원 가입: memberId={}, kakaoId={}", member.getId(), kakaoUser.id());
         return member;
+    }
+
+    /** members.nickname 컬럼 길이(VARCHAR(20)). */
+    private static final int NICKNAME_MAX_LENGTH = 20;
+    /** 임시 닉네임 접두사 — 닉네임 변경 API에서 예약어로 차단한다. */
+    static final String TEMP_NICKNAME_PREFIX = "user_";
+
+    /**
+     * 항상 20자 이내이면서 닉네임 UNIQUE를 만족하는 임시 닉네임을 만든다.
+     *
+     * <p>버그 수정(2026-06-05): 기존 충돌 fallback "user_{10자리kakaoId}_{UUID8}"는
+     * 24자라 VARCHAR(20)을 초과해 INSERT가 "Data too long"으로 실패했다. 이 실패는
+     * DataIntegrityViolationException으로 잡혀 login()의 kakaoId 재조회로 넘어가는데,
+     * 정작 행이 안 만들어졌으므로 KAKAO_AUTH_FAILED(401)로 둔갑하고 해당 사용자는
+     * 영영 가입할 수 없었다. 길이를 보장하는 생성기로 교체한다.
+     */
+    private String generateTempNickname(long kakaoId) {
+        String base = truncate(TEMP_NICKNAME_PREFIX + kakaoId, NICKNAME_MAX_LENGTH);
+        if (!memberRepository.existsByNickname(base)) {
+            return base;
+        }
+        // 충돌 시: 6자리 랜덤 suffix를 붙이되 base를 잘라 전체 20자 이내를 유지
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String suffix = "_" + UUID.randomUUID().toString().replace("-", "").substring(0, 6);
+            String candidate = truncate(base, NICKNAME_MAX_LENGTH - suffix.length()) + suffix;
+            if (!memberRepository.existsByNickname(candidate)) {
+                return candidate;
+            }
+        }
+        // 극히 드문 연속 충돌 — 전부 랜덤(접두사 유지)으로 최종 시도
+        return truncate(TEMP_NICKNAME_PREFIX, NICKNAME_MAX_LENGTH)
+                + UUID.randomUUID().toString().replace("-", "")
+                        .substring(0, NICKNAME_MAX_LENGTH - TEMP_NICKNAME_PREFIX.length());
+    }
+
+    private static String truncate(String value, int maxLength) {
+        return value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
 }

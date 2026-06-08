@@ -93,6 +93,31 @@ class MemberServiceTest {
                 .extracting("errorCode").isEqualTo(ErrorCode.MEMBER_NOT_FOUND);
     }
 
+    // ── getActivePublicProfiles (일괄 조회) ──
+
+    @Test
+    void getActivePublicProfiles_탈퇴_회원은_예외_없이_결과에서_제외() {
+        Member active = createMember(1L, "활성회원");
+        Member withdrawn = createMember(2L, "탈퇴회원");
+        withdrawn.withdraw(FIXED_CLOCK);
+        when(memberRepository.findAllById(any()))
+                .thenReturn(java.util.List.of(active, withdrawn));
+
+        var profiles = memberService.getActivePublicProfiles(java.util.List.of(1L, 2L));
+
+        // 단건 계약(404)과 달리 일괄 계약은 누락으로 표현 — 목록 화면 폴백용
+        assertThat(profiles).hasSize(1);
+        assertThat(profiles.get(0).id()).isEqualTo(1L);
+        assertThat(profiles.get(0).nickname()).isEqualTo("활성회원");
+    }
+
+    @Test
+    void getActivePublicProfiles_빈_입력은_조회_없이_빈_결과() {
+        assertThat(memberService.getActivePublicProfiles(java.util.List.of())).isEmpty();
+        assertThat(memberService.getActivePublicProfiles(null)).isEmpty();
+        org.mockito.Mockito.verifyNoInteractions(memberRepository);
+    }
+
     // ── changeNickname ──
 
     @Test
@@ -104,6 +129,30 @@ class MemberServiceTest {
         MemberResponse response = memberService.changeNickname(1L, new NicknameChangeRequest("newNick"));
 
         assertThat(response.nickname()).isEqualTo("newNick");
+    }
+
+    @Test
+    void changeNickname_앞뒤_공백_trim_적용() {
+        // P2: changeNickname 경로도 updateProfile처럼 trim 일원화 — 중복 검사·저장이 trim 값 기준이어야 한다.
+        Member member = createMember(1L, "oldNick");
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+        when(memberRepository.existsByNickname("trimmed")).thenReturn(false);
+
+        MemberResponse response = memberService.changeNickname(1L, new NicknameChangeRequest("  trimmed  "));
+
+        assertThat(response.nickname()).isEqualTo("trimmed");
+        verify(memberRepository).existsByNickname("trimmed"); // 공백 포함 원문이 아니라 trim 값으로 검사
+    }
+
+    @Test
+    void changeNickname_공백만_입력_거부() {
+        Member member = createMember(1L, "oldNick");
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> memberService.changeNickname(1L, new NicknameChangeRequest("   ")))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
     }
 
     @Test
@@ -140,6 +189,19 @@ class MemberServiceTest {
         assertThatThrownBy(() -> memberService.changeNickname(1L, new NicknameChangeRequest("race")))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.DUPLICATE_NICKNAME);
+    }
+
+    @Test
+    void changeNickname_시스템_예약접두사_user_차단() {
+        // P1-4: 임시 닉네임 접두사 'user_' 사칭 차단
+        Member member = createMember(1L, "original");
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> memberService.changeNickname(1L, new NicknameChangeRequest("user_1234")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
+        // 예약어는 중복 조회 전에 차단된다
+        verify(memberRepository, org.mockito.Mockito.never()).existsByNickname("user_1234");
     }
 
     // ── updateProfile ──

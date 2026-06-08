@@ -1,6 +1,7 @@
 package com.qtai.security;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +15,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
  * 개발(dev) 프로파일 전용 Spring Security 설정.
@@ -62,6 +66,8 @@ public class DevSecurityConfig {
         return http
                 // CSRF: REST API는 토큰 기반 인증이라 폼 위조 방지 불필요
                 .csrf(csrf -> csrf.disable())
+                // [WEB_DEV] 웹(Flutter web) 출처에서 호출 가능하도록 CORS 허용 (dev-bypass 전용)
+                .cors(cors -> cors.configurationSource(devCorsConfigurationSource()))
                 // 세션: JWT 환경 가정. 서버에 세션 안 만듦
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // dev 환경 핵심: 모든 요청 인증 없이 통과
@@ -74,5 +80,24 @@ public class DevSecurityConfig {
                 // @AuthenticationPrincipal에 null이 들어와 NoteController가 401을 던지므로 필수.
                 .addFilterBefore(devUserIdHeaderFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    /**
+     * [WEB_DEV] dev-bypass 모드 전용 CORS 소스.
+     *
+     * <p>Flutter 웹앱(예: {@code http://localhost:3000})에서 dev 서버를 호출할 때
+     * 브라우저 CORS preflight가 통과하도록 허용한다. dev 전용이므로 관대하게 둔다.
+     * 운영(prod)에서는 이 설정(DevSecurityConfig) 자체가 로드되지 않는다.
+     */
+    private CorsConfigurationSource devCorsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:3000", "http://127.0.0.1:3000"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Content-Type", "X-Dev-User-Id", "Authorization"));
+        config.setMaxAge(3600L);
+        config.setAllowCredentials(false); // dev-only; WARNING: bind dev server to 127.0.0.1 / internal network only, never expose externally - X-Dev-User-Id header can impersonate any member
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }

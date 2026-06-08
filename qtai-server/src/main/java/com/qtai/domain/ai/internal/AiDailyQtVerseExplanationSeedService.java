@@ -1,6 +1,7 @@
 package com.qtai.domain.ai.internal;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,9 +18,7 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.ai.api.generation.CreateAiGenerationJobUseCase;
 import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobCommand;
 import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
-import com.qtai.domain.qt.api.GetTodayQtUseCase;
 import com.qtai.domain.qt.api.dto.QtPassageContentContext;
-import com.qtai.domain.qt.api.dto.TodayQtResponse;
 import com.qtai.domain.study.api.ListApprovedVerseExplanationUseCase;
 import com.qtai.domain.study.api.dto.ApprovedVerseExplanationResponse;
 
@@ -29,8 +28,8 @@ class AiDailyQtVerseExplanationSeedService {
 
     private static final String SYSTEM_BATCH = "SYSTEM_BATCH";
     private static final String ACTIVE_PROMPT_NOT_FOUND = "ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND";
+    private static final String TODAY_PASSAGE_NOT_FOUND = "TODAY_QT_PASSAGE_NOT_FOUND";
 
-    private final GetTodayQtUseCase getTodayQtUseCase;
     private final GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
     private final ListApprovedVerseExplanationUseCase listApprovedVerseExplanationUseCase;
     private final AiPromptVersionRepository promptVersionRepository;
@@ -40,7 +39,6 @@ class AiDailyQtVerseExplanationSeedService {
     private final Clock clock;
 
     AiDailyQtVerseExplanationSeedService(
-            GetTodayQtUseCase getTodayQtUseCase,
             GetQtPassageContentContextUseCase getQtPassageContentContextUseCase,
             ListApprovedVerseExplanationUseCase listApprovedVerseExplanationUseCase,
             AiPromptVersionRepository promptVersionRepository,
@@ -49,7 +47,6 @@ class AiDailyQtVerseExplanationSeedService {
             CreateAiGenerationJobUseCase createAiGenerationJobUseCase,
             Clock clock
     ) {
-        this.getTodayQtUseCase = getTodayQtUseCase;
         this.getQtPassageContentContextUseCase = getQtPassageContentContextUseCase;
         this.listApprovedVerseExplanationUseCase = listApprovedVerseExplanationUseCase;
         this.promptVersionRepository = promptVersionRepository;
@@ -59,20 +56,26 @@ class AiDailyQtVerseExplanationSeedService {
         this.clock = clock;
     }
 
+    /**
+     * 오늘(KST) 본문의 해설 생성 job 시딩.
+     *
+     * <p>버그 수정(2026-06-05): 기존에는 사용자용 getToday()를 호출했는데
+     * 그 API는 00:00~04:00에 "어제 본문"을 반환하는 노출 정책(STALE_FALLBACK)이라
+     * 00:05 시딩이 항상 어제 본문을 시딩했다. 내부 배치 전용 날짜 직접 조회로 교체 (CLAUDE.md §6).
+     */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AiDailyQtVerseExplanationSeedResult seedToday() {
-        TodayQtResponse todayQt = Objects.requireNonNull(
-                getTodayQtUseCase.getToday(null),
-                "todayQt must not be null"
-        );
-        if (todayQt.qtPassageId() == null) {
-            return new AiDailyQtVerseExplanationSeedResult(0, 0);
-        }
-        Long qtPassageId = requirePositive(todayQt.qtPassageId(), "qtPassageId");
+        LocalDate today = LocalDate.now(clock);
         QtPassageContentContext context = Objects.requireNonNull(
-                getQtPassageContentContextUseCase.getContentContext(qtPassageId),
-                "qtPassageContentContext must not be null"
-        );
+                getQtPassageContentContextUseCase.findContentContextByDate(today),
+                "qtPassageContentContext optional must not be null"
+        ).orElse(null);
+        if (context == null) {
+            log.warn("AI daily QT verse explanation seed skipped. reason={}, qtDate={}",
+                    TODAY_PASSAGE_NOT_FOUND, today);
+            return new AiDailyQtVerseExplanationSeedResult(0, 0, TODAY_PASSAGE_NOT_FOUND);
+        }
+        Long qtPassageId = requirePositive(context.qtPassageId(), "qtPassageId");
         List<Long> verseIds = uniqueVerseIds(context.verseIds());
         if (verseIds.isEmpty()) {
             return new AiDailyQtVerseExplanationSeedResult(0, 0);

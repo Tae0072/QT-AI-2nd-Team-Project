@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -32,22 +33,21 @@ import com.qtai.domain.ai.api.generation.CreateAiGenerationJobUseCase;
 import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobCommand;
 import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobResult;
 import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
-import com.qtai.domain.qt.api.GetTodayQtUseCase;
 import com.qtai.domain.qt.api.dto.QtPassageContentContext;
-import com.qtai.domain.qt.api.dto.TodayQtResponse;
 import com.qtai.domain.study.api.ListApprovedVerseExplanationUseCase;
 import com.qtai.domain.study.api.dto.ApprovedVerseExplanationResponse;
 
 @ExtendWith(OutputCaptureExtension.class)
 class AiDailyQtVerseExplanationSeedServiceTest {
 
+    /** 00:05 KST(= 전일 15:05 UTC) 고정 — 시딩 실행 시각과 동일한 조건. */
     private static final Clock CLOCK = Clock.fixed(
             Instant.parse("2026-05-31T15:05:00Z"),
             ZoneId.of("Asia/Seoul")
     );
+    private static final LocalDate TODAY = LocalDate.parse("2026-06-01");
     private static final OffsetDateTime REQUESTED_AT = OffsetDateTime.parse("2026-06-01T00:05:00+09:00");
 
-    private GetTodayQtUseCase getTodayQtUseCase;
     private GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
     private ListApprovedVerseExplanationUseCase listApprovedVerseExplanationUseCase;
     private AiPromptVersionRepository promptVersionRepository;
@@ -58,7 +58,6 @@ class AiDailyQtVerseExplanationSeedServiceTest {
 
     @BeforeEach
     void setUp() {
-        getTodayQtUseCase = mock(GetTodayQtUseCase.class);
         getQtPassageContentContextUseCase = mock(GetQtPassageContentContextUseCase.class);
         listApprovedVerseExplanationUseCase = mock(ListApprovedVerseExplanationUseCase.class);
         promptVersionRepository = mock(AiPromptVersionRepository.class);
@@ -66,7 +65,6 @@ class AiDailyQtVerseExplanationSeedServiceTest {
         generationJobRepository = mock(AiGenerationJobRepository.class);
         createAiGenerationJobUseCase = mock(CreateAiGenerationJobUseCase.class);
         service = new AiDailyQtVerseExplanationSeedService(
-                getTodayQtUseCase,
                 getQtPassageContentContextUseCase,
                 listApprovedVerseExplanationUseCase,
                 promptVersionRepository,
@@ -77,11 +75,30 @@ class AiDailyQtVerseExplanationSeedServiceTest {
         );
     }
 
+    private void stubTodayContext(QtPassageContentContext context) {
+        when(getQtPassageContentContextUseCase.findContentContextByDate(TODAY))
+                .thenReturn(Optional.ofNullable(context));
+    }
+
+    @Test
+    @DisplayName("00:05 시딩은 어제가 아니라 '오늘' 날짜 본문을 조회한다 (STALE_FALLBACK 회귀 방지)")
+    void seedTodayQueriesTodayDateNotYesterday() {
+        stubTodayContext(context(List.of()));
+
+        service.seedToday();
+
+        ArgumentCaptor<LocalDate> dateCaptor = ArgumentCaptor.forClass(LocalDate.class);
+        verify(getQtPassageContentContextUseCase).findContentContextByDate(dateCaptor.capture());
+        // 00:05 KST 시점 기준 오늘(2026-06-01) — 기존 getToday() 경로는 STALE_FALLBACK으로
+        // 어제(2026-05-31) 본문을 반환해 어제 본문을 시딩하던 버그가 있었다.
+        assertThat(dateCaptor.getValue()).isEqualTo(TODAY);
+        assertThat(dateCaptor.getValue()).isNotEqualTo(TODAY.minusDays(1));
+    }
+
     @Test
     void seedTodayCreatesJobsOnlyForEligibleUniqueVerseIds() {
         AiPromptVersion promptVersion = promptVersion(15L, "2026.06.1", REQUESTED_AT.minusDays(1));
-        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
-        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context());
+        stubTodayContext(context());
         when(promptVersionRepository.findFirstByPromptTypeAndStatusOrderByCreatedAtDescIdDesc(
                 AiPromptType.EXPLANATION,
                 AiPromptVersionStatus.ACTIVE
@@ -121,8 +138,7 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     void seedTodayContinuesWhenOneVerseJobCreationFails(CapturedOutput output) {
         AiPromptVersion promptVersion = promptVersion(15L, "2026.06.1", REQUESTED_AT.minusDays(1));
         List<Long> verseIds = List.of(101L, 102L, 103L, 104L, 105L);
-        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
-        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(verseIds));
+        stubTodayContext(context(verseIds));
         when(promptVersionRepository.findFirstByPromptTypeAndStatusOrderByCreatedAtDescIdDesc(
                 AiPromptType.EXPLANATION,
                 AiPromptVersionStatus.ACTIVE
@@ -170,8 +186,7 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     void seedTodayTreatsDuplicateActiveJobRaceAsSkipped(CapturedOutput output) {
         AiPromptVersion promptVersion = promptVersion(15L, "2026.06.1", REQUESTED_AT.minusDays(1));
         List<Long> verseIds = List.of(104L, 105L);
-        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
-        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(verseIds));
+        stubTodayContext(context(verseIds));
         when(promptVersionRepository.findFirstByPromptTypeAndStatusOrderByCreatedAtDescIdDesc(
                 AiPromptType.EXPLANATION,
                 AiPromptVersionStatus.ACTIVE
@@ -210,8 +225,7 @@ class AiDailyQtVerseExplanationSeedServiceTest {
 
     @Test
     void seedTodayReturnsZeroWhenVerseIdsAreEmpty() {
-        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
-        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(List.of()));
+        stubTodayContext(context(List.of()));
 
         AiDailyQtVerseExplanationSeedResult result = service.seedToday();
 
@@ -227,15 +241,17 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     }
 
     @Test
-    void seedTodayReturnsZeroWhenTodayQtHasNoPassage() {
-        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt(null));
+    @DisplayName("오늘 본문이 없으면 TODAY_QT_PASSAGE_NOT_FOUND 사유로 기록·스킵한다")
+    void seedTodayRecordsFailureReasonWhenTodayPassageMissing(CapturedOutput output) {
+        stubTodayContext(null);
 
         AiDailyQtVerseExplanationSeedResult result = service.seedToday();
 
         assertThat(result.createdCount()).isZero();
         assertThat(result.failedCount()).isZero();
+        assertThat(result.failureReason()).isEqualTo("TODAY_QT_PASSAGE_NOT_FOUND");
+        assertThat(output).contains("TODAY_QT_PASSAGE_NOT_FOUND", "qtDate=2026-06-01");
         verifyNoInteractions(
-                getQtPassageContentContextUseCase,
                 promptVersionRepository,
                 listApprovedVerseExplanationUseCase,
                 generatedAssetRepository,
@@ -247,8 +263,7 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     @Test
     void seedTodayReturnsZeroWhenEveryVerseAlreadyHasApprovedExplanation() {
         List<Long> verseIds = List.of(101L, 102L);
-        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
-        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(verseIds));
+        stubTodayContext(context(verseIds));
         when(listApprovedVerseExplanationUseCase.listApprovedByVerseIds(verseIds))
                 .thenReturn(List.of(
                         new ApprovedVerseExplanationResponse(101L, "summary-101", "explanation-101", "source", 901L),
@@ -266,8 +281,7 @@ class AiDailyQtVerseExplanationSeedServiceTest {
 
     @Test
     void seedTodayDoesNotCreateJobsWhenActiveExplanationPromptVersionIsMissing(CapturedOutput output) {
-        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
-        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context());
+        stubTodayContext(context());
         when(listApprovedVerseExplanationUseCase.listApprovedByVerseIds(List.of(101L, 102L, 103L, 104L)))
                 .thenReturn(List.of());
         when(generatedAssetRepository.findReadyExplanationBibleVerseTargetIds(List.of(101L, 102L, 103L, 104L)))
@@ -303,26 +317,16 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     }
 
     @Test
-    void seedTodayRequiresTodayQtResponse() {
-        when(getTodayQtUseCase.getToday(null)).thenReturn(null);
+    void seedTodayRequiresNonNullOptionalContract() {
+        when(getQtPassageContentContextUseCase.findContentContextByDate(TODAY)).thenReturn(null);
 
         assertThatThrownBy(service::seedToday)
                 .isInstanceOf(NullPointerException.class)
-                .hasMessage("todayQt must not be null");
-    }
-
-    @Test
-    void seedTodayRequiresQtPassageContentContext() {
-        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
-        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(null);
-
-        assertThatThrownBy(service::seedToday)
-                .isInstanceOf(NullPointerException.class)
-                .hasMessage("qtPassageContentContext must not be null");
+                .hasMessage("qtPassageContentContext optional must not be null");
     }
 
     private void assertInvalidQtPassageId(Long qtPassageId) {
-        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt(qtPassageId));
+        stubTodayContext(context(qtPassageId, List.of(101L)));
 
         assertThatThrownBy(service::seedToday)
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
@@ -330,28 +334,11 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     }
 
     private void assertInvalidVerseIds(List<Long> verseIds) {
-        when(getTodayQtUseCase.getToday(null)).thenReturn(todayQt());
-        when(getQtPassageContentContextUseCase.getContentContext(35L)).thenReturn(context(verseIds));
+        stubTodayContext(context(verseIds));
 
         assertThatThrownBy(service::seedToday)
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
-    }
-
-    private static TodayQtResponse todayQt() {
-        return todayQt(35L);
-    }
-
-    private static TodayQtResponse todayQt(Long qtPassageId) {
-        return new TodayQtResponse(
-                qtPassageId,
-                "2026-06-01",
-                "Daily QT",
-                "MISSING",
-                false,
-                null,
-                "HIT"
-        );
     }
 
     private static QtPassageContentContext context() {
@@ -359,9 +346,13 @@ class AiDailyQtVerseExplanationSeedServiceTest {
     }
 
     private static QtPassageContentContext context(List<Long> verseIds) {
+        return context(35L, verseIds);
+    }
+
+    private static QtPassageContentContext context(Long qtPassageId, List<Long> verseIds) {
         return new QtPassageContentContext(
-                35L,
-                LocalDate.parse("2026-06-01"),
+                qtPassageId,
+                TODAY,
                 "Daily QT",
                 verseIds,
                 true

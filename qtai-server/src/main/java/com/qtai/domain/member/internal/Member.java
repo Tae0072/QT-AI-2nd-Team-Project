@@ -124,14 +124,19 @@ public class Member extends BaseEntity {
     /**
      * 탈퇴 회원 재활성화 — 보존기간(2년) 내 같은 카카오 계정으로 재로그인 시 기존 계정 복구.
      *
-     * <p>이메일·프로필 이미지는 카카오 최신 값으로 갱신하고,
+     * <p>이메일·프로필 이미지는 카카오 최신 값이 <b>있을 때만</b> 갱신한다. 카카오가 선택 동의 항목
+     * (이메일·프로필)을 주지 않아 null로 오면 기존 보관 값을 유지한다(과거 값 소실 방지).
      * 닉네임과 nicknameChangedAt(7일 잠금)은 기존 값을 유지한다.
      */
     public void reactivate(String email, String profileImageUrl) {
         this.status = MemberStatus.ACTIVE;
         this.withdrawnAt = null;
-        this.email = email;
-        this.profileImageUrl = profileImageUrl;
+        if (email != null) {
+            this.email = email;
+        }
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl;
+        }
     }
 
     public boolean isActive() {

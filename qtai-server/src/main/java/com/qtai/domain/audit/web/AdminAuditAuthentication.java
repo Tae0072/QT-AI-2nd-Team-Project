@@ -8,17 +8,35 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
+import com.qtai.domain.admin.api.dto.AdminUserInfo;
 
-record AdminAuditAuthentication(
-        Long adminId,
-        String memberRole,
-        String adminRole
-) {
+/**
+ * audit 도메인 admin API 공통 인가 헬퍼.
+ *
+ * <p>CLAUDE.md §5: 관리자 API는 members.role=ADMIN(JWT)과
+ * admin_users.admin_role(DB)을 모두 확인한다. 감사 로그 조회는
+ * OPERATOR/REVIEWER(+SUPER_ADMIN 우월권)만 허용한다.
+ *
+ * <p>기존 구현은 JWT authority의 {@code ADMIN_ROLE_*}를 파싱했으나,
+ * 토큰 발급 경로가 해당 authority를 만들지 않아 운영에서 전부 403이 나는
+ * 결함이 있어 DB 검증 방식으로 통일했다(2026-06-05 Lead 결정).
+ */
+@Component
+class AdminAuditAuthentication {
 
-    static AdminAuditAuthentication requireAudit(Authentication requestAuthentication) {
+    private final VerifyAdminRoleUseCase verifyAdminRoleUseCase;
+
+    AdminAuditAuthentication(VerifyAdminRoleUseCase verifyAdminRoleUseCase) {
+        this.verifyAdminRoleUseCase = verifyAdminRoleUseCase;
+    }
+
+    /** 감사 로그 조회 권한 — OPERATOR/REVIEWER (SUPER_ADMIN 자동 포함). */
+    AdminAuditPrincipal requireAudit(Authentication requestAuthentication) {
         Authentication authentication = requestAuthentication != null
                 ? requestAuthentication
                 : SecurityContextHolder.getContext().getAuthentication();
@@ -35,21 +53,15 @@ record AdminAuditAuthentication(
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        String adminRole = resolveAdminRole(authorities);
-        if (adminRole == null) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-
-        return new AdminAuditAuthentication(resolvePrincipalId(authentication), "ADMIN", adminRole);
-    }
-
-    private static String resolveAdminRole(Set<String> authorities) {
-        for (String adminRole : List.of("OPERATOR", "REVIEWER", "SUPER_ADMIN")) {
-            if (authorities.contains("ADMIN_ROLE_" + adminRole)) {
-                return adminRole;
-            }
-        }
-        return null;
+        Long memberId = resolvePrincipalId(authentication);
+        AdminUserInfo adminUserInfo = verifyAdminRoleUseCase.verifyAnyRole(
+                memberId, List.of("OPERATOR", "REVIEWER"));
+        return new AdminAuditPrincipal(
+                adminUserInfo.adminUserId(),
+                adminUserInfo.memberId(),
+                "ADMIN",
+                adminUserInfo.adminRole()
+        );
     }
 
     private static Long resolvePrincipalId(Authentication authentication) {
@@ -69,5 +81,21 @@ record AdminAuditAuthentication(
         } catch (NumberFormatException exception) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
+    }
+
+    /**
+     * 인가 결과 주체 정보.
+     *
+     * @param adminId    admin_users.id — 감사 조회 주체 기록용
+     * @param memberId   members.id (JWT principal)
+     * @param memberRole 항상 "ADMIN" (1차 검증 통과 표시)
+     * @param adminRole  DB에서 확인된 세부 역할
+     */
+    record AdminAuditPrincipal(
+            Long adminId,
+            Long memberId,
+            String memberRole,
+            String adminRole
+    ) {
     }
 }

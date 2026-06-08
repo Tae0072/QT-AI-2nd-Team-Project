@@ -88,7 +88,10 @@ class SuTodayPassageImportSchedulerTest {
 
         verify(repository).existsByQtDate(LocalDate.of(2026, 6, 2));
         verifyNoInteractions(client);
-        verifyNoInteractions(importService);
+        // 본문 import는 생략하되, 절 매핑 백필은 항상 시도한다
+        verify(importService, org.mockito.Mockito.never())
+                .importToday(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(importService).backfillMissingVerseMappings();
     }
 
     @Test
@@ -106,7 +109,10 @@ class SuTodayPassageImportSchedulerTest {
 
         verify(repository).existsByQtDate(LocalDate.of(2026, 6, 2));
         verifyNoInteractions(client);
-        verifyNoInteractions(importService);
+        // import 경로 실패와 무관하게 절 매핑 백필은 시도된다
+        verify(importService, org.mockito.Mockito.never())
+                .importToday(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(importService).backfillMissingVerseMappings();
         assertThat(output).contains(
                 "성서유니온 오늘 QT startup 보강 실패",
                 "errorType=IllegalStateException",
@@ -135,11 +141,12 @@ class SuTodayPassageImportSchedulerTest {
     }
 
     @Test
-    void scheduledTriggerRunsAtFiveMinutesAfterMidnightKst() throws NoSuchMethodException {
+    void scheduledTriggerRunsAtTwoMinutesAfterMidnightKst() throws NoSuchMethodException {
         Method importToday = SuTodayPassageImportScheduler.class.getDeclaredMethod("importToday");
         Scheduled scheduled = importToday.getAnnotation(Scheduled.class);
 
-        assertThat(scheduled.cron()).isEqualTo("0 5 0 * * *");
+        // 00:05 AI 해설 시딩과의 동시 실행(순서 미보장) 경합을 피해 00:02로 분리
+        assertThat(scheduled.cron()).isEqualTo("0 2 0 * * *");
         assertThat(scheduled.zone()).isEqualTo("Asia/Seoul");
     }
 

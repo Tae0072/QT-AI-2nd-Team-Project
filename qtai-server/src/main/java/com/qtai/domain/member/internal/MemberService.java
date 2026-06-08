@@ -58,6 +58,28 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
         );
     }
 
+    /**
+     * 활성 회원 공개 프로필 일괄 조회 — 목록 N+1 방지용.
+     *
+     * <p>단건 {@link #getMemberPublic}과 달리 탈퇴·정지 회원은 예외 없이
+     * 결과에서 제외한다. 호출자(댓글 목록 등)는 누락 id를 자체 표시 정책으로
+     * 폴백한다 — 탈퇴 회원 1명이 목록 API 전체를 404로 깨뜨리던 결함의 수정 계약.
+     */
+    @Override
+    public java.util.List<MemberPublicResponse> getActivePublicProfiles(java.util.Collection<Long> memberIds) {
+        if (memberIds == null || memberIds.isEmpty()) {
+            return java.util.List.of();
+        }
+        return memberRepository.findAllById(new java.util.LinkedHashSet<>(memberIds)).stream()
+                .filter(Member::isActive)
+                .map(member -> new MemberPublicResponse(
+                        member.getId(),
+                        member.getNickname(),
+                        member.getProfileImageUrl()
+                ))
+                .toList();
+    }
+
     // ── UpdateProfileUseCase ──
 
     @Override
@@ -66,11 +88,8 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
         Member member = findActiveMemberOrThrow(memberId);
 
         if (request.nickname() != null) {
-            String trimmed = request.nickname().trim();
-            if (trimmed.isEmpty()) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT, "닉네임은 공백일 수 없습니다.");
-            }
-            changeNicknameInternal(member, trimmed);
+            // trim/공백 검증은 changeNicknameInternal로 일원화(P2) — changeNickname 경로와 동일 규칙 적용.
+            changeNicknameInternal(member, request.nickname());
         }
         if (request.profileImageUrl() != null) {
             member.updateProfileImageUrl(request.profileImageUrl());
@@ -116,10 +135,23 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
 
     // ── private helpers ──
 
-    private void changeNicknameInternal(Member member, String newNickname) {
+    /** 시스템이 부여하는 임시 닉네임 접두사 — 사용자 닉네임으로는 예약(사칭 방지). */
+    private static final String RESERVED_NICKNAME_PREFIX = "user_";
+
+    private void changeNicknameInternal(Member member, String rawNickname) {
+        // 두 진입점(updateProfile / changeNickname) 공통: 앞뒤 공백 제거 후 공백-only 거부(P2 trim 정책 일원화).
+        String newNickname = rawNickname == null ? null : rawNickname.trim();
+        if (newNickname == null || newNickname.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "닉네임은 공백일 수 없습니다.");
+        }
         if (!member.isNicknameChangeable(clock)) {
             throw new BusinessException(ErrorCode.NICKNAME_LOCKED,
                     "닉네임은 " + member.getNicknameUnlockAt() + " 이후에 변경할 수 있습니다.");
+        }
+        // 임시 닉네임 접두사(user_) 사칭 차단 — 시스템 예약 접두사
+        if (newNickname.startsWith(RESERVED_NICKNAME_PREFIX)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "'" + RESERVED_NICKNAME_PREFIX + "'로 시작하는 닉네임은 사용할 수 없습니다.");
         }
         if (memberRepository.existsByNickname(newNickname)) {
             throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);

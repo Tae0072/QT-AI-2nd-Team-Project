@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../routes/app_router.dart';
@@ -37,7 +38,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = '로그인에 실패했습니다. 다시 시도해주세요.';
+        _errorMessage = AppLocalizations.of(context).loginFailed;
       });
     } finally {
       if (mounted) {
@@ -48,6 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppTheme.bg,
       body: SafeArea(
@@ -75,10 +77,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 18),
 
               // 헤드라인
-              const Text(
-                '매일의 묵상을\n가장 단순하게.',
+              Text(
+                l.loginHeadline,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'GowunDodum',
                   fontSize: 28,
                   fontWeight: FontWeight.w400,
@@ -88,10 +90,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                '오늘의 QT 본문과 검증된 해설을 읽고,\n나만의 묵상 노트를 남겨보세요.',
+              Text(
+                l.loginSubtitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, color: AppTheme.textMuted, height: 1.5),
+                style: const TextStyle(fontSize: 17, color: AppTheme.textMuted, height: 1.5),
               ),
 
               const Spacer(flex: 2),
@@ -128,7 +130,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           width: 20, height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF191600)))
                       : const Icon(Icons.chat_bubble, size: 20),
-                  label: const Text('카카오로 시작하기'),
+                  label: Text(l.loginKakaoButton),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFEE500),
                     foregroundColor: const Color(0xFF191600),
@@ -148,18 +150,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               // 법적 고지
               Text.rich(
                 TextSpan(
-                  text: '계속 진행하면 ',
+                  text: l.loginLegalPrefix,
                   children: [
                     TextSpan(
-                      text: '이용약관',
-                      style: TextStyle(color: AppTheme.accent),
+                      text: l.loginTermsOfService,
+                      style: const TextStyle(color: AppTheme.accent),
                     ),
-                    const TextSpan(text: ' 및 '),
+                    TextSpan(text: l.loginLegalAnd),
                     TextSpan(
-                      text: '개인정보처리방침',
-                      style: TextStyle(color: AppTheme.accent),
+                      text: l.loginPrivacyPolicy,
+                      style: const TextStyle(color: AppTheme.accent),
                     ),
-                    const TextSpan(text: '에\n동의하는 것으로 간주합니다.'),
+                    TextSpan(text: l.loginLegalSuffix),
                   ],
                 ),
                 textAlign: TextAlign.center,

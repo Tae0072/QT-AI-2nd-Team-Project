@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/models/bible_reference.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
@@ -49,7 +50,11 @@ void main() {
           todayQtPassageProvider.overrideWith((ref) async => passage),
           sharedPreferencesProvider.overrideWithValue(prefs),
         ],
-        child: const MaterialApp(home: TodayQtScreen()),
+        child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: const TodayQtScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -76,6 +81,7 @@ void main() {
       qtPassageId: 7,
       passageDate: '2026-06-05',
       title: '성령으로 깨닫는 하나님의 지혜',
+      hasExplanation: true,
       reference: BibleReference(
         koreanBookName: '고린도전서',
         englishBookName: '1 Corinthians',
@@ -95,8 +101,8 @@ void main() {
           bookCode: '1CO',
           chapterNo: 2,
           verseNo: 1,
-          koreanText: '형제들아 내가 너희에게 나아가',
-          englishText: 'And I, brethren, when I came to you',
+          koreanText: '더미 한글 본문 1',
+          englishText: 'Dummy English verse 1',
         ),
       ],
     );
@@ -107,9 +113,12 @@ void main() {
           todayQtPassageProvider.overrideWith((ref) async => passage),
           sharedPreferencesProvider.overrideWithValue(prefs),
         ],
-        child: const MaterialApp(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           onGenerateRoute: AppRouter.onGenerateRoute,
-          home: TodayQtScreen(),
+          home: const TodayQtScreen(),
         ),
       ),
     );
@@ -120,7 +129,7 @@ void main() {
 
     expect(find.text('QT 노트'), findsOneWidget);
     expect(find.text('고린도전서 2:1-16'), findsOneWidget);
-    expect(find.text('형제들아 내가 너희에게 나아가'), findsOneWidget);
+    expect(find.text('더미 한글 본문 1'), findsOneWidget);
     expect(find.byTooltip('굵게'), findsOneWidget);
     expect(find.byTooltip('하이라이트'), findsOneWidget);
     expect(find.byTooltip('구절 삽입'), findsOneWidget);
@@ -134,6 +143,7 @@ void main() {
       qtPassageId: 7,
       passageDate: '2026-06-05',
       title: '성령으로 깨닫는 하나님의 지혜',
+      hasExplanation: true,
       reference: BibleReference(
         koreanBookName: '고린도전서',
         englishBookName: '1 Corinthians',
@@ -153,8 +163,8 @@ void main() {
           bookCode: '1CO',
           chapterNo: 2,
           verseNo: 1,
-          koreanText: '형제들아 내가 너희에게 나아가',
-          englishText: 'And I, brethren, when I came to you',
+          koreanText: '더미 한글 본문 1',
+          englishText: 'Dummy English verse 1',
         ),
       ],
     );
@@ -166,9 +176,12 @@ void main() {
           bibleRepositoryProvider.overrideWithValue(_FakeBibleRepository()),
           sharedPreferencesProvider.overrideWithValue(prefs),
         ],
-        child: const MaterialApp(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           onGenerateRoute: AppRouter.onGenerateRoute,
-          home: TodayQtScreen(),
+          home: const TodayQtScreen(),
         ),
       ),
     );

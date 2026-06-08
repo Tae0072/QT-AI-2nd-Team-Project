@@ -2,6 +2,7 @@ import 'dart:developer' as dev;
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/app_config.dart';
+import '../dev/web_dev_access.dart'; // [WEB_DEV_ACCESS] 개발 종료 시 삭제
 import 'auth_interceptor.dart';
 import 'error_interceptor.dart';
 
@@ -12,7 +13,8 @@ final dioProvider = Provider<Dio>((ref) {
     receiveTimeout: const Duration(seconds: 10),
     headers: {
       'Content-Type': 'application/json',
-      if (AppConfig.instance.isDev) 'X-Dev-User-Id': '1',
+      // [WEB_DEV_ACCESS] 웹 개발 우회 시 dev 서버 인증용 헤더 (dev-bypass 서버에서만 유효)
+      if (webDevNoLogin) 'X-Dev-User-Id': webDevUserId,
     },
   ));
 

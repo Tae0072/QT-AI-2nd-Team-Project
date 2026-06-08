@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/mypage/screens/tts_settings_screen.dart';
 import 'package:qtai_app/features/onboarding/providers/onboarding_providers.dart';
 import 'package:qtai_app/features/tts/providers/tts_providers.dart';
@@ -15,7 +16,7 @@ void main() {
   Widget buildScreen(SharedPreferences prefs) {
     return ProviderScope(
       overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: const MaterialApp(home: TtsSettingsScreen()),
+      child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: const TtsSettingsScreen()),
     );
   }
 

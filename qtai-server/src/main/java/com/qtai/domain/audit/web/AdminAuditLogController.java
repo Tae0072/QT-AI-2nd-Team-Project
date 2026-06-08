@@ -19,9 +19,14 @@ import com.qtai.domain.audit.api.dto.ListAuditQuery;
 public class AdminAuditLogController {
 
     private final ListAuditUseCase listAuditUseCase;
+    private final AdminAuditAuthentication adminAuditAuthentication;
 
-    public AdminAuditLogController(ListAuditUseCase listAuditUseCase) {
+    public AdminAuditLogController(
+            ListAuditUseCase listAuditUseCase,
+            AdminAuditAuthentication adminAuditAuthentication
+    ) {
         this.listAuditUseCase = listAuditUseCase;
+        this.adminAuditAuthentication = adminAuditAuthentication;
     }
 
     @GetMapping
@@ -37,7 +42,7 @@ public class AdminAuditLogController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        AdminAuditAuthentication adminAuthentication = AdminAuditAuthentication.requireAudit(authentication);
+        AdminAuditAuthentication.AdminAuditPrincipal adminAuthentication = adminAuditAuthentication.requireAudit(authentication);
         AuditLogListResponse response = listAuditUseCase.listAuditLogs(new ListAuditQuery(
                 adminAuthentication.adminId(),
                 adminAuthentication.memberRole(),

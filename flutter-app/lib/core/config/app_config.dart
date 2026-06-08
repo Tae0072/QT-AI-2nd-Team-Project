@@ -1,5 +1,6 @@
 import 'dart:developer';
-import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 
 /// 실행 환경 enum.
 enum Environment { dev, staging, prod }
@@ -90,15 +91,15 @@ class AppConfig {
 
   /// dev 환경 baseUrl 결정.
   /// - `--dart-define=DEV_BASE_URL=...` 으로 override 가능.
-  /// - 미지정 시 Android 에뮬레이터(`10.0.2.2`), iOS 시뮬레이터(`localhost`) 자동 분기.
+  /// - 미지정 시 웹/iOS는 `localhost`, Android 에뮬레이터는 `10.0.2.2`로 자동 분기.
   static String _baseUrlFor(Environment env) {
     switch (env) {
       case Environment.dev:
         const override = String.fromEnvironment('DEV_BASE_URL', defaultValue: '');
         if (override.isNotEmpty) return override;
-        // Android 에뮬레이터: 10.0.2.2 → 호스트 localhost 매핑
-        // iOS 시뮬레이터: 직접 localhost 사용 가능
-        final host = Platform.isIOS ? 'localhost' : '10.0.2.2';
+        // 웹/iOS는 호스트의 localhost에 직접 접근,
+        // Android 에뮬레이터만 10.0.2.2로 호스트 localhost에 매핑된다.
+        final host = _devHost();
         return 'http://$host:8080/api/v1';
       case Environment.staging:
         return 'https://staging-api.qtai.com/api/v1';
@@ -114,13 +115,24 @@ class AppConfig {
     if (override.isNotEmpty) return override;
     switch (env) {
       case Environment.dev:
-        final host = Platform.isIOS ? 'localhost' : '10.0.2.2';
+        final host = _devHost();
         return 'http://$host:8090';
       case Environment.staging:
         return 'https://tts.qtai.com';
       case Environment.prod:
         return 'https://tts.qtai.com';
     }
+  }
+
+  /// dev 환경에서 접근할 서버 호스트를 결정한다.
+  ///
+  /// - 웹(브라우저)·iOS 시뮬레이터: 호스트의 `localhost`에 직접 접근.
+  /// - Android 에뮬레이터: 호스트 `localhost`가 `10.0.2.2`로 매핑되므로 그 주소 사용.
+  static String _devHost() {
+    if (kIsWeb || defaultTargetPlatform == TargetPlatform.iOS) {
+      return 'localhost';
+    }
+    return '10.0.2.2';
   }
 
   bool get isDev => environment == Environment.dev;

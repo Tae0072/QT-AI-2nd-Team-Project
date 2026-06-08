@@ -139,7 +139,7 @@ class AiGenerationJobWorkerTest {
             boolean enabled,
             int batchSize
     ) {
-        return new AiGenerationJobWorker(runner, monitoringService, enabled, batchSize, CLOCK);
+        return new AiGenerationJobWorker(runner, monitoringService, enabled, batchSize, 300000L, CLOCK);
     }
 
     private static AiBatchRunLogCommand captureMonitoringCommand(AiBatchMonitoringService monitoringService) {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
+
 /// 로딩 화면
 class LoadingView extends StatelessWidget {
   final String? message;
@@ -44,7 +46,7 @@ class ErrorView extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyLarge),
             if (onRetry != null) ...[
               const SizedBox(height: 16),
-              ElevatedButton(onPressed: onRetry, child: const Text('다시 시도')),
+              ElevatedButton(onPressed: onRetry, child: Text(AppLocalizations.of(context).commonRetry)),
             ],
           ],
         ),
@@ -55,11 +57,11 @@ class ErrorView extends StatelessWidget {
 
 /// 빈 화면 표시
 class EmptyView extends StatelessWidget {
-  final String message;
+  final String? message;
   final IconData icon;
   const EmptyView({
     super.key,
-    this.message = '데이터가 없습니다.',
+    this.message,
     this.icon = Icons.inbox_outlined,
   });
 
@@ -71,7 +73,7 @@ class EmptyView extends StatelessWidget {
         children: [
           Icon(icon, size: 48, color: Colors.grey),
           const SizedBox(height: 16),
-          Text(message,
+          Text(message ?? AppLocalizations.of(context).emptyDefault,
               style: Theme.of(context)
                   .textTheme
                   .bodyLarge

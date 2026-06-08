@@ -32,6 +32,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminReportService implements ListAdminReportsUseCase, ProcessReportUseCase {
 
     private final ReportRepository reportRepository;
+    // 후속 조치 포트 — 타 도메인은 api/UseCase로만 (CLAUDE.md §4)
+    private final com.qtai.domain.sharing.api.HideSharingPostForModerationUseCase hideSharingPostForModerationUseCase;
+    private final com.qtai.domain.notification.api.SendNotificationUseCase sendNotificationUseCase;
+    private final com.qtai.domain.audit.api.WriteAuditLogUseCase writeAuditLogUseCase;
     private final Clock clock;
 
     @Override
@@ -62,6 +66,9 @@ public class AdminReportService implements ListAdminReportsUseCase, ProcessRepor
         return process(command, ReportStatus.REJECTED);
     }
 
+    /** RESOLVED 처리에서 대상 숨김을 의미하는 후속 조치 액션. */
+    static final String ACTION_HIDE_TARGET = "HIDE_TARGET";
+
     private ProcessReportResult process(ProcessReportCommand command, ReportStatus newStatus) {
         Report report = reportRepository.findById(command.reportId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.REPORT_NOT_FOUND));
@@ -69,16 +76,65 @@ public class AdminReportService implements ListAdminReportsUseCase, ProcessRepor
             throw new BusinessException(ErrorCode.REPORT_ALREADY_PROCESSED);
         }
 
+        String previousStatus = report.getStatus().name();
         LocalDateTime now = LocalDateTime.now(clock);
         report.process(command.adminId(), newStatus, now);
 
-        log.info("신고 처리: reportId={}, adminId={}, status={}, action={}, notifyReporter={}",
+        // ① 대상 숨김 — RESOLVED + HIDE_TARGET + POST 대상일 때 같은 트랜잭션에서 처리(정합 보장).
+        //    COMMENT/AI 대상 숨김 연계는 해당 도메인 포트 신설 시 확장한다.
+        if (newStatus == ReportStatus.RESOLVED
+                && ACTION_HIDE_TARGET.equals(command.action())
+                && report.getTargetType() == ReportTargetType.POST) {
+            hideSharingPostForModerationUseCase.hideForModeration(report.getTargetId());
+        }
+
+        // ② 신고자 알림 — 실패가 처리 자체를 막지 않도록 분리(eventKey 멱등으로 재시도 안전).
+        if (command.notifyReporter()) {
+            notifyReporter(report, newStatus);
+        }
+
+        // ③ 감사 기록 — 관리자 행위 추적(CLAUDE.md §5). adminId는 admin_users.id.
+        writeAuditLogUseCase.write(new com.qtai.domain.audit.api.dto.AuditLogWriteRequest(
+                command.adminId(),
+                "ADMIN",
+                command.adminId(),
+                "ADMIN:" + command.adminId(),
+                newStatus == ReportStatus.RESOLVED ? "REPORT_RESOLVE" : "REPORT_REJECT",
+                "REPORT",
+                report.getId(),
+                "{\"status\":\"" + previousStatus + "\"}",
+                "{\"status\":\"" + newStatus.name() + "\",\"action\":\""
+                        + (command.action() == null ? "" : command.action()) + "\"}"
+        ));
+
+        log.info("신고 처리: reportId={}, adminUserId={}, status={}, action={}, notifyReporter={}",
                 report.getId(), command.adminId(), newStatus, command.action(), command.notifyReporter());
-        // TODO(후속): action=HIDE_TARGET 대상 숨김(sharing/ai), 신고자 알림(notification), 감사 로그(audit_logs)
 
         return new ProcessReportResult(
                 report.getId(), report.getStatus().name(),
                 report.getProcessedByAdminId(), report.getProcessedAt());
+    }
+
+    /** 신고자에게 처리 결과 알림 — 실패는 경고 로그만 남기고 처리 흐름을 막지 않는다. */
+    private void notifyReporter(Report report, ReportStatus newStatus) {
+        try {
+            String body = newStatus == ReportStatus.RESOLVED
+                    ? "접수하신 신고가 처리되었습니다."
+                    : "검토 결과 조치 대상이 아닌 것으로 확인되었습니다.";
+            sendNotificationUseCase.send(new com.qtai.domain.notification.api.dto.NotificationSendRequest(
+                    report.getReporterMemberId(),
+                    "REPORT_RESULT",
+                    "신고 처리 결과 안내",
+                    body,
+                    null,
+                    "REPORT",
+                    report.getId(),
+                    "REPORT_RESULT:" + report.getId()
+            ));
+        } catch (RuntimeException exception) {
+            log.warn("신고자 알림 발송 실패(처리 자체는 유지). reportId={}, errorType={}, errorMessage={}",
+                    report.getId(), exception.getClass().getSimpleName(), exception.getMessage());
+        }
     }
 
     private ReportStatus parseStatus(String raw) {

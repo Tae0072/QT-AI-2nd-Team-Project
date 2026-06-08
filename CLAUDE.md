@@ -102,6 +102,7 @@
 - 교회 인증 화면, 버튼, API, DB 필드
 - AI 찬양 추천
 - 찬양 가사, 음원 파일, 직접 YouTube URL 입력·저장
+  - 예외(2026-06-07 Lead 승인): 앱 전역 배경음악(브금·찬송가)은 신규 `domain.music`에서 로열티프리/직접 제작 음원에 한해 DB 저장·스트리밍을 허용한다. F-09 찬양 큐레이션의 음원 미저장 정책과 위 금지(찬양 가사·사용자 디바이스 음원 업로드 등)는 그대로 유지. 근거: `doc/workspaces/Lead_강태오/workflows/2026-06-07_app-background-music.md`
 - 개역개정, ESV, NIV seed/test/fixture/response 데이터
 - 성서유니온 또는 두란노 본문 텍스트 저장
 - plain secret, token, password, private key 예시

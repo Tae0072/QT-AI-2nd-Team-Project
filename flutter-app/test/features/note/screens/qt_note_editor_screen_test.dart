@@ -34,8 +34,8 @@ void main() {
             bookCode: '1CO',
             chapterNo: 2,
             verseNo: 1,
-            koreanText: '형제들아 내가 너희에게 나아가',
-            englishText: 'And I, brethren, when I came to you',
+            koreanText: '더미 한글 본문 1',
+            englishText: 'Dummy English verse 1',
           ),
         ],
       ),
@@ -88,8 +88,8 @@ void main() {
             bookCode: '1CO',
             chapterNo: 2,
             verseNo: 1,
-            koreanText: '형제들아 내가 너희에게 나아가',
-            englishText: 'And I, brethren, when I came to you',
+            koreanText: '더미 한글 본문 1',
+            englishText: 'Dummy English verse 1',
           ),
         ],
       ),
@@ -118,7 +118,7 @@ void main() {
     await tester.tap(find.text('창세기 1:1 삽입'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('창세기 1:1 태초에 하나님이 천지를 창조하시니'), findsOneWidget);
+    expect(find.textContaining('창세기 1:1 더미 구절 본문 1'), findsOneWidget);
     expect(find.text('@창 1:1'), findsNothing);
   });
 
@@ -147,8 +147,8 @@ void main() {
             bookCode: '1CO',
             chapterNo: 2,
             verseNo: 1,
-            koreanText: '형제들아 내가 너희에게 나아가',
-            englishText: 'And I, brethren, when I came to you',
+            koreanText: '더미 한글 본문 1',
+            englishText: 'Dummy English verse 1',
           ),
         ],
       ),
@@ -212,8 +212,8 @@ void main() {
             bookCode: '1CO',
             chapterNo: 2,
             verseNo: 1,
-            koreanText: '형제들아 내가 너희에게 나아가',
-            englishText: 'And I, brethren, when I came to you',
+            koreanText: '더미 한글 본문 1',
+            englishText: 'Dummy English verse 1',
           ),
         ],
       ),
@@ -291,8 +291,8 @@ void main() {
             bookCode: '1CO',
             chapterNo: 2,
             verseNo: 1,
-            koreanText: '형제들아 내가 너희에게 나아가',
-            englishText: 'And I, brethren, when I came to you',
+            koreanText: '더미 한글 본문 1',
+            englishText: 'Dummy English verse 1',
           ),
         ],
       ),
@@ -359,8 +359,8 @@ class _FakeBibleRepository extends BibleRepository {
           bookCode: 'GEN',
           chapterNo: 1,
           verseNo: 1,
-          koreanText: '태초에 하나님이 천지를 창조하시니',
-          englishText: 'In the beginning God created the heaven and the earth.',
+          koreanText: '더미 구절 본문 1',
+          englishText: 'Dummy English verse 1',
         ),
       ],
     );

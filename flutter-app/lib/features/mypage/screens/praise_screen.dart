@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../providers/mypage_providers.dart';
 
@@ -10,16 +11,17 @@ class PraiseScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('찬양'),
+          title: Text(l.praiseTitle),
           centerTitle: true,
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(text: '내 찬양'),
-              Tab(text: '큐레이션'),
+              Tab(text: l.praiseMyTab),
+              Tab(text: l.praiseCurationTab),
             ],
           ),
         ),
@@ -41,14 +43,15 @@ class _MyPraiseTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final myPraiseAsync = ref.watch(myPraiseSongsProvider);
+    final l = AppLocalizations.of(context);
 
     return myPraiseAsync.whenOrDefault(
       data: (songs) {
         if (songs.isEmpty) {
-          return const Center(
-            child: Text('저장한 찬양이 없습니다\n큐레이션에서 찬양을 저장해보세요',
+          return Center(
+            child: Text(l.praiseMyEmpty,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey)),
+                style: const TextStyle(color: Colors.grey)),
           );
         }
 
@@ -72,7 +75,7 @@ class _MyPraiseTab extends ConsumerWidget {
                     ref.invalidate(dashboardProvider);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('찬양이 삭제되었습니다')),
+                        SnackBar(content: Text(l.praiseDeleted)),
                       );
                     }
                   },
@@ -93,13 +96,14 @@ class _CurationTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final curationAsync = ref.watch(curationSongsProvider);
+    final l = AppLocalizations.of(context);
 
     return curationAsync.whenOrDefault(
       data: (songs) {
         if (songs.isEmpty) {
-          return const Center(
-            child: Text('등록된 큐레이션 곡이 없습니다',
-                style: TextStyle(color: Colors.grey)),
+          return Center(
+            child: Text(l.praiseCurationEmpty,
+                style: const TextStyle(color: Colors.grey)),
           );
         }
 
@@ -123,18 +127,18 @@ class _CurationTab extends ConsumerWidget {
                       ref.invalidate(dashboardProvider);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('내 찬양에 저장되었습니다')),
+                          SnackBar(content: Text(l.praiseSaved)),
                         );
                       }
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('이미 저장된 곡입니다')),
+                          SnackBar(content: Text(l.praiseAlreadySaved)),
                         );
                       }
                     }
                   },
-                  child: const Text('저장'),
+                  child: Text(l.commonSave),
                 ),
               );
             },

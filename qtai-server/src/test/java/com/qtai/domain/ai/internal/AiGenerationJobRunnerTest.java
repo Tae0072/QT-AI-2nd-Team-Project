@@ -207,6 +207,32 @@ class AiGenerationJobRunnerTest {
         };
     }
 
+    @Test
+    void sweepStaleRunningJobs_고착_RUNNING을_FAILED로_회수한다() {
+        // P1-3: markRunning 후 완료 전 크래시로 RUNNING 고착된 job을 FAILED로 풀어 재처리 가능케 함
+        AiGenerationJob job = job(700L, AiGenerationJobType.EXPLANATION);
+        job.markRunning(OffsetDateTime.now(CLOCK).minusHours(1)); // 1시간 전 시작 → 고착
+        AiGenerationJobRunner runner = runner(List.of());
+
+        when(generationJobRepository.findStaleRunningJobIds(any(), any())).thenReturn(List.of(700L));
+        when(generationJobRepository.findByIdAndStatus(700L, AiGenerationJobStatus.RUNNING))
+                .thenReturn(Optional.of(job));
+
+        int swept = runner.sweepStaleRunningJobs(300_000L, 5);
+
+        assertThat(swept).isEqualTo(1);
+        assertThat(job.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
+        assertThat(job.getErrorMessage()).isEqualTo("RUNNING_TIMEOUT_SWEPT");
+    }
+
+    @Test
+    void sweepStaleRunningJobs_고착_없으면_0() {
+        AiGenerationJobRunner runner = runner(List.of());
+        when(generationJobRepository.findStaleRunningJobIds(any(), any())).thenReturn(List.of());
+
+        assertThat(runner.sweepStaleRunningJobs(300_000L, 5)).isZero();
+    }
+
     private static AiGenerationJob job(Long id, AiGenerationJobType jobType) {
         AiGenerationJob job = AiGenerationJob.queue(
                 jobType,

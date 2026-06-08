@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../../note/screens/qt_note_editor_screen.dart';
 import '../../study/screens/qt_study_content_screen.dart';
+import '../../music/widgets/music_toggle_button.dart';
 import '../../tts/widgets/qt_tts_button.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
@@ -31,10 +33,11 @@ class TodayQtScreen extends ConsumerWidget {
     final passage = ref.watch(todayQtPassageProvider);
     final data = passage.valueOrNull;
     final fullText = data == null ? '' : _fullTextOf(data);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('오늘 QT'),
+        title: Text(l.bibleTodayQt),
         actions: [
           // 본문 읽기(TTS) — 아이콘 하나로 재생/정지 토글
           if (data != null && fullText.isNotEmpty)
@@ -43,17 +46,19 @@ class TodayQtScreen extends ConsumerWidget {
               qtDate: _qtDateOf(data),
               qtPassageId: data.qtPassageId,
             ),
+          // 배경음악 켜기/끄기 — TTS 버튼 오른쪽 음표 토글
+          const MusicToggleButton(),
           IconButton(
-            tooltip: '새로고침',
+            tooltip: l.commonRefresh,
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.invalidate(todayQtPassageProvider),
           ),
         ],
       ),
       body: passage.whenOrDefault(
-        loading: () => const LoadingView(message: '오늘 본문을 불러오는 중입니다.'),
+        loading: () => LoadingView(message: l.bibleTodayLoading),
         error: (error, _) => ErrorView(
-          message: '오늘 본문을 불러오지 못했습니다.\n$error',
+          message: '${l.bibleTodayLoadError}\n$error',
           onRetry: () => ref.invalidate(todayQtPassageProvider),
         ),
         data: (data) => _TodayQtContent(data: data),
@@ -138,19 +143,33 @@ class _ActionRow extends StatelessWidget {
     required this.onShowEnglishChanged,
   });
 
+  void _showComingSoon(BuildContext context, String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(AppLocalizations.of(context).bibleComingSoon(feature)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final qtPassageId = data.qtPassageId;
+    final simulatorReady =
+        qtPassageId != null && data.simulatorStatus == 'READY';
+    final explanationReady = qtPassageId != null && data.hasExplanation;
+    final l = AppLocalizations.of(context);
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
         FilledButton.icon(
-          onPressed: data.qtPassageId == null
+          onPressed: !explanationReady
               ? null
               : () => Navigator.of(context).pushNamed(
                     AppRouter.qtStudyContent,
                     arguments: QtStudyContentArgs(
-                      qtPassageId: data.qtPassageId!,
+                      qtPassageId: qtPassageId,
                       referenceText: data.reference.displayText,
                       verseLabels: {
                         for (final verse in data.verses)
@@ -159,20 +178,24 @@ class _ActionRow extends StatelessWidget {
                     ),
                   ),
           icon: const Icon(Icons.menu_book_outlined),
-          label: const Text('해설'),
+          label: Text(l.bibleExplanation),
         ),
         OutlinedButton.icon(
-          onPressed: data.qtPassageId == null ? null : () {},
+          onPressed: simulatorReady
+              ? () => _showComingSoon(context, l.bibleSimulator)
+              : null,
           icon: const Icon(Icons.movie_outlined),
-          label: const Text('시뮬레이터'),
+          label: Text(l.bibleSimulator),
         ),
         OutlinedButton.icon(
-          onPressed: () => Navigator.of(context).pushNamed(
-            AppRouter.qtNoteEditor,
-            arguments: QtNoteEditorArgs(passage: data),
-          ),
+          onPressed: qtPassageId == null
+              ? null
+              : () => Navigator.of(context).pushNamed(
+                    AppRouter.qtNoteEditor,
+                    arguments: QtNoteEditorArgs(passage: data),
+                  ),
           icon: const Icon(Icons.edit_note_outlined),
-          label: const Text('노트'),
+          label: Text(l.navNote),
         ),
         FilterChip(
           key: const Key('today-qt-english-toggle'),

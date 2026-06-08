@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../models/dashboard_response.dart';
 
 /// 통계 위젯 카드.
@@ -14,6 +15,7 @@ class StatsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Card(
       child: Padding(
@@ -22,7 +24,7 @@ class StatsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '나의 묵상',
+              l.statsTitle,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -32,22 +34,22 @@ class StatsCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _StatItem(
-                    label: '이번 주',
-                    value: '${stats.week.meditationDays}일',
+                    label: l.statsWeek,
+                    value: l.statsDays(stats.week.meditationDays),
                     icon: Icons.calendar_today,
                   ),
                 ),
                 Expanded(
                   child: _StatItem(
-                    label: '이번 달',
-                    value: '${stats.month.meditationDays}일',
+                    label: l.statsMonth,
+                    value: l.statsDays(stats.month.meditationDays),
                     icon: Icons.calendar_month,
                   ),
                 ),
                 Expanded(
                   child: _StatItem(
-                    label: '연속',
-                    value: '${stats.meditationStreakDays}일',
+                    label: l.statsStreak,
+                    value: l.statsDays(stats.meditationStreakDays),
                     icon: Icons.local_fire_department,
                   ),
                 ),

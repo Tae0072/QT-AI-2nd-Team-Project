@@ -19,9 +19,14 @@ import com.qtai.domain.ai.api.admin.monitoring.dto.GetAdminAiMonitoringQuery;
 public class AdminAiMonitoringController {
 
     private final GetAdminAiMonitoringUseCase useCase;
+    private final AdminAiAuthentication adminAiAuthentication;
 
-    public AdminAiMonitoringController(GetAdminAiMonitoringUseCase useCase) {
+    public AdminAiMonitoringController(
+            GetAdminAiMonitoringUseCase useCase,
+            AdminAiAuthentication adminAiAuthentication
+    ) {
         this.useCase = useCase;
+        this.adminAiAuthentication = adminAiAuthentication;
     }
 
     @GetMapping
@@ -30,7 +35,7 @@ public class AdminAiMonitoringController {
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to
     ) {
-        AdminAiAuthentication adminAuthentication = AdminAiAuthentication.requireMonitoring(authentication);
+        AdminAiAuthentication.AdminAiPrincipal adminAuthentication = adminAiAuthentication.requireMonitoring(authentication);
         AdminAiMonitoringResponse response = useCase.getAdminAiMonitoring(new GetAdminAiMonitoringQuery(
                 adminAuthentication.adminId(),
                 adminAuthentication.memberRole(),

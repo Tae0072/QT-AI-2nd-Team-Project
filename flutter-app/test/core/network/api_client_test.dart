@@ -8,14 +8,14 @@ void main() {
     AppConfig.reset();
   });
 
-  test('dev 환경에서는 서버 dev-bypass용 X-Dev-User-Id 헤더를 붙인다', () {
+  test('dev 기본 실행에서는 X-Dev-User-Id 헤더를 붙이지 않는다', () {
     AppConfig.initializeForTest(environment: Environment.dev);
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
     final dio = container.read(dioProvider);
 
-    expect(dio.options.headers['X-Dev-User-Id'], '1');
+    expect(dio.options.headers.containsKey('X-Dev-User-Id'), isFalse);
   });
 
   test('prod 환경에서는 X-Dev-User-Id 헤더를 붙이지 않는다', () {

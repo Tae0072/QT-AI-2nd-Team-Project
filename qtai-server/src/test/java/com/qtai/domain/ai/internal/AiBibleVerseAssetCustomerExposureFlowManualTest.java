@@ -102,6 +102,10 @@ class AiBibleVerseAssetCustomerExposureFlowManualTest {
     @Autowired
     private GetQtStudyContentUseCase getQtStudyContentUseCase;
 
+    // 사용자 응답(ExplanationItem)에서 aiAssetId가 제거되어(P2), 자산 연계 검증은 내부 read 모델로 한다.
+    @Autowired
+    private com.qtai.domain.study.api.ListApprovedVerseExplanationUseCase listApprovedVerseExplanationUseCase;
+
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
@@ -440,7 +444,10 @@ class AiBibleVerseAssetCustomerExposureFlowManualTest {
                     layer2Log
             );
         }
-        assertThat(exposure.aiAssetId()).isEqualTo(asset.getId());
+        // 사용자 노출 item에는 aiAssetId가 없으므로(P2), 자산 연계는 내부 승인 read 모델로 검증한다.
+        assertThat(listApprovedVerseExplanationUseCase.listApprovedByVerseIds(java.util.List.of(verseId)))
+                .as("승인된 자산이 사용자 노출 해설의 출처여야 한다")
+                .anyMatch(approved -> asset.getId().equals(approved.aiAssetId()));
         return VerseRunResult.approvedAndVisible(
                 verseId,
                 jobPick.origin(),
@@ -597,7 +604,6 @@ class AiBibleVerseAssetCustomerExposureFlowManualTest {
 
     private static void putExposure(ObjectNode node, QtStudyContentResponse.ExplanationItem exposure) {
         node.put("verseId", exposure.verseId());
-        node.put("aiAssetId", exposure.aiAssetId());
         node.put("sourceLabel", exposure.sourceLabel());
         node.put("summary", exposure.summary());
         node.put("explanation", exposure.explanation());

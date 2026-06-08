@@ -23,7 +23,7 @@ class BibleRepository {
     return TodayQtSummary.fromJson(data);
   }
 
-  /// QT 학습 콘텐츠(해설/주석) 조회 — TTS 주석 읽기에 사용.
+  /// QT 학습 콘텐츠(해설) 조회 — TTS 해설 읽기에 사용.
   Future<QtStudyContent> getQtStudyContent(int qtPassageId) async {
     final response = await _dio.get('/qt/$qtPassageId/study-content');
     final data = response.data['data'] as Map<String, dynamic>;
@@ -81,27 +81,13 @@ class BibleRepository {
     );
   }
 
-  Future<TodayQtPassage> getTodayQtPassage({
-    String fallbackReferenceText = '고린도전서(1 Corinthians)1:10 - 1:17',
-  }) async {
+  Future<TodayQtPassage> getTodayQtPassage() async {
     final todayQt = await getTodayQt();
     final todayRange = todayQt.range;
 
+    // range가 없을 때 하드코딩된 본문을 '오늘 QT'처럼 보여주지 않는다.
     if (todayRange == null) {
-      if (todayQt.qtPassageId == null) {
-        throw StateError('오늘 QT 본문 범위가 아직 준비되지 않았습니다.');
-      }
-      final fallback = await getPassageFromReferenceText(fallbackReferenceText);
-      return TodayQtPassage(
-        qtPassageId: todayQt.qtPassageId,
-        passageDate: todayQt.passageDate,
-        title: todayQt.title,
-        cacheStatus: todayQt.cacheStatus,
-        hasExplanation: todayQt.hasExplanation,
-        reference: fallback.reference,
-        book: fallback.book,
-        verses: fallback.verses,
-      );
+      throw StateError('오늘 QT 본문 범위가 아직 준비되지 않았습니다.');
     }
 
     final verseRange = await getVerses(
@@ -116,7 +102,9 @@ class BibleRepository {
       passageDate: todayQt.passageDate,
       title: todayQt.title,
       cacheStatus: todayQt.cacheStatus,
+      simulatorStatus: todayQt.simulatorStatus,
       hasExplanation: todayQt.hasExplanation,
+      draftNoteId: todayQt.draftNoteId,
       reference: todayRange.toReference(),
       book: verseRange.book,
       verses: verseRange.verses,

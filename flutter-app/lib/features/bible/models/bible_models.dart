@@ -113,7 +113,17 @@ class TodayQtPassage {
   final String? passageDate;
   final String? title;
   final String? cacheStatus;
+
+  /// 시뮬레이터 상태 — READY/MISSING/FAILED/DISABLED (CLAUDE.md §6).
+  /// 버튼은 READY일 때만 활성화한다. 미지의 값은 MISSING으로 다룬다.
+  final String simulatorStatus;
+
+  /// 승인된 해설 존재 여부 — 해설 진입점 활성 기준.
   final bool hasExplanation;
+
+  /// 사용자 DRAFT 묵상 노트 ID (없으면 null).
+  final int? draftNoteId;
+
   final BibleReference reference;
   final BibleVerseBook book;
   final List<BibleVerse> verses;
@@ -123,7 +133,9 @@ class TodayQtPassage {
     this.passageDate,
     this.title,
     this.cacheStatus,
+    this.simulatorStatus = 'MISSING',
     this.hasExplanation = false,
+    this.draftNoteId,
     required this.reference,
     required this.book,
     required this.verses,
@@ -135,7 +147,16 @@ class TodayQtSummary {
   final String? passageDate;
   final String? title;
   final String? cacheStatus;
+
+  /// 시뮬레이터 상태 — 서버 enum READY/MISSING/FAILED/DISABLED (CLAUDE.md §6).
+  final String simulatorStatus;
+
+  /// 승인된 해설 존재 여부 — 해설 진입점 활성 기준.
   final bool hasExplanation;
+
+  /// 사용자 DRAFT 묵상 노트 ID (없으면 null).
+  final int? draftNoteId;
+
   final TodayQtRange? range;
 
   const TodayQtSummary({
@@ -143,18 +164,33 @@ class TodayQtSummary {
     required this.passageDate,
     required this.title,
     required this.cacheStatus,
-    required this.hasExplanation,
+    this.simulatorStatus = 'MISSING',
+    this.hasExplanation = false,
+    this.draftNoteId,
     required this.range,
   });
 
+  /// 서버가 보장하는 시뮬레이터 상태 4값 — 미지의 값은 MISSING으로 방어한다.
+  static const Set<String> _knownSimulatorStatuses = {
+    'READY',
+    'MISSING',
+    'FAILED',
+    'DISABLED',
+  };
+
   factory TodayQtSummary.fromJson(Map<String, dynamic> json) {
     final rangeJson = json['range'];
+    final rawSimulatorStatus = json['simulatorStatus'] as String?;
     return TodayQtSummary(
       qtPassageId: json['qtPassageId'] as int?,
       passageDate: json['passageDate'] as String?,
       title: json['title'] as String?,
       cacheStatus: json['cacheStatus'] as String?,
+      simulatorStatus: _knownSimulatorStatuses.contains(rawSimulatorStatus)
+          ? rawSimulatorStatus!
+          : 'MISSING',
       hasExplanation: json['hasExplanation'] as bool? ?? false,
+      draftNoteId: json['draftNoteId'] as int?,
       range: rangeJson == null
           ? null
           : TodayQtRange.fromJson(rangeJson as Map<String, dynamic>),
@@ -239,7 +275,7 @@ class QtStudyContent {
         glossaryTerms.isNotEmpty;
   }
 
-  /// TTS 낭독용 주석 전체 텍스트 (절 순서대로, 빈 항목 제외).
+  /// TTS 낭독용 해설 전체 텍스트 (절 순서대로, 빈 항목 제외).
   String get readableText {
     final buf = StringBuffer();
     for (final item in explanations) {
