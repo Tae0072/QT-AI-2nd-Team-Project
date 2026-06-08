@@ -83,6 +83,7 @@
   "fmtDivider": "구분선",
   "calSavedThisMonth": "이번 달 {days}일 저장",
   "calNoteCount": "노트 {count}개",
+  "calDayChecklistTitle": "이 날 작성한 노트",
   "calStreak": "연속 {days}일 🔥",
   "noteShareAsText": "텍스트로 공유",
   "noteShareAsImage": "이미지로 공유",

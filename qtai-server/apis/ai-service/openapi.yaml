@@ -27,7 +27,8 @@ x-ai-service-dependencies:
     clientInterface: BibleVerseClient
     operations:
       - getVerse
-      - getVerses
+      - getVersesByIds
+      - getVersesInRange
   study:
     currentTarget: qtai-server
     clientInterface: StudyPublishClient
