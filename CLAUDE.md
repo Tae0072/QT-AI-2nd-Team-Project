@@ -5,7 +5,7 @@
 ## 1. 프로젝트 기준
 
 - 서비스: QT-AI, 큐티 AI 앱
-- 서버 형태: 단일 `qtai-server` Modular Monolith
+- 서버 형태: 단일 `qtai-server` Modular Monolith(v1) → MSA 서비스 분리(v2, 2026-06-08 Lead 결정으로 착수). v2 분리는 이승욱·강상민 공동 담당이며, 이후 전 팀원이 분리된 서비스 기준으로 작업한다. 상세: 거버넌스 결정 기록 `doc/workspaces/Lead_강태오/workflows/2026-06-08_msa-governance-decision.md`
 - Backend: Java 21, Spring Boot 3.3, Gradle, Spring Modulith, ArchUnit
 - DB/cache: MySQL 8.0, 테스트 H2, Caffeine app cache
 - Redis: token/rate/idempotency 등 필요 범위 검토 후 사용
@@ -98,7 +98,7 @@
 
 - AI 자유 챗봇, 다중 턴 대화, SSE, `/ai/sessions/**`
 - RAG, ChromaDB, vector DB, Elasticsearch
-- Kafka, Kubernetes, Helm v1 도입
+- ~~Kafka, Kubernetes, Helm v1 도입~~ → v2 MSA 분리 트랙에서 허용(2026-06-08 Lead 결정). v1 단일배포에는 계속 도입하지 않는다.
 - 교회 인증 화면, 버튼, API, DB 필드
 - AI 찬양 추천
 - 찬양 가사, 음원 파일, 직접 YouTube URL 입력·저장
