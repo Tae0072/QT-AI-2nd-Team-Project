@@ -4,11 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
@@ -16,9 +15,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.qtai.domain.ai.client.AiClientException;
 import com.qtai.domain.ai.client.AiClientException.FailureCode;
@@ -41,13 +40,18 @@ class AiHttpClientAdapterContractTest {
 
     private static final String SERVICE_TOKEN = "test-service-token";
     private static final String TRACEPARENT = "00-11111111111111111111111111111111-2222222222222222-01";
+    private static final String FIXTURE_RESOURCE = "/contracts/ai-provider/http-client-contract-fixtures.json";
 
-    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     private MockWebServer server;
+    private JsonNode fixtures;
 
     @BeforeEach
     void setUp() throws IOException {
+        fixtures = loadFixtures();
         server = new MockWebServer();
         server.start();
     }
@@ -60,23 +64,8 @@ class AiHttpClientAdapterContractTest {
 
     @Test
     void qtAdapterSendsContextAndTodayStatusRequests() throws Exception {
-        server.enqueue(successResponse(Map.of(
-                "passageId", 35L,
-                "bibleBook", "JOHN",
-                "chapter", 3,
-                "startVerse", 16,
-                "endVerse", 16,
-                "passageReference", "John 3:16",
-                "title", "Today QT",
-                "summary", "summary",
-                "passageContext", "allowed metadata context"
-        )));
-        server.enqueue(successResponse(Map.of(
-                "qtDate", "2026-06-08",
-                "exists", true,
-                "passageId", 35L,
-                "cacheStatus", "HIT"
-        )));
+        server.enqueue(fixtureResponse("/responses/qtContextSuccess"));
+        server.enqueue(fixtureResponse("/responses/todayQtHitSuccess"));
         MDC.put("traceparent", TRACEPARENT);
 
         QtContextClient client = new QtContextClientHttpAdapter(objectMapper, properties());
@@ -100,16 +89,29 @@ class AiHttpClientAdapterContractTest {
     }
 
     @Test
+    void todayStatusFixturesCoverFallbackAndEmptyStates() {
+        server.enqueue(fixtureResponse("/responses/todayQtStaleFallbackSuccess"));
+        server.enqueue(fixtureResponse("/responses/todayQtEmptySuccess"));
+
+        QtContextClient client = new QtContextClientHttpAdapter(objectMapper, properties());
+
+        QtContextClient.TodayQtPassageStatus fallback =
+                client.getTodayQtPassageStatus(LocalDate.of(2026, 6, 8));
+        QtContextClient.TodayQtPassageStatus empty =
+                client.getTodayQtPassageStatus(LocalDate.of(2026, 6, 8));
+
+        assertThat(fallback.cacheStatus()).isEqualTo(QtContextClient.CacheStatus.STALE_FALLBACK);
+        assertThat(fallback.exists()).isTrue();
+        assertThat(empty.cacheStatus()).isEqualTo(QtContextClient.CacheStatus.EMPTY);
+        assertThat(empty.exists()).isFalse();
+        assertThat(empty.passageId()).isNull();
+    }
+
+    @Test
     void bibleAdapterSendsSingleBatchAndRangeRequests() throws Exception {
-        server.enqueue(successResponse(verse(16L, 16)));
-        server.enqueue(successResponse(Map.of("verses", List.of(verse(16L, 16), verse(17L, 17)))));
-        server.enqueue(successResponse(Map.of(
-                "bibleBook", "JOHN",
-                "chapter", 3,
-                "startVerse", 16,
-                "endVerse", 17,
-                "verses", List.of(verse(16L, 16), verse(17L, 17))
-        )));
+        server.enqueue(fixtureResponse("/responses/bibleSingleSuccess"));
+        server.enqueue(fixtureResponse("/responses/bibleBatchSuccess"));
+        server.enqueue(fixtureResponse("/responses/bibleRangeSuccess"));
 
         BibleVerseClient client = new BibleVerseClientHttpAdapter(objectMapper, properties());
 
@@ -126,10 +128,7 @@ class AiHttpClientAdapterContractTest {
         assertThat(batchRequest.getMethod()).isEqualTo("POST");
         assertThat(batchRequest.getPath()).isEqualTo("/api/v1/system/bible/verses:batch");
         assertCommonHeaders(batchRequest);
-        JsonNode verseIds = bodyJson(batchRequest).get("verseIds");
-        assertThat(verseIds).hasSize(2);
-        assertThat(verseIds.get(0).asLong()).isEqualTo(16L);
-        assertThat(verseIds.get(1).asLong()).isEqualTo(17L);
+        assertThat(bodyJson(batchRequest)).isEqualTo(fixtureNode("/requests/bibleBatch"));
 
         RecordedRequest rangeRequest = server.takeRequest();
         assertThat(rangeRequest.getMethod()).isEqualTo("GET");
@@ -143,9 +142,9 @@ class AiHttpClientAdapterContractTest {
 
     @Test
     void writeAdaptersSendIdempotencyKeysAndBodies() throws Exception {
-        server.enqueue(voidSuccessResponse());
-        server.enqueue(voidSuccessResponse());
-        server.enqueue(voidSuccessResponse());
+        server.enqueue(fixtureResponse("/responses/studyPublishSuccess"));
+        server.enqueue(fixtureResponse("/responses/studyHideSuccess"));
+        server.enqueue(fixtureResponse("/responses/auditLogSuccess"));
 
         AiClientProperties properties = properties();
         StudyPublishClient studyClient = new StudyPublishClientHttpAdapter(objectMapper, properties);
@@ -177,28 +176,28 @@ class AiHttpClientAdapterContractTest {
         assertThat(publishRequest.getPath()).isEqualTo("/api/v1/system/study/verse-explanations:publish");
         assertCommonHeaders(publishRequest);
         assertIdempotencyKey(publishRequest);
-        assertThat(bodyJson(publishRequest).get("aiAssetId").asLong()).isEqualTo(100L);
+        assertThat(bodyJson(publishRequest)).isEqualTo(fixtureNode("/requests/studyPublish"));
 
         RecordedRequest hideRequest = server.takeRequest();
         assertThat(hideRequest.getMethod()).isEqualTo("POST");
         assertThat(hideRequest.getPath()).isEqualTo("/api/v1/system/study/verse-explanations:hide");
         assertCommonHeaders(hideRequest);
         assertIdempotencyKey(hideRequest);
-        assertThat(bodyJson(hideRequest).get("aiAssetId").asLong()).isEqualTo(100L);
+        assertThat(bodyJson(hideRequest)).isEqualTo(fixtureNode("/requests/studyHide"));
 
         RecordedRequest auditRequest = server.takeRequest();
         assertThat(auditRequest.getMethod()).isEqualTo("POST");
         assertThat(auditRequest.getPath()).isEqualTo("/api/v1/system/audit/logs");
         assertCommonHeaders(auditRequest);
         assertIdempotencyKey(auditRequest);
-        assertThat(bodyJson(auditRequest).get("actorType").asText()).isEqualTo("SYSTEM_BATCH");
+        assertThat(bodyJson(auditRequest)).isEqualTo(fixtureNode("/requests/auditLog"));
     }
 
     @Test
     void adminAuthAdapterSendsRoleQueries() throws Exception {
-        server.enqueue(successResponse(adminResult(AdminAuthClient.AdminRole.REVIEWER)));
-        server.enqueue(successResponse(adminResult(AdminAuthClient.AdminRole.SUPER_ADMIN)));
-        server.enqueue(successResponse(adminResult(AdminAuthClient.AdminRole.REVIEWER)));
+        server.enqueue(fixtureResponse("/responses/adminActiveSuccess"));
+        server.enqueue(fixtureResponse("/responses/adminVerifySuccess"));
+        server.enqueue(fixtureResponse("/responses/adminVerifyAnySuccess"));
 
         AdminAuthClient client = new AdminAuthClientHttpAdapter(objectMapper, properties());
 
@@ -230,7 +229,9 @@ class AiHttpClientAdapterContractTest {
 
     @Test
     void errorEnvelopeIsMappedToAiClientException() {
-        server.enqueue(errorResponse("FORBIDDEN", "role is not allowed", 200));
+        assertThat(fixtureNode("/responses/errorForbiddenWithFields/error/fields/reason").asText())
+                .isEqualTo("contract-test");
+        server.enqueue(fixtureResponse("/responses/errorForbiddenWithFields"));
 
         BibleVerseClient client = new BibleVerseClientHttpAdapter(objectMapper, properties());
 
@@ -244,7 +245,7 @@ class AiHttpClientAdapterContractTest {
 
     @Test
     void httpStatusErrorEnvelopeTakesPriorityOverStatusFallback() {
-        server.enqueue(errorResponse("VALIDATION_FAILED", "invalid role", 403));
+        server.enqueue(fixtureResponse("/responses/errorValidationFailedWithFields", 403));
 
         AdminAuthClient client = new AdminAuthClientHttpAdapter(objectMapper, properties());
 
@@ -275,7 +276,7 @@ class AiHttpClientAdapterContractTest {
 
     @Test
     void malformedEnvelopeIsMappedToResponseMappingFailure() {
-        server.enqueue(jsonResponse(200, "{not-json"));
+        server.enqueue(jsonResponse(200, fixtureText("/malformedEnvelope")));
 
         BibleVerseClient client = new BibleVerseClientHttpAdapter(objectMapper, properties());
 
@@ -291,7 +292,7 @@ class AiHttpClientAdapterContractTest {
     void timeoutIsMappedToTimeoutFailure() {
         AiClientProperties properties = properties();
         properties.setTimeoutMs(50);
-        server.enqueue(successResponse(verse(16L, 16))
+        server.enqueue(fixtureResponse("/responses/bibleSingleSuccess")
                 .setBodyDelay(500, TimeUnit.MILLISECONDS));
 
         BibleVerseClient client = new BibleVerseClientHttpAdapter(objectMapper, properties);
@@ -316,6 +317,14 @@ class AiHttpClientAdapterContractTest {
                 .hasMessageContaining("bible base-url");
     }
 
+    @Test
+    void f15BlockedReasonFixturesCoverCamelAndSnakeCases() {
+        assertThat(fixtureNode("/policyFixtures/f15BlockedReasonCamel/blockedReason").asText())
+                .isEqualTo("VALUE_JUDGMENT");
+        assertThat(fixtureNode("/policyFixtures/f15BlockedReasonSnake/blocked_reason").asText())
+                .isEqualTo("VALUE_JUDGMENT");
+    }
+
     private AiClientProperties properties() {
         AiClientProperties properties = new AiClientProperties();
         properties.setMode(AiClientProperties.Mode.HTTP);
@@ -330,44 +339,16 @@ class AiHttpClientAdapterContractTest {
         return properties;
     }
 
-    private Map<String, Object> verse(Long verseId, int verse) {
-        return Map.of(
-                "verseId", verseId,
-                "bibleBook", "JOHN",
-                "chapter", 3,
-                "verse", verse,
-                "reference", "JOHN 3:" + verse,
-                "koreanText", "Allowed Korean test verse",
-                "englishText", "Allowed test verse"
-        );
-    }
-
-    private Map<String, Object> adminResult(AdminAuthClient.AdminRole role) {
-        return Map.of(
-                "adminUserId", 1L,
-                "memberId", 10L,
-                "adminRole", role.name()
-        );
-    }
-
-    private MockResponse successResponse(Object data) {
-        return jsonResponse(200, envelopeBody(true, data, null));
-    }
-
-    private MockResponse voidSuccessResponse() {
-        return jsonResponse(200, envelopeBody(true, null, null));
-    }
-
-    private MockResponse errorResponse(String code, String message, int status) {
-        Map<String, Object> error = new LinkedHashMap<>();
-        error.put("code", code);
-        error.put("message", message);
-        error.put("fields", Map.of("reason", "contract-test"));
-        return jsonResponse(status, envelopeBody(false, null, error));
-    }
-
     private MockResponse statusResponse(int status) {
         return jsonResponse(status, "{\"message\":\"status failure\"}");
+    }
+
+    private MockResponse fixtureResponse(String pointer) {
+        return fixtureResponse(pointer, 200);
+    }
+
+    private MockResponse fixtureResponse(String pointer, int status) {
+        return jsonResponse(status, fixtureText(pointer));
     }
 
     private MockResponse jsonResponse(int status, String body) {
@@ -377,17 +358,25 @@ class AiHttpClientAdapterContractTest {
                 .setBody(body);
     }
 
-    private String envelopeBody(boolean success, Object data, Object error) {
-        Map<String, Object> envelope = new LinkedHashMap<>();
-        envelope.put("success", success);
-        envelope.put("data", data);
-        envelope.put("error", error);
-        envelope.put("timestamp", "2026-06-08T00:00:00+09:00");
-        envelope.put("traceId", "trace-contract-test");
-        try {
-            return objectMapper.writeValueAsString(envelope);
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException(exception);
+    private String fixtureText(String pointer) {
+        JsonNode node = fixtureNode(pointer);
+        return node.isTextual() ? node.asText() : node.toString();
+    }
+
+    private JsonNode fixtureNode(String pointer) {
+        JsonNode node = fixtures.at(pointer);
+        assertThat(node.isMissingNode())
+                .as("fixture pointer must exist: %s", pointer)
+                .isFalse();
+        return node;
+    }
+
+    private JsonNode loadFixtures() throws IOException {
+        try (InputStream inputStream = getClass().getResourceAsStream(FIXTURE_RESOURCE)) {
+            assertThat(inputStream)
+                    .as("fixture resource must exist: %s", FIXTURE_RESOURCE)
+                    .isNotNull();
+            return objectMapper.readTree(inputStream);
         }
     }
 
