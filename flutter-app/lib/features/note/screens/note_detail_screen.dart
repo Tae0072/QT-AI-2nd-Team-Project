@@ -182,8 +182,9 @@ class _Actions extends ConsumerWidget {
     try {
       await ref.read(noteRepositoryProvider).delete(noteId);
       //   삭제 성공: 목록을 무효화해 사라진 노트를 반영하고 상세 화면을 닫는다.
-      // TODO(달력 탭 구현 후): 묵상 노트면 묵상 달력 provider도 invalidate.
       ref.invalidate(notesProvider);
+      // 삭제 시 묵상 달력 체크리스트도 자동 갱신(모든 월 무효화).
+      ref.invalidate(meditationCalendarProvider);
       if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context)

@@ -254,6 +254,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get calDayChecklistTitle => 'Notes written this day';
+
+  @override
   String calStreak(int days) {
     return '$days-day streak 🔥';
   }

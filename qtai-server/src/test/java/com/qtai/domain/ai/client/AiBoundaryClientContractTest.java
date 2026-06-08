@@ -1,11 +1,13 @@
 package com.qtai.domain.ai.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Arrays;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -14,14 +16,19 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import com.qtai.domain.ai.client.admin.AdminAuthClient;
+import com.qtai.domain.ai.client.admin.AdminAuthClientHttpAdapter;
 import com.qtai.domain.ai.client.admin.AdminAuthClientMock;
 import com.qtai.domain.ai.client.audit.AuditLogClient;
+import com.qtai.domain.ai.client.audit.AuditLogClientHttpAdapter;
 import com.qtai.domain.ai.client.audit.AuditLogClientMock;
 import com.qtai.domain.ai.client.bible.BibleVerseClient;
+import com.qtai.domain.ai.client.bible.BibleVerseClientHttpAdapter;
 import com.qtai.domain.ai.client.bible.BibleVerseClientMock;
 import com.qtai.domain.ai.client.qt.GetQtUseCaseMock;
 import com.qtai.domain.ai.client.qt.QtContextClient;
+import com.qtai.domain.ai.client.qt.QtContextClientHttpAdapter;
 import com.qtai.domain.ai.client.study.StudyPublishClient;
+import com.qtai.domain.ai.client.study.StudyPublishClientHttpAdapter;
 import com.qtai.domain.ai.client.study.StudyPublishClientMock;
 
 class AiBoundaryClientContractTest {
@@ -31,7 +38,7 @@ class AiBoundaryClientContractTest {
         BibleVerseClient client = new BibleVerseClientMock();
 
         BibleVerseClient.BibleVerseResult verse = client.getVerse(16L);
-        BibleVerseClient.BibleVerseRangeResult range = client.getVerses("JOHN", 3, 16, 17);
+        BibleVerseClient.BibleVerseRangeResult range = client.getVersesInRange("JOHN", 3, 16, 17);
 
         assertThat(verse.verseId()).isEqualTo(16L);
         assertThat(verse.reference()).isNotBlank();
@@ -90,12 +97,43 @@ class AiBoundaryClientContractTest {
     }
 
     @Test
+    void bibleClientMockRejectsInvalidVerseInputsWithValidationFailure() {
+        BibleVerseClient client = new BibleVerseClientMock();
+
+        assertValidationFailure(() -> client.getVerse(null), "bible");
+        assertValidationFailure(() -> client.getVersesByIds(null), "bible");
+        assertValidationFailure(() -> client.getVersesByIds(List.of()), "bible");
+        assertValidationFailure(() -> client.getVersesByIds(Arrays.asList(16L, null)), "bible");
+    }
+
+    @Test
+    void adminAuthClientMockRejectsInvalidRoleInputsWithValidationFailure() {
+        AdminAuthClient client = new AdminAuthClientMock();
+
+        assertValidationFailure(() -> client.verifyAnyRole(10L, null), "admin-auth");
+        assertValidationFailure(() -> client.verifyAnyRole(10L, List.of()), "admin-auth");
+        assertValidationFailure(
+                () -> client.verifyAnyRole(10L, Arrays.asList(AdminAuthClient.AdminRole.REVIEWER, null)),
+                "admin-auth"
+        );
+    }
+
+    @Test
     void boundaryClientMocksAreGuardedAgainstProductionRegistration() {
         assertMockRegistrationGuard(GetQtUseCaseMock.class, QtContextClient.class);
         assertMockRegistrationGuard(BibleVerseClientMock.class, BibleVerseClient.class);
         assertMockRegistrationGuard(StudyPublishClientMock.class, StudyPublishClient.class);
         assertMockRegistrationGuard(AuditLogClientMock.class, AuditLogClient.class);
         assertMockRegistrationGuard(AdminAuthClientMock.class, AdminAuthClient.class);
+    }
+
+    @Test
+    void boundaryClientHttpAdaptersAreGuardedByHttpMode() {
+        assertHttpAdapterRegistrationGuard(QtContextClientHttpAdapter.class, QtContextClient.class);
+        assertHttpAdapterRegistrationGuard(BibleVerseClientHttpAdapter.class, BibleVerseClient.class);
+        assertHttpAdapterRegistrationGuard(StudyPublishClientHttpAdapter.class, StudyPublishClient.class);
+        assertHttpAdapterRegistrationGuard(AuditLogClientHttpAdapter.class, AuditLogClient.class);
+        assertHttpAdapterRegistrationGuard(AdminAuthClientHttpAdapter.class, AdminAuthClient.class);
     }
 
     @Test
@@ -124,10 +162,27 @@ class AiBoundaryClientContractTest {
 
         ConditionalOnProperty property = mockType.getAnnotation(ConditionalOnProperty.class);
         assertThat(property).isNotNull();
-        assertThat(property.name()).contains("qtai.ai.client.mock.enabled");
-        assertThat(property.havingValue()).isEqualTo("true");
+        assertThat(property.name()).contains("qtai.ai.client.mode");
+        assertThat(property.havingValue()).isEqualTo("mock");
+        assertThat(property.matchIfMissing()).isTrue();
 
         ConditionalOnMissingBean missingBean = mockType.getAnnotation(ConditionalOnMissingBean.class);
+        assertThat(missingBean).isNotNull();
+        assertThat(missingBean.value()).contains(clientType);
+    }
+
+    private static void assertHttpAdapterRegistrationGuard(Class<?> adapterType, Class<?> clientType) {
+        assertThat(adapterType.getAnnotation(Component.class)).isNotNull();
+        assertThat(adapterType.getAnnotation(Primary.class)).isNull();
+        assertThat(adapterType.getAnnotation(Profile.class)).isNull();
+
+        ConditionalOnProperty property = adapterType.getAnnotation(ConditionalOnProperty.class);
+        assertThat(property).isNotNull();
+        assertThat(property.name()).contains("qtai.ai.client.mode");
+        assertThat(property.havingValue()).isEqualTo("http");
+        assertThat(property.matchIfMissing()).isFalse();
+
+        ConditionalOnMissingBean missingBean = adapterType.getAnnotation(ConditionalOnMissingBean.class);
         assertThat(missingBean).isNotNull();
         assertThat(missingBean.value()).contains(clientType);
     }
@@ -136,5 +191,17 @@ class AiBoundaryClientContractTest {
         assertThat(clientType.getDeclaredMethods())
                 .allSatisfy(method -> assertThat(Arrays.asList(method.getExceptionTypes()))
                         .contains(AiClientException.class));
+    }
+
+    private static void assertValidationFailure(ThrowingCallable callable, String downstreamService) {
+        assertThatThrownBy(callable)
+                .isInstanceOf(AiClientException.class)
+                .satisfies(exception -> {
+                    AiClientException aiClientException = (AiClientException) exception;
+                    assertThat(aiClientException.failureCode())
+                            .isEqualTo(AiClientException.FailureCode.VALIDATION_FAILED);
+                    assertThat(aiClientException.downstreamService()).isEqualTo(downstreamService);
+                    assertThat(aiClientException.retryable()).isFalse();
+                });
     }
 }
