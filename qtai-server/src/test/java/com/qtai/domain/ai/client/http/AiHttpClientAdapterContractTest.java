@@ -190,7 +190,9 @@ class AiHttpClientAdapterContractTest {
         assertThat(auditRequest.getPath()).isEqualTo("/api/v1/system/audit/logs");
         assertCommonHeaders(auditRequest);
         assertIdempotencyKey(auditRequest);
-        assertThat(bodyJson(auditRequest)).isEqualTo(fixtureNode("/requests/auditLog"));
+        JsonNode auditBody = bodyJson(auditRequest);
+        assertThat(auditBody).isEqualTo(fixtureNode("/requests/auditLog"));
+        assertThat(auditBody.path("actorType").asText()).isEqualTo("SYSTEM_BATCH");
     }
 
     @Test
@@ -318,11 +320,12 @@ class AiHttpClientAdapterContractTest {
     }
 
     @Test
-    void f15BlockedReasonFixturesCoverCamelAndSnakeCases() {
-        assertThat(fixtureNode("/policyFixtures/f15BlockedReasonCamel/blockedReason").asText())
-                .isEqualTo("VALUE_JUDGMENT");
-        assertThat(fixtureNode("/policyFixtures/f15BlockedReasonSnake/blocked_reason").asText())
-                .isEqualTo("VALUE_JUDGMENT");
+    void f15BlockedReasonFixturesNormalizeCamelAndSnakeCasesToSamePolicy() {
+        F15BlockedReasonPolicy camel = f15BlockedReasonPolicy("/policyFixtures/f15BlockedReasonCamel");
+        F15BlockedReasonPolicy snake = f15BlockedReasonPolicy("/policyFixtures/f15BlockedReasonSnake");
+
+        assertThat(camel).isEqualTo(new F15BlockedReasonPolicy("VALUE_JUDGMENT", "VALUE_JUDGMENT"));
+        assertThat(snake).isEqualTo(camel);
     }
 
     private AiClientProperties properties() {
@@ -340,6 +343,7 @@ class AiHttpClientAdapterContractTest {
     }
 
     private MockResponse statusResponse(int status) {
+        // Covers fallback mapping when a provider fails before building an ApiResponse envelope.
         return jsonResponse(status, "{\"message\":\"status failure\"}");
     }
 
@@ -384,6 +388,22 @@ class AiHttpClientAdapterContractTest {
         return objectMapper.readTree(request.getBody().readUtf8());
     }
 
+    private F15BlockedReasonPolicy f15BlockedReasonPolicy(String pointer) {
+        JsonNode node = fixtureNode(pointer);
+        return new F15BlockedReasonPolicy(
+                textValue(node, "blockedReason", "blocked_reason"),
+                textValue(node, "blockedReasonCategory", "blocked_reason_category")
+        );
+    }
+
+    private static String textValue(JsonNode node, String camelField, String snakeField) {
+        JsonNode value = node.hasNonNull(camelField) ? node.get(camelField) : node.get(snakeField);
+        assertThat(value)
+                .as("%s or %s must exist", camelField, snakeField)
+                .isNotNull();
+        return value.asText();
+    }
+
     private static void assertCommonHeaders(RecordedRequest request) {
         assertThat(request.getHeader("Authorization")).isEqualTo("Bearer " + SERVICE_TOKEN);
         assertThat(request.getHeader("Accept")).contains("application/json");
@@ -416,5 +436,8 @@ class AiHttpClientAdapterContractTest {
     @FunctionalInterface
     private interface ThrowingRunnable {
         void run() throws Exception;
+    }
+
+    private record F15BlockedReasonPolicy(String blockedReason, String blockedReasonCategory) {
     }
 }
