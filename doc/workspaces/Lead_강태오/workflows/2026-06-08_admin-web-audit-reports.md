@@ -24,3 +24,11 @@
 
 - 권한은 백엔드에서 검증(AD-07 SUPER_ADMIN, AD-04 OPERATOR/SUPER_ADMIN). 화면별 메뉴 노출/접근 제어(D2)는 후속.
 - 팀 MSA 분리 작업 중 — PR은 오늘 작업 종료 시 일괄(브랜치 보존).
+
+## 추가 화면 (AD-03 AI 산출물 검증 · AD-08 AI 운영 모니터링)
+
+같은 브랜치에 이어서 구현.
+
+- **AD-03**: `GET /admin/ai/assets` + approve/reject/hide. 목록은 **메타데이터만**(원문·검증 참조 비노출, CLAUDE.md §7) 표시 + 승인/반려/숨김 모달(approve 시 대상 게시 활성화 옵션). `AiAsset` 타입을 `AdminAiAssetListItem`과 정합. 권한 REVIEWER / SUPER_ADMIN.
+- **AD-08**: `GET /admin/ai/monitoring`. 생성작업·검증·배치·Q&A 집계 대시보드(읽기 전용, Statistic + 표). `AiMonitoringSummary` 타입을 `AdminAiMonitoringResponse`와 정합. 권한 OPERATOR.
+- 검증: typecheck + build 통과. 런타임은 B(dev 로그인)+백엔드 기동 후 수동 확인.
