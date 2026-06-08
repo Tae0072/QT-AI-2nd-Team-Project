@@ -1,5 +1,6 @@
-// 서비스 공통 라이브러리 — ApiResponse/ErrorCode/BusinessException/GlobalExceptionHandler/BaseEntity.
-// MSA 분리 1단계(feature/msa-foundation): com.qtai.common 패키지를 모놀리식에서 분리.
+// 서비스 공통 코어 라이브러리 (web-free) — ApiResponse/ErrorCode/BusinessException/JwtTokenVerifier/AuthenticatedUser.
+// embedded Tomcat·JPA 자동설정을 강제하지 않는다 → WebFlux 게이트웨이/리액티브 서비스도 의존 가능.
+// servlet MVC 예외처리(GlobalExceptionHandler)·JPA(BaseEntity)는 lib-common-web으로 분리됨.
 plugins {
     `java-library`
     id("io.spring.dependency-management") version "1.1.7"
@@ -19,11 +20,10 @@ dependencyManagement {
 }
 
 dependencies {
-    // 공통 타입이 쓰는 스프링/JPA/검증/보안 (api = 사용 모듈에 전이 노출)
-    api("org.springframework.boot:spring-boot-starter-web")          // HttpStatus, @RestControllerAdvice, Jackson, slf4j
-    api("org.springframework.boot:spring-boot-starter-data-jpa")     // BaseEntity: @MappedSuperclass, Auditing
-    api("org.springframework.boot:spring-boot-starter-validation")   // ConstraintViolationException
-    api("org.springframework.boot:spring-boot-starter-security")     // AccessDeniedException
+    // ErrorCode: org.springframework.http.HttpStatus (spring-web 추상화 — Tomcat 미포함, MVC/WebFlux 공용)
+    api("org.springframework:spring-web")
+    // ApiResponse: org.slf4j.MDC (traceId)
+    api("org.slf4j:slf4j-api")
 
     // JWT 검증 유틸(JwtTokenVerifier) — RS256 공개키 검증. 발급(개인키)은 인증 서비스에만.
     api("io.jsonwebtoken:jjwt-api:0.13.0")
