@@ -8,9 +8,9 @@ public interface BibleVerseClient {
 
     BibleVerseResult getVerse(Long verseId) throws AiClientException;
 
-    List<BibleVerseResult> getVerses(List<Long> verseIds) throws AiClientException;
+    List<BibleVerseResult> getVersesByIds(List<Long> verseIds) throws AiClientException;
 
-    BibleVerseRangeResult getVerses(String bibleBook, int chapter, Integer startVerse, Integer endVerse)
+    BibleVerseRangeResult getVersesInRange(String bibleBook, int chapter, Integer startVerse, Integer endVerse)
             throws AiClientException;
 
     record BibleVerseResult(
