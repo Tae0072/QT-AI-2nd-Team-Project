@@ -75,7 +75,7 @@
 
 ## 6. CI 게이트 변경 효과
 
-- `qt-ai-ci.yml`: 기존에는 `qtai-server/`에 Kafka 패턴이나 `k8s/`·`helm/` 디렉터리가 있으면 빌드를 **[BLOCK]+FAILED** 처리 → 이제 **[NOTICE]만 출력, 실패 없음**. 즉 이승욱의 Kafka/outbox·게이트웨이·K8s 작업 PR이 CI에서 자동 차단되지 않는다.
+- `qt-ai-ci.yml`(2026-06-08 보강): Kafka 패턴·`k8s/`·`helm/`은 **v2 MSA 분리 트랙(브랜치 `msa/*`·`*/msa-*` 또는 `v2-msa` 라벨) PR에서만 [NOTICE] 허용**, **v1 단일배포 feature PR은 [BLOCK]+FAILED 유지**. 통합 브랜치(dev/master) push는 차단하지 않음. 즉 이승욱·강상민의 MSA 분리 PR은 `msa/` 브랜치로 진행하면 통과하고, v1 PR이 실수로 Kafka/K8s를 넣으면 차단된다.
 - 여전히 차단: SSE·RAG·벡터DB·Elasticsearch·개역개정/ESV/NIV·교회 인증 패턴.
 
 ## 7. PR 초안
@@ -125,3 +125,17 @@
 2. `doc/프로젝트 문서/03_아키텍처_정의서.md` (사본) — 중간(≈55KB) 손상. **문서 저장소 `2nd-Team-Project/03_아키텍처_정의서.md`(정상본)에서 재동기화** 후, 본 GDR §5의 03 편집 2건(§3.1.2 v2 착수 격상, Kafka 도입 시점 v2) 재적용.
 
 > 참고: 문서 저장소(`2nd-Team-Project`)의 원본 03은 손상되지 않았다. 손상은 구현 저장소 작업본 사본에 한정.
+
+## 11. 분리 트랙 구분 & v2 브랜치 규칙 (1차 도메인 충돌 정리)
+
+"1차로 무엇을 분리하나"는 트랙마다 다르며 서로 충돌이 아니다. 두 트랙은 **병렬** 진행한다.
+
+- **트랙 A — ai-service (강상민 주도, Lead 로드맵):** `2026-06-08_msa-migration-ai-first.md` 기준. 이 트랙 안의 1차 분리 대상은 **ai 도메인**.
+- **트랙 B — 사용자 도메인 5서비스 (이승욱 주도):** 이승욱 「MSA 분리 설계안」 기준. 이 트랙의 1차 분리 대상은 **bible**(리프 우선 strangler) → today-qt → note → sharing → mypage.
+- 즉 ai-first 문서의 "ai 우선"은 **트랙 A 한정**, 이승욱 설계안의 "bible 우선"은 **트랙 B 한정**이다. 전사 공통의 단일 "1차"는 없다.
+
+### v2 MSA 트랙 식별 규칙 (CI 게이트 연동)
+
+- v2 분리 작업 브랜치는 **`msa/<scope>` 또는 `<type>/msa-<scope>`** 형식을 쓴다(예: `feat/msa-bible-extract`, `msa/ai-service`). 또는 PR에 **`v2-msa` 라벨**.
+- `qt-ai-ci.yml`은 위 조건 PR에서만 Kafka/Kubernetes/Helm을 **[NOTICE] 허용**, 그 외 v1 단일배포 PR은 **[BLOCK]+FAILED**로 차단한다(2026-06-08 보강).
+- `claude-pr-review.yml` 자동 리뷰도 동일 규칙으로 지적한다.

@@ -130,7 +130,7 @@ jobs:
           7. **금지 기술/데이터/기능 패턴** (자동 차단 대상):
              - SSE: /ai/sessions/, SseEmitter, text/event-stream, Flux<ServerSentEvent
              - 검색·임베딩: RAG, ChromaDB, Weaviate, Elasticsearch, VectorStore, EmbeddingStore, LangChain4j
-             - 인프라(주의): Kafka·Kubernetes·Helm은 v2 MSA 분리 트랙에서 허용(2026-06-08). v1 단일배포 PR에서만 점검.
+             - 인프라: Kafka·Kubernetes·Helm은 v2 MSA 분리 트랙(브랜치 msa/* 또는 v2-msa 라벨)에서만 허용. v1 단일배포 PR이 추가하면 차단 대상으로 지적.
              - 성경 번역본: 개역개정, ESV, NIV
              - 본문 텍스트: 성서 유니온/두란노 원문 저장 (범위 정보만)
              - 교회 인증 F-11: 화면/버튼/API/DB 필드 추가

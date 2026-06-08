@@ -101,6 +101,16 @@ jobs:
           echo "=== v3.1 금지 패턴 검사 시작 ==="
           FAILED=0
 
+          # v2 MSA 분리 트랙 식별 — v2 트랙(브랜치 msa/* 또는 v2-msa 라벨)만 Kafka/K8s 허용, v1은 차단
+          V2MSA=0
+          if [ -n "${GITHUB_HEAD_REF:-}" ]; then
+            case "$GITHUB_HEAD_REF" in msa/*|*/msa-*|*/msa/*) V2MSA=1 ;; esac
+            if printf '%s' "${PR_LABELS:-}" | grep -qiw "v2-msa"; then V2MSA=1; fi
+          else
+            V2MSA=1   # push(통합 브랜치 dev/master, 머지 후)는 차단하지 않음
+          fi
+          echo "v2 MSA track: V2MSA=$V2MSA (head=${GITHUB_HEAD_REF:-push:$GITHUB_REF_NAME})"
+
           # 1) PostgreSQL 금지 (메모리 5: MySQL 8.0만)
           if grep -r --include="*.yaml" --include="*.yml" --include="*.properties" --include="*.java" --include="*.kt" \
              -l "jdbc:postgresql" . \
@@ -131,15 +141,25 @@ jobs:
             FAILED=1
           fi
 
-          # 5) Kafka — v2 MSA 분리 트랙 허용(2026-06-08 Lead 결정). 아래는 비차단 알림.
+          # 5) Kafka — v1 단일배포 금지 / v2 MSA 분리 트랙만 허용(2026-06-08 Lead 결정)
           if [ -d qtai-server ] && grep -rE --include="*.java" --include="*.kt" --include="*.gradle*" \
              "KafkaTemplate|spring-kafka|@KafkaListener|org\\.apache\\.kafka" qtai-server/ 2>/dev/null; then
-            echo "[NOTICE] Kafka 사용 감지 — v2 MSA 분리 트랙 허용(2026-06-08). v1 단일배포 PR이면 검토."
+            if [ "$V2MSA" = 1 ]; then
+              echo "[NOTICE] Kafka 사용 감지 — v2 MSA 분리 트랙 허용(2026-06-08)."
+            else
+              echo "[BLOCK] Kafka 패턴 발견 — v1 단일배포는 금지. v2 MSA 작업은 msa/ 브랜치 또는 v2-msa 라벨로 진행 (2026-06-08)"
+              FAILED=1
+            fi
           fi
 
-          # 6) Kubernetes / Helm — v2 MSA 분리 트랙 허용(2026-06-08 Lead 결정). 아래는 비차단 알림.
+          # 6) Kubernetes / Helm — v1 단일배포 금지 / v2 MSA 분리 트랙만 허용(2026-06-08 Lead 결정)
           if [ -d k8s ] || [ -d helm ] || find . -name "Chart.yaml" -not -path "*/\.*" 2>/dev/null | grep -q .; then
-            echo "[NOTICE] k8s/helm 디렉터리 감지 — v2 MSA 분리 트랙 허용(2026-06-08). v1 단일배포 PR이면 검토."
+            if [ "$V2MSA" = 1 ]; then
+              echo "[NOTICE] k8s/helm 디렉터리 감지 — v2 MSA 분리 트랙 허용(2026-06-08)."
+            else
+              echo "[BLOCK] Kubernetes/Helm 디렉터리 발견 — v1 단일배포는 Docker Compose만. v2 MSA 작업은 msa/ 브랜치 또는 v2-msa 라벨로 진행 (2026-06-08)"
+              FAILED=1
+            fi
           fi
 
           # 7) 성경 번역본 금지 (메모리 18: 개역개정/ESV/NIV)

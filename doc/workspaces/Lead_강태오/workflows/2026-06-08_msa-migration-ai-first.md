@@ -2,6 +2,8 @@
 
 작성: Claude (Lead 강태오/T 지시) · 대상 저장소: `QT-AI-2nd-Team-Project` (구현)
 
+> **스코프 주의:** 이 문서는 **트랙 A(ai-service 분리, 강상민 주도)** 전용이다. 사용자 도메인 5서비스는 이승욱 「MSA 분리 설계안」(트랙 B, bible 우선)에서 병렬로 다룬다. 여기서의 '1차=ai'는 트랙 A 한정이며 전사 공통 순서가 아니다. 거버넌스 결정 기록 §11 참조.
+
 ## 1. 요약 (한 줄)
 
 단일 `qtai-server` 모듈러 모놀리식을 **Strangler Fig 방식**으로 점진 분리한다. 1차로 **ai 도메인**을 별도 서비스(`qtai-ai-service`)로 떼어내고, 서비스 간 통신은 **동기 REST + Kafka 이벤트**, DB는 **단계적 분리**, 배포는 **Docker Compose 먼저 → 이후 Kubernetes/Helm**으로 간다.
