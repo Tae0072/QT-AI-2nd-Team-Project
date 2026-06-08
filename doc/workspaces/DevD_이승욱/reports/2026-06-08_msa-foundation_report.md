@@ -21,8 +21,11 @@
 
 ## 검증
 - `gradlew assemble` — **BUILD SUCCESSFUL** (머지 전/후 모두). lib-common jar + app bootJar 정상.
-- 단위/통합 테스트는 후속 증분에서 모듈 경계 ArchUnit 규칙과 함께 보강.
+- `gradlew compileTestJava` — **BUILD SUCCESSFUL** (앱 테스트 소스 전체가 새 모듈 구조에서 컴파일 — `GlobalExceptionHandler` 등 이전으로 인한 컨텍스트/스캔 회귀 없음).
+- `gradlew :lib-common:test` — **통과** (lib-common 단위 테스트: ApiResponse/ErrorCode/BusinessException).
+- `gradlew :test --tests LibCommonBoundaryArchTest` — **통과** (com.qtai.common이 domain/config/security/external/batch에 의존하지 않음 = leaf 강제).
+- 전체 `./gradlew test`(Testcontainers/Docker·Redis 필요)는 **CI 파이프라인에서 수행**. 로컬 환경 한계로 PR CI 결과로 확인.
 
 ## 미해결
 - PR 머지 대기
-- 후속: JWT 유틸 이전 · service-gateway · ArchUnit 모듈 경계 · bible 추출
+- 후속: JWT 검증 유틸 lib-common 이전 · service-gateway 스캐폴드 · bible 추출(1단계)
