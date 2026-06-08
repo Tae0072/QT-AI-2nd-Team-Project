@@ -30,7 +30,7 @@ dependencies {
 
     // Caffeine — 로컬 캐시 (bible_books 등 불변 데이터)
     implementation("com.github.ben-manes.caffeine:caffeine")
-    implementation("org.apache.pdfbox:pdfbox:3.0.3")
+    implementation("org.apache.pdfbox:pdfbox:3.0.7")
 
     // Flyway — DB 마이그레이션
     implementation("org.flywaydb:flyway-core")
