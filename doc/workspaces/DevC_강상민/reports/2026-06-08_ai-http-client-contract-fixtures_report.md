@@ -37,6 +37,13 @@ provider Controller, 실제 endpoint 연결, production code, OpenAPI, DB/migrat
 - `Idempotency-Key` 단일 필드 단언은 유지했고, audit 요청 body는 fixture 전체 비교와 별도로 `actorType=SYSTEM_BATCH` 단언을 추가했다.
 - Today QT `MISS` 케이스와 `loadFixtures` 정적 캐싱은 리뷰 참고 항목으로 분류하여 후속 작업으로 남겼다.
 
+## PR diff fixture 포함 재확인
+
+- PR #356 changed files 기준 `qtai-server/src/test/resources/contracts/ai-provider/http-client-contract-fixtures.json`이 포함되어 있다.
+- 원격 브랜치 기준 `git diff --name-status origin/dev...origin/test/ai-http-client-contract-fixtures` 결과에서 해당 파일은 `A` 상태로 확인된다.
+- GitHub PR file patch 기준 해당 파일은 `@@ -0,0 +1,220 @@` 신규 파일로 확인된다.
+- 최신 보완 커밋 diff만 보면 fixture JSON이 보이지 않을 수 있으나, PR 전체 Files changed에는 이전 커밋에서 추가된 fixture JSON이 포함되어 있다.
+
 ## 후속 작업
 
 - provider endpoint가 열리면 이번 fixture catalog 기준으로 smoke test를 별도 PR에서 작성한다.
