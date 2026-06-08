@@ -572,6 +572,12 @@ abstract class AppLocalizations {
   /// **'{count} notes'**
   String calNoteCount(int count);
 
+  /// No description provided for @calDayChecklistTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes written this day'**
+  String get calDayChecklistTitle;
+
   /// No description provided for @calStreak.
   ///
   /// In en, this message translates to:
