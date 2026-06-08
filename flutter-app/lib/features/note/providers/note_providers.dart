@@ -40,7 +40,6 @@ final noteCalendarViewProvider = StateProvider<bool>((ref) => false);
 
 /// 묵상 달력 (월별).
 ///
-/// ✏️ 왜 이렇게 짰냐면:
 /// 달은 "yyyy-MM"마다 결과가 달라서 family로 month를 인자로 받는다.
 /// 사용자가 이전/다음 달로 넘기면 그 달 문자열로 provider를 다시 watch한다.
 final meditationCalendarProvider =

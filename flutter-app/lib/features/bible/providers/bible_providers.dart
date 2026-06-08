@@ -22,3 +22,9 @@ final todayQtPassageProvider =
 final bibleBooksProvider = FutureProvider.autoDispose<List<BibleBook>>((ref) {
   return ref.watch(bibleRepositoryProvider).getBooks();
 });
+
+final qtStudyContentProvider =
+    FutureProvider.autoDispose.family<QtStudyContent, int>((ref, qtPassageId) {
+  final repository = ref.watch(bibleRepositoryProvider);
+  return repository.getQtStudyContent(qtPassageId);
+});
