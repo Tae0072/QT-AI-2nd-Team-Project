@@ -130,24 +130,24 @@ class _Actions extends ConsumerWidget {
       ref.invalidate(notesProvider);
       ref.invalidate(sharingPostsProvider);
       if (!context.mounted) return;
-      // ✏️ 성공 스낵바에 "보기"를 달아 원하는 사람만 나눔 피드로 가게 한다(강제 이동 X).
+      //   성공 스낵바에 "보기"를 달아 원하는 사람만 나눔 피드로 가게 한다(강제 이동 X).
       //   "조용한 나눔" 철학에 맞춰 기본은 상세에 머물고, 즉시 확인 경로만 제공.
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l.notePublishSuccess),
           action: SnackBarAction(
             label: l.notePublishView,
-            onPressed: () =>
-                Navigator.of(context).pushNamed(AppRouter.sharing),
+            onPressed: () => Navigator.of(context).pushNamed(AppRouter.sharing),
           ),
         ),
       );
     } catch (e) {
       if (!context.mounted) return;
-      // ✏️ 409(DUPLICATE_SHARING_POST) = 이미 공개된 노트 → 실패가 아니라 "이미 했음" 안내.
+      //   409(DUPLICATE_SHARING_POST) = 이미 공개된 노트 → 실패가 아니라 "이미 했음" 안내.
       //   현재 서버 갭으로 공개 후에도 버튼이 안 사라져 재탭이 가능하므로, 그 경우 친절한
       //   안내로 바꿔 "버그처럼 보이는" 회귀를 막는다(백엔드 visibility 갱신은 후속 PR).
-      final isAlreadyShared = e is DioException && e.response?.statusCode == 409;
+      final isAlreadyShared =
+          e is DioException && e.response?.statusCode == 409;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -233,11 +233,10 @@ class _DetailBody extends StatelessWidget {
             ],
             if (detail.shared) ...[
               const SizedBox(width: 8),
-              // ✏️ 공개된 노트는 "공유됨 ›"을 탭하면 나눔 피드로 이동(지속 경로).
+              //   공개된 노트는 "공유됨 ›"을 탭하면 나눔 피드로 이동(지속 경로).
               //   스낵바("보기")가 사라진 뒤에도 언제든 공유본을 찾아갈 수 있다.
               InkWell(
-                onTap: () =>
-                    Navigator.of(context).pushNamed(AppRouter.sharing),
+                onTap: () => Navigator.of(context).pushNamed(AppRouter.sharing),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -254,7 +253,7 @@ class _DetailBody extends StatelessWidget {
         ),
         const Divider(height: 24),
 
-        // ✏️ 카테고리 분기: 묵상은 4섹션, 그 외(자유노트)는 body 한 덩이.
+        //   카테고리 분기: 묵상은 4섹션, 그 외(자유노트)는 body 한 덩이.
         if (detail.isFreeNote)
           Text(
             (detail.body?.isNotEmpty ?? false) ? detail.body! : l.noteNoContent,
@@ -290,7 +289,7 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✏️ 빈 섹션은 굳이 자리 차지하지 않게 숨긴다(일부 섹션만 작성 가능, 07 F-03).
+    //   빈 섹션은 굳이 자리 차지하지 않게 숨긴다(일부 섹션만 작성 가능, 07 F-03).
     if (text == null || text!.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     return Padding(
