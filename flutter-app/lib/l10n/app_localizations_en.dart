@@ -192,6 +192,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteSaveFailed => 'Failed to save. Please try again.';
 
   @override
+  String get notePublishTooltip => 'Share to feed';
+
+  @override
+  String get notePublishSheetTitle => 'Share to nickname feed';
+
+  @override
+  String get notePublishNicknameNotice =>
+      'Your nickname will be shown when you share.';
+
+  @override
+  String get notePublishCommentsLabel => 'Allow comments';
+
+  @override
+  String get notePublishConfirm => 'Share';
+
+  @override
+  String get notePublishNeedSave => 'Only saved notes can be shared';
+
+  @override
+  String get notePublishSuccess => 'Shared to the feed';
+
+  @override
+  String get notePublishFailed => 'Failed to share. Please try again';
+
+  @override
+  String get notePublishView => 'View';
+
+  @override
   String get fmtBold => 'Bold';
 
   @override

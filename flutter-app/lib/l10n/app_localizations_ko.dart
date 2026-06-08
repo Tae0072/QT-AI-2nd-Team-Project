@@ -189,6 +189,33 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteSaveFailed => '저장에 실패했습니다. 다시 시도해 주세요';
 
   @override
+  String get notePublishTooltip => '나눔 공개';
+
+  @override
+  String get notePublishSheetTitle => '닉네임 나눔에 공개';
+
+  @override
+  String get notePublishNicknameNotice => '공개하면 내 닉네임이 함께 표시됩니다.';
+
+  @override
+  String get notePublishCommentsLabel => '댓글 허용';
+
+  @override
+  String get notePublishConfirm => '공개';
+
+  @override
+  String get notePublishNeedSave => '저장을 완료한 노트만 공개할 수 있어요';
+
+  @override
+  String get notePublishSuccess => '나눔에 공개되었습니다';
+
+  @override
+  String get notePublishFailed => '나눔 공개에 실패했습니다. 다시 시도해 주세요';
+
+  @override
+  String get notePublishView => '보기';
+
+  @override
   String get fmtBold => '굵게';
 
   @override

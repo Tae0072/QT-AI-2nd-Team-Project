@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
+import '../../sharing/providers/sharing_providers.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
+import '../widgets/note_publish_sheet.dart';
 import '../widgets/note_share_sheet.dart';
 import 'note_edit_screen.dart';
 
@@ -58,6 +60,14 @@ class _Actions extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     return Row(
       children: [
+        // 닉네임 나눔 공개(앱 안 피드) — 아직 공개되지 않은 노트에만 노출.
+        // 외부 OS 공유(아래 ios_share)와 구분되는 별개 동작이다(F-10).
+        if (!detail.shared)
+          IconButton(
+            tooltip: l.notePublishTooltip,
+            icon: const Icon(Icons.public),
+            onPressed: () => _confirmPublish(context, ref),
+          ),
         // 외부 공유는 카테고리 무관 제공(텍스트/카드 이미지).
         IconButton(
           tooltip: l.noteShareTooltip,
@@ -95,6 +105,50 @@ class _Actions extends ConsumerWidget {
     ref.invalidate(notesProvider);
   }
 
+  /// 닉네임 나눔 공개 — 공개 확인 시트(닉네임 고지+댓글 ON/OFF) → POST /notes/{id}/share.
+  Future<void> _confirmPublish(BuildContext context, WidgetRef ref) async {
+    final l = AppLocalizations.of(context);
+    //   저장 완료(SAVED) 노트만 공개 가능. 임시저장(DRAFT)은 서버가 422로 막으므로
+    //   시트를 띄우기 전에 안내만 하고 멈춘다(04 §4.3.8: 저장 확정 전 공유 불가).
+    if (detail.status != 'SAVED') {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.notePublishNeedSave)));
+      return;
+    }
+    // 시트 반환: 댓글 허용 여부(true/false) = 공개 확정, null = 취소.
+    final commentsEnabled = await showNotePublishSheet(context);
+    if (commentsEnabled == null || !context.mounted) return;
+
+    try {
+      await ref
+          .read(sharingRepositoryProvider)
+          .publishNote(noteId, commentsEnabled: commentsEnabled);
+      //   공개 성공: 이 노트 상세(공유됨 뱃지)·노트 목록·나눔 피드를 모두 무효화해
+      //   방금 만든 공유본이 즉시 반영되게 한다.
+      ref.invalidate(noteDetailProvider(noteId));
+      ref.invalidate(notesProvider);
+      ref.invalidate(sharingPostsProvider);
+      if (!context.mounted) return;
+      // ✏️ 성공 스낵바에 "보기"를 달아 원하는 사람만 나눔 피드로 가게 한다(강제 이동 X).
+      //   "조용한 나눔" 철학에 맞춰 기본은 상세에 머물고, 즉시 확인 경로만 제공.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l.notePublishSuccess),
+          action: SnackBarAction(
+            label: l.notePublishView,
+            onPressed: () =>
+                Navigator.of(context).pushNamed(AppRouter.sharing),
+          ),
+        ),
+      );
+    } catch (e) {
+      //   실패 시 공유본이 생기지 않았음을 알리고 화면은 유지(재시도 가능).
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.notePublishFailed)));
+    }
+  }
+
   /// 삭제 확인창 → 삭제 → 목록 새로고침 후 뒤로. (08 §8.2: 되돌리기 어려운 동작은 확인 절차)
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final l = AppLocalizations.of(context);
@@ -119,7 +173,7 @@ class _Actions extends ConsumerWidget {
 
     try {
       await ref.read(noteRepositoryProvider).delete(noteId);
-      // ✏️ 삭제 성공: 목록을 무효화해 사라진 노트를 반영하고 상세 화면을 닫는다.
+      //   삭제 성공: 목록을 무효화해 사라진 노트를 반영하고 상세 화면을 닫는다.
       // TODO(달력 탭 구현 후): 묵상 노트면 묵상 달력 provider도 invalidate.
       ref.invalidate(notesProvider);
       if (!context.mounted) return;
@@ -127,10 +181,10 @@ class _Actions extends ConsumerWidget {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(l.noteDeleted)));
     } catch (e) {
-      // ✏️ 실패 시 화면 유지 + 안내(되돌리기 어려운 동작이라 실패를 명확히 알림).
+      //   실패 시 화면 유지 + 안내(되돌리기 어려운 동작이라 실패를 명확히 알림).
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.noteDeleteFailed)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.noteDeleteFailed)));
     }
   }
 }
@@ -171,9 +225,22 @@ class _DetailBody extends StatelessWidget {
             ],
             if (detail.shared) ...[
               const SizedBox(width: 8),
-              Text(l.noteShared,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.secondary)),
+              // ✏️ 공개된 노트는 "공유됨 ›"을 탭하면 나눔 피드로 이동(지속 경로).
+              //   스낵바("보기")가 사라진 뒤에도 언제든 공유본을 찾아갈 수 있다.
+              InkWell(
+                onTap: () =>
+                    Navigator.of(context).pushNamed(AppRouter.sharing),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l.noteShared,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.secondary)),
+                    Icon(Icons.chevron_right,
+                        size: 14, color: theme.colorScheme.secondary),
+                  ],
+                ),
+              ),
             ],
           ],
         ),
