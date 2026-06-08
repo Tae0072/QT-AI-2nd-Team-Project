@@ -1,13 +1,14 @@
 package com.qtai.domain.ai.client.qt.dto;
 
 public record QtContextResult(
-        Long qtPassageId,
+        Long passageId,
         String bibleBook,
-        int chapter,
-        int startVerse,
-        int endVerse,
+        Integer chapter,
+        Integer startVerse,
+        Integer endVerse,
         String passageReference,
-        String qtTitle,
-        String promptContextSummary
+        String title,
+        String summary,
+        String passageContext
 ) {
 }

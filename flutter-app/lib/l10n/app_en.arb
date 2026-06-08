@@ -69,6 +69,16 @@
   "noteSaved": "Saved",
   "noteDraftSaved": "Saved as draft",
   "noteSaveFailed": "Failed to save. Please try again.",
+  "notePublishTooltip": "Share to feed",
+  "notePublishSheetTitle": "Share to nickname feed",
+  "notePublishNicknameNotice": "Your nickname will be shown when you share.",
+  "notePublishCommentsLabel": "Allow comments",
+  "notePublishConfirm": "Share",
+  "notePublishNeedSave": "Only saved notes can be shared",
+  "notePublishSuccess": "Shared to the feed",
+  "notePublishFailed": "Failed to share. Please try again",
+  "notePublishAlready": "This note is already shared",
+  "notePublishView": "View",
 
   "fmtBold": "Bold",
   "fmtItalic": "Italic",
@@ -85,6 +95,7 @@
   "@calNoteCount": {
     "placeholders": { "count": { "type": "int" } }
   },
+  "calDayChecklistTitle": "Notes written this day",
   "calStreak": "{days}-day streak 🔥",
   "@calStreak": {
     "placeholders": { "days": { "type": "int" } }

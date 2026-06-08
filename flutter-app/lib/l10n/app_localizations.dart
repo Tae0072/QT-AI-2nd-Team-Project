@@ -458,6 +458,66 @@ abstract class AppLocalizations {
   /// **'Failed to save. Please try again.'**
   String get noteSaveFailed;
 
+  /// No description provided for @notePublishTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Share to feed'**
+  String get notePublishTooltip;
+
+  /// No description provided for @notePublishSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share to nickname feed'**
+  String get notePublishSheetTitle;
+
+  /// No description provided for @notePublishNicknameNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Your nickname will be shown when you share.'**
+  String get notePublishNicknameNotice;
+
+  /// No description provided for @notePublishCommentsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow comments'**
+  String get notePublishCommentsLabel;
+
+  /// No description provided for @notePublishConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get notePublishConfirm;
+
+  /// No description provided for @notePublishNeedSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Only saved notes can be shared'**
+  String get notePublishNeedSave;
+
+  /// No description provided for @notePublishSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared to the feed'**
+  String get notePublishSuccess;
+
+  /// No description provided for @notePublishFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to share. Please try again'**
+  String get notePublishFailed;
+
+  /// No description provided for @notePublishAlready.
+  ///
+  /// In en, this message translates to:
+  /// **'This note is already shared'**
+  String get notePublishAlready;
+
+  /// No description provided for @notePublishView.
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get notePublishView;
+
   /// No description provided for @fmtBold.
   ///
   /// In en, this message translates to:
@@ -511,6 +571,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} notes'**
   String calNoteCount(int count);
+
+  /// No description provided for @calDayChecklistTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes written this day'**
+  String get calDayChecklistTitle;
 
   /// No description provided for @calStreak.
   ///

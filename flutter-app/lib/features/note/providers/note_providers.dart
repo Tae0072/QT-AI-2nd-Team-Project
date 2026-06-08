@@ -36,7 +36,8 @@ final noteDetailProvider =
 });
 
 /// N-01 화면 보기 모드 (false=목록, true=달력). AppBar 아이콘으로 토글.
-final noteCalendarViewProvider = StateProvider<bool>((ref) => false);
+/// 기본값 true = 노트 탭 진입 시 달력이 첫 화면(요구사항 2026-06-08). 버튼으로 목록 전환.
+final noteCalendarViewProvider = StateProvider<bool>((ref) => true);
 
 /// 묵상 달력 (월별).
 ///
