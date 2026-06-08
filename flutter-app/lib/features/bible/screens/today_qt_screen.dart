@@ -61,7 +61,11 @@ class TodayQtScreen extends ConsumerWidget {
           message: '${l.bibleTodayLoadError}\n$error',
           onRetry: () => ref.invalidate(todayQtPassageProvider),
         ),
-        data: (data) => _TodayQtContent(data: data),
+        data: (data) => _TodayQtContent(
+          data: data,
+          // 당겨서 새로고침: 오늘 QT를 다시 불러오고 완료될 때까지 대기한다.
+          onRefresh: () => ref.refresh(todayQtPassageProvider.future),
+        ),
       ),
     );
   }
@@ -69,8 +73,9 @@ class TodayQtScreen extends ConsumerWidget {
 
 class _TodayQtContent extends StatefulWidget {
   final TodayQtPassage data;
+  final Future<void> Function() onRefresh;
 
-  const _TodayQtContent({required this.data});
+  const _TodayQtContent({required this.data, required this.onRefresh});
 
   @override
   State<_TodayQtContent> createState() => _TodayQtContentState();
@@ -85,7 +90,7 @@ class _TodayQtContentState extends State<_TodayQtContent> {
     final data = widget.data;
 
     return RefreshIndicator(
-      onRefresh: () async {},
+      onRefresh: widget.onRefresh,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         children: [
