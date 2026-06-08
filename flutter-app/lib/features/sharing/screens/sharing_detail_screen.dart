@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
-import '../../../core/constants/post_category.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../models/sharing_post_response.dart';
 import '../providers/sharing_providers.dart';
+import '../widgets/sharing_comment_input.dart';
+import '../widgets/sharing_comment_tile.dart';
+import '../widgets/sharing_snapshot_card.dart';
 
 /// 나눔 상세 화면 (S-02).
 ///
@@ -217,7 +219,7 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 스냅샷 카드
-          _SnapshotCard(detail: detail),
+          SharingSnapshotCard(detail: detail),
 
           const SizedBox(height: 16),
 
@@ -252,30 +254,10 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
             Text(l.sharingComments, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             // 댓글 입력 줄
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _commentController,
-                    decoration: InputDecoration(
-                      hintText: l.sharingCommentHint,
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                    ),
-                    minLines: 1,
-                    maxLines: 3,
-                  ),
-                ),
-                IconButton(
-                  icon: _sendingComment
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.send),
-                  onPressed: _sendingComment ? null : _submitComment,
-                ),
-              ],
+            SharingCommentInput(
+              controller: _commentController,
+              sending: _sendingComment,
+              onSend: _submitComment,
             ),
             const SizedBox(height: 8),
             // 댓글 목록
@@ -287,19 +269,9 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
               )
             else
               for (final c in comments)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(c.nickname,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: Colors.grey)),
-                  subtitle:
-                      Text(c.body, style: theme.textTheme.bodyMedium),
-                  trailing: c.ownedByMe
-                      ? IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                          onPressed: () => _deleteComment(c.id),
-                        )
-                      : null,
+                SharingCommentTile(
+                  comment: c,
+                  onDelete: c.ownedByMe ? () => _deleteComment(c.id) : null,
                 ),
           ] else
             Padding(
@@ -308,61 +280,6 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
                   style: const TextStyle(color: Colors.grey)),
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// 나눔 글 스냅샷 카드 — 작성자/제목/카테고리 요약.
-class _SnapshotCard extends StatelessWidget {
-  final SharingPostDetail detail;
-
-  const _SnapshotCard({required this.detail});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: AppPad.all16,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 작성자
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  child: Text(detail.nicknameSnapshot.isNotEmpty
-                      ? detail.nicknameSnapshot[0]
-                      : '?'),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(detail.nicknameSnapshot,
-                        style: theme.textTheme.titleSmall),
-                    Text(postCategoryLabel(detail.category),
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.grey)),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // 제목
-            Text(detail.titleSnapshot,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-          ],
-        ),
       ),
     );
   }
