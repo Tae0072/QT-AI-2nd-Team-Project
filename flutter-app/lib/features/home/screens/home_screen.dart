@@ -19,16 +19,22 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const _noteTabIndex = 3;
+
   int _currentIndex = 0;
 
   // 탭 순서는 아래 BottomNavigationBar items와 동일해야 한다.
-  final _screens = const [
-    TodayQtScreen(),
-    BibleBrowserScreen(),
-    SharingFeedScreen(),
-    NoteListScreen(),
-    MyPageScreen(),
+  late final _screens = [
+    const TodayQtScreen(),
+    BibleBrowserScreen(onOpenSermonNotes: _openNoteTab),
+    const SharingFeedScreen(),
+    const NoteListScreen(),
+    const MyPageScreen(),
   ];
+
+  void _openNoteTab() {
+    setState(() => _currentIndex = _noteTabIndex);
+  }
 
   @override
   Widget build(BuildContext context) {
