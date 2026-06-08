@@ -19,11 +19,20 @@
 - **무영향 이동**: 이동 클래스 2개는 패키지 경로(`com.qtai.common.*`)를 그대로 유지 → 소비 측 import 무변경. 모놀리식은 lib-common-web을 의존해 동일 클래스 전부 접근.
 - **로직 변경 없음**: GlobalExceptionHandler·BaseEntity 내용, 인증, 코어 타입 전부 불변. 순수 모듈 경계 재배치.
 
+## 리뷰 후속 반영(머지 전 보강)
+초기 분리 PR 리뷰의 회귀 안전망 지적 3건을 같은 브랜치에 보강:
+
+| 지적 | 조치 |
+|------|------|
+| (a) 이동 클래스 회귀 테스트가 함께 옮겨졌는지 불명확 | `GlobalExceptionHandlerTest`(9건)를 모놀리식 → `lib-common-web/src/test`로 이동(클래스와 동일 모듈). lib-common-web에 test 소스셋·의존 추가. `EntityCompilationTest`는 도메인 엔티티 검증이라 모놀리식 잔존 |
+| (b) lib-common-web boundary ArchUnit 신규 부재 | `LibCommonWebBoundaryArchTest` 신설 — lib-common-web가 도메인/앱 기술영역에 의존 못 하게 자기 소스셋에서 강제 |
+| (c) JWT 책임분리 보안 주석 제거 | `lib-common/build.gradle.kts`에 `발급(개인키)은 인증 서비스에만.` 주석 복원 |
+
 ## 검증
 - `gradlew :lib-common:test` — **BUILD SUCCESSFUL** (web 스타터 제거 후 코어 단위/JWT 테스트 통과)
-- `gradlew :lib-common-web:assemble` — **BUILD SUCCESSFUL**
+- `gradlew :lib-common-web:test` — **BUILD SUCCESSFUL / 0 failures**: GlobalExceptionHandlerTest(9) + LibCommonWebBoundaryArchTest(2) = **11건**
 - `gradlew :compileJava`(모놀리식) — **BUILD SUCCESSFUL** (lib-common-web 의존으로 기존 import 해소)
-- 경계 테스트 **0 failures**: DomainBoundaryArchTest 30 / LibCommonBoundaryArchTest 2 / ArchitectureBoundaryTest 6 = **38건** → 코어 leaf 유지 확인
+- 모놀리식 경계 테스트 **0 failures**: DomainBoundaryArchTest 30 / LibCommonBoundaryArchTest 2 / ArchitectureBoundaryTest 6 = **38건** → 코어 leaf 유지 확인
 - 전체 `./gradlew test`(Docker/Redis)는 CI
 
 ## 미해결

@@ -18,11 +18,17 @@
 - 변경: `settings.gradle.kts`(+1), root `build.gradle.kts`(의존 1줄), `lib-common/build.gradle.kts`(슬림화), 클래스 2개 이동(GlobalExceptionHandler·BaseEntity), 신규 `lib-common-web/build.gradle.kts`. 코어 로직·인증·소비 측 코드 무영향.
 - 관련: MSA 로드맵 Phase 0 마무리(게이트웨이 JWT 필터·bible 추출 전제 조건)
 
+## 리뷰 후속 반영(머지 전 보강)
+초기 분리 PR 리뷰에서 회귀 안전망 관련 3건 지적 → 같은 브랜치에 보강:
+- **(a) 이동 클래스 회귀 테스트 동반 이동**: `GlobalExceptionHandlerTest`(핸들러 단위 9건)를 모놀리식 `src/test` → `lib-common-web/src/test`로 이동해 클래스와 테스트를 같은 모듈에 둠. `lib-common-web`에 test 소스셋·의존(`spring-boot-starter-test`, `junit-platform-launcher`, lombok test, `useJUnitPlatform()`) 추가. (`EntityCompilationTest`는 BaseEntity 서브클래스=도메인 엔티티를 검증하므로 leaf 위반 회피 위해 모놀리식 잔존.)
+- **(b) lib-common-web 전용 경계 ArchUnit 신설**: `LibCommonWebBoundaryArchTest` — lib-common-web(`com.qtai.common..`)이 `com.qtai.domain..`·config/security/external/batch에 의존 못 하게 자기 소스셋에서 강제(archunit-junit5 1.3.0). 코어 `LibCommonBoundaryArchTest`와 별개 가드.
+- **(c) JWT 책임분리 주석 복원**: `lib-common/build.gradle.kts`의 `// ... 발급(개인키)은 인증 서비스에만.` 보안 주석 되살림.
+
 ## 검증
 - `gradlew :lib-common:test` — **BUILD SUCCESSFUL** (web 스타터 제거 후에도 코어 단위/JWT 테스트 통과)
-- `gradlew :lib-common-web:assemble` — **BUILD SUCCESSFUL** (이동 클래스 컴파일)
+- `gradlew :lib-common-web:test` — **BUILD SUCCESSFUL / 0 failures**: GlobalExceptionHandlerTest(9) + LibCommonWebBoundaryArchTest(2) = 11건
 - `gradlew :compileJava`(모놀리식) — **BUILD SUCCESSFUL** (lib-common-web 의존으로 기존 import 전부 해소)
-- 경계 테스트 — **BUILD SUCCESSFUL / 0 failures**: DomainBoundaryArchTest(30), LibCommonBoundaryArchTest(2), ArchitectureBoundaryTest(6) = 38건. 코어가 여전히 leaf(도메인/config/security/external/batch 미의존) 유지.
+- 모놀리식 경계 테스트 — **0 failures**: DomainBoundaryArchTest(30), LibCommonBoundaryArchTest(2), ArchitectureBoundaryTest(6) = 38건. 코어가 여전히 leaf(도메인/config/security/external/batch 미의존) 유지.
 - 전체 `./gradlew test`(Docker/Redis 필요)는 CI.
 
 ## 미해결 / 후속
