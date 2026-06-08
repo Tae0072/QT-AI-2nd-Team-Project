@@ -28,4 +28,14 @@ dependencies {
 
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
+
+    testImplementation("org.springframework.boot:spring-boot-starter-test")  // MockMvc, Mockito, AssertJ
+    testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")          // 모듈 경계 검증
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testCompileOnly("org.projectlombok:lombok")                              // 테스트 더미 DTO(@Getter/@Setter)
+    testAnnotationProcessor("org.projectlombok:lombok")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
