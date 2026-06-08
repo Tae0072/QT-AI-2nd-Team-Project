@@ -95,6 +95,7 @@
   "@calNoteCount": {
     "placeholders": { "count": { "type": "int" } }
   },
+  "calDayChecklistTitle": "Notes written this day",
   "calStreak": "{days}-day streak 🔥",
   "@calStreak": {
     "placeholders": { "days": { "type": "int" } }

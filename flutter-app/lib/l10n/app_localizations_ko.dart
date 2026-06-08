@@ -250,6 +250,9 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String get calDayChecklistTitle => '이 날 작성한 노트';
+
+  @override
   String calStreak(int days) {
     return '연속 $days일 🔥';
   }

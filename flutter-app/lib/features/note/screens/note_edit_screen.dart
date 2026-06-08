@@ -119,6 +119,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
           status: status,
         );
         ref.invalidate(notesProvider);
+        // 작성/수정 시 묵상 달력 체크리스트가 자동 ✓ 되도록 달력도 무효화(모든 월).
+        ref.invalidate(meditationCalendarProvider);
         if (!mounted) return;
         Navigator.of(context).pop();
       } else {
@@ -130,6 +132,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
           status: status,
         );
         ref.invalidate(notesProvider);
+        ref.invalidate(meditationCalendarProvider);
         if (!mounted) return;
         Navigator.of(context).popUntil(
           (route) => route.settings.name == AppRouter.noteList || route.isFirst,
