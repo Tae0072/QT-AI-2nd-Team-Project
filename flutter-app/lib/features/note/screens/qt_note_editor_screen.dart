@@ -625,30 +625,34 @@ class _MentionSuggestions extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             color: theme.colorScheme.surface,
           ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            itemCount: books.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final book = books[index];
-              if (parsedRange != null) {
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: books.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final book = books[index];
+                if (parsedRange != null) {
+                  return ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.menu_book_outlined),
+                    title: Text(
+                      '${book.koreanName} ${parsedRange.displayText} 삽입',
+                    ),
+                    onTap: () => onInsertVerse(book, parsedRange),
+                  );
+                }
                 return ListTile(
                   dense: true,
                   leading: const Icon(Icons.menu_book_outlined),
-                  title: Text(
-                    '${book.koreanName} ${parsedRange.displayText} 삽입',
-                  ),
-                  onTap: () => onInsertVerse(book, parsedRange),
+                  title: Text(book.koreanName),
+                  subtitle: Text(book.englishName),
+                  onTap: () => onSelectBook(book),
                 );
-              }
-              return ListTile(
-                dense: true,
-                leading: const Icon(Icons.menu_book_outlined),
-                title: Text(book.koreanName),
-                subtitle: Text(book.englishName),
-                onTap: () => onSelectBook(book),
-              );
-            },
+              },
+            ),
           ),
         );
       },
