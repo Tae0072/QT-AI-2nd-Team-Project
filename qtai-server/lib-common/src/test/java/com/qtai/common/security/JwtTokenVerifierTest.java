@@ -97,4 +97,13 @@ class JwtTokenVerifierTest {
         assertThatThrownBy(() -> verifier.verifyAccessToken(token))
                 .isInstanceOf(JwtException.class);
     }
+
+    @Test
+    @DisplayName("subject(sub) 없는 access 토큰 → 거부(NPE 누출 방지 가드)")
+    void rejectsTokenWithoutSubject() {
+        String token = sign(privateKey, "access", null, "USER", 60_000);
+
+        assertThatThrownBy(() -> verifier.verifyAccessToken(token))
+                .isInstanceOf(JwtException.class);
+    }
 }

@@ -1,0 +1,15 @@
+server:
+  port: 8000
+
+spring:
+  application:
+    name: service-gateway
+  cloud:
+    gateway:
+      routes:
+        # Strangler: 서비스 추출 전까지 모든 /api/v1/** 를 모놀리식(qtai-server)으로 라우팅.
+        # 추출이 진행되면 도메인별 경로를 각 서비스 URI로 분기한다(bible/today-qt/note/sharing/mypage).
+        - id: monolith
+          uri: ${GATEWAY_MONOLITH_URI:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/**
