@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 @Component("aiStudyPublishClientMock")
 @Profile({"local", "test"})
-@ConditionalOnProperty(name = "qtai.ai.client.mock.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "qtai.ai.client.mode", havingValue = "mock", matchIfMissing = true)
 @ConditionalOnMissingBean(StudyPublishClient.class)
 public class StudyPublishClientMock implements StudyPublishClient {
 

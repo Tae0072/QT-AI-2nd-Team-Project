@@ -11,7 +11,7 @@ import com.qtai.domain.ai.client.qt.dto.QtContextResult;
 
 @Component("aiGetQtUseCaseMock")
 @Profile({"local", "test"})
-@ConditionalOnProperty(name = "qtai.ai.client.mock.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "qtai.ai.client.mode", havingValue = "mock", matchIfMissing = true)
 @ConditionalOnMissingBean(QtContextClient.class)
 public class GetQtUseCaseMock implements QtContextClient {
 
