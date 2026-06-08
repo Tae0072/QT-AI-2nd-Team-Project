@@ -1,0 +1,641 @@
+openapi: 3.0.3
+info:
+  title: QT-AI AI Service Boundary API
+  version: "0.1.0"
+  description: Draft contract for extracting the AI domain into ai-service.
+servers:
+  - url: http://localhost:8081
+    description: Local ai-service
+security:
+  - serviceToken: []
+tags:
+  - name: AI System
+  - name: AI Admin
+  - name: AI QA
+x-ai-service-dependencies:
+  qt:
+    currentTarget: qtai-server
+    futureTarget: qt-service
+    clientInterface: QtContextClient
+    todayQtPassageStatus:
+      cacheStatusEnum: [HIT, MISS, STALE_FALLBACK, EMPTY]
+    operations:
+      - getQtContext
+      - getTodayQtPassageStatus
+  bible:
+    currentTarget: qtai-server
+    clientInterface: BibleVerseClient
+    operations:
+      - getVerse
+      - getVerses
+  study:
+    currentTarget: qtai-server
+    clientInterface: StudyPublishClient
+    operations:
+      - publishApprovedVerseExplanation
+      - hidePublishedVerseExplanation
+  audit:
+    currentTarget: qtai-server
+    clientInterface: AuditLogClient
+    operations:
+      - writeAuditLog
+  adminAuth:
+    currentTarget: qtai-server
+    clientInterface: AdminAuthClient
+    operations:
+      - getActiveAdmin
+      - verifyRole
+      - verifyAnyRole
+x-ai-client-failure-model:
+  exception: AiClientException
+  retryableCodes: [TIMEOUT, RATE_LIMITED, CIRCUIT_OPEN, TEMPORARY_UNAVAILABLE, DOWNSTREAM_ERROR]
+  nonRetryableCodes: [UNAUTHORIZED, FORBIDDEN, NOT_FOUND, VALIDATION_FAILED, RESPONSE_MAPPING_FAILED]
+  policy: HTTP client implementations must map timeout, retry, and circuit breaker outcomes to this model.
+paths:
+  /api/v1/system/ai/generation-jobs:
+    post:
+      tags:
+        - AI System
+      operationId: createAiGenerationJob
+      summary: Create an AI generation job.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAiGenerationJobRequest"
+      responses:
+        "202":
+          description: AI generation job accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateAiGenerationJobApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/system/ai/assets:
+    post:
+      tags:
+        - AI System
+      operationId: registerAiGeneratedAsset
+      summary: Register a generated AI asset.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterAiGeneratedAssetRequest"
+      responses:
+        "202":
+          description: AI asset registration accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterAiGeneratedAssetApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/system/ai/validation-logs:
+    post:
+      tags:
+        - AI System
+      operationId: registerAiValidationLog
+      summary: Register an AI validation log.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterAiValidationLogRequest"
+      responses:
+        "202":
+          description: AI validation log registration accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterAiValidationLogApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/ai/qa-requests:
+    post:
+      tags:
+        - AI QA
+      operationId: requestAiQa
+      summary: Request a single-turn fact-based AI answer.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestAiQaRequest"
+      responses:
+        "202":
+          description: AI QA request accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestAiQaApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/admin/ai/assets/{assetId}/approve:
+    post:
+      tags:
+        - AI Admin
+      operationId: approveAiAsset
+      summary: Approve an AI asset.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewAiAssetRequest"
+      responses:
+        "200":
+          description: AI asset approval completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewAiAssetApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/admin/ai/assets/{assetId}/reject:
+    post:
+      tags:
+        - AI Admin
+      operationId: rejectAiAsset
+      summary: Reject an AI asset.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewAiAssetRequest"
+      responses:
+        "200":
+          description: AI asset rejection completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewAiAssetApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/admin/ai/assets/{assetId}/hide:
+    post:
+      tags:
+        - AI Admin
+      operationId: hideAiAsset
+      summary: Hide an AI asset.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewAiAssetRequest"
+      responses:
+        "200":
+          description: AI asset hide completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewAiAssetApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: service-token
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique key for deduplicating service-to-service write requests.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorApiResponse"
+    Unauthorized:
+      description: Missing or invalid service token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorApiResponse"
+    Forbidden:
+      description: Insufficient admin role.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorApiResponse"
+  schemas:
+    ErrorBody:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        fields:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+    ErrorApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        data:
+          type: object
+          nullable: true
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    CreateAiGenerationJobRequest:
+      type: object
+      required:
+        - jobType
+        - targetType
+        - targetId
+        - promptVersionId
+        - requestedBy
+      properties:
+        jobType:
+          type: string
+          enum: [EXPLANATION, SIMULATOR, QA]
+        targetType:
+          type: string
+          enum: [QT_PASSAGE, BIBLE_VERSE]
+        targetId:
+          type: integer
+          format: int64
+        promptVersionId:
+          type: integer
+          format: int64
+        requestedBy:
+          type: string
+          example: SYSTEM_BATCH
+    CreateAiGenerationJobApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: "#/components/schemas/CreateAiGenerationJobResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    CreateAiGenerationJobResponse:
+      type: object
+      required:
+        - generationJobId
+        - status
+        - createdAt
+      properties:
+        generationJobId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [QUEUED, RUNNING, SUCCEEDED, FAILED]
+        createdAt:
+          type: string
+          format: date-time
+    RegisterAiGeneratedAssetRequest:
+      type: object
+      required:
+        - generationJobId
+        - assetType
+        - targetType
+        - targetId
+        - payloadJson
+      properties:
+        generationJobId:
+          type: integer
+          format: int64
+        assetType:
+          type: string
+          enum: [EXPLANATION, SIMULATOR, QA_RESPONSE]
+        targetType:
+          type: string
+          enum: [QT_PASSAGE, BIBLE_VERSE]
+        targetId:
+          type: integer
+          format: int64
+        payloadJson:
+          type: object
+          additionalProperties: true
+        sourceLabel:
+          type: string
+        status:
+          type: string
+          enum: [VALIDATING]
+    RegisterAiGeneratedAssetResponse:
+      type: object
+      required:
+        - assetId
+        - status
+      properties:
+        assetId:
+          type: integer
+          format: int64
+        status:
+          type: string
+    RegisterAiGeneratedAssetApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: "#/components/schemas/RegisterAiGeneratedAssetResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    RegisterAiValidationLogRequest:
+      type: object
+      required:
+        - aiAssetId
+        - checklistVersionId
+        - layer
+        - result
+        - checklistJson
+        - reviewerType
+      properties:
+        aiAssetId:
+          type: integer
+          format: int64
+        layer:
+          type: integer
+          minimum: 1
+        reviewerType:
+          type: string
+          enum: [AUTO, ADVISOR, ADMIN]
+        result:
+          type: string
+          enum: [PASSED, FAILED]
+        checklistVersionId:
+          type: integer
+          format: int64
+        checklistJson:
+          type: object
+          additionalProperties: true
+        errorMessage:
+          type: string
+    RegisterAiValidationLogResponse:
+      type: object
+      required:
+        - validationLogId
+        - result
+        - assetStatus
+      properties:
+        validationLogId:
+          type: integer
+          format: int64
+        result:
+          type: string
+        assetStatus:
+          type: string
+    RegisterAiValidationLogApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: "#/components/schemas/RegisterAiValidationLogResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    RequestAiQaRequest:
+      type: object
+      required:
+        - memberId
+        - question
+        - targetType
+        - targetId
+      properties:
+        memberId:
+          type: integer
+          format: int64
+        question:
+          type: string
+          maxLength: 1000
+        targetType:
+          type: string
+          enum: [QT_PASSAGE, BIBLE_VERSE]
+        targetId:
+          type: integer
+          format: int64
+    AiQaBlockedReasonCategory:
+      type: string
+      description: F-15 blocked question policy category.
+      enum: [VALUE_JUDGMENT, COUNSELING, FAITH_EVALUATION]
+    AiQaBlockedReason:
+      type: string
+      description: >
+        F-15 blocked reason. Category mapping is fixed by x-blocked-reason-category-map.
+      enum: [VALUE_JUDGMENT, COUNSELING, FAITH_EVALUATION, CHOICE_DELEGATION, ASSERTIVE_SERMON]
+      x-blocked-reason-category-map:
+        VALUE_JUDGMENT: VALUE_JUDGMENT
+        COUNSELING: COUNSELING
+        FAITH_EVALUATION: FAITH_EVALUATION
+        CHOICE_DELEGATION: COUNSELING
+        ASSERTIVE_SERMON: FAITH_EVALUATION
+    RequestAiQaResponse:
+      type: object
+      required:
+        - requestId
+        - status
+      properties:
+        requestId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [ACCEPTED, BLOCKED, ANSWERED, FAILED]
+        blockedReason:
+          allOf:
+            - $ref: "#/components/schemas/AiQaBlockedReason"
+          nullable: true
+          description: Required when status is BLOCKED.
+        blockedReasonCategory:
+          allOf:
+            - $ref: "#/components/schemas/AiQaBlockedReasonCategory"
+          nullable: true
+          description: Required when status is BLOCKED.
+        generationJobId:
+          type: integer
+          format: int64
+          nullable: true
+    RequestAiQaApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: "#/components/schemas/RequestAiQaResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    ReviewAiAssetRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+        activateForTarget:
+          type: boolean
+          default: false
+    ReviewAiAssetResponse:
+      type: object
+      required:
+        - assetId
+        - status
+      properties:
+        assetId:
+          type: integer
+          format: int64
+        status:
+          type: string
+    ReviewAiAssetApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: "#/components/schemas/ReviewAiAssetResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
