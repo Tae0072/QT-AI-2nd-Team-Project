@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../../routes/app_router.dart';
+import '../../note/screens/qt_note_editor_screen.dart';
+import '../../study/screens/qt_study_content_screen.dart';
 import '../../music/widgets/music_toggle_button.dart';
 import '../../tts/widgets/qt_tts_button.dart';
 import '../models/bible_models.dart';
@@ -64,14 +67,22 @@ class TodayQtScreen extends ConsumerWidget {
   }
 }
 
-class _TodayQtContent extends StatelessWidget {
+class _TodayQtContent extends StatefulWidget {
   final TodayQtPassage data;
 
   const _TodayQtContent({required this.data});
 
   @override
+  State<_TodayQtContent> createState() => _TodayQtContentState();
+}
+
+class _TodayQtContentState extends State<_TodayQtContent> {
+  bool _showEnglish = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final data = widget.data;
 
     return RefreshIndicator(
       onRefresh: () async {},
@@ -92,20 +103,29 @@ class _TodayQtContent extends StatelessWidget {
             ),
             const SizedBox(height: 6),
           ],
-          Text(
-            data.book.englishName,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          if (_showEnglish) ...[
+            Text(
+              data.book.englishName,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
+            const SizedBox(height: 6),
+          ],
           const SizedBox(height: 16),
           _ActionRow(
-            qtPassageId: data.qtPassageId,
-            simulatorStatus: data.simulatorStatus,
-            hasExplanation: data.hasExplanation,
+            data: data,
+            showEnglish: _showEnglish,
+            onShowEnglishChanged: (selected) {
+              setState(() => _showEnglish = selected);
+            },
           ),
           const SizedBox(height: 20),
-          for (final verse in data.verses) _VerseTile(verse: verse),
+          for (final verse in data.verses)
+            _VerseTile(
+              verse: verse,
+              showEnglish: _showEnglish,
+            ),
         ],
       ),
     );
@@ -113,32 +133,30 @@ class _TodayQtContent extends StatelessWidget {
 }
 
 class _ActionRow extends StatelessWidget {
-  final int? qtPassageId;
-  final String simulatorStatus;
-  final bool hasExplanation;
+  final TodayQtPassage data;
+  final bool showEnglish;
+  final ValueChanged<bool> onShowEnglishChanged;
 
   const _ActionRow({
-    required this.qtPassageId,
-    required this.simulatorStatus,
-    required this.hasExplanation,
+    required this.data,
+    required this.showEnglish,
+    required this.onShowEnglishChanged,
   });
 
   void _showComingSoon(BuildContext context, String feature) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context).bibleComingSoon(feature))),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).bibleComingSoon(feature)),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // 버그 수정(2026-06-05): 서버 simulatorStatus/hasExplanation을 파싱하지 않고
-    // 버튼을 영구 비활성(qtPassageId: null 고정)하던 단절 수정.
-    // 활성 조건은 고정 제품 결정(CLAUDE.md §6)을 따른다:
-    //  - 시뮬레이터 버튼은 simulatorStatus == READY 일 때만 활성화
-    //  - 해설 버튼은 승인 해설 존재(hasExplanation) 시 활성화
-    // 각 상세 화면 연결은 후속 작업(서버 계약 파리티 우선).
-    final simulatorReady = qtPassageId != null && simulatorStatus == 'READY';
-    final explanationReady = qtPassageId != null && hasExplanation;
+    final qtPassageId = data.qtPassageId;
+    final simulatorReady =
+        qtPassageId != null && data.simulatorStatus == 'READY';
+    final explanationReady = qtPassageId != null && data.hasExplanation;
     final l = AppLocalizations.of(context);
 
     return Wrap(
@@ -146,9 +164,19 @@ class _ActionRow extends StatelessWidget {
       runSpacing: 8,
       children: [
         FilledButton.icon(
-          onPressed: explanationReady
-              ? () => _showComingSoon(context, l.bibleExplanation)
-              : null,
+          onPressed: !explanationReady
+              ? null
+              : () => Navigator.of(context).pushNamed(
+                    AppRouter.qtStudyContent,
+                    arguments: QtStudyContentArgs(
+                      qtPassageId: qtPassageId,
+                      referenceText: data.reference.displayText,
+                      verseLabels: {
+                        for (final verse in data.verses)
+                          verse.id: '${verse.chapterNo}:${verse.verseNo}',
+                      },
+                    ),
+                  ),
           icon: const Icon(Icons.menu_book_outlined),
           label: Text(l.bibleExplanation),
         ),
@@ -162,9 +190,18 @@ class _ActionRow extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: qtPassageId == null
               ? null
-              : () => _showComingSoon(context, l.bibleMeditationNote),
+              : () => Navigator.of(context).pushNamed(
+                    AppRouter.qtNoteEditor,
+                    arguments: QtNoteEditorArgs(passage: data),
+                  ),
           icon: const Icon(Icons.edit_note_outlined),
           label: Text(l.navNote),
+        ),
+        FilterChip(
+          key: const Key('today-qt-english-toggle'),
+          selected: showEnglish,
+          onSelected: onShowEnglishChanged,
+          label: const Text('영어'),
         ),
       ],
     );
@@ -173,8 +210,12 @@ class _ActionRow extends StatelessWidget {
 
 class _VerseTile extends StatelessWidget {
   final BibleVerse verse;
+  final bool showEnglish;
 
-  const _VerseTile({required this.verse});
+  const _VerseTile({
+    required this.verse,
+    required this.showEnglish,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -200,7 +241,7 @@ class _VerseTile extends StatelessWidget {
               koreanText,
               style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
             ),
-          if (englishText != null && englishText.isNotEmpty) ...[
+          if (showEnglish && englishText != null && englishText.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               englishText,

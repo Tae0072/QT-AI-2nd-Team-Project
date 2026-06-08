@@ -43,7 +43,11 @@ public class QtStudyContentService implements GetQtStudyContentUseCase {
                 .map(this::toExplanationItem)
                 .toList();
         List<QtStudyContentResponse.GlossaryTermItem> glossaryTerms = glossaryTermRepository
-                .findByBibleVerseIdInAndStatusOrderByBibleVerseIdAscIdAsc(verseIds, GlossaryTermStatus.APPROVED)
+                .findByBibleVerseIdInAndStatusAndActiveUniqueKeyOrderByBibleVerseIdAscIdAsc(
+                        verseIds,
+                        GlossaryTermStatus.APPROVED,
+                        GlossaryTerm.ACTIVE_UNIQUE_KEY
+                )
                 .stream()
                 .sorted(Comparator.comparingInt(term -> verseOrder.getOrDefault(term.getBibleVerseId(), Integer.MAX_VALUE)))
                 .map(this::toGlossaryTermItem)
