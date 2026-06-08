@@ -25,6 +25,11 @@ dependencies {
     api("org.springframework.boot:spring-boot-starter-validation")   // ConstraintViolationException
     api("org.springframework.boot:spring-boot-starter-security")     // AccessDeniedException
 
+    // JWT 검증 유틸(JwtTokenVerifier) — RS256 공개키 검증. 발급(개인키)은 인증 서비스에만.
+    api("io.jsonwebtoken:jjwt-api:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
+
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
 
