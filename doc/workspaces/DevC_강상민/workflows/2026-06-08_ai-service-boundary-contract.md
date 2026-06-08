@@ -107,3 +107,34 @@ cd qtai-server
 - `AiClientException.FailureCode`는 retry 가능한 실패와 retry 불가능한 실패를 구분해 향후 timeout/retry/circuit breaker 구현 기준으로 사용한다.
 - QT 오늘 본문 상태 계약에는 `HIT`, `MISS`, `STALE_FALLBACK`, `EMPTY` cacheStatus를 포함한다.
 - ai-service OpenAPI `ErrorBody`에는 표준 확장 후보인 `fields`를 nullable object로 명시한다.
+
+## System endpoint 계약 동기화 (2026-06-08)
+
+AI가 MSA 분리 후 호출할 provider service 내부 endpoint 계약을 아래와 같이 고정한다. 이 계약은 AI outbound dependency이며, `qtai-server/apis/ai-service/openapi.yaml`의 `paths`에는 노출하지 않고 `x-ai-outbound-system-endpoints` vendor extension으로 관리한다.
+
+### 공통 규약
+
+- Base prefix: `/api/v1/system/**`
+- 인증: `Authorization: Bearer {service-token}` + `SYSTEM_BATCH` 권한
+- 응답 envelope: 기존 `ApiResponse<T>`
+- 쓰기 endpoint: `Idempotency-Key` 헤더 필수
+- 관측성: `traceparent` 요청 헤더 전파, 응답 `traceId` 반영
+- 에러 변환: provider의 `ApiResponse.error(code,message)`를 AI 쪽 `AiClientException`으로 매핑
+- Bible 데이터 가드: 한글성경 88.json과 KJV만 허용하고, 금지 번역본/저작권 QT 본문 텍스트는 seed, fixture, response에 포함하지 않는다.
+
+### Endpoint 계약 6종
+
+| 구분 | 제공 서비스 | AI client | method/path | 응답/요청 핵심 |
+| --- | --- | --- | --- | --- |
+| QT context | today-qt | `QtContextClient.getQtContext` | `GET /api/v1/system/qt/passages/{passageId}/context` | `QtContextResult`, `cacheStatus` 제외 |
+| 오늘 QT 상태 | today-qt | `QtContextClient.getTodayQtPassageStatus` | `GET /api/v1/system/qt/passages/today/status?date=YYYY-MM-DD` | `qtDate`, `exists`, `passageId`, `cacheStatus` |
+| Bible verse | bible | `BibleVerseClient` | `GET /api/v1/system/bible/verses/{verseId}`, `POST /api/v1/system/bible/verses:batch`, `GET /api/v1/system/bible/verses?book={book}&chapter={c}&startVerse={s}&endVerse={e}` | 단건, 목록, 범위 조회 |
+| Study publish/hide | today-qt(study) | `StudyPublishClient` | `POST /api/v1/system/study/verse-explanations:publish`, `POST /api/v1/system/study/verse-explanations:hide` | 승인 해설 publish/hide, `Idempotency-Key` 필수 |
+| Audit log | admin-service(audit) | `AuditLogClient` | `POST /api/v1/system/audit/logs` | 감사 로그 기록, `Idempotency-Key` 필수 |
+| Admin/Auth | admin-service | `AdminAuthClient` | `GET /api/v1/system/admin/auth/active`, `GET /api/v1/system/admin/auth/verify`, `GET /api/v1/system/admin/auth/verify-any` | `AdminAuthResult`, role enum `OPERATOR`, `REVIEWER`, `CONTENT_CREATOR`, `SUPER_ADMIN` |
+
+### QT context DTO 확정
+
+`QtContextResult` 필드는 `passageId`, `bibleBook`, `chapter`, `startVerse`, `endVerse`, `passageReference`, `title`, `summary`, `passageContext`로 고정한다. `passageContext`는 본문 원문 전체가 아니라 AI 생성/검증에 필요한 허용된 메타/context 블록이다.
+
+오늘 QT 상태 조회의 `cacheStatus` enum은 `HIT`, `MISS`, `STALE_FALLBACK`, `EMPTY`로 고정한다. QT context 조회 응답에는 `cacheStatus`를 포함하지 않는다.

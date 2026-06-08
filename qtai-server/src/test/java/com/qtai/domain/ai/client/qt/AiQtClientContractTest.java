@@ -46,10 +46,34 @@ class AiQtClientContractTest {
     }
 
     @Test
+    void qtContextResultUsesSystemEndpointContractFields() {
+        assertThat(QtContextResult.class.getRecordComponents())
+                .extracting(component -> component.getName())
+                .containsExactly(
+                        "passageId",
+                        "bibleBook",
+                        "chapter",
+                        "startVerse",
+                        "endVerse",
+                        "passageReference",
+                        "title",
+                        "summary",
+                        "passageContext"
+                );
+    }
+
+    @Test
+    void todayQtPassageStatusUsesSystemEndpointContractFields() {
+        assertThat(QtContextClient.TodayQtPassageStatus.class.getRecordComponents())
+                .extracting(component -> component.getName())
+                .containsExactly("qtDate", "exists", "passageId", "cacheStatus");
+    }
+
+    @Test
     void qtContextResultDoesNotExposeScriptureBodyText() {
         assertThat(QtContextResult.class.getRecordComponents())
                 .extracting(component -> component.getName().toLowerCase())
-                .doesNotContain("content", "body", "text", "scripturetext", "passagetext");
+                .doesNotContain("cachestatus", "content", "body", "text", "scripturetext", "passagetext");
     }
 
     @Test
