@@ -18,8 +18,9 @@ repositories {
 }
 
 dependencies {
-    // MSA 1단계: 공통 모듈 의존 (com.qtai.common — ApiResponse/ErrorCode/BusinessException/BaseEntity 등)
-    implementation(project(":lib-common"))
+    // MSA 공통 모듈 의존 — lib-common-web(servlet/JPA)이 코어 lib-common을 전이 노출
+    // (GlobalExceptionHandler·BaseEntity + ApiResponse/ErrorCode/BusinessException/JwtTokenVerifier 등)
+    implementation(project(":lib-common-web"))
 
     // .env 파일 자동 로딩 — 로컬 개발 전용, 운영 런타임에는 포함되지 않음
     developmentOnly("me.paulschwarz:spring-dotenv:4.0.0")
