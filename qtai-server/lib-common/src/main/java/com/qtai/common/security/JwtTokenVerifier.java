@@ -46,9 +46,13 @@ public final class JwtTokenVerifier {
         if (TOKEN_TYPE_REFRESH.equals(claims.get(CLAIM_TOKEN_TYPE, String.class))) {
             throw new JwtException("Refresh Token은 인증에 사용할 수 없습니다.");
         }
+        String subject = claims.getSubject();
+        if (subject == null) {
+            throw new JwtException("토큰에 subject(memberId)가 없습니다.");
+        }
         long memberId;
         try {
-            memberId = Long.parseLong(claims.getSubject());
+            memberId = Long.parseLong(subject);
         } catch (NumberFormatException e) {
             throw new JwtException("토큰 subject가 유효한 회원 ID가 아닙니다.");
         }
