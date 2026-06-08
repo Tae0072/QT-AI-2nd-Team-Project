@@ -16,14 +16,19 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import com.qtai.domain.ai.client.admin.AdminAuthClient;
+import com.qtai.domain.ai.client.admin.AdminAuthClientHttpAdapter;
 import com.qtai.domain.ai.client.admin.AdminAuthClientMock;
 import com.qtai.domain.ai.client.audit.AuditLogClient;
+import com.qtai.domain.ai.client.audit.AuditLogClientHttpAdapter;
 import com.qtai.domain.ai.client.audit.AuditLogClientMock;
 import com.qtai.domain.ai.client.bible.BibleVerseClient;
+import com.qtai.domain.ai.client.bible.BibleVerseClientHttpAdapter;
 import com.qtai.domain.ai.client.bible.BibleVerseClientMock;
 import com.qtai.domain.ai.client.qt.GetQtUseCaseMock;
 import com.qtai.domain.ai.client.qt.QtContextClient;
+import com.qtai.domain.ai.client.qt.QtContextClientHttpAdapter;
 import com.qtai.domain.ai.client.study.StudyPublishClient;
+import com.qtai.domain.ai.client.study.StudyPublishClientHttpAdapter;
 import com.qtai.domain.ai.client.study.StudyPublishClientMock;
 
 class AiBoundaryClientContractTest {
@@ -123,6 +128,15 @@ class AiBoundaryClientContractTest {
     }
 
     @Test
+    void boundaryClientHttpAdaptersAreGuardedByHttpMode() {
+        assertHttpAdapterRegistrationGuard(QtContextClientHttpAdapter.class, QtContextClient.class);
+        assertHttpAdapterRegistrationGuard(BibleVerseClientHttpAdapter.class, BibleVerseClient.class);
+        assertHttpAdapterRegistrationGuard(StudyPublishClientHttpAdapter.class, StudyPublishClient.class);
+        assertHttpAdapterRegistrationGuard(AuditLogClientHttpAdapter.class, AuditLogClient.class);
+        assertHttpAdapterRegistrationGuard(AdminAuthClientHttpAdapter.class, AdminAuthClient.class);
+    }
+
+    @Test
     void boundaryClientMethodsDeclareSharedFailureModel() {
         List.of(
                 QtContextClient.class,
@@ -148,10 +162,27 @@ class AiBoundaryClientContractTest {
 
         ConditionalOnProperty property = mockType.getAnnotation(ConditionalOnProperty.class);
         assertThat(property).isNotNull();
-        assertThat(property.name()).contains("qtai.ai.client.mock.enabled");
-        assertThat(property.havingValue()).isEqualTo("true");
+        assertThat(property.name()).contains("qtai.ai.client.mode");
+        assertThat(property.havingValue()).isEqualTo("mock");
+        assertThat(property.matchIfMissing()).isTrue();
 
         ConditionalOnMissingBean missingBean = mockType.getAnnotation(ConditionalOnMissingBean.class);
+        assertThat(missingBean).isNotNull();
+        assertThat(missingBean.value()).contains(clientType);
+    }
+
+    private static void assertHttpAdapterRegistrationGuard(Class<?> adapterType, Class<?> clientType) {
+        assertThat(adapterType.getAnnotation(Component.class)).isNotNull();
+        assertThat(adapterType.getAnnotation(Primary.class)).isNull();
+        assertThat(adapterType.getAnnotation(Profile.class)).isNull();
+
+        ConditionalOnProperty property = adapterType.getAnnotation(ConditionalOnProperty.class);
+        assertThat(property).isNotNull();
+        assertThat(property.name()).contains("qtai.ai.client.mode");
+        assertThat(property.havingValue()).isEqualTo("http");
+        assertThat(property.matchIfMissing()).isFalse();
+
+        ConditionalOnMissingBean missingBean = adapterType.getAnnotation(ConditionalOnMissingBean.class);
         assertThat(missingBean).isNotNull();
         assertThat(missingBean.value()).contains(clientType);
     }

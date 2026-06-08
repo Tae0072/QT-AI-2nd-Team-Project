@@ -13,7 +13,7 @@ import com.qtai.domain.ai.client.AiClientException.FailureCode;
 
 @Component("aiAdminAuthClientMock")
 @Profile({"local", "test"})
-@ConditionalOnProperty(name = "qtai.ai.client.mock.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "qtai.ai.client.mode", havingValue = "mock", matchIfMissing = true)
 @ConditionalOnMissingBean(AdminAuthClient.class)
 public class AdminAuthClientMock implements AdminAuthClient {
 
