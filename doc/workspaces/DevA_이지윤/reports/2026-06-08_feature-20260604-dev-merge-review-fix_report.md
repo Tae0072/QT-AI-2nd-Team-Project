@@ -2,7 +2,7 @@
 
 ## 요약
 
-`feature/20260604` 브랜치를 최신 `origin/dev` `97f9b10` 기준으로 병합하고, PR 리뷰에서 차단 가능성이 있는 항목을 보수적으로 정리했다.
+`feature/20260604` 브랜치를 최신 `origin/dev` `bf69da4` 기준으로 병합하고, PR 리뷰에서 차단 가능성이 있는 항목을 보수적으로 정리했다.
 
 별도 담당자 협의가 필요한 새 정책 결정은 없었다. 적용 내용은 모두 기존 컨벤션의 보수적 적용이다.
 
@@ -10,8 +10,8 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준 dev | `origin/dev` `97f9b10` |
-| 병합 상태 | Flutter 핵심 파일 5개 conflict 해소 |
+| 기준 dev | `origin/dev` `bf69da4` |
+| 병합 상태 | Flutter 핵심 파일 5개 conflict 해소 후 Lead 문서 정리 커밋 추가 병합 |
 | 주요 충돌 파일 | `api_client.dart`, `bible_models.dart`, `bible_browser_screen.dart`, `today_qt_screen.dart`, `bible_repository.dart` |
 
 ## 리뷰 대응
