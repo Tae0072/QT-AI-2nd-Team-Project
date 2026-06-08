@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import { API_BASE_URL } from '../config/env';
+import { API_BASE_URL, IS_DEV, DEV_ADMIN_MEMBER_ID } from '../config/env';
 import { getToken, clearToken } from '../auth/tokenStorage';
 import type { ApiResponse } from './types';
 
@@ -18,6 +18,13 @@ apiClient.interceptors.request.use((config) => {
   const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // [DEV 전용] dev 서버(dev-bypass)는 정식 토큰 발급 경로가 없으므로,
+  // 관리자 식별 헤더를 보낸다: X-Dev-User-Id(회원 id) + X-Dev-Roles(ADMIN → ROLE_ADMIN).
+  // prod 빌드에서는 IS_DEV=false 라 절대 첨부되지 않는다.
+  if (IS_DEV) {
+    config.headers['X-Dev-User-Id'] = DEV_ADMIN_MEMBER_ID;
+    config.headers['X-Dev-Roles'] = 'ADMIN';
   }
   return config;
 });
