@@ -30,7 +30,10 @@ public class StudyPublishClientHttpAdapter implements StudyPublishClient {
         if (command == null) {
             throw validationFailure("publish command must not be null");
         }
-        http.postVoid(PUBLISH_PATH, command, true);
+        if (command.aiAssetId() == null) {
+            throw validationFailure("publish command aiAssetId must not be null");
+        }
+        http.postVoid(PUBLISH_PATH, command, http.idempotencyKey("study.publish", command.aiAssetId()));
     }
 
     @Override
@@ -38,7 +41,10 @@ public class StudyPublishClientHttpAdapter implements StudyPublishClient {
         if (command == null) {
             throw validationFailure("hide command must not be null");
         }
-        http.postVoid(HIDE_PATH, command, true);
+        if (command.aiAssetId() == null) {
+            throw validationFailure("hide command aiAssetId must not be null");
+        }
+        http.postVoid(HIDE_PATH, command, http.idempotencyKey("study.hide", command.aiAssetId()));
     }
 
     private static AiClientException validationFailure(String message) {

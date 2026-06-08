@@ -1,10 +1,13 @@
 package com.qtai.domain.ai.client.http;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import org.slf4j.MDC;
 import org.springframework.http.HttpEntity;
@@ -31,6 +34,8 @@ import com.qtai.domain.ai.client.AiClientException.FailureCode;
 public class AiHttpSupport {
 
     private static final String TRACEPARENT = "traceparent";
+    private static final String IDEMPOTENCY_KEY = "Idempotency-Key";
+    private static final int IDEMPOTENCY_DIGEST_LENGTH = 32;
     private static final JavaType VOID_TYPE =
             new ObjectMapper().getTypeFactory().constructType(Void.class);
 
@@ -70,15 +75,46 @@ public class AiHttpSupport {
     }
 
     public <T> T get(String path, Map<String, ?> queryParameters, JavaType responseType) {
-        return exchange(HttpMethod.GET, path, queryParameters, null, responseType, false);
+        return exchange(HttpMethod.GET, path, queryParameters, null, responseType, null);
     }
 
     public <T> T post(String path, Object body, JavaType responseType, boolean idempotencyKeyRequired) {
-        return exchange(HttpMethod.POST, path, Map.of(), body, responseType, idempotencyKeyRequired);
+        return exchange(
+                HttpMethod.POST,
+                path,
+                Map.of(),
+                body,
+                responseType,
+                idempotencyKeyRequired ? idempotencyKey(path, body) : null
+        );
+    }
+
+    public <T> T post(String path, Object body, JavaType responseType, String idempotencyKey) {
+        return exchange(HttpMethod.POST, path, Map.of(), body, responseType,
+                requireText(idempotencyKey, "idempotencyKey"));
     }
 
     public void postVoid(String path, Object body, boolean idempotencyKeyRequired) {
-        exchange(HttpMethod.POST, path, Map.of(), body, VOID_TYPE, idempotencyKeyRequired);
+        exchange(
+                HttpMethod.POST,
+                path,
+                Map.of(),
+                body,
+                VOID_TYPE,
+                idempotencyKeyRequired ? idempotencyKey(path, body) : null
+        );
+    }
+
+    public void postVoid(String path, Object body, String idempotencyKey) {
+        exchange(HttpMethod.POST, path, Map.of(), body, VOID_TYPE,
+                requireText(idempotencyKey, "idempotencyKey"));
+    }
+
+    public String idempotencyKey(String operation, Object... stableParts) {
+        String normalizedOperation = normalizeOperation(requireText(operation, "idempotency operation"));
+        String payload = writeIdempotencyPayload(stableParts);
+        String digest = sha256(downstreamService + ":" + normalizedOperation + ":" + payload);
+        return downstreamService + ":" + normalizedOperation + ":" + digest.substring(0, IDEMPOTENCY_DIGEST_LENGTH);
     }
 
     private <T> T exchange(
@@ -87,9 +123,9 @@ public class AiHttpSupport {
             Map<String, ?> queryParameters,
             Object body,
             JavaType responseType,
-            boolean idempotencyKeyRequired
+            String idempotencyKey
     ) {
-        HttpHeaders headers = headers(body != null, idempotencyKeyRequired);
+        HttpHeaders headers = headers(body != null, idempotencyKey);
         HttpEntity<Object> entity = new HttpEntity<>(body, headers);
         try {
             ResponseEntity<String> response = restTemplate.exchange(
@@ -110,7 +146,7 @@ public class AiHttpSupport {
         }
     }
 
-    private HttpHeaders headers(boolean hasBody, boolean idempotencyKeyRequired) {
+    private HttpHeaders headers(boolean hasBody, String idempotencyKey) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(serviceToken);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
@@ -121,10 +157,31 @@ public class AiHttpSupport {
         if (hasText(traceparent)) {
             headers.set(TRACEPARENT, traceparent);
         }
-        if (idempotencyKeyRequired) {
-            headers.set("Idempotency-Key", UUID.randomUUID().toString());
+        if (hasText(idempotencyKey)) {
+            headers.set(IDEMPOTENCY_KEY, idempotencyKey);
         }
         return headers;
+    }
+
+    private String writeIdempotencyPayload(Object[] stableParts) {
+        try {
+            return objectMapper.writeValueAsString(stableParts == null ? new Object[0] : stableParts);
+        } catch (JsonProcessingException exception) {
+            throw mappingFailure("idempotency key payload mapping failed", exception);
+        }
+    }
+
+    private static String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 digest must be available", exception);
+        }
+    }
+
+    private static String normalizeOperation(String value) {
+        return value.trim().replaceAll("[^A-Za-z0-9_.:-]", "-");
     }
 
     private String uri(String path, Map<String, ?> queryParameters) {

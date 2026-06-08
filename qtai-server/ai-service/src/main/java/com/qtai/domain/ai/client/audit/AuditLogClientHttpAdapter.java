@@ -29,7 +29,18 @@ public class AuditLogClientHttpAdapter implements AuditLogClient {
         if (command == null) {
             throw validationFailure("audit command must not be null");
         }
-        http.postVoid(AUDIT_LOG_PATH, command, true);
+        http.postVoid(AUDIT_LOG_PATH, command, http.idempotencyKey(
+                "audit.write",
+                command.adminUserId(),
+                command.actorType(),
+                command.actorId(),
+                command.actorLabel(),
+                command.actionType(),
+                command.targetType(),
+                command.targetId(),
+                command.beforeJson(),
+                command.afterJson()
+        ));
     }
 
     private static AiClientException validationFailure(String message) {
