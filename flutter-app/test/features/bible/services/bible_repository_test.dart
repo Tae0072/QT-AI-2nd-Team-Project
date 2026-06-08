@@ -218,4 +218,42 @@ void main() {
       expect(result.verses.map((verse) => verse.verseNo), [10, 17]);
     });
   });
+
+  group('getQtStudyContent', () {
+    test('QT 해설 응답을 summary, 절별 해설, 단어 풀이로 파싱한다', () async {
+      dioAdapter.onGet('/qt/7/study-content', (server) {
+        server.reply(200, {
+          'success': true,
+          'data': {
+            'summary': '본문 전체 요약',
+            'explanations': [
+              {
+                'verseId': 2001,
+                'summary': '절 요약',
+                'explanation': '절 해설',
+                'sourceLabel': 'QT-AI verified content',
+                'aiAssetId': 91,
+              },
+            ],
+            'glossaryTerms': [
+              {
+                'id': 31,
+                'verseId': 2001,
+                'term': '지혜',
+                'meaning': '본문 단어 풀이',
+                'sourceLabel': 'QT-AI glossary',
+              },
+            ],
+          },
+        });
+      });
+
+      final result = await repository.getQtStudyContent(7);
+
+      expect(result.summary, '본문 전체 요약');
+      expect(result.explanations.single.explanation, '절 해설');
+      expect(result.glossaryTerms.single.term, '지혜');
+      expect(result.hasVisibleContent, isTrue);
+    });
+  });
 }

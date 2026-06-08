@@ -41,9 +41,10 @@ class QtStudyContentServiceTest {
                         new ApprovedVerseExplanationResponse(1L, "summary-1", "explanation-1", "source-1", 101L),
                         new ApprovedVerseExplanationResponse(2L, "summary-2", "explanation-2", "source-2", 102L)
                 ));
-        when(glossaryTermRepository.findByBibleVerseIdInAndStatusOrderByBibleVerseIdAscIdAsc(
+        when(glossaryTermRepository.findByBibleVerseIdInAndStatusAndActiveUniqueKeyOrderByBibleVerseIdAscIdAsc(
                 List.of(2L, 1L),
-                GlossaryTermStatus.APPROVED
+                GlossaryTermStatus.APPROVED,
+                GlossaryTerm.ACTIVE_UNIQUE_KEY
         )).thenReturn(List.of(
                 glossaryTerm(11L, 1L, GlossaryTermStatus.APPROVED, "term-1"),
                 glossaryTerm(12L, 2L, GlossaryTermStatus.APPROVED, "term-2")
@@ -73,9 +74,10 @@ class QtStudyContentServiceTest {
                         "source",
                         100L
                 )));
-        when(glossaryTermRepository.findByBibleVerseIdInAndStatusOrderByBibleVerseIdAscIdAsc(
+        when(glossaryTermRepository.findByBibleVerseIdInAndStatusAndActiveUniqueKeyOrderByBibleVerseIdAscIdAsc(
                 List.of(1L),
-                GlossaryTermStatus.APPROVED
+                GlossaryTermStatus.APPROVED,
+                GlossaryTerm.ACTIVE_UNIQUE_KEY
         )).thenReturn(List.of());
 
         QtStudyContentResponse response = service.getStudyContent(10L);
@@ -97,9 +99,10 @@ class QtStudyContentServiceTest {
                         "source-2",
                         102L
                 )));
-        when(glossaryTermRepository.findByBibleVerseIdInAndStatusOrderByBibleVerseIdAscIdAsc(
+        when(glossaryTermRepository.findByBibleVerseIdInAndStatusAndActiveUniqueKeyOrderByBibleVerseIdAscIdAsc(
                 List.of(1L, 2L, 3L),
-                GlossaryTermStatus.APPROVED
+                GlossaryTermStatus.APPROVED,
+                GlossaryTerm.ACTIVE_UNIQUE_KEY
         )).thenReturn(List.of());
 
         QtStudyContentResponse response = service.getStudyContent(10L);
