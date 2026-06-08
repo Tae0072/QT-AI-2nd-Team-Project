@@ -24,7 +24,7 @@ dependencies:
   shared_preferences: ^2.3.4
 
   # 카카오 로그인
-  kakao_flutter_sdk_user: ^1.9.5
+  kakao_flutter_sdk_user: ^2.0.0+1
 
   # UI
   cupertino_icons: ^1.0.8
