@@ -7,6 +7,7 @@ import javax.sql.DataSource;
 
 import jakarta.persistence.EntityManagerFactory;
 
+import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -14,6 +15,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
@@ -51,7 +53,23 @@ public class AiServicePersistenceConfiguration {
         return builder.build();
     }
 
+    @Bean(name = "aiServiceFlywayMigrationInitializer")
+    Object aiServiceFlywayMigrationInitializer(
+            @Qualifier("aiServiceDataSource") DataSource dataSource,
+            AiServicePersistenceProperties properties
+    ) {
+        if (properties.flywayEnabled()) {
+            Flyway.configure()
+                    .dataSource(dataSource)
+                    .locations(properties.flywayLocationsOrDefault())
+                    .load()
+                    .migrate();
+        }
+        return new Object();
+    }
+
     @Bean(name = "aiServiceEntityManagerFactory")
+    @DependsOn("aiServiceFlywayMigrationInitializer")
     LocalContainerEntityManagerFactoryBean aiServiceEntityManagerFactory(
             @Qualifier("aiServiceDataSource") DataSource dataSource,
             AiServicePersistenceProperties properties
