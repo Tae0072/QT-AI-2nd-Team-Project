@@ -22,8 +22,13 @@
 - **CB 분리**: 모놀리식 servlet CB 프레임워크 도입은 인프라/Lead 결정 → 운영 진입 체크리스트 추적.
 - 기본 inprocess라 동작 무변경(소비자·bible·코어 무변경).
 
+## 리뷰 후속(WARN/INFO 반영)
+- **maxAttempts 상한 가드**(WARN): `MAX_ATTEMPTS_CAP=10`으로 설정 오류(과대값) 재시도 폭주 방지.
+- **4xx 무재시도 테스트**(WARN): 404는 정확히 1회 호출(재시도 없음)을 `ExpectedCount.once()` + `verify()`로 단언.
+- **재시도 로그 호출 식별자**(INFO): `withRetry(operation, ...)`로 소진/재시도 로그에 엔드포인트(예: `GET /api/v1/bible/verses/by-ids`) 포함.
+
 ## 검증
-- `gradlew :compileJava :test --tests "com.qtai.external.bible.*"` — **0 failures (13건)**: 클라이언트 7 + Configuration 3 + 어댑터 3
+- `gradlew :compileJava :test --tests "com.qtai.external.bible.*"` — **0 failures (14건)**: 클라이언트 8(+4xx 무재시도) + Configuration 3 + 어댑터 3
 
 ## 미해결
 - Inc3d 컷오버(오너 협의): CB 도입 + `mode=http` 전환 + 토큰 동기화 + 소비자 계약 테스트 → Inc4(DB 분리) → Inc5(모놀리식 제거).

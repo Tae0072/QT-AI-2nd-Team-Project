@@ -66,17 +66,20 @@ public class BibleServiceClient {
         this(restClient, gatewayToken, objectMapper, 3, 100L);
     }
 
+    /** 재시도 폭주 방지를 위한 상한 — 설정 오류(과대값)로부터 보호. */
+    static final int MAX_ATTEMPTS_CAP = 10;
+
     public BibleServiceClient(RestClient restClient, String gatewayToken, ObjectMapper objectMapper,
                               int maxAttempts, long retryBackoffMs) {
         this.restClient = restClient;
         this.gatewayToken = gatewayToken;
         this.objectMapper = objectMapper;
-        this.maxAttempts = Math.max(1, maxAttempts);
+        this.maxAttempts = Math.min(Math.max(1, maxAttempts), MAX_ATTEMPTS_CAP);
         this.retryBackoffMs = Math.max(0, retryBackoffMs);
     }
 
     public List<BibleBookResponse> listBibleBooks() {
-        return withRetry(() -> unwrap(restClient.get()
+        return withRetry("GET /api/v1/bible/books", () -> unwrap(restClient.get()
                 .uri("/api/v1/bible/books")
                 .header(HEADER_GATEWAY_TOKEN, gatewayToken)
                 .retrieve()
@@ -85,7 +88,7 @@ public class BibleServiceClient {
     }
 
     public BibleVerseRangeResponse getVerses(String bookCode, int chapter, Integer verseFrom, Integer verseTo) {
-        return withRetry(() -> unwrap(restClient.get()
+        return withRetry("GET /api/v1/bible/verses", () -> unwrap(restClient.get()
                 .uri(builder -> {
                     builder.path("/api/v1/bible/verses")
                             .queryParam("bookCode", bookCode)
@@ -109,7 +112,7 @@ public class BibleServiceClient {
         if (verseIds == null || verseIds.isEmpty()) {
             return List.of();
         }
-        return withRetry(() -> unwrap(restClient.get()
+        return withRetry("GET /api/v1/bible/verses/by-ids", () -> unwrap(restClient.get()
                 .uri(builder -> builder.path("/api/v1/bible/verses/by-ids")
                         .queryParam("ids", verseIds.toArray())
                         .build())
@@ -120,7 +123,7 @@ public class BibleServiceClient {
     }
 
     /** 일시 오류(5xx·연결/타임아웃)만 제한 재시도. 4xx 역매핑({@link BusinessException})은 즉시 전파. */
-    private <T> T withRetry(Supplier<T> call) {
+    private <T> T withRetry(String operation, Supplier<T> call) {
         RuntimeException lastTransient = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
@@ -129,13 +132,14 @@ public class BibleServiceClient {
                 throw e; // 4xx 결정적 오류 — 재시도 안 함
             } catch (HttpServerErrorException | ResourceAccessException e) {
                 lastTransient = e;
-                log.debug("bible-service 호출 일시 오류 — 재시도 {}/{}: {}", attempt, maxAttempts, e.getClass().getSimpleName());
+                log.debug("bible-service 호출 일시 오류 — 재시도 {}/{} [{}]: {}",
+                        attempt, maxAttempts, operation, e.getClass().getSimpleName());
                 if (attempt < maxAttempts && retryBackoffMs > 0) {
                     sleep(retryBackoffMs);
                 }
             }
         }
-        log.warn("bible-service 호출 재시도 소진({}회): {}", maxAttempts,
+        log.warn("bible-service 호출 재시도 소진({}회) [{}]: {}", maxAttempts, operation,
                 lastTransient == null ? "unknown" : lastTransient.getClass().getSimpleName());
         throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
     }
