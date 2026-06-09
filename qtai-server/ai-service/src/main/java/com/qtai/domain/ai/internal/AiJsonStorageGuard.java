@@ -5,9 +5,11 @@ import java.util.regex.Pattern;
 final class AiJsonStorageGuard {
 
     private static final Pattern FORBIDDEN_FIELD_PATTERN = Pattern.compile(
-            "\"(?:providerRawResponse|provider_raw_response|rawResponse|raw_response|"
+            "\"(?:prompt|promptText|prompt_text|providerRawResponse|provider_raw_response|rawResponse|raw_response|"
                     + "validationReferenceText|validation_reference_text|referenceText|reference_text|"
-                    + "commentaryOriginal|commentary_original)\"\\s*:"
+                    + "commentaryOriginal|commentary_original|scriptureText|scripture_text|bibleText|bible_text|"
+                    + "koreanText|korean_text|englishText|english_text|credentialValue|credential_value|"
+                    + "dbConnectionValue|db_connection_value|authHeaderValue|auth_header_value)\"\\s*:"
     );
 
     private AiJsonStorageGuard() {
