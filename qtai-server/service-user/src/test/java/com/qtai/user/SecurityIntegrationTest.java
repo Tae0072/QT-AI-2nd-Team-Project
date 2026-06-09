@@ -98,6 +98,29 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void 유효토큰으로_벌크공개프로필조회는_200() throws Exception {
+        String accessToken = loginAndGetAccessToken();
+        // 방금 가입한 본인 id를 조회해 벌크 엔드포인트(GET /api/v1/members?ids=)로 공개 프로필을 받는다.
+        MvcResult me = mvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + accessToken))
+                .andReturn();
+        long myId = objectMapper.readTree(me.getResponse().getContentAsString())
+                .path("data").path("id").asLong();
+
+        mvc.perform(get("/api/v1/members").param("ids", String.valueOf(myId))
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].id").value(myId));
+    }
+
+    @Test
+    void 토큰없이_벌크공개프로필조회는_401() throws Exception {
+        mvc.perform(get("/api/v1/members").param("ids", "1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void 유효토큰으로_알림목록은_200이며_표준_페이징_envelope() throws Exception {
         String accessToken = loginAndGetAccessToken();
 
