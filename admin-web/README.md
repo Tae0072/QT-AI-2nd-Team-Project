@@ -10,6 +10,7 @@ QT-AI 관리자 웹은 Flutter 앱과 분리된 React 기반 관리자 프런트
 - 로그인: 임시 ADMIN 액세스 토큰 직접 입력
 - 권한 확인: 로그인 직후 `GET /api/v1/admin/me`를 호출해 `adminRole` 기준으로 메뉴와 라우트를 제한
 - 에러 처리: `/admin/me` 401/403은 세션 종료, 네트워크/5xx/timeout은 세션 유지 후 재시도 안내
+- 운영 전에는 임시 토큰 입력 방식을 제거하고 공식 관리자 로그인 흐름으로 대체해야 합니다.
 
 ## 실행 준비
 
@@ -87,15 +88,16 @@ admin-web/
 | 코드 | 화면 | 주요 API | 접근 권한 |
 |---|---|---|---|
 | AD-01 | 대시보드 | `GET /api/v1/admin/dashboard` | ADMIN 공통, 백엔드 미구현 |
-| AD-02 | 오늘 QT 관리 | `GET/POST/PATCH /api/v1/admin/qt-passages` | OPERATOR, 백엔드 미구현 |
-| AD-03 | AI 산출물 검증 | `GET/POST /api/v1/admin/ai/assets` | REVIEWER |
-| AD-04 | 신고 처리 | `GET/POST /api/v1/admin/reports` | OPERATOR |
-| AD-05 | 찬양 큐레이션 | `GET/POST/PATCH /api/v1/admin/praise-songs` | OPERATOR |
-| AD-06 | 시스템 공지 | `GET/POST/PATCH /api/v1/admin/notices` | OPERATOR, 백엔드 미구현 |
-| AD-07 | 감사 로그 | `GET /api/v1/admin/audit-logs` | OPERATOR, REVIEWER |
-| AD-08 | AI 운영 모니터링 | `GET /api/v1/admin/ai/monitoring` | OPERATOR, REVIEWER |
+| AD-02 | 오늘 QT 관리 | `GET/POST/PATCH /api/v1/admin/qt-passages` | OPERATOR, SUPER_ADMIN, 백엔드 미구현 |
+| AD-03 | AI 산출물 검증 | `GET/POST /api/v1/admin/ai/assets` | REVIEWER, SUPER_ADMIN |
+| AD-04 | 신고 처리 | `GET/POST /api/v1/admin/reports` | OPERATOR, SUPER_ADMIN |
+| AD-05 | 찬양 큐레이션 | `GET/POST/PATCH /api/v1/admin/praise-songs` | OPERATOR, SUPER_ADMIN |
+| AD-06 | 시스템 공지 | `GET/POST/PATCH /api/v1/admin/notices` | OPERATOR, SUPER_ADMIN, 백엔드 미구현 |
+| AD-07 | 감사 로그 | `GET /api/v1/admin/audit-logs` | OPERATOR, REVIEWER, SUPER_ADMIN |
+| AD-08 | AI 운영 모니터링 | `GET /api/v1/admin/ai/monitoring` | OPERATOR, REVIEWER, SUPER_ADMIN |
 
-`SUPER_ADMIN`은 우월권으로 모든 화면에 접근할 수 있습니다.
+권한 표는 `src/constants/menu.ts`와 백엔드 `AdminAiAuthentication`, `AdminAuditAuthentication`,
+`VerifyAdminRoleUseCase` 기준으로 맞춥니다. 정책이 바뀌면 README와 메뉴 정의를 함께 갱신합니다.
 
 ## 배포 메모
 

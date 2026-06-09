@@ -2,7 +2,7 @@ import { apiClient, unwrap } from './client';
 import type { ApiResponse } from './types';
 
 // ===== AD-08 AI 운영 모니터링 =====
-// GET /api/v1/admin/ai/monitoring (권한: OPERATOR — 집계만, 원문 미포함)
+// GET /api/v1/admin/ai/monitoring (권한: OPERATOR/REVIEWER/SUPER_ADMIN, 원문 미포함)
 // 백엔드 ai/api/admin/monitoring/dto/AdminAiMonitoringResponse 와 1:1.
 
 export interface AiMonitoringParams {
