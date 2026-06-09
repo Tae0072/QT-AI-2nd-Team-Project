@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 /**
  * 읽기전용 콘텐츠 서비스(bible, qt, study, music, praise)의 부팅 진입점.
@@ -19,6 +20,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication(scanBasePackages = "com.qtai")
 @EntityScan(basePackages = "com.qtai.domain")
 @EnableJpaRepositories(basePackages = "com.qtai.domain")
+@EnableJpaAuditing
 @EnableCaching
 public class BibleServiceApplication {
 

@@ -26,12 +26,11 @@ dependencyManagement {
 
 dependencies {
     // 모든 서비스가 공유하는 기반 (api로 노출 → 의존 서비스가 그대로 사용)
-    // 주: JPA/BaseEntity는 도메인 이전 단계(③)에서 DB 설정과 함께 추가한다.
     api("org.springframework.boot:spring-boot-starter-web")
     api("org.springframework.boot:spring-boot-starter-security")
     api("org.springframework.boot:spring-boot-starter-validation")
-    // org.springframework.dao.* (DataIntegrityViolationException 등) — GlobalExceptionHandler에서 사용
-    api("org.springframework:spring-tx")
+    // BaseEntity(JPA MappedSuperclass) 공유. spring-tx(dao 예외)도 전이로 포함.
+    api("org.springframework.boot:spring-boot-starter-data-jpa")
 
     // JWT 검증 (각 서비스는 공개키로 검증만, 발급은 service-user 전용)
     api("io.jsonwebtoken:jjwt-api:0.13.0")

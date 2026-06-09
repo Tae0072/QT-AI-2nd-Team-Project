@@ -18,3 +18,10 @@ spring:
 # 읽기전용 콘텐츠 서비스 포트 (env 주입 가능, 기본 8082)
 server:
   port: ${BIBLE_SERVICE_PORT:8082}
+
+qtai:
+  music:
+    seed:
+      # TODO(③ 후속): 150MB 번들 mp3 시드 자산을 service-bible로 이전한 뒤 true로 전환.
+      # 현재는 자산 미이전이라 시드 비활성(코드만 이전).
+      enabled: ${MUSIC_SEED_ENABLED:false}
