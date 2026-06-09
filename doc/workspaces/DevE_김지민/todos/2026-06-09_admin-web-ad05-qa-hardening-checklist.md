@@ -15,7 +15,8 @@
 ## 후속
 
 - [ ] 실제 ADMIN 토큰으로 브라우저에서 목록/필터/등록 API 동작 확인
-- [ ] F2 환경/배포 정리
+- [x] F2 환경/배포 정리
+- [ ] Vite/esbuild dev dependency moderate 2건 후속 추적
 
 ## 검증 결과
 
