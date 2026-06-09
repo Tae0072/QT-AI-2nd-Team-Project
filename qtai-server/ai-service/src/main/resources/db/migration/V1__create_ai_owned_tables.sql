@@ -1,3 +1,7 @@
+-- ai-service owned AI persistence schema.
+-- This migration intentionally contains only ai-service owned tables.
+-- Data backfill and prompt version seed migration are handled by follow-up PRs.
+
 CREATE TABLE ai_prompt_versions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     prompt_type VARCHAR(30) NOT NULL,

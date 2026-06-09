@@ -8,6 +8,8 @@ import javax.sql.DataSource;
 import jakarta.persistence.EntityManagerFactory;
 
 import org.flywaydb.core.Flyway;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -37,6 +39,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 )
 public class AiServicePersistenceConfiguration {
 
+    private static final Logger log = LoggerFactory.getLogger(AiServicePersistenceConfiguration.class);
+
     @Bean(name = "aiServiceDataSource")
     DataSource aiServiceDataSource(AiServicePersistenceProperties properties) {
         DataSourceBuilder<?> builder = DataSourceBuilder.create()
@@ -59,11 +63,22 @@ public class AiServicePersistenceConfiguration {
             AiServicePersistenceProperties properties
     ) {
         if (properties.flywayEnabled()) {
-            Flyway.configure()
-                    .dataSource(dataSource)
-                    .locations(properties.flywayLocationsOrDefault())
-                    .load()
-                    .migrate();
+            String locations = properties.flywayLocationsOrDefault();
+            try {
+                Flyway.configure()
+                        .dataSource(dataSource)
+                        .locations(locations)
+                        .load()
+                        .migrate();
+            } catch (RuntimeException exception) {
+                log.error(
+                        "AI service Flyway migration failed. locations={}, exceptionType={}",
+                        locations,
+                        exception.getClass().getName(),
+                        exception
+                );
+                throw exception;
+            }
         }
         return new Object();
     }

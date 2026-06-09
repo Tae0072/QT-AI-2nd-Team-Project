@@ -40,6 +40,14 @@
 - `AiServiceMigrationValidationTest`에서 Flyway migration 적용 후 7개 AI 소유 테이블과 `flyway_schema_history`가 생성됨을 검증했다.
 - 같은 테스트에서 Hibernate `ddl-auto=validate` context load로 entity와 migration schema 정합성을 검증했다.
 - 기존 persistence repository/context 테스트가 migration 설정 추가 후에도 통과함을 확인했다.
+- `AiServiceMigrationDisabledContextTest`에서 `qtai.ai.persistence.flyway-enabled=false` 조건으로 context가 로드되고 `flyway_schema_history`가 생성되지 않음을 검증했다.
+
+## REQUEST_CHANGES 대응
+
+- `V1__create_ai_owned_tables.sql`은 PR diff에 포함되어 있으며, 이번 보강 커밋에서도 DDL 파일 헤더를 추가해 diff에 명시적으로 다시 포함했다.
+- migration 실패 시 민감 설정값 없이 `locations`와 예외 타입을 error log context로 남기도록 보강했다.
+- `flyway-enabled=false` 경로 context load 테스트를 추가했다.
+- `validation_reference_jobs.storage_uri`, `index_storage_uri`는 후속 admin/API mapping PR에서 직접 노출 차단 테스트 또는 ArchUnit 정책 테스트를 수용 기준으로 둔다.
 
 ## 제외 확인
 
