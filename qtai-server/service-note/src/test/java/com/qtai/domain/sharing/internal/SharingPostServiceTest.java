@@ -161,4 +161,16 @@ class SharingPostServiceTest {
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_INPUT);
     }
+
+    @Test
+    void 피드검색어의_LIKE_와일드카드와_ESCAPE문자를_이스케이프해_넘긴다() {
+        org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        when(sharingPostRepository.search(any(), any(), captor.capture(), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        service().list(1L, null, "50%_test!", org.springframework.data.domain.PageRequest.of(0, 20));
+
+        // escape 문자(!) 우선 → '!'→'!!', '%'→'!%', '_'→'!_'. 쿼리의 ESCAPE '!'와 일치.
+        assertThat(captor.getValue()).isEqualTo("50!%!_test!!");
+    }
 }

@@ -3,6 +3,8 @@ package com.qtai.domain.sharing.internal;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
+import com.qtai.domain.notification.api.SendNotificationUseCase;
+import com.qtai.domain.notification.api.dto.NotificationSendRequest;
 import com.qtai.domain.sharing.api.CommentUseCase;
 import com.qtai.domain.sharing.api.dto.CommentCreateRequest;
 import com.qtai.domain.sharing.api.dto.CommentListResponse;
@@ -33,7 +35,7 @@ public class CommentService implements CommentUseCase {
     // 다른 도메인은 api 포트로만(CLAUDE.md §4). 작성자 닉네임 조회용.
     private final GetMemberUseCase getMemberUseCase;
     // 댓글 알림 발송용(P1-13).
-    private final com.qtai.domain.notification.api.SendNotificationUseCase sendNotificationUseCase;
+    private final SendNotificationUseCase sendNotificationUseCase;
 
     @Override
     @Transactional
@@ -64,7 +66,7 @@ public class CommentService implements CommentUseCase {
             return;
         }
         try {
-            sendNotificationUseCase.send(new com.qtai.domain.notification.api.dto.NotificationSendRequest(
+            sendNotificationUseCase.send(new NotificationSendRequest(
                     authorId, "COMMENT", "댓글 알림", "내 나눔 글에 댓글이 달렸어요.",
                     null, "SHARING_POST", postId, "COMMENT:" + commentId));
         } catch (RuntimeException e) {

@@ -18,7 +18,10 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
@@ -87,5 +90,17 @@ class NoteServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.NOTE_NOT_FOUND);
+    }
+
+    @Test
+    void 목록검색어의_LIKE_와일드카드와_ESCAPE문자를_이스케이프해_넘긴다() {
+        org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        when(noteRepository.search(eq(1L), any(), any(), captor.capture(), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        noteService().list(1L, null, null, "50%_test!", org.springframework.data.domain.PageRequest.of(0, 20));
+
+        // escape 문자(!) 우선 → '!'→'!!', '%'→'!%', '_'→'!_'. 쿼리의 ESCAPE '!'와 일치.
+        assertThat(captor.getValue()).isEqualTo("50!%!_test!!");
     }
 }

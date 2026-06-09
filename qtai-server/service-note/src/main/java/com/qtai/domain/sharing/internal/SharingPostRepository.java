@@ -57,7 +57,7 @@ public interface SharingPostRepository extends JpaRepository<SharingPost, Long> 
     /**
      * 나눔 피드 검색. status는 호출부(Service)에서 PUBLISHED를 넘긴다.
      * category가 null이면 전체, q가 null이면 검색어 필터를 건너뛴다.
-     * q는 호출부에서 LIKE 와일드카드(%, _, \)를 이스케이프한 값으로 넘기고,
+     * q는 호출부에서 LIKE 와일드카드(%, _)와 ESCAPE 문자(!)를 이스케이프한 값으로 넘기고,
      * 여기서 CONCAT('%', :q, '%')로 감싸 "포함" 검색한다. 정렬은 Pageable이 처리한다.
      */
     @Query("""
@@ -65,8 +65,8 @@ public interface SharingPostRepository extends JpaRepository<SharingPost, Long> 
             WHERE sp.status = :status
               AND (:category IS NULL OR sp.snapshotCategory = :category)
               AND (:q IS NULL
-                   OR sp.snapshotTitle LIKE CONCAT('%', :q, '%') ESCAPE '\\'
-                   OR sp.snapshotBody LIKE CONCAT('%', :q, '%') ESCAPE '\\')
+                   OR sp.snapshotTitle LIKE CONCAT('%', :q, '%') ESCAPE '!'
+                   OR sp.snapshotBody LIKE CONCAT('%', :q, '%') ESCAPE '!')
             """)
     Page<SharingPost> search(@Param("status") SharingPostStatus status,
                              @Param("category") String category,

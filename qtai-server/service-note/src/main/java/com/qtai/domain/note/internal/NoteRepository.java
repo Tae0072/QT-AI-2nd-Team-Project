@@ -20,8 +20,8 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
               AND n.deletedAt IS NULL
               AND (:category IS NULL OR n.category = :category)
               AND (:status IS NULL OR n.status = :status)
-              AND (:q IS NULL OR n.title LIKE CONCAT('%', :q, '%') ESCAPE '\\'
-                              OR n.body LIKE CONCAT('%', :q, '%') ESCAPE '\\')
+              AND (:q IS NULL OR n.title LIKE CONCAT('%', :q, '%') ESCAPE '!'
+                              OR n.body LIKE CONCAT('%', :q, '%') ESCAPE '!')
             """)
     Page<Note> search(@Param("memberId") Long memberId,
                       @Param("category") NoteCategory category,

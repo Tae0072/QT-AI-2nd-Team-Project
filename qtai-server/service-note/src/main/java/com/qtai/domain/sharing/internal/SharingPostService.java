@@ -6,6 +6,8 @@ import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.note.api.GetNoteUseCase;
 import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
+import com.qtai.domain.notification.api.SendNotificationUseCase;
+import com.qtai.domain.notification.api.dto.NotificationSendRequest;
 import com.qtai.domain.sharing.api.DeleteSharingPostUseCase;
 import com.qtai.domain.sharing.api.GetSharingPostUseCase;
 import com.qtai.domain.sharing.api.ListMySharingPostsUseCase;
@@ -66,7 +68,7 @@ public class SharingPostService
     private final GetNoteUseCase getNoteUseCase;
     private final GetMemberUseCase getMemberUseCase;
     // 좋아요 알림 발송용(P1-13).
-    private final com.qtai.domain.notification.api.SendNotificationUseCase sendNotificationUseCase;
+    private final SendNotificationUseCase sendNotificationUseCase;
     // 공통 시계(Asia/Seoul) — 좋아요 생성/삭제/숨김 시각을 시간 정책과 일관되게 기록한다.
     private final Clock clock;
 
@@ -244,7 +246,7 @@ public class SharingPostService
             return;
         }
         try {
-            sendNotificationUseCase.send(new com.qtai.domain.notification.api.dto.NotificationSendRequest(
+            sendNotificationUseCase.send(new NotificationSendRequest(
                     authorId, type, title, body, null, "SHARING_POST", postId, eventKey));
         } catch (RuntimeException e) {
             log.warn("나눔 알림 발송 실패(비차단). type={}, postId={}, errorType={}",
@@ -402,16 +404,17 @@ public class SharingPostService
         return body.substring(0, PREVIEW_LENGTH) + "…";
     }
 
-    /** 사용자 입력 q의 LIKE 와일드카드(%, _, \)를 리터럴로 이스케이프. 빈 값이면 null(필터 생략). */
+    /** 사용자 입력 q의 LIKE 와일드카드(%, _)와 ESCAPE 문자(!)를 리터럴로 이스케이프. 빈 값이면 null(필터 생략). */
     private String toEscapedQuery(String q) {
         String trimmed = trimToNull(q);
         if (trimmed == null) {
             return null;
         }
+        // ESCAPE 문자로 '!'를 사용(쿼리의 ESCAPE '!'와 일치) — 백슬래시 sql_mode 의존성을 제거한다.
         return trimmed
-                .replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
+                .replace("!", "!!")
+                .replace("%", "!%")
+                .replace("_", "!_");
     }
 
     /** API 정렬 필드를 엔티티 필드로 변환. 허용 목록 밖이면 무시하고, 남는 게 없으면 기본 정렬. */

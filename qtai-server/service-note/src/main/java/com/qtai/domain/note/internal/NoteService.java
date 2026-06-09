@@ -466,9 +466,11 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         if (q == null || q.isBlank()) {
             return null;
         }
-        return q.replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
+        // LIKE 와일드카드(% _)와 ESCAPE 문자(!) 자체를 리터럴로 이스케이프한다.
+        // 백슬래시 대신 '!'를 escape 문자로 써서 MySQL sql_mode(NO_BACKSLASH_ESCAPES)에 무관하게 동작한다.
+        return q.replace("!", "!!")
+                .replace("%", "!%")
+                .replace("_", "!_");
     }
 
     private static String trimToNull(String value) {
