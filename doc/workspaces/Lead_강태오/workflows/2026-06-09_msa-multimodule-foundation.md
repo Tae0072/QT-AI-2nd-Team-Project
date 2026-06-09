@@ -18,14 +18,19 @@
   - [x] `RestClientConfig`(서비스 간 동기 호출용)
   - [x] `spring-tx` 추가(dao 예외), BaseEntity/JPA는 ③로 이연
   - [x] 검증: `:lib-common:build` + `:service-bible:build` 통과
-- [ ] **③ service-bible 도메인 추출 + 빌드**
-  - [ ] BaseEntity + JPA + 단일 DB 설정을 service-bible(또는 lib-common)에 도입
-  - [ ] `bible` 도메인 이전 (api/internal/web, cross-domain 의존 없음 → 파일럿)
-  - [ ] `music` 이전 (cross-domain 의존 없음)
-  - [ ] `qt`·`study`·`praise` 이전 (각 `client` 패키지의 타 도메인 호출 → RestClient 어댑터/Mock로 대체)
-  - [ ] SecurityConfig + `scanBasePackages="com.qtai"` 로 lib-common 빈 인식
-  - [ ] 부팅 스모크 + ArchUnit 경계 테스트 + 빌드 통과
+- [~] **③ service-bible 도메인 추출 + 빌드** (3/5 완료 → PR #1, 나머지 PR #2)
+  - [x] BaseEntity + JPA + 단일 DB(H2 로컬/MySQL env) 설정 (`c479afb`, `83ac03c`)
+  - [x] `bible` 도메인 이전 (파일럿, cross-domain 없음) — `c479afb`
+  - [x] `music`·`praise` 이전 (cross-domain 없음; music 시드 150MB 미복제로 비활성) — `83ac03c`
+  - [x] SecurityConfig + `scanBasePackages="com.qtai"` + Clock·JPA Auditing
+  - [x] 부팅 스모크(@SpringBootTest contextLoads) 통과
+  - [ ] **(PR #2)** `qt`·`study` 이전 — qt가 note·ai·member api 계약 + 외부 SU 클라이언트 + 스케줄러/시더를 끌고 옴. study는 50+파일(시뮬레이터·용어집·구절해설). cross-domain은 RestClient 어댑터/Mock로 대체
+  - [ ] ArchUnit 경계 테스트(PR #2 범위)
 - [ ] **④ 후속(Day 2~3)** — service-user(JWT 발급)·service-note(verseId 쿼리)·service-ai(Kafka)·admin-server + 로컬 k8s
+
+## PR #1 범위 (이번)
+
+기반 + 읽기콘텐츠 3도메인: `51bd621`(계획) · `62e791b`(①) · `00fb9f5`(②) · `539e0fc`(문서) · `c479afb`(③-1 bible) · `83ac03c`(③-2 music/praise) · 본 문서 갱신. → `dev-msa` 대상 PR.
 
 ## 진행 메모
 
