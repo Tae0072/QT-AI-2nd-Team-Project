@@ -11,6 +11,7 @@ import com.qtai.domain.praise.api.PurgeMemberPraiseDataUseCase;
 import com.qtai.domain.report.api.PurgeMemberReportDataUseCase;
 import com.qtai.domain.sharing.api.PurgeMemberSharingDataUseCase;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -71,8 +72,7 @@ public class MemberRetentionPurgeService implements PurgeExpiredWithdrawnMembers
     private final PurgeMemberReportDataUseCase purgeReport;
 
     public MemberRetentionPurgeService(
-            @org.springframework.beans.factory.annotation.Value("${qtai.retention.purge.enabled:false}")
-            boolean purgeEnabled,
+            @Value("${qtai.retention.purge.enabled:false}") boolean purgeEnabled,
             JdbcTemplate jdbc,
             TransactionTemplate transactionTemplate,
             Clock clock,

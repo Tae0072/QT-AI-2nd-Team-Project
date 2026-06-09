@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.qtai.common.exception.BusinessException;
@@ -74,6 +75,9 @@ class MemberRetentionPurgeServiceTest {
 
         assertThat(purged).isZero();
         verify(jdbc, never()).queryForList(anyString(), eq(Long.class), any());
+        // 가드 누수 회귀 방지: 관리자 확인·삭제 위임도 일절 일어나지 않아야 한다.
+        verifyNoInteractions(verifyAdminRoleUseCase, purgeSharing, purgeNote, purgePraise,
+                purgeMission, purgeNotification, purgeReport, transactionTemplate);
     }
 
     @Test

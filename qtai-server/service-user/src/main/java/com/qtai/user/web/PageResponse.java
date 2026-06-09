@@ -1,6 +1,8 @@
 package com.qtai.user.web;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 
 /**
@@ -20,7 +22,8 @@ import org.springframework.data.domain.Page;
  * @param totalPages    전체 페이지 수
  * @param first         첫 페이지 여부
  * @param last          마지막 페이지 여부
- * @param sort          정렬 기준 목록("property,direction" 형식, 미정렬이면 빈 목록)
+ * @param sort          정렬 기준 문자열. 04 API 명세서 §1.6 형식("property,direction", 다중은
+ *                      "p1,dir1,p2,dir2"로 이어붙임, 방향은 소문자). 미정렬이면 빈 문자열.
  */
 public record PageResponse<T>(
         List<T> content,
@@ -30,14 +33,16 @@ public record PageResponse<T>(
         int totalPages,
         boolean first,
         boolean last,
-        List<String> sort
+        String sort
 ) {
 
     /** Spring {@link Page}를 표준 envelope로 변환한다. */
     public static <T> PageResponse<T> from(Page<T> page) {
-        List<String> sort = page.getSort().stream()
-                .map(order -> order.getProperty() + "," + order.getDirection().name())
-                .toList();
+        // 04 명세 §1.6: sort는 "createdAt,desc"처럼 콤마로 이어붙인 단일 문자열(방향 소문자).
+        String sort = page.getSort().stream()
+                .map(order -> order.getProperty() + ","
+                        + order.getDirection().name().toLowerCase(Locale.ROOT))
+                .collect(Collectors.joining(","));
         return new PageResponse<>(
                 page.getContent(),
                 page.getNumber(),
