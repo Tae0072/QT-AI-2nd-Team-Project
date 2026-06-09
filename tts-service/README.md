@@ -3,10 +3,29 @@
 팀 전원이 QT 읽기(TTS) 기능을 쓸 수 있도록, 로컬 PC에 묶여 있던 음성 생성을
 **항상 켜진 클라우드 서버**로 옮기는 경량 서비스입니다.
 
-- 엔진: **Edge TTS** (Microsoft 무료 온라인 TTS) — GPU 불필요, CPU 클라우드에서 동작
-- 목소리: 선희(여성)·인준(남성)·현수(남성, 다국어) 3종 — 앱에 저장된 설정과 호환
+- 엔진 우선순위: **Azure Speech**(키 있으면) → **Edge TTS** → **gTTS**
+  - **Azure Speech**(권장, 무료 월 50만 자): 선희/인준/현수 멀티 목소리를 클라우드에서도 그대로. 키 필요.
+  - **Edge TTS**(무료): 로컬에선 잘 되지만 클라우드 데이터센터 IP는 Microsoft가 자주 차단함.
+  - **gTTS**(폴백): 어디서든 동작하나 한국어 **단일 음성**(목소리 구분 사라짐).
 - `[N초]` 묵음 태그 지원 (예: `본문 [2초] 해설`)
 - 앱(`flutter-app`)의 기존 API 규격 그대로: `GET /`, `GET /voices`, `POST /qt/read`
+- 응답 헤더 `X-TTS-Engine`으로 실제 사용 엔진 확인 가능(azure/edge/gtts)
+
+## 멀티 목소리: Azure Speech 무료 키 (권장)
+
+클라우드에서 선희/인준/현수 3목소리를 쓰려면 Azure Speech 무료 키를 발급해
+환경변수로 넣습니다(앱·서버 코드 변경 없음).
+
+1. https://portal.azure.com 가입(무료) → **Speech** 리소스 생성
+   - 가격: **Free F0**(월 50만 자) 선택
+   - Region 예: `koreacentral`
+2. 리소스의 **Keys and Endpoint**에서 **KEY 1**과 **Location/Region** 복사
+3. 배포 플랫폼(Render 등) 환경변수에 추가:
+   - `AZURE_SPEECH_KEY` = 복사한 KEY
+   - `AZURE_SPEECH_REGION` = 복사한 region(예: `koreacentral`)
+4. 재배포 후 `GET /` 응답의 `azure_configured: true` 확인
+
+> 키를 안 넣으면 Edge→gTTS로 자동 폴백해 단일 음성으로라도 계속 동작합니다.
 
 > 참고: GPU 커스텀 학습 목소리(GPT-SoVITS/OpenVoice)는 이 서비스에 포함되지
 > 않습니다. 그건 기존 로컬 Voice Studio(`bible-tts`)에서만 됩니다.
