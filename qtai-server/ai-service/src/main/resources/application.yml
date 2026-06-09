@@ -15,6 +15,10 @@ qtai:
   ai:
     inbound:
       enabled: ${QTAI_AI_INBOUND_ENABLED:false}
+    worker:
+      generation:
+        enabled: ${QTAI_AI_GENERATION_WORKER_ENABLED:false}
+        batch-size: ${QTAI_AI_GENERATION_WORKER_BATCH_SIZE:1}
     persistence:
       enabled: ${QTAI_AI_PERSISTENCE_ENABLED:false}
       url: ${QTAI_AI_DB_URL:}
