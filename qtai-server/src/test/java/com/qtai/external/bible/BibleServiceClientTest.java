@@ -157,4 +157,20 @@ class BibleServiceClientTest {
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.BIBLE_VERSE_NOT_FOUND);
     }
+
+    @Test
+    @DisplayName("4xx(404)는 재시도하지 않는다 — 정확히 1회 호출")
+    void clientError_isNotRetried_singleCall() {
+        BibleServiceClient retryClient = new BibleServiceClient(
+                restClient, TOKEN, new ObjectMapper().findAndRegisterModules(), 3, 0);
+        // 404 응답을 정확히 1회만 기대 — 재시도하면 2번째 호출이 기대 없이 발생해 verify 실패
+        server.expect(ExpectedCount.once(), method(GET))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"success\":false,\"data\":null,\"error\":{\"code\":\"B0002\",\"message\":\"x\"}}"));
+
+        assertThatThrownBy(() -> retryClient.getVerses(List.of(999L)))
+                .isInstanceOf(BusinessException.class);
+        server.verify(); // 정확히 1회 호출(재시도 없음) 검증
+    }
 }
