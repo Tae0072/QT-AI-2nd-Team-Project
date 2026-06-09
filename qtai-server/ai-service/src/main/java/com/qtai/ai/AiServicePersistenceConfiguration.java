@@ -7,6 +7,10 @@ import javax.sql.DataSource;
 
 import jakarta.persistence.EntityManagerFactory;
 
+import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.FlywayException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -14,6 +18,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
@@ -35,6 +40,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 )
 public class AiServicePersistenceConfiguration {
 
+    private static final Logger log = LoggerFactory.getLogger(AiServicePersistenceConfiguration.class);
+
     @Bean(name = "aiServiceDataSource")
     DataSource aiServiceDataSource(AiServicePersistenceProperties properties) {
         DataSourceBuilder<?> builder = DataSourceBuilder.create()
@@ -51,7 +58,34 @@ public class AiServicePersistenceConfiguration {
         return builder.build();
     }
 
+    @Bean(name = "aiServiceFlywayMigrationInitializer")
+    AiServiceFlywayMigrationMarker aiServiceFlywayMigrationInitializer(
+            @Qualifier("aiServiceDataSource") DataSource dataSource,
+            AiServicePersistenceProperties properties
+    ) {
+        if (properties.flywayEnabled()) {
+            String locations = properties.flywayLocationsOrDefault();
+            try {
+                Flyway.configure()
+                        .dataSource(dataSource)
+                        .locations(locations)
+                        .load()
+                        .migrate();
+            } catch (FlywayException exception) {
+                log.error(
+                        "AI service Flyway migration failed. locations={}, exceptionType={}",
+                        locations,
+                        exception.getClass().getName(),
+                        exception
+                );
+                throw exception;
+            }
+        }
+        return new AiServiceFlywayMigrationMarker();
+    }
+
     @Bean(name = "aiServiceEntityManagerFactory")
+    @DependsOn("aiServiceFlywayMigrationInitializer")
     LocalContainerEntityManagerFactoryBean aiServiceEntityManagerFactory(
             @Qualifier("aiServiceDataSource") DataSource dataSource,
             AiServicePersistenceProperties properties
@@ -82,4 +116,7 @@ public class AiServicePersistenceConfiguration {
         }
         return result;
     }
+}
+
+record AiServiceFlywayMigrationMarker() {
 }

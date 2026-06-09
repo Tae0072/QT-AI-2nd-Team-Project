@@ -11,7 +11,9 @@ public record AiServicePersistenceProperties(
         String password,
         String driverClassName,
         String ddlAuto,
-        String dialect
+        String dialect,
+        boolean flywayEnabled,
+        String flywayLocations
 ) {
 
     String requireUrl() {
@@ -44,5 +46,12 @@ public record AiServicePersistenceProperties(
 
     boolean hasDialect() {
         return StringUtils.hasText(dialect);
+    }
+
+    String flywayLocationsOrDefault() {
+        if (StringUtils.hasText(flywayLocations)) {
+            return flywayLocations;
+        }
+        return "classpath:db/migration";
     }
 }

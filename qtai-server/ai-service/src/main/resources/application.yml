@@ -9,6 +9,7 @@ spring:
       - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
       - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
       - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
 
 qtai:
   ai:
@@ -22,6 +23,8 @@ qtai:
       driver-class-name: ${QTAI_AI_DB_DRIVER_CLASS_NAME:}
       ddl-auto: ${QTAI_AI_DB_DDL_AUTO:validate}
       dialect: ${QTAI_AI_DB_DIALECT:}
+      flyway-enabled: ${QTAI_AI_DB_FLYWAY_ENABLED:true}
+      flyway-locations: ${QTAI_AI_DB_FLYWAY_LOCATIONS:classpath:db/migration}
     client:
       mode: ${QTAI_AI_CLIENT_MODE:mock}
       service-token: ${QTAI_AI_CLIENT_SERVICE_TOKEN:}
