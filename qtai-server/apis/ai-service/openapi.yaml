@@ -52,6 +52,57 @@ x-ai-client-failure-model:
   retryableCodes: [TIMEOUT, RATE_LIMITED, CIRCUIT_OPEN, TEMPORARY_UNAVAILABLE, DOWNSTREAM_ERROR]
   nonRetryableCodes: [UNAUTHORIZED, FORBIDDEN, NOT_FOUND, VALIDATION_FAILED, RESPONSE_MAPPING_FAILED]
   policy: HTTP client implementations must map timeout, retry, and circuit breaker outcomes to this model.
+x-ai-inbound-api-skeleton:
+  purpose: Opt-in controller skeleton inventory copied from the monolith AI system/admin boundary.
+  activation:
+    property: qtai.ai.inbound.enabled
+    default: false
+    enabledValue: true
+  implementationPolicy:
+    businessLogic: Not implemented in this PR.
+    useCaseBeans: Must be provided by later ai-service internal migration; no production fake use cases.
+    adminAuthorization: ROLE_ADMIN authority plus AdminAuthClient.verifyAnyRole.
+    systemAuthorization: SYSTEM_BATCH or ROLE_SYSTEM_BATCH authority.
+    openApiParity: Detailed path/schema parity is deferred to a dedicated follow-up PR.
+  endpoints:
+    system:
+      - method: POST
+        path: /api/v1/system/ai/generation-jobs
+      - method: POST
+        path: /api/v1/system/ai/assets
+      - method: POST
+        path: /api/v1/system/ai/validation-logs
+      - method: POST
+        path: /api/v1/system/validation-reference-jobs
+      - method: GET
+        path: /api/v1/system/validation-reference-jobs/{jobId}
+      - method: POST
+        path: /api/v1/system/validation-reference-jobs/{jobId}/expire
+    admin:
+      - method: GET
+        path: /api/v1/admin/ai/assets
+      - method: GET
+        path: /api/v1/admin/ai/assets/{assetId}
+      - method: POST
+        path: /api/v1/admin/ai/assets/{assetId}/approve
+      - method: POST
+        path: /api/v1/admin/ai/assets/{assetId}/reject
+      - method: POST
+        path: /api/v1/admin/ai/assets/{assetId}/hide
+      - method: POST
+        path: /api/v1/admin/ai/assets/{assetId}/regenerate
+      - method: GET
+        path: /api/v1/admin/ai/monitoring
+      - method: GET
+        path: /api/v1/admin/ai/batch-run-logs
+      - method: GET
+        path: /api/v1/admin/ai/validation-checklists
+      - method: POST
+        path: /api/v1/admin/ai/validation-checklists
+      - method: POST
+        path: /api/v1/admin/ai/validation-checklists/{id}/activate
+      - method: POST
+        path: /api/v1/admin/ai/validation-checklists/{id}/retire
 x-ai-outbound-system-endpoints:
   purpose: Contracts for provider service endpoints called by ai-service after MSA extraction.
   pathExposurePolicy: Provider service endpoints are outbound dependencies and must not be added to ai-service paths.

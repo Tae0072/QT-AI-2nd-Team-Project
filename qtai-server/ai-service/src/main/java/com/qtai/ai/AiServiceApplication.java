@@ -5,7 +5,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;
 
 @SpringBootApplication
-@Import(AiServiceClientConfiguration.class)
+@Import({
+        AiServiceClientConfiguration.class,
+        AiServiceInboundConfiguration.class
+})
 public class AiServiceApplication {
 
     public static void main(String[] args) {
