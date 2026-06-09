@@ -77,6 +77,14 @@ qtai:
         base-url: ${QTAI_AI_CLIENT_ADMIN_AUTH_BASE_URL:}
   validation:
     restricted-storage-root: ${QTAI_RESTRICTED_STORAGE_ROOT:./restricted}
+  # bible 도메인 호출 방식(MSA Inc3 Strangler). 기본 inprocess=모놀리식 BibleService(동작 무변경).
+  # http면 external/bible HTTP 어댑터가 @Primary로 등록되어 bible-service를 호출(토큰은 SYSTEM 인증용, env 주입).
+  bible:
+    client:
+      mode: ${QTAI_BIBLE_CLIENT_MODE:inprocess}
+      base-url: ${QTAI_BIBLE_CLIENT_BASE_URL:}
+      gateway-token: ${QTAI_BIBLE_CLIENT_GATEWAY_TOKEN:}
+      timeout-ms: ${QTAI_BIBLE_CLIENT_TIMEOUT_MS:3000}
 
 qt:
   today-source:
