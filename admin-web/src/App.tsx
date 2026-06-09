@@ -11,6 +11,8 @@ import PraiseSongsPage from './pages/PraiseSongsPage';
 import NoticesPage from './pages/NoticesPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import AiMonitoringPage from './pages/AiMonitoringPage';
+import AiChecklistsPage from './pages/AiChecklistsPage';
+import AiBatchRunLogsPage from './pages/AiBatchRunLogsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { MENU_ITEMS } from './constants/menu';
 
@@ -62,6 +64,14 @@ export default function App() {
           <Route
             path="/ai-monitoring"
             element={withRole('/ai-monitoring', <AiMonitoringPage />)}
+          />
+          <Route
+            path="/ai-checklists"
+            element={withRole('/ai-checklists', <AiChecklistsPage />)}
+          />
+          <Route
+            path="/ai-batch-logs"
+            element={withRole('/ai-batch-logs', <AiBatchRunLogsPage />)}
           />
         </Route>
       </Route>
