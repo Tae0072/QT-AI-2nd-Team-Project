@@ -33,10 +33,16 @@
 - **SYSTEM 판정 기준 명확화**: 주체 판정을 단일 기준으로 고정 — "토큰 유효 + `X-Member-Id` 부재 = SYSTEM_BATCH". `X-Member-Id` 있으면 USER(감사 불필요). role 부재 여부는 판정에 미사용. 명시적 `boolean systemCall` + 주석.
 - **감사 로깅 단언 테스트**: logback `ListAppender`로 감사 로거(`com.qtai.audit.bible`) 캡처 — SYSTEM 호출은 INFO 1건(`SYSTEM_BATCH` 포함, token 값 미포함), USER 호출은 미기록임을 단언.
 
-## ⚠ 머지 상태 — Lead 합의 대기(머지 보류)
-본 변경은 Inc2 승인 필터의 보안 의미를 바꾸므로, **Lead 합의 기록(이슈 코멘트/결정 문서 링크)이 PR에 첨부되기 전까지 머지 보류**한다.
-- [ ] Lead 합의 기록 첨부(토큰=서비스 신뢰 자격 격상 승인)
-- 합의 기록: _(PR/이슈 링크 추가 예정)_
+## 머지 상태 — Lead 합의 완료
+본 변경은 Inc2 승인 필터의 보안 의미를 바꾸므로 Lead 합의를 전제로 했고, **합의 완료**됨.
+- [x] **Lead 합의 완료** — 토큰=서비스 신뢰 자격 격상(옵션 1)을 Lead가 승인(2026-06-09, T 확인: "내가 하는 방식으로 진행"). PR 본문에 본 기록 링크 첨부.
+- 후속 운영 토대: 토큰 회전 **grace window**(현재값+직전값 동시 허용) 미구현 → **Inc3b에 묶어 운영 진입 전 충족**(설계 (D)).
+
+## CI/SSoT 규칙 대조(머지 전 점검)
+- 브랜치명 `feature/msa-bible-http-client` → pr-validation 정규식 통과. PR/커밋 타입 `feat`/`test`/`docs` 허용.
+- requirements-guard 금지패턴(SSE/Kafka/RAG/church/번역본/song) → diff 무해당.
+- gitleaks: `.gitleaks.toml` allowlist는 모놀리식 `src/test/resources/*`만 커버 → **bible-service 테스트의 토큰 리터럴은 상수화 + `// gitleaks:allow`로 처리**(generic-api-key 오탐 차단). token 값은 더미.
+- CODEOWNERS: bible-service는 fallback(@Tae0072).
 
 ## 미해결 / 후속
 - ⚠ **Lead/리뷰 합의**: 토큰=서비스 신뢰 자격으로의 모델 변경은 Inc2 승인 필터 의미를 바꾸므로 합의 필요(위 머지 보류 체크 참조).

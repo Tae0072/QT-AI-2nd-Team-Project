@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class BibleGatewayTokenSliceTest {
 
-    private static final String SHARED_TOKEN = "test-gateway-shared-token";
+    private static final String SHARED_TOKEN = "test-gateway-shared-token"; // gitleaks:allow — 테스트 전용 더미 토큰
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
