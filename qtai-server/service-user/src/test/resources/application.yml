@@ -1,0 +1,28 @@
+spring:
+  # 테스트는 H2 인메모리에 엔티티로 스키마 생성(운영 기본값 validate를 덮어쓴다).
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  datasource:
+    url: jdbc:h2:mem:user-test;DB_CLOSE_DELAY=-1;MODE=MySQL
+    username: sa
+    password:
+  jackson:
+    time-zone: Asia/Seoul
+    serialization:
+      write-dates-as-timestamps: false
+
+# JWT 키(private/public)는 JwtTestKeysContextCustomizerFactory가 런타임 생성해 주입한다(평문 키 미커밋).
+# 만료 시간만 여기서 지정한다(JwtProvider/AuthService @Value가 읽음).
+security:
+  jwt:
+    access-expiry-ms: 1800000
+    refresh-expiry-ms: 1209600000
+
+kakao:
+  api:
+    user-info-url: https://kapi.kakao.com/v2/user/me
+
+cors:
+  allowed-origins: http://localhost:3000

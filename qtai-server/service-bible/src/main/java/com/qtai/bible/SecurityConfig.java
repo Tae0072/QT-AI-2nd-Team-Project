@@ -1,6 +1,8 @@
 package com.qtai.bible;
 
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.common.security.JwtAuthenticationFilter;
+import com.qtai.common.security.SecurityErrorResponseWriter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,6 +29,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *       admin_users.admin_role 검증 없이 열리는 우회를 막기 위해 이 서비스에서는 차단한다.</li>
  *   <li>그 외 모든 요청 — 인증 필요(authenticated)</li>
  * </ul>
+ *
+ * <p>예외 처리(PR #2 이월): 미인증은 401, 인가 실패(denyAll 포함)는 403을 표준
+ * {@link com.qtai.common.dto.ApiResponse} 형식으로 반환한다. 기본 entry point는 콘텐츠
+ * 누출 없이 403만 던져 모놀리식과 응답 계약이 어긋났는데, lib-common의
+ * {@link SecurityErrorResponseWriter}로 통일한다.
  */
 @Configuration
 @EnableWebSecurity
@@ -34,9 +41,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final SecurityErrorResponseWriter securityErrorResponseWriter;
 
-    public SecurityConfig(ObjectProvider<JwtAuthenticationFilter> jwtAuthenticationFilterProvider) {
+    public SecurityConfig(ObjectProvider<JwtAuthenticationFilter> jwtAuthenticationFilterProvider,
+                          SecurityErrorResponseWriter securityErrorResponseWriter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilterProvider.getIfAvailable();
+        this.securityErrorResponseWriter = securityErrorResponseWriter;
     }
 
     @Bean
@@ -47,7 +57,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/api/v1/admin/**").denyAll()
-                        .anyRequest().authenticated());
+                        .anyRequest().authenticated())
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                securityErrorResponseWriter.write(response, ErrorCode.UNAUTHORIZED))
+                        .accessDeniedHandler((request, response, deniedException) ->
+                                securityErrorResponseWriter.write(response, ErrorCode.FORBIDDEN)));
 
         if (jwtAuthenticationFilter != null) {
             http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
