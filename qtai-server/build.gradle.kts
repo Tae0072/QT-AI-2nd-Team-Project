@@ -18,6 +18,10 @@ repositories {
 }
 
 dependencies {
+    // MSA 공통 모듈 의존 — lib-common-web(servlet/JPA)이 코어 lib-common을 전이 노출
+    // (GlobalExceptionHandler·BaseEntity + ApiResponse/ErrorCode/BusinessException/JwtTokenVerifier 등)
+    implementation(project(":lib-common-web"))
+
     // .env 파일 자동 로딩 — 로컬 개발 전용, 운영 런타임에는 포함되지 않음
     developmentOnly("me.paulschwarz:spring-dotenv:4.0.0")
 
@@ -52,6 +56,7 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     // ArchUnit — 도메인 경계 자동 검증 (CLAUDE.md §3, §4)

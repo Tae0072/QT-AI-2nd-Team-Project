@@ -102,4 +102,27 @@ class DevUserIdHeaderFilterTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         assertThat(chain.getRequest()).isSameAs(request);
     }
+
+    @Test
+    @DisplayName("X-Dev-Roles: ADMIN → ROLE_USER + ROLE_ADMIN 권한 부여 (admin-web dev 로그인)")
+    void doFilter_devRolesAdmin_grantsRoleAdmin() throws ServletException, IOException {
+        // given
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(HEADER_NAME, "1");
+        request.addHeader("X-Dev-Roles", "ADMIN");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        // when
+        filter.doFilter(request, response, chain);
+
+        // then — ROLE_USER + ROLE_ADMIN 둘 다 부여
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        assertThat(auth).isNotNull();
+        assertThat(auth.getPrincipal()).isEqualTo(1L);
+        assertThat(auth.getAuthorities())
+                .extracting(GrantedAuthority::getAuthority)
+                .containsExactlyInAnyOrder("ROLE_USER", "ROLE_ADMIN");
+        assertThat(chain.getRequest()).isSameAs(request);
+    }
 }

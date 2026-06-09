@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Card, Form, Input, Button, Typography, Alert, Space } from 'antd';
+import { Card, Form, Input, Button, Typography, Alert, Space, Divider } from 'antd';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
+import { IS_DEV } from '../config/env';
 
 // ===== 로그인 화면 (임시 토큰 입력 방식) =====
 // 지금은 카카오 웹 로그인 대신, 발급받은 ADMIN 액세스 토큰을 직접 붙여넣어 로그인한다.
@@ -27,6 +28,13 @@ export default function LoginPage() {
     const trimmed = token.trim();
     if (!trimmed) return;
     login(trimmed); // 토큰 저장 = 로그인
+    navigate(from, { replace: true });
+  };
+
+  // [DEV 전용] 토큰 없이 관리자로 로그인. 실제 인증은 api/client.ts 가 보내는
+  // X-Dev-User-Id / X-Dev-Roles 헤더로 dev 서버(dev-bypass)에서 처리된다.
+  const handleDevLogin = () => {
+    login('dev-bypass');
     navigate(from, { replace: true });
   };
 
@@ -71,6 +79,17 @@ export default function LoginPage() {
               로그인
             </Button>
           </Form>
+
+          {IS_DEV && (
+            <>
+              <Divider plain style={{ margin: '4px 0' }}>
+                개발용
+              </Divider>
+              <Button block onClick={handleDevLogin}>
+                DEV 관리자로 로그인 (토큰 없이)
+              </Button>
+            </>
+          )}
         </Space>
       </Card>
     </div>

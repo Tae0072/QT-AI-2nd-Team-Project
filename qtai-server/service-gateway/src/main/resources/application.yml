@@ -1,0 +1,30 @@
+server:
+  port: 8000
+
+# 게이트웨이 JWT 검증(공개키 전용). 발급(개인키)은 인증 서비스에만 — 저장소에 평문 키 금지.
+# 미설정 시 빈 값으로 두고 GatewayJwtConfig에서 명확한 메시지로 起動 차단(placeholder 에러 회피).
+gateway:
+  jwt:
+    public-key: ${JWT_PUBLIC_KEY:}
+
+spring:
+  application:
+    name: service-gateway
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 2000        # ms — 다운스트림 연결 타임아웃
+        response-timeout: 5s         # 응답 타임아웃(초과 시 504)
+      routes:
+        # Strangler: 서비스 추출 전까지 모든 /api/v1/** 를 모놀리식(qtai-server)으로 라우팅.
+        # 추출이 진행되면 도메인별 경로를 각 서비스 URI로 분기한다(bible/today-qt/note/sharing/mypage).
+        - id: monolith
+          uri: ${GATEWAY_MONOLITH_URI:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/**
+          filters:
+            # 다운스트림 장애 시 Circuit Breaker 개방 → 폴백(503 표준 envelope)
+            - name: CircuitBreaker
+              args:
+                name: monolithCb
+                fallbackUri: forward:/__fallback

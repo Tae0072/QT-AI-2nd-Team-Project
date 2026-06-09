@@ -1,0 +1,47 @@
+server:
+  port: ${AI_SERVICE_PORT:8081}
+
+spring:
+  application:
+    name: ai-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+
+qtai:
+  ai:
+    inbound:
+      enabled: ${QTAI_AI_INBOUND_ENABLED:false}
+    persistence:
+      enabled: ${QTAI_AI_PERSISTENCE_ENABLED:false}
+      url: ${QTAI_AI_DB_URL:}
+      username: ${QTAI_AI_DB_USERNAME:}
+      password: ${QTAI_AI_DB_PASSWORD:}
+      driver-class-name: ${QTAI_AI_DB_DRIVER_CLASS_NAME:}
+      ddl-auto: ${QTAI_AI_DB_DDL_AUTO:validate}
+      dialect: ${QTAI_AI_DB_DIALECT:}
+      flyway-enabled: ${QTAI_AI_DB_FLYWAY_ENABLED:true}
+      flyway-locations: ${QTAI_AI_DB_FLYWAY_LOCATIONS:classpath:db/migration}
+    client:
+      mode: ${QTAI_AI_CLIENT_MODE:mock}
+      service-token: ${QTAI_AI_CLIENT_SERVICE_TOKEN:}
+      timeout-ms: ${QTAI_AI_CLIENT_TIMEOUT_MS:3000}
+      qt:
+        base-url: ${QTAI_AI_CLIENT_QT_BASE_URL:}
+      bible:
+        base-url: ${QTAI_AI_CLIENT_BIBLE_BASE_URL:}
+      study:
+        base-url: ${QTAI_AI_CLIENT_STUDY_BASE_URL:}
+      audit:
+        base-url: ${QTAI_AI_CLIENT_AUDIT_BASE_URL:}
+      admin-auth:
+        base-url: ${QTAI_AI_CLIENT_ADMIN_AUTH_BASE_URL:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

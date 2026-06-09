@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import { API_BASE_URL } from '../config/env';
+import { API_BASE_URL, IS_DEV, DEV_ADMIN_MEMBER_ID } from '../config/env';
 import { getToken, clearToken } from '../auth/tokenStorage';
 import type { ApiResponse } from './types';
 
@@ -16,8 +16,19 @@ export const apiClient = axios.create({
 // [요청 보내기 전] 토큰이 있으면 'Authorization: Bearer {token}' 자동 첨부
 apiClient.interceptors.request.use((config) => {
   const token = getToken();
-  if (token) {
+  // dev에선 정식 토큰 발급 경로가 없어 가짜 토큰('dev-bypass')을 저장하므로 Bearer로 보내지 않는다.
+  // (가짜 토큰을 보내면 JwtAuthenticationFilter가 JWT 파싱 실패로 401을 낸다. dev 인증은 X-Dev-* 헤더가 담당.)
+  if (token && !IS_DEV) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // [DEV 전용] dev 서버(dev-bypass)는 정식 토큰 발급 경로가 없으므로,
+  // 관리자 식별 헤더를 보낸다: X-Dev-User-Id(회원 id) + X-Dev-Roles(ADMIN → ROLE_ADMIN).
+  // prod 빌드에서는 IS_DEV=false 라 절대 첨부되지 않는다.
+  if (IS_DEV) {
+    // axios v1: 커스텀 헤더는 .set()으로 넣어야 실제 요청에 확실히 직렬화된다.
+    // (AxiosHeaders 인스턴스에 대괄호 대입은 요청에서 누락될 수 있음)
+    config.headers.set('X-Dev-User-Id', DEV_ADMIN_MEMBER_ID);
+    config.headers.set('X-Dev-Roles', 'ADMIN');
   }
   return config;
 });
