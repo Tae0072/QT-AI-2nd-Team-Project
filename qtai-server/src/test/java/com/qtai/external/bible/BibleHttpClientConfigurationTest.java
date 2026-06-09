@@ -52,4 +52,14 @@ class BibleHttpClientConfigurationTest {
                         "qtai.bible.client.base-url=http://bible-service")
                 .run(context -> assertThat(context).hasFailed());
     }
+
+    @Test
+    void httpMode_missingBaseUrl_failsFast() {
+        // 컷오버 오설정 가드: mode=http인데 base-url 미설정이면 부팅 시점에 fast-fail —
+        // 잘못 전환된 환경이 조용히 잘못된 호출을 하지 않도록 막는다.
+        runner.withPropertyValues(
+                        "qtai.bible.client.mode=http",
+                        "qtai.bible.client.gateway-token=gw-test-token") // gitleaks:allow
+                .run(context -> assertThat(context).hasFailed());
+    }
 }
