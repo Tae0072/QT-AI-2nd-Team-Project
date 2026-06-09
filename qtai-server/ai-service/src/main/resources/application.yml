@@ -7,6 +7,8 @@ spring:
 
 qtai:
   ai:
+    inbound:
+      enabled: ${QTAI_AI_INBOUND_ENABLED:false}
     client:
       mode: ${QTAI_AI_CLIENT_MODE:mock}
       service-token: ${QTAI_AI_CLIENT_SERVICE_TOKEN:}
