@@ -29,5 +29,15 @@ PR#1으로 멀티모듈 골격 + lib-common + service-bible(bible·music·praise
 - **Mockito UnfinishedStubbingException**(NotificationServiceTest): `@Spy Clock` 호출이 `when(...).thenReturn(...)` 인자(알림 객체 생성) 안에서 일어나 미완료 stubbing으로 오인 → 알림 객체를 stubbing 밖에서 미리 생성해 해소.
 - **DomainBoundaryTest**: 단순 `notDependOnEachOther`는 합법적 cross-domain api 의존(member→admin.api 등)도 막으므로, `ignoreDependency(target in ..api..)`로 api 경유 의존만 허용하도록 정교화.
 
-## 5. 다음 단계
-service-user 추출 후 service-note → service-ai 순. 각 서비스는 첫 푸시 APPROVE 품질로 별도 PR(base dev-msa).
+## 5. 리뷰 종합의견 후속 보강 (PR #425 APPROVE 후속, 별도 후속 PR)
+PR #425 claude-review는 APPROVE이나 종합의견에 "머지 직후 즉시 처리" 후속 2건 + 경미 보강이 명시됨. 후속 브랜치 `feature/msa-user-service-followup`(base dev-msa)로 처리:
+
+- **[보안 핵심 테스트 보강]** `AuthServiceTest`(5) — 로그인 신규 가입·토큰 발급, 카카오 인증 실패→`KAKAO_AUTH_FAILED`, 변조 refresh→`INVALID_REFRESH_TOKEN`, 탈퇴 회원 refresh 차단(재활성화 금지)→`MEMBER_ALREADY_WITHDRAWN`+세션 삭제, 로그아웃. `MemberRetentionPurgeServiceTest`(4) — 가드 off 시 무동작, 대상 없음, 관리자 아님→FK 역순 위임 6종+member_settings/members 삭제, 관리자 연결 회원 제외.
+- **[retention 운영 가드]** `VerifyAdminRoleUseCaseMock`이 항상 "관리자 아님"을 던져 admin-server 통합 전 관리자 회원이 오삭제될 위험 → `MemberRetentionPurgeService`에 `qtai.retention.purge.enabled`(기본 **false**) deploy guard 추가. 통합 완료 후 명시적으로 켠다.
+- **[H2 콘솔 가드]** `SecurityConfig`의 `/h2-console/**` permitAll을 `spring.h2.console.enabled`(기본 false)일 때만 열도록 가드 — 운영 노출 차단.
+- **[표준 envelope 보강]** `PageResponse`에 `sort` 필드 추가(표준 스펙 정합).
+- **[후속 과제로 명시(이번 미구현)]** Kakao API용 Resilience4j circuit breaker/Bulkhead, CORS 헤더 화이트리스트(운영 프로필) — 별도 인프라 과제.
+- 검증: `:service-user:build` EXITCODE=0, **테스트 33개**(기존 24 + 신규 9) 전부 통과.
+
+## 6. 다음 단계
+service-user 추출 후 service-note → service-ai 순. 각 서비스는 첫 푸시 APPROVE 품질로 별도 PR(base dev-msa). Mock→RestClient 통합 및 retention 가드 활성화는 Day3.

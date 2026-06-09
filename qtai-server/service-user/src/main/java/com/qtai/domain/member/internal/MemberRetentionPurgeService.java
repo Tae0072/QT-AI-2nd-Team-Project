@@ -49,6 +49,16 @@ public class MemberRetentionPurgeService implements PurgeExpiredWithdrawnMembers
     /** 1회 실행당 최대 처리 인원 — 일 1회 배치 기준 충분, 잔여분은 다음 실행에서 처리. */
     private static final int BATCH_LIMIT = 500;
 
+    /**
+     * 보존기간 만료 정리 배치 활성 여부 (기본 false).
+     *
+     * <p>MSA 통합 전(Day3 이전)에는 admin 도메인이 {@code VerifyAdminRoleUseCaseMock}으로만
+     * 대체돼 있어 {@link #hasAdminLink}가 항상 false를 반환한다. 이 상태로 배치를 켜면 실제
+     * 관리자 회원도 자동 삭제 대상에 포함될 수 있다. admin-server RestClient 통합이 끝나
+     * 관리자 연결을 실제로 확인할 수 있을 때 {@code qtai.retention.purge.enabled=true}로 켠다.
+     */
+    private final boolean purgeEnabled;
+
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
@@ -61,6 +71,8 @@ public class MemberRetentionPurgeService implements PurgeExpiredWithdrawnMembers
     private final PurgeMemberReportDataUseCase purgeReport;
 
     public MemberRetentionPurgeService(
+            @org.springframework.beans.factory.annotation.Value("${qtai.retention.purge.enabled:false}")
+            boolean purgeEnabled,
             JdbcTemplate jdbc,
             TransactionTemplate transactionTemplate,
             Clock clock,
@@ -72,6 +84,7 @@ public class MemberRetentionPurgeService implements PurgeExpiredWithdrawnMembers
             PurgeMemberNotificationDataUseCase purgeNotification,
             PurgeMemberReportDataUseCase purgeReport
     ) {
+        this.purgeEnabled = purgeEnabled;
         this.jdbc = jdbc;
         this.transactionTemplate = transactionTemplate;
         this.clock = clock;
@@ -86,6 +99,12 @@ public class MemberRetentionPurgeService implements PurgeExpiredWithdrawnMembers
 
     @Override
     public int purgeExpired() {
+        // Deploy guard: admin-server 통합 전에는 관리자 연결 확인이 Mock(항상 "관리자 아님")이라
+        // 켜두면 관리자 회원이 오삭제될 수 있다. 기본 비활성으로 두고 통합 완료 후 명시적으로 켠다.
+        if (!purgeEnabled) {
+            log.info("[retention] 보존기간 만료 정리 배치 비활성(qtai.retention.purge.enabled=false) — 건너뜀");
+            return 0;
+        }
         LocalDateTime cutoff = LocalDateTime.now(clock).minusYears(RETENTION_YEARS);
         List<Long> targets = jdbc.queryForList(
                 "SELECT id FROM members WHERE status = 'WITHDRAWN' AND withdrawn_at <= ? "
