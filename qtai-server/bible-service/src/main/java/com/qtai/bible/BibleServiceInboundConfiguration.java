@@ -25,7 +25,8 @@ import com.qtai.domain.bible.web.BibleController;
 @ConditionalOnProperty(name = "qtai.bible.inbound.enabled", havingValue = "true")
 @Import({
         BibleService.class,
-        BibleController.class
+        BibleController.class,
+        BibleServiceExceptionHandler.class
 })
 public class BibleServiceInboundConfiguration {
 
