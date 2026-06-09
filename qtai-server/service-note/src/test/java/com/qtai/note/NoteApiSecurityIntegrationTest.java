@@ -1,10 +1,13 @@
 package com.qtai.note;
 
+import com.qtai.domain.bible.api.GetBibleVerseUseCase;
+import com.qtai.domain.note.client.qt.NoteQtClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -33,6 +36,13 @@ class NoteApiSecurityIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    // service-note 자체 통합 테스트는 cross-service HTTP 호출을 타지 않도록 클라이언트를 스텁한다(MSA 격리).
+    // 실제 RestClient 어댑터(qt readability·bible 구절 조회)의 호출 자체 검증은 어댑터 단위 테스트가 담당한다.
+    @MockBean
+    private NoteQtClient noteQtClient;
+    @MockBean
+    private GetBibleVerseUseCase getBibleVerseUseCase;
 
     /** principal = memberId(Long), 권한 ROLE_USER 인 인증 컨텍스트를 주입한다. */
     private static RequestPostProcessor user(long memberId) {
