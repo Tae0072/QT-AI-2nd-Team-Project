@@ -1,15 +1,21 @@
 package com.qtai.domain.ai.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.qtai.ai.AiServiceApplication;
+import com.qtai.common.exception.BusinessException;
 import com.qtai.domain.ai.api.generation.CreateAiGenerationJobUseCase;
 import com.qtai.domain.ai.api.generation.RegisterAiGeneratedAssetUseCase;
 import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobCommand;
@@ -66,10 +72,25 @@ class AiServiceSystemUseCasePersistenceTest {
     @Autowired
     private ValidationReferenceJobRepository validationReferenceJobRepository;
     @Autowired
+    private AiEventOutboxRepository eventOutboxRepository;
+    @Autowired
     private AuditLogClientMock auditLogClientMock;
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setUp() {
+        validationLogRepository.deleteAll();
+        generatedAssetRepository.deleteAll();
+        eventOutboxRepository.deleteAll();
+        generationJobRepository.deleteAll();
+        validationReferenceJobRepository.deleteAll();
+        checklistVersionRepository.deleteAll();
+        promptVersionRepository.deleteAll();
+    }
 
     @Test
-    void systemUseCasesPersistOwnedAiModels() {
+    void systemUseCasesPersistOwnedAiModels() throws Exception {
         AiPromptVersion promptVersion = promptVersionRepository.saveAndFlush(promptVersion());
         AiValidationChecklistVersion checklistVersion = checklistVersionRepository.saveAndFlush(checklistVersion());
 
@@ -85,6 +106,7 @@ class AiServiceSystemUseCasePersistenceTest {
         assertThat(generationJobRepository.findById(jobResult.generationJobId()))
                 .map(AiGenerationJob::getTargetId)
                 .contains(35L);
+        assertSystemGenerationJobRequestedOutbox(jobResult.generationJobId(), promptVersion.getId());
 
         var assetResult = registerAiGeneratedAssetUseCase.registerAiGeneratedAsset(new RegisterAiGeneratedAssetCommand(
                 jobResult.generationJobId(),
@@ -140,6 +162,51 @@ class AiServiceSystemUseCasePersistenceTest {
                 new ExpireValidationReferenceJobCommand(reference.id())).status()).isEqualTo("EXPIRED");
         assertThat(auditLogClientMock.writtenCommands())
                 .anySatisfy(command -> assertThat(command.actorType()).isEqualTo("SYSTEM_BATCH"));
+    }
+
+    @Test
+    void duplicateGenerationJobDoesNotAppendRequestedOutbox() {
+        AiPromptVersion promptVersion = promptVersionRepository.saveAndFlush(promptVersion());
+        CreateAiGenerationJobCommand command = new CreateAiGenerationJobCommand(
+                "EXPLANATION",
+                "QT_PASSAGE",
+                36L,
+                promptVersion.getId(),
+                "SYSTEM_BATCH",
+                BASE_TIME
+        );
+
+        createAiGenerationJobUseCase.createAiGenerationJob(command);
+        assertThatThrownBy(() -> createAiGenerationJobUseCase.createAiGenerationJob(command))
+                .isInstanceOf(BusinessException.class);
+
+        assertThat(eventOutboxRepository.findAll())
+                .extracting(AiEventOutbox::getEventName)
+                .containsExactly("AiGenerationJobRequested");
+    }
+
+    private void assertSystemGenerationJobRequestedOutbox(Long jobId, Long promptVersionId) throws Exception {
+        List<AiEventOutbox> events = eventOutboxRepository.findAll();
+        assertThat(events)
+                .singleElement()
+                .satisfies(event -> {
+                    assertThat(event.getEventName()).isEqualTo("AiGenerationJobRequested");
+                    assertThat(event.getAggregateType()).isEqualTo("ai_generation_job");
+                    assertThat(event.getAggregateId()).isEqualTo("job-" + jobId);
+                    assertThat(event.getSchemaVersion()).isEqualTo("0.1.0");
+                    assertThat(event.getStatus()).isEqualTo(AiEventOutboxStatus.PENDING);
+                    assertThat(event.getCreatedAt()).isEqualTo(BASE_TIME);
+                });
+        JsonNode payload = objectMapper.readTree(events.getFirst().getPayloadJson());
+        assertThat(payload.path("jobId").asLong()).isEqualTo(jobId);
+        assertThat(payload.path("jobType").asText()).isEqualTo("EXPLANATION");
+        assertThat(payload.path("targetType").asText()).isEqualTo("QT_PASSAGE");
+        assertThat(payload.path("targetId").asLong()).isEqualTo(35L);
+        assertThat(payload.path("passageId").asLong()).isEqualTo(35L);
+        assertThat(payload.path("promptVersionId").asLong()).isEqualTo(promptVersionId);
+        assertThat(payload.path("requestedBy").asText()).isEqualTo("SYSTEM_BATCH");
+        assertThat(payload.path("requestSource").asText()).isEqualTo("system-ai-generation");
+        assertThat(payload.path("requestedAt").asText()).isEqualTo("2026-06-09T09:00:00+09:00");
     }
 
     private static AiPromptVersion promptVersion() {

@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +33,11 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
     private static final String ACTOR_TYPE_ADMIN = "ADMIN";
     private static final String ACTION_AI_REGENERATE_REQUEST = "AI_REGENERATE_REQUEST";
     private static final String TARGET_TYPE_AI_GENERATED_ASSET = "AI_GENERATED_ASSET";
+    private static final String EVENT_SCHEMA_VERSION = "0.1.0";
+    private static final String EVENT_AI_GENERATION_JOB_REQUESTED = "AiGenerationJobRequested";
+    private static final String EVENT_AGGREGATE_TYPE_AI_GENERATION_JOB = "ai_generation_job";
+    private static final String REQUEST_SOURCE_SYSTEM_AI_GENERATION = "system-ai-generation";
+    private static final String REQUEST_SOURCE_ADMIN_AI_REGENERATE = "admin-ai-regenerate";
 
     private static final List<AiGenerationJobStatus> ACTIVE_GENERATION_STATUSES = List.of(
             AiGenerationJobStatus.QUEUED,
@@ -41,6 +47,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
     private final AiGenerationJobRepository generationJobRepository;
     private final AiGeneratedAssetRepository generatedAssetRepository;
     private final AiPromptVersionRepository promptVersionRepository;
+    private final AiEventOutboxRepository eventOutboxRepository;
     private final AuditLogClient auditLogClient;
     private final ObjectMapper objectMapper;
 
@@ -49,12 +56,14 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
             AiGenerationJobRepository generationJobRepository,
             AiGeneratedAssetRepository generatedAssetRepository,
             AiPromptVersionRepository promptVersionRepository,
+            AiEventOutboxRepository eventOutboxRepository,
             AuditLogClient auditLogClient,
             ObjectMapper objectMapper
     ) {
         this.generationJobRepository = generationJobRepository;
         this.generatedAssetRepository = generatedAssetRepository;
         this.promptVersionRepository = promptVersionRepository;
+        this.eventOutboxRepository = eventOutboxRepository;
         this.auditLogClient = auditLogClient;
         this.objectMapper = objectMapper;
     }
@@ -92,6 +101,11 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
                 command.requestedAt()
         );
         AiGenerationJob savedJob = saveQueuedJob(job);
+        appendGenerationJobRequestedEvent(
+                savedJob,
+                command.requestedBy(),
+                REQUEST_SOURCE_SYSTEM_AI_GENERATION
+        );
         return new CreateAiGenerationJobResult(
                 savedJob.getId(),
                 savedJob.getStatus().name()
@@ -131,6 +145,11 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
                 command.requestedAt()
         );
         AiGenerationJob savedJob = saveQueuedJob(job);
+        appendGenerationJobRequestedEvent(
+                savedJob,
+                ACTOR_TYPE_ADMIN + ":" + command.adminId(),
+                REQUEST_SOURCE_ADMIN_AI_REGENERATE
+        );
         writeRegenerateAudit(command, asset, savedJob);
 
         return new RegenerateAiAssetResult(
@@ -152,6 +171,43 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
                     "같은 대상의 진행 중 AI 생성 작업이 있어 새 작업을 생성할 수 없습니다."
             );
         }
+    }
+
+    private void appendGenerationJobRequestedEvent(
+            AiGenerationJob job,
+            String requestedBy,
+            String requestSource
+    ) {
+        eventOutboxRepository.save(AiEventOutbox.create(
+                UUID.randomUUID().toString(),
+                EVENT_AI_GENERATION_JOB_REQUESTED,
+                EVENT_AGGREGATE_TYPE_AI_GENERATION_JOB,
+                "job-" + job.getId(),
+                EVENT_SCHEMA_VERSION,
+                generationJobRequestedPayload(job, requestedBy, requestSource),
+                null,
+                job.getCreatedAt()
+        ));
+    }
+
+    private String generationJobRequestedPayload(
+            AiGenerationJob job,
+            String requestedBy,
+            String requestSource
+    ) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("jobId", job.getId());
+        payload.put("jobType", job.getJobType().name());
+        payload.put("targetType", job.getTargetType().name());
+        payload.put("targetId", job.getTargetId());
+        if (job.getTargetType() == AiTargetType.QT_PASSAGE) {
+            payload.put("passageId", job.getTargetId());
+        }
+        payload.put("promptVersionId", job.getPromptVersionId());
+        payload.put("requestedBy", requestedBy);
+        payload.put("requestSource", requestSource);
+        payload.put("requestedAt", DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(job.getCreatedAt()));
+        return toJson(payload, "generation job requested event payload serialization failed");
     }
 
     private static void requireAuthorizedReviewer(String memberRole, String adminRole) {
@@ -302,7 +358,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         payload.put("status", asset.getStatus().name());
         payload.put("targetType", asset.getTargetType().name());
         payload.put("targetId", asset.getTargetId());
-        return toAuditJson(payload);
+        return toJson(payload, "audit snapshot serialization failed");
     }
 
     private String jobSnapshot(AiGenerationJob job) {
@@ -314,14 +370,14 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         payload.put("targetId", job.getTargetId());
         payload.put("promptVersionId", job.getPromptVersionId());
         payload.put("requestedAt", DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(job.getCreatedAt()));
-        return toAuditJson(payload);
+        return toJson(payload, "audit snapshot serialization failed");
     }
 
-    private String toAuditJson(Map<String, Object> payload) {
+    private String toJson(Map<String, Object> payload, String errorMessage) {
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "audit snapshot serialization failed");
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, errorMessage);
         }
     }
 }

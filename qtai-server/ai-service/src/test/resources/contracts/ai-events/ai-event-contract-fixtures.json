@@ -31,9 +31,13 @@
   "eventPayloadRequiredFields": {
     "AiGenerationJobRequested": [
       "jobId",
-      "passageId",
+      "jobType",
+      "targetType",
+      "targetId",
+      "promptVersionId",
       "requestedBy",
-      "requestSource"
+      "requestSource",
+      "requestedAt"
     ],
     "AiGenerationJobStarted": [
       "jobId",
@@ -83,9 +87,14 @@
       "occurredAt": "2026-06-09T00:00:00Z",
       "payload": {
         "jobId": 1001,
+        "jobType": "EXPLANATION",
+        "targetType": "QT_PASSAGE",
+        "targetId": 35,
         "passageId": 35,
+        "promptVersionId": 10,
         "requestedBy": "SYSTEM_BATCH",
-        "requestSource": "system-ai-generation"
+        "requestSource": "system-ai-generation",
+        "requestedAt": "2026-06-09T00:00:00Z"
       }
     },
     "AiGenerationJobStarted": {

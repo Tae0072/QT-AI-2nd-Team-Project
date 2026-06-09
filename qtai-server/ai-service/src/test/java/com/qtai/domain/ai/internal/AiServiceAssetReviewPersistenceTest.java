@@ -3,7 +3,11 @@ package com.qtai.domain.ai.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -49,12 +53,26 @@ class AiServiceAssetReviewPersistenceTest {
     @Autowired
     private AiValidationLogRepository validationLogRepository;
     @Autowired
+    private AiEventOutboxRepository eventOutboxRepository;
+    @Autowired
     private StudyPublishClientMock studyPublishClientMock;
     @Autowired
     private AuditLogClientMock auditLogClientMock;
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setUp() {
+        validationLogRepository.deleteAll();
+        generatedAssetRepository.deleteAll();
+        eventOutboxRepository.deleteAll();
+        generationJobRepository.deleteAll();
+        checklistVersionRepository.deleteAll();
+        promptVersionRepository.deleteAll();
+    }
 
     @Test
-    void approveHideAndRegenerateUseOwnedDbAndOutboundClients() {
+    void approveHideAndRegenerateUseOwnedDbAndOutboundClients() throws Exception {
         AiPromptVersion promptVersion = promptVersionRepository.saveAndFlush(promptVersion(3L, "2026.06.review"));
         AiValidationChecklistVersion checklistVersion = checklistVersionRepository.saveAndFlush(checklistVersion());
         AiGeneratedAsset asset = saveExplanationVerseAsset(promptVersion, 501L);
@@ -105,6 +123,7 @@ class AiServiceAssetReviewPersistenceTest {
         assertThat(generationJobRepository.findById(regenerated.generationJobId()))
                 .map(AiGenerationJob::getTargetId)
                 .contains(501L);
+        assertAdminRegenerateRequestedOutbox(regenerated.generationJobId(), promptVersion.getId());
         assertThat(auditLogClientMock.writtenCommands())
                 .anySatisfy(command -> assertThat(command.actionType()).isEqualTo("AI_REGENERATE_REQUEST"));
     }
@@ -131,6 +150,29 @@ class AiServiceAssetReviewPersistenceTest {
                 .contains(AiGeneratedAssetStatus.REJECTED);
         assertThat(auditLogClientMock.writtenCommands())
                 .anySatisfy(command -> assertThat(command.actionType()).isEqualTo("AI_ASSET_REJECT"));
+    }
+
+    private void assertAdminRegenerateRequestedOutbox(Long jobId, Long promptVersionId) throws Exception {
+        List<AiEventOutbox> events = eventOutboxRepository.findAll();
+        assertThat(events)
+                .singleElement()
+                .satisfies(event -> {
+                    assertThat(event.getEventName()).isEqualTo("AiGenerationJobRequested");
+                    assertThat(event.getAggregateType()).isEqualTo("ai_generation_job");
+                    assertThat(event.getAggregateId()).isEqualTo("job-" + jobId);
+                    assertThat(event.getSchemaVersion()).isEqualTo("0.1.0");
+                    assertThat(event.getStatus()).isEqualTo(AiEventOutboxStatus.PENDING);
+                });
+        JsonNode payload = objectMapper.readTree(events.getFirst().getPayloadJson());
+        assertThat(payload.path("jobId").asLong()).isEqualTo(jobId);
+        assertThat(payload.path("jobType").asText()).isEqualTo("EXPLANATION");
+        assertThat(payload.path("targetType").asText()).isEqualTo("BIBLE_VERSE");
+        assertThat(payload.path("targetId").asLong()).isEqualTo(501L);
+        assertThat(payload.has("passageId")).isFalse();
+        assertThat(payload.path("promptVersionId").asLong()).isEqualTo(promptVersionId);
+        assertThat(payload.path("requestedBy").asText()).isEqualTo("ADMIN:107");
+        assertThat(payload.path("requestSource").asText()).isEqualTo("admin-ai-regenerate");
+        assertThat(payload.path("requestedAt").asText()).isEqualTo("2026-06-09T09:12:00+09:00");
     }
 
     private AiGeneratedAsset saveExplanationVerseAsset(AiPromptVersion promptVersion, Long verseId) {
