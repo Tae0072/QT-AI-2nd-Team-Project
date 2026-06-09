@@ -7,6 +7,14 @@ gateway:
   jwt:
     public-key: ${JWT_PUBLIC_KEY:}
 
+qtai:
+  gateway:
+    ai-service:
+      route-enabled: ${QTAI_GATEWAY_AI_ROUTE_ENABLED:false}
+      uri: ${GATEWAY_AI_SERVICE_URI:}
+      health-path: ${GATEWAY_AI_SERVICE_HEALTH_PATH:/actuator/health}
+      route-order: ${QTAI_GATEWAY_AI_ROUTE_ORDER:-10}
+
 spring:
   application:
     name: service-gateway

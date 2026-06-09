@@ -6,9 +6,19 @@ import type { ApiResponse, Page, PageParams } from './types';
 //   필터 예: actorType=ADMIN, actionType=AI_ASSET_APPROVE, from, to
 // 참고: 배치/AI 내부 작업 주체는 SYSTEM_BATCH 로 기록된다 (CLAUDE.md §5)
 
+// 백엔드 audit/api/dto/AuditLogItem 과 1:1 대응
 export interface AuditLog {
   id: number;
-  [key: string]: unknown;
+  adminUserId: number | null;
+  actorType: string; // ADMIN, SYSTEM_BATCH, USER
+  actorId: number | null;
+  actorLabel: string | null;
+  actionType: string; // 예: AI_ASSET_APPROVE
+  targetType: string | null;
+  targetId: number | null;
+  beforeJson: string | null;
+  afterJson: string | null;
+  createdAt: string; // ISO datetime (OffsetDateTime)
 }
 
 export interface AuditLogListParams extends PageParams {
