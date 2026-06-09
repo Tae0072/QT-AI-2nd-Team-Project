@@ -109,6 +109,17 @@ class BibleVersesByIdsSliceTest {
     }
 
     @Test
+    void getVersesByIds_zeroOrNegativeId_returns400() throws Exception {
+        // 음수/0 ID → 도메인 INVALID_INPUT → GlobalExceptionHandler → 400 C0002 (javadoc 명세 일치)
+        mockMvc.perform(get("/api/v1/bible/verses/by-ids")
+                        .param("ids", "0")
+                        .header("X-Member-Id", "42")
+                        .header("X-Member-Role", "USER"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("C0002"));
+    }
+
+    @Test
     void getVersesByIds_withoutGatewayHeaders_returns401() throws Exception {
         mockMvc.perform(get("/api/v1/bible/verses/by-ids").param("ids", "10"))
                 .andExpect(status().isUnauthorized())
