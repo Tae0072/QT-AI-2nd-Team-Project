@@ -30,5 +30,19 @@ RS256(비대칭 키): 개인키로 **발급**, 공개키로 **검증**.
 
 note의 JournalEvent처럼 이벤트를 처리하다 실패하면, "유실 0%"라고 말하지 않고 **핸들러 실패 로그(eventId·type·handler·error)를 남기고 재처리 가능 상태**로 둔다(CLAUDE.md §9). 완벽 보장 대신 "복구 가능"을 설계한다.
 
-## 6. (추가 예정)
-작업하며 마주친 개념 계속 정리.
+## 6. ArchUnit으로 "경계"를 자동 검사하기
+
+말로만 "다른 도메인 내부를 직접 부르지 마"라고 하면 지켜지지 않는다. ArchUnit 테스트로 **빌드 때 자동 차단**한다.
+
+- 단순히 "도메인끼리 의존 금지"(`notDependOnEachOther`)만 걸면, **합법적인 api 호출**(member→admin.api)까지 막혀서 빌드가 깨진다.
+- 그래서 "**목적지가 `..api..` 패키지면 통과**(`ignoreDependency`)"라고 예외를 둔다. 결과적으로 *api로 향하는 의존만 허용*, internal로 향하는 cross-domain 의존은 실패. CLAUDE.md §3을 코드로 강제한 셈.
+- 추가로 "컨트롤러(web)는 internal(리포지토리/서비스 구현)을 직접 부르지 않는다"도 한 줄로 검사한다.
+
+## 7. 같은 패키지, 다른 모듈로 "복사 이전"(Strangler)
+
+MSA로 쪼갤 때 한 번에 다 바꾸지 않고, 모놀리식 원본은 그대로 둔 채 도메인 코드를 **새 모듈로 패키지명 유지하며 복사**한다(`com.qtai.domain.member` 그대로). 그래서 import를 안 고쳐도 되고, 원본이 살아 있어 위험이 작다. 통합이 끝나면 원본을 걷어낸다. 이게 Strangler(교살자무화과) 패턴.
+
+## 8. 테스트에서 만난 함정 2가지
+
+- **JWT 키를 저장소에 안 두기**: 평문 RSA 키를 커밋하면 사고. 테스트는 부팅 때 `JwtTestKeysContextCustomizerFactory`가 키를 **즉석 생성**해 주입한다(`spring.factories`로 등록). 운영은 환경변수.
+- **Mockito `@Spy Clock` 주의**: `when(repo.find()).thenReturn(만들기())` 의 "만들기()" 안에서 spy(시계)를 호출하면, Mockito가 "stubbing이 안 끝났다"고 착각해 터진다. → 객체를 `when(...)` **밖에서 미리 만들어** 넣으면 해결.

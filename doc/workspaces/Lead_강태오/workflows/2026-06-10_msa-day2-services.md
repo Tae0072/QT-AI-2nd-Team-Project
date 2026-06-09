@@ -18,8 +18,8 @@ cross-domain 의존 중 같은 서비스 안에 있는 것은 in-process, 다른
 ## TODO (순서대로)
 
 - [x] **Day2-1 service-user 모듈 스켈레톤 + 빌드** — settings include + boot app(web+jpa, H2/MySQL) + 부팅 스모크. `:service-user:build` 통과 (`a82724b`)
-- [ ] **Day2-2 member 이전** — api/internal/web/client. JwtProvider(발급), KakaoOAuthClient, AuthController. 타 도메인은 Mock. JPA/DB(H2 로컬·MySQL env)/보안.
-- [ ] **Day2-3 notification·mission 이전 + 테스트 + PR** — notification(→member in-svc)·mission(→note Mock). MockMvc 통합테스트·단위·ArchUnit. → service-user PR(base dev-msa)
+- [x] **Day2-2 member 이전** — api/internal/web/client 44파일 복사(패키지 `com.qtai.domain.member` 유지). JwtProvider(발급·개인키) `com.qtai.security`로 이전, KakaoOAuthClient, AuthController(POST /api/v1/auth/kakao). 타 서비스 의존(admin·note·praise·report·sharing) api 계약 복사 + `member.client.{도메인}/*UseCaseMock` 6종. SecurityConfig(경로별: auth permitAll·system SYSTEM_BATCH·admin denyAll·그외 authenticated, @EnableMethodSecurity, CORS)+JpaAuditingConfig(Clock) 추가. application.yml(H2/MySQL·Redis·Kakao·JWT env). DevMemberSeedRunner는 @Profile(dev)+@ConditionalOnProperty(dev-bypass)로 테스트 비활성.
+- [x] **Day2-3 notification·mission 이전 + 테스트 + PR** — notification(12)→member in-svc, mission(15)→note `mission.client.note` Mock. NotificationController는 표준 페이징 envelope(`com.qtai.user.web.PageResponse`)로 반환. 테스트 24개 전부 통과: SecurityIntegrationTest(MockMvc, 카카오로그인 permitAll·미인증 401·정상 200·admin 403), JwtProviderTest, MemberServiceTest, NotificationServiceTest, MissionProgressCalculatorTest, DomainBoundaryTest(ArchUnit: cross-domain은 api로만·web→internal 금지), 부팅 스모크. `:service-user:build` 통과(EXITCODE=0). → service-user PR(base dev-msa)
 - [ ] **Day2-4 service-note 모듈** — note·sharing·report제출. verseId 쿼리, JournalEvent 재처리 로그. 테스트·PR.
 - [ ] **Day2-5 service-ai 모듈** — ai+Kafka. 사전생성/검증·F-15 Q&A만, 금지(자유챗봇/SSE/RAG) 부재 테스트. 테스트·PR. (최대 작업)
 - [ ] **Day2-6 문서 정리** — 워크플로우·리포트·스터디노트 갱신, F-ID 명시
@@ -32,4 +32,9 @@ cross-domain 의존 중 같은 서비스 안에 있는 것은 in-process, 다른
 
 ## 진행 메모
 
-(작업하며 갱신)
+- **2026-06-10 service-user(Day2-2·2-3) 완료.** member(44)·notification(12)·mission(15) `com.qtai.domain.*` 패키지 그대로 이전(Strangler — 모놀리식 `src/` 원본 유지). 변경은 전부 `qtai-server/service-user` 범위(monolith·lib-common·service-bible·타 worktree 무영향).
+  - JWT 분리: **발급**(개인키)은 service-user `com.qtai.security.JwtProvider`만, **검증**(공개키)은 lib-common `JwtAuthenticationFilter`/`JwtValidator`(security.jwt.public-key 설정 시 활성). 모놀리식 `com.qtai.security`의 검증 필터/SecurityConfig는 복사하지 않음(lib-common과 중복 방지).
+  - 외부 서비스 의존 7종 → api 계약 타입만 복사 + Mock 임시 구현(통합 시 RestClient 교체, 그때 Mock 삭제): `member.client.admin`(VerifyAdminRole), `member.client.note`(PurgeNote), `member.client.praise`(PurgePraise·ListMemberPraiseSong), `member.client.report`(PurgeReport), `member.client.sharing`(PurgeSharing), `mission.client.note`(GetMeditationCalendar). Mock은 안전 기본값(삭제 미수행 0·관리자 아님·빈 집계).
+  - 빌드 워크플로우: 호스트 `gradlew :service-user:build --no-daemon`(데몬 전역종료 `--stop` 회피). Windows build 폴더 잠금 시 해당 모듈 `build` 폴더 삭제 후 재시도(1회 발생). 테스트 JWT 키는 `JwtTestKeysContextCustomizerFactory`(test src+spring.factories) 런타임 생성 주입.
+  - 검토 2회: 새로 도입한 광범위 `catch(Exception)` 없음(MyPageController 위젯 격리·MissionProgressCoordinator 회원별 격리·JwtProvider 키초기화는 모놀리식 검증된 기존 코드 그대로). 로그 민감정보 없음(memberId만). 평문 키 미커밋(env+런타임생성).
+- **남은 Day2:** service-note(Day2-4)·service-ai(Day2-5)는 후속 세션. RestClient 통합(Mock→실호출 교체)은 Day3.
