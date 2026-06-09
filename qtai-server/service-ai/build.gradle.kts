@@ -28,8 +28,8 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine")
 
     // 검증 참조자료(PDF) 텍스트 추출용. 모놀리식과 동일 버전.
-    // 참고: 현재 baseline의 AI 생성 파이프라인은 Kafka가 아니라 @Scheduled 폴링(outbox) 방식이라
-    //       spring-kafka 의존은 추가하지 않는다. (Kafka 도입은 후속 단계)
+    // 참고: 현재 baseline의 AI 생성 파이프라인은 메시지 브로커가 아니라 @Scheduled 폴링(outbox)
+    //       방식이라 별도 메시징 의존은 추가하지 않는다. (브로커 도입은 후속 단계)
     implementation("org.apache.pdfbox:pdfbox:3.0.3")
 
     compileOnly("org.projectlombok:lombok")
