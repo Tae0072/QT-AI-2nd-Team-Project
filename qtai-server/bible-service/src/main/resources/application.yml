@@ -1,0 +1,37 @@
+server:
+  port: ${BIBLE_SERVICE_PORT:8082}
+
+spring:
+  application:
+    name: bible-service
+  # skeleton 단계는 도메인 빈/DB를 전용 설정에서만 활성화 → 기본 자동설정을 끈다.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+
+qtai:
+  bible:
+    # 게이트웨이 우회 2차 방어선 — 설정 시 X-Gateway-Token 일치 요구(env 주입, 평문 키 금지). 게이트웨이 측 주입은 Inc2.
+    gateway:
+      shared-token: ${QTAI_BIBLE_GATEWAY_SHARED_TOKEN:}
+    inbound:
+      enabled: ${QTAI_BIBLE_INBOUND_ENABLED:false}
+    persistence:
+      enabled: ${QTAI_BIBLE_PERSISTENCE_ENABLED:false}
+      url: ${QTAI_BIBLE_DB_URL:}
+      username: ${QTAI_BIBLE_DB_USERNAME:}
+      password: ${QTAI_BIBLE_DB_PASSWORD:}
+      driver-class-name: ${QTAI_BIBLE_DB_DRIVER_CLASS_NAME:}
+      ddl-auto: ${QTAI_BIBLE_DB_DDL_AUTO:validate}
+      dialect: ${QTAI_BIBLE_DB_DIALECT:}
+      flyway-enabled: ${QTAI_BIBLE_DB_FLYWAY_ENABLED:true}
+      flyway-locations: ${QTAI_BIBLE_DB_FLYWAY_LOCATIONS:classpath:db/migration}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

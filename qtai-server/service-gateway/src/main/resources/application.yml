@@ -7,6 +7,14 @@ gateway:
   jwt:
     public-key: ${JWT_PUBLIC_KEY:}
 
+qtai:
+  gateway:
+    ai-service:
+      route-enabled: ${QTAI_GATEWAY_AI_ROUTE_ENABLED:false}
+      uri: ${GATEWAY_AI_SERVICE_URI:}
+      health-path: ${GATEWAY_AI_SERVICE_HEALTH_PATH:/actuator/health}
+      route-order: ${QTAI_GATEWAY_AI_ROUTE_ORDER:-10}
+
 spring:
   application:
     name: service-gateway
@@ -16,8 +24,24 @@ spring:
         connect-timeout: 2000        # ms — 다운스트림 연결 타임아웃
         response-timeout: 5s         # 응답 타임아웃(초과 시 504)
       routes:
-        # Strangler: 서비스 추출 전까지 모든 /api/v1/** 를 모놀리식(qtai-server)으로 라우팅.
-        # 추출이 진행되면 도메인별 경로를 각 서비스 URI로 분기한다(bible/today-qt/note/sharing/mypage).
+        # bible-service 추출(Phase 1 Inc2) — /api/v1/bible/** 를 bible-service로 분기.
+        # 반드시 monolith catch-all(/api/v1/**)보다 앞 순서여야 매칭된다(Spring Cloud Gateway는 순차 평가).
+        - id: bible-service
+          uri: ${GATEWAY_BIBLE_URI:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/bible/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: bibleCb
+                fallbackUri: forward:/__fallback
+            # 게이트웨이 우회 2차 방어선 — bible-service가 검증할 공유 토큰 주입(env 주입, 평문 키 금지).
+            # 양측(게이트웨이 GATEWAY_BIBLE_SHARED_TOKEN = 서비스 qtai.bible.gateway.shared-token) 동일 값.
+            # 기본값은 비어있지 않은 sentinel('unset') — AddRequestHeader는 빈 값 바인딩이 불가하고,
+            # 서비스 측 토큰이 미설정(blank)이면 이 헤더를 무시하므로 2차 방어선은 양측 설정 시에만 활성된다.
+            - AddRequestHeader=X-Gateway-Token, ${GATEWAY_BIBLE_SHARED_TOKEN:unset}
+        # Strangler: 나머지 /api/v1/** 는 모놀리식(qtai-server)으로 라우팅.
+        # 추출이 진행되면 도메인별 경로를 각 서비스 URI로 분기한다(today-qt/note/sharing/mypage).
         - id: monolith
           uri: ${GATEWAY_MONOLITH_URI:http://localhost:8080}
           predicates:
