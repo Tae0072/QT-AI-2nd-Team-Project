@@ -22,7 +22,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * <p>경로별 정책(CLAUDE.md §5):
  * <ul>
  *   <li>{@code /actuator/health}, {@code /actuator/info} — permitAll</li>
- *   <li>{@code /api/v1/admin/**} — ROLE_ADMIN (세부 admin_role 검사는 컨트롤러 메서드 보안 + admin 도메인 연동 시 강화)</li>
+ *   <li>{@code /api/v1/admin/**} — denyAll. 관리자 기능(admin_role 이중검증 포함)은
+ *       콘텐츠 서비스가 아니라 admin-server가 제공한다. ROLE_ADMIN 단독 허용 시
+ *       admin_users.admin_role 검증 없이 열리는 우회를 막기 위해 이 서비스에서는 차단한다.</li>
  *   <li>그 외 모든 요청 — 인증 필요(authenticated)</li>
  * </ul>
  */
@@ -44,7 +46,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/admin/**").denyAll()
                         .anyRequest().authenticated());
 
         if (jwtAuthenticationFilter != null) {
