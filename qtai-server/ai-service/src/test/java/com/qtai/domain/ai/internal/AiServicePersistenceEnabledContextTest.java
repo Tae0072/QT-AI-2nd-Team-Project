@@ -42,6 +42,10 @@ class AiServicePersistenceEnabledContextTest {
     @Autowired
     private AiBatchRunLogRepository aiBatchRunLogRepository;
     @Autowired
+    private AiEventOutboxRepository aiEventOutboxRepository;
+    @Autowired
+    private AiProcessedEventRepository aiProcessedEventRepository;
+    @Autowired
     private EntityManagerFactory entityManagerFactory;
 
     @Test
@@ -53,6 +57,8 @@ class AiServicePersistenceEnabledContextTest {
         assertThat(aiValidationChecklistVersionRepository).isNotNull();
         assertThat(validationReferenceJobRepository).isNotNull();
         assertThat(aiBatchRunLogRepository).isNotNull();
+        assertThat(aiEventOutboxRepository).isNotNull();
+        assertThat(aiProcessedEventRepository).isNotNull();
     }
 
     @Test
@@ -68,7 +74,9 @@ class AiServicePersistenceEnabledContextTest {
                 AiPromptVersion.class,
                 AiValidationChecklistVersion.class,
                 ValidationReferenceJob.class,
-                AiBatchRunLog.class
+                AiBatchRunLog.class,
+                AiEventOutbox.class,
+                AiProcessedEvent.class
         );
     }
 }

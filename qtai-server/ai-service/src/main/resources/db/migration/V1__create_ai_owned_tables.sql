@@ -153,3 +153,46 @@ CREATE INDEX idx_ai_batch_run_logs_batch_created
     ON ai_batch_run_logs (batch_name, created_at);
 CREATE INDEX idx_ai_batch_run_logs_status_created
     ON ai_batch_run_logs (status, created_at);
+
+CREATE TABLE ai_event_outbox (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    event_id VARCHAR(80) NOT NULL,
+    event_name VARCHAR(120) NOT NULL,
+    aggregate_type VARCHAR(80) NOT NULL,
+    aggregate_id VARCHAR(120) NOT NULL,
+    schema_version VARCHAR(30) NOT NULL,
+    payload_json LONGTEXT NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+    retry_count INT NOT NULL DEFAULT 0,
+    last_error_code VARCHAR(100),
+    last_error_message VARCHAR(1000),
+    trace_id VARCHAR(120),
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    published_at DATETIME(6),
+    CONSTRAINT uk_ai_event_outbox_event_id UNIQUE (event_id)
+);
+
+CREATE INDEX idx_ai_event_outbox_status_created
+    ON ai_event_outbox (status, created_at);
+CREATE INDEX idx_ai_event_outbox_aggregate
+    ON ai_event_outbox (aggregate_type, aggregate_id);
+CREATE INDEX idx_ai_event_outbox_event_name_status
+    ON ai_event_outbox (event_name, status);
+
+CREATE TABLE ai_processed_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    event_id VARCHAR(80) NOT NULL,
+    handler_name VARCHAR(120) NOT NULL,
+    aggregate_type VARCHAR(80) NOT NULL,
+    aggregate_id VARCHAR(120) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    processed_at DATETIME(6) NOT NULL,
+    last_error_code VARCHAR(100),
+    last_error_message VARCHAR(1000),
+    CONSTRAINT uk_ai_processed_events_event_handler UNIQUE (event_id, handler_name)
+);
+
+CREATE INDEX idx_ai_processed_events_status_processed
+    ON ai_processed_events (status, processed_at);
+CREATE INDEX idx_ai_processed_events_aggregate
+    ON ai_processed_events (aggregate_type, aggregate_id);
