@@ -17,6 +17,8 @@ qtai:
     # 게이트웨이 우회 2차 방어선 — 설정 시 X-Gateway-Token 일치 요구(env 주입, 평문 키 금지). 게이트웨이 측 주입은 Inc2.
     gateway:
       shared-token: ${QTAI_BIBLE_GATEWAY_SHARED_TOKEN:}
+      # 무중단 회전(grace window) — 회전 중 직전 토큰도 한시 허용. 전환 완료 후 비운다.
+      previous-token: ${QTAI_BIBLE_GATEWAY_PREVIOUS_TOKEN:}
     inbound:
       enabled: ${QTAI_BIBLE_INBOUND_ENABLED:false}
     persistence:

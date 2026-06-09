@@ -21,9 +21,14 @@ class GatewayHeaderAuthenticationFilterTest {
 
     private static final ObjectMapper OM = new ObjectMapper().findAndRegisterModules();
     private static final String GW_TOKEN = "gw-test-token"; // gitleaks:allow — 테스트 전용 더미 토큰
+    private static final String PREV_TOKEN = "gw-prev-token"; // gitleaks:allow — 테스트 전용 더미 직전 토큰
 
     private GatewayHeaderAuthenticationFilter filter(String expectedToken) {
         return new GatewayHeaderAuthenticationFilter(OM, expectedToken);
+    }
+
+    private GatewayHeaderAuthenticationFilter filter(String currentToken, String previousToken) {
+        return new GatewayHeaderAuthenticationFilter(OM, currentToken, previousToken);
     }
 
     private MockHttpServletRequest req(String path) {
@@ -176,6 +181,64 @@ class GatewayHeaderAuthenticationFilterTest {
         MockFilterChain chain = new MockFilterChain();
 
         filter(null).doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(chain.getRequest()).isNull();
+    }
+
+    // ── 토큰 회전 grace window ──
+
+    @Test
+    @DisplayName("회전 중 직전 토큰으로도 통과(grace window)")
+    void rotation_previousTokenAccepted() throws Exception {
+        MockHttpServletRequest request = req("/api/v1/bible/books");
+        request.addHeader("X-Gateway-Token", PREV_TOKEN);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter(GW_TOKEN, PREV_TOKEN).doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chain.getRequest()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("회전 중 현재 토큰도 통과")
+    void rotation_currentTokenAccepted() throws Exception {
+        MockHttpServletRequest request = req("/api/v1/bible/books");
+        request.addHeader("X-Gateway-Token", GW_TOKEN);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter(GW_TOKEN, PREV_TOKEN).doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chain.getRequest()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("현재·직전 어느 것도 아닌 토큰 → 401")
+    void rotation_unknownToken_returns401() throws Exception {
+        MockHttpServletRequest request = req("/api/v1/bible/books");
+        request.addHeader("X-Gateway-Token", "neither-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter(GW_TOKEN, PREV_TOKEN).doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(chain.getRequest()).isNull();
+    }
+
+    @Test
+    @DisplayName("직전 토큰 미설정(회전 종료)이면 직전값 거부 → 401")
+    void rotation_previousNotConfigured_rejectsOldToken() throws Exception {
+        MockHttpServletRequest request = req("/api/v1/bible/books");
+        request.addHeader("X-Gateway-Token", PREV_TOKEN);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter(GW_TOKEN).doFilter(request, response, chain); // previous 미설정(2-arg)
 
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(chain.getRequest()).isNull();
