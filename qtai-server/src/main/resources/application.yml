@@ -85,9 +85,14 @@ qtai:
       base-url: ${QTAI_BIBLE_CLIENT_BASE_URL:}
       gateway-token: ${QTAI_BIBLE_CLIENT_GATEWAY_TOKEN:}
       timeout-ms: ${QTAI_BIBLE_CLIENT_TIMEOUT_MS:3000}
-      # 일시 오류(5xx·연결/타임아웃) 재시도. 4xx는 재시도 안 함. (CB는 컷오버 전 별도 도입.)
+      # 일시 오류(5xx·연결/타임아웃) 재시도. 4xx는 재시도 안 함.
       retry-max-attempts: ${QTAI_BIBLE_CLIENT_RETRY_MAX_ATTEMPTS:3}
       retry-backoff-ms: ${QTAI_BIBLE_CLIENT_RETRY_BACKOFF_MS:100}
+      # Circuit Breaker(Resilience4j) — 지속 장애 시 fast-fail. 일시 장애(재시도 소진)만 실패로 기록, 4xx 제외.
+      cb-failure-rate-threshold: ${QTAI_BIBLE_CLIENT_CB_FAILURE_RATE:50}
+      cb-sliding-window-size: ${QTAI_BIBLE_CLIENT_CB_WINDOW:10}
+      cb-minimum-calls: ${QTAI_BIBLE_CLIENT_CB_MIN_CALLS:5}
+      cb-wait-duration-seconds: ${QTAI_BIBLE_CLIENT_CB_WAIT_SEC:10}
 
 qt:
   today-source:

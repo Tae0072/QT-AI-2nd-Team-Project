@@ -16,6 +16,8 @@ import com.qtai.domain.bible.api.dto.BibleBookResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
@@ -56,30 +58,37 @@ public class BibleServiceClient {
 
     static final String HEADER_GATEWAY_TOKEN = "X-Gateway-Token";
 
+    /** 재시도 폭주 방지를 위한 상한 — 설정 오류(과대값)로부터 보호. */
+    static final int MAX_ATTEMPTS_CAP = 10;
+
     private final RestClient restClient;
     private final String gatewayToken;
     private final ObjectMapper objectMapper;
     private final int maxAttempts;
     private final long retryBackoffMs;
+    private final CircuitBreaker circuitBreaker; // nullable — 없으면 재시도만(CB 미적용)
 
     public BibleServiceClient(RestClient restClient, String gatewayToken, ObjectMapper objectMapper) {
-        this(restClient, gatewayToken, objectMapper, 3, 100L);
+        this(restClient, gatewayToken, objectMapper, 3, 100L, null);
     }
-
-    /** 재시도 폭주 방지를 위한 상한 — 설정 오류(과대값)로부터 보호. */
-    static final int MAX_ATTEMPTS_CAP = 10;
 
     public BibleServiceClient(RestClient restClient, String gatewayToken, ObjectMapper objectMapper,
                               int maxAttempts, long retryBackoffMs) {
+        this(restClient, gatewayToken, objectMapper, maxAttempts, retryBackoffMs, null);
+    }
+
+    public BibleServiceClient(RestClient restClient, String gatewayToken, ObjectMapper objectMapper,
+                              int maxAttempts, long retryBackoffMs, CircuitBreaker circuitBreaker) {
         this.restClient = restClient;
         this.gatewayToken = gatewayToken;
         this.objectMapper = objectMapper;
         this.maxAttempts = Math.min(Math.max(1, maxAttempts), MAX_ATTEMPTS_CAP);
         this.retryBackoffMs = Math.max(0, retryBackoffMs);
+        this.circuitBreaker = circuitBreaker;
     }
 
     public List<BibleBookResponse> listBibleBooks() {
-        return withRetry("GET /api/v1/bible/books", () -> unwrap(restClient.get()
+        return executeWithResilience("GET /api/v1/bible/books", () -> unwrap(restClient.get()
                 .uri("/api/v1/bible/books")
                 .header(HEADER_GATEWAY_TOKEN, gatewayToken)
                 .retrieve()
@@ -88,7 +97,7 @@ public class BibleServiceClient {
     }
 
     public BibleVerseRangeResponse getVerses(String bookCode, int chapter, Integer verseFrom, Integer verseTo) {
-        return withRetry("GET /api/v1/bible/verses", () -> unwrap(restClient.get()
+        return executeWithResilience("GET /api/v1/bible/verses", () -> unwrap(restClient.get()
                 .uri(builder -> {
                     builder.path("/api/v1/bible/verses")
                             .queryParam("bookCode", bookCode)
@@ -112,7 +121,7 @@ public class BibleServiceClient {
         if (verseIds == null || verseIds.isEmpty()) {
             return List.of();
         }
-        return withRetry("GET /api/v1/bible/verses/by-ids", () -> unwrap(restClient.get()
+        return executeWithResilience("GET /api/v1/bible/verses/by-ids", () -> unwrap(restClient.get()
                 .uri(builder -> builder.path("/api/v1/bible/verses/by-ids")
                         .queryParam("ids", verseIds.toArray())
                         .build())
@@ -120,6 +129,23 @@ public class BibleServiceClient {
                 .retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError, this::handle4xx)
                 .body(VERSE_LIST)));
+    }
+
+    /**
+     * Circuit Breaker(설정 시)로 감싼 재시도 실행. CB가 열려 있으면 다운스트림 호출 없이 즉시 fast-fail
+     * ({@code EXTERNAL_API_FAILURE})한다. CB는 일시 장애(EXTERNAL_API_FAILURE)만 실패로 기록하고
+     * 4xx 역매핑은 무시한다(설정은 {@code BibleHttpClientConfiguration}). CB 미설정이면 재시도만 수행.
+     */
+    private <T> T executeWithResilience(String operation, Supplier<T> call) {
+        if (circuitBreaker == null) {
+            return withRetry(operation, call);
+        }
+        try {
+            return circuitBreaker.executeSupplier(() -> withRetry(operation, call));
+        } catch (CallNotPermittedException e) {
+            log.warn("bible-service Circuit Breaker OPEN — fast-fail [{}]", operation);
+            throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
+        }
     }
 
     /** 일시 오류(5xx·연결/타임아웃)만 제한 재시도. 4xx 역매핑({@link BusinessException})은 즉시 전파. */

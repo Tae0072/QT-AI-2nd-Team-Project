@@ -17,7 +17,11 @@ public record BibleClientProperties(
         String gatewayToken,
         Long timeoutMs,
         Integer retryMaxAttempts,
-        Long retryBackoffMs
+        Long retryBackoffMs,
+        Float cbFailureRateThreshold,
+        Integer cbSlidingWindowSize,
+        Integer cbMinimumCalls,
+        Long cbWaitDurationSeconds
 ) {
 
     public boolean isHttpMode() {
@@ -30,6 +34,22 @@ public record BibleClientProperties(
 
     long retryBackoffMsOrDefault() {
         return retryBackoffMs != null && retryBackoffMs >= 0 ? retryBackoffMs : 100L;
+    }
+
+    float cbFailureRateThresholdOrDefault() {
+        return cbFailureRateThreshold != null && cbFailureRateThreshold > 0 ? cbFailureRateThreshold : 50f;
+    }
+
+    int cbSlidingWindowSizeOrDefault() {
+        return cbSlidingWindowSize != null && cbSlidingWindowSize > 0 ? cbSlidingWindowSize : 10;
+    }
+
+    int cbMinimumCallsOrDefault() {
+        return cbMinimumCalls != null && cbMinimumCalls > 0 ? cbMinimumCalls : 5;
+    }
+
+    long cbWaitDurationSecondsOrDefault() {
+        return cbWaitDurationSeconds != null && cbWaitDurationSeconds > 0 ? cbWaitDurationSeconds : 10L;
     }
 
     String requireBaseUrl() {

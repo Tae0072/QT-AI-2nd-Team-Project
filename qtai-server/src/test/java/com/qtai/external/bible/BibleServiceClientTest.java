@@ -2,11 +2,16 @@ package com.qtai.external.bible;
 
 import java.util.List;
 
+import java.time.Duration;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.bible.api.dto.BibleBookResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
+
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -156,6 +161,59 @@ class BibleServiceClientTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.BIBLE_VERSE_NOT_FOUND);
+    }
+
+    private CircuitBreaker testCircuitBreaker() {
+        return CircuitBreaker.of("test", CircuitBreakerConfig.custom()
+                .slidingWindowType(CircuitBreakerConfig.SlidingWindowType.COUNT_BASED)
+                .slidingWindowSize(2)
+                .minimumNumberOfCalls(2)
+                .failureRateThreshold(100f)
+                .waitDurationInOpenState(Duration.ofSeconds(60))
+                .recordException(e -> e instanceof BusinessException be
+                        && be.getErrorCode() == ErrorCode.EXTERNAL_API_FAILURE)
+                .build());
+    }
+
+    @Test
+    @DisplayName("지속 5xx 장애 → CB OPEN 후 다운스트림 호출 없이 fast-fail")
+    void circuitBreaker_opensThenShortCircuits() {
+        CircuitBreaker cb = testCircuitBreaker();
+        BibleServiceClient cbClient = new BibleServiceClient(
+                restClient, TOKEN, new ObjectMapper().findAndRegisterModules(), 1, 0, cb);
+        // 2회 503 → 각각 EXTERNAL_API_FAILURE → CB 실패 2건 → OPEN. 3회차는 서버 호출 없이 단락.
+        server.expect(ExpectedCount.times(2), method(GET))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+
+        assertThatThrownBy(cbClient::listBibleBooks).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(cbClient::listBibleBooks).isInstanceOf(BusinessException.class);
+        assertThat(cb.getState()).isEqualTo(CircuitBreaker.State.OPEN);
+        assertThatThrownBy(cbClient::listBibleBooks)
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.EXTERNAL_API_FAILURE);
+
+        server.verify(); // 정확히 2회만 서버 호출(3회차 단락)
+    }
+
+    @Test
+    @DisplayName("4xx(404)는 CB 실패로 기록하지 않는다 — CB CLOSED 유지")
+    void circuitBreaker_ignoresClientErrors_staysClosed() {
+        CircuitBreaker cb = testCircuitBreaker();
+        BibleServiceClient cbClient = new BibleServiceClient(
+                restClient, TOKEN, new ObjectMapper().findAndRegisterModules(), 1, 0, cb);
+        server.expect(ExpectedCount.times(3), method(GET))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"success\":false,\"data\":null,\"error\":{\"code\":\"B0002\",\"message\":\"x\"}}"));
+
+        for (int i = 0; i < 3; i++) {
+            assertThatThrownBy(() -> cbClient.getVerses(java.util.List.of(1L)))
+                    .isInstanceOf(BusinessException.class);
+        }
+
+        assertThat(cb.getState()).isEqualTo(CircuitBreaker.State.CLOSED); // 4xx는 CB 무관
+        server.verify(); // 3회 모두 서버 도달(CB 미개방)
     }
 
     @Test

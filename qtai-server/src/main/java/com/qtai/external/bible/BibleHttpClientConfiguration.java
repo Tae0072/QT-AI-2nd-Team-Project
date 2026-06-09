@@ -3,9 +3,15 @@ package com.qtai.external.bible;
 import java.time.Duration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.bible.api.GetBibleVerseUseCase;
 import com.qtai.domain.bible.api.ListBibleBooksUseCase;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.client.ClientHttpRequestFactories;
@@ -28,8 +34,31 @@ import org.springframework.web.client.RestClient;
 @EnableConfigurationProperties(BibleClientProperties.class)
 public class BibleHttpClientConfiguration {
 
+    private static final Logger log = LoggerFactory.getLogger(BibleHttpClientConfiguration.class);
+
     @Bean
-    BibleServiceClient bibleServiceClient(BibleClientProperties properties, ObjectMapper objectMapper) {
+    CircuitBreaker bibleServiceCircuitBreaker(BibleClientProperties properties) {
+        CircuitBreakerConfig config = CircuitBreakerConfig.custom()
+                .failureRateThreshold(properties.cbFailureRateThresholdOrDefault())
+                .slidingWindowType(CircuitBreakerConfig.SlidingWindowType.COUNT_BASED)
+                .slidingWindowSize(properties.cbSlidingWindowSizeOrDefault())
+                .minimumNumberOfCalls(properties.cbMinimumCallsOrDefault())
+                .waitDurationInOpenState(Duration.ofSeconds(properties.cbWaitDurationSecondsOrDefault()))
+                // 일시 장애(재시도 소진 = EXTERNAL_API_FAILURE)만 실패로 기록 — 4xx 역매핑은 무시.
+                .recordException(e -> e instanceof BusinessException be
+                        && be.getErrorCode() == ErrorCode.EXTERNAL_API_FAILURE)
+                .build();
+        CircuitBreaker circuitBreaker = CircuitBreaker.of("bibleService", config);
+        // 상태 전이(CLOSED↔OPEN↔HALF_OPEN) 관측 — 장애 격리 발동/복구 가시화.
+        circuitBreaker.getEventPublisher().onStateTransition(event -> log.info(
+                "bible-service CircuitBreaker 상태 전이: {} → {}",
+                event.getStateTransition().getFromState(), event.getStateTransition().getToState()));
+        return circuitBreaker;
+    }
+
+    @Bean
+    BibleServiceClient bibleServiceClient(BibleClientProperties properties, ObjectMapper objectMapper,
+                                          CircuitBreaker bibleServiceCircuitBreaker) {
         if (!StringUtils.hasText(properties.gatewayToken())) {
             throw new IllegalStateException(
                     "qtai.bible.client.gateway-token must be configured when qtai.bible.client.mode=http "
@@ -44,7 +73,8 @@ public class BibleHttpClientConfiguration {
                 .requestFactory(ClientHttpRequestFactories.get(settings))
                 .build();
         return new BibleServiceClient(restClient, properties.gatewayToken(), objectMapper,
-                properties.retryMaxAttemptsOrDefault(), properties.retryBackoffMsOrDefault());
+                properties.retryMaxAttemptsOrDefault(), properties.retryBackoffMsOrDefault(),
+                bibleServiceCircuitBreaker);
     }
 
     @Bean
