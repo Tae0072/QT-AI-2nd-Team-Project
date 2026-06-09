@@ -120,6 +120,18 @@ class AiEventContractFixtureTest {
     }
 
     @Test
+    void generationJobRequestedEventKeepsQtPassageAliasForCompatibility() {
+        JsonNode payload = fixtures
+                .path("events")
+                .path("AiGenerationJobRequested")
+                .path("payload");
+
+        assertThat(payload.path("targetType").asText()).isEqualTo("QT_PASSAGE");
+        assertThat(payload.path("targetId").asLong()).isEqualTo(35L);
+        assertThat(payload.path("passageId").asLong()).isEqualTo(payload.path("targetId").asLong());
+    }
+
+    @Test
     void qtBibleReferenceLookupKeepsHttpUntilProviderInputEventIsApproved() {
         JsonNode decisions = fixtures.path("decisions");
 
