@@ -8,6 +8,10 @@
 - [x] **부분 신원 헤더 다운스트림 영향 점검** — bible-service 도메인 코드는 신원 헤더·role 인가 미사용(`@PreAuthorize`/`hasRole`/`SecurityContext`/`X-Member-*` 0건, 컨트롤러는 `@RequestParam`만). **읽기 전용이라 부분/무 신원 헤더의 침묵 인가 우회 위험 없음**(우회할 인가 부재).
   - ⚠ **불변식(향후)**: bible-service에 member 단위 인가·쓰기 엔드포인트가 추가되면 SYSTEM 토큰 통과(사용자 헤더 없이 허용)를 **반드시 재검토**한다(SYSTEM 호출에 member 인가가 적용되지 않으므로).
 - [x] **토큰 회전 grace window 구현** — 필터가 현재값+직전값(`qtai.bible.gateway.previous-token`)을 동시 허용(상수시간 비교) → 무중단 회전 가능. 회전 절차: 새 토큰을 current로, 기존을 previous로 설정 → 게이트웨이/소비자 전환 → previous 비움. (Inc3b 구현, [[2026-06-09_msa-bible-token-rotation]])
+  - ⚠ **grace window 운영 위험(문서 보강, 차단 아님)**:
+    1. **장기 방치**: previous-token을 회전 후 안 비우면 구토큰이 무기한 유효(공격 표면 잔존). → 회전 완료 즉시 비우고, **잔존 모니터링/알람**(previous 설정 후 N시간 경과 시 경고) 운영 룰 필요.
+    2. **길이 불일치 사이드채널**: `MessageDigest.isEqual`은 내용 상수시간이나 **길이가 다르면 조기 false** → 토큰 길이 노출 가능. 운영상 **현재·직전 토큰 길이를 동일 규격(고정 길이 랜덤)** 으로 발급해 완화. (영향 낮음 — 토큰은 내부 비밀)
+    3. **역방향 롤백 절차**: 새 토큰 배포 후 롤백 시, current=구토큰·previous=신토큰으로 **되돌리는 순서**를 명문화(게이트웨이를 먼저 구토큰으로 → 서비스 current 복귀 → 신토큰 previous 정리). 무절차 롤백 시 401 폭발 위험.
 - [ ] **서비스별 개별 토큰** — bible 전용 토큰(글로벌 토큰 금지), env/시크릿 매니저 주입.
 - [ ] (권장) mTLS·네트워크 정책(게이트웨이/내부망만 접근) 병행 — 인프라 트랙.
 

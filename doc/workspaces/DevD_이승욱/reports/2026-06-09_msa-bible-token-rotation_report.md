@@ -24,6 +24,9 @@
 - `gradlew :bible-service:test` — **BUILD SUCCESSFUL / 0 failures (25건)**: 필터 16(+회전 4) + 토큰슬라이스 4 + inbound슬라이스 2 + persistence 1 + 캐시 1 + contextLoads 1
 - 테스트 토큰 리터럴은 상수+`gitleaks:allow`(CI 게이트 대비).
 
+## grace window 운영 위험(문서 보강, 차단 아님)
+운영 진입 체크리스트에 3종 기록: ① previous-token 장기 방치(회전 후 즉시 비움 + 잔존 알람) ② 길이 불일치 사이드채널(현재·직전 동일 규격 고정 길이 발급으로 완화) ③ 역방향 롤백 절차 명문화(게이트웨이 먼저 구토큰 → 서비스 current 복귀 → 신토큰 정리).
+
 ## 미해결
 - Inc3c(external/bible HTTP 클라이언트+어댑터) — getVerse(Long)/ListChapters/SearchBible은 대응 엔드포인트 부재라 소비자 사용 범위 조사 선행.
 - Inc3d(소비자 전환) → Inc4(DB 분리) → Inc5(모놀리식 제거).
