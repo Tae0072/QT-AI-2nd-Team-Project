@@ -16,3 +16,4 @@ rootProject.name = "qtai-server"
 // 도메인을 모듈로 점진 추출한다. 추출이 끝나면 root 모놀리식 코드를 제거한다.
 include("lib-common")     // 공통: 응답/예외, JWT 검증 필터, RestClient 설정
 include("service-bible")  // 읽기전용 콘텐츠: bible, qt, study, music, praise (port 8082)
+include("service-note")   // 노트/나눔/신고: note, sharing, report(제출) (port 8083)
