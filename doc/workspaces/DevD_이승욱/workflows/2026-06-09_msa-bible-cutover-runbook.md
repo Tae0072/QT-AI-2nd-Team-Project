@@ -1,5 +1,7 @@
 # 2026-06-09 MSA Phase 1 — bible 컷오버 런북 (Inc5a)
 
+> **관련 F-ID**: F-01(성경·QT 본문 화면, `bible`+`qt`) 기반 인프라 — 본문 제공 도메인(bible) 추출. 소비자: qt(F-01)·note(F-03 절 참조)·ai(F-02·F-08 해설 본문). MSA 추출 자체는 직접 기능 변경이 아니며 동작 무변경.
+
 ## 목표
 모놀리식 소비자(qt/note/ai)의 bible 호출을 in-process `BibleService`에서 **bible-service HTTP 호출로 실제 전환(컷오버)** 한다. Inc5b(모놀리식 bible 도메인·테이블 제거)의 **선행 조건** — 컷오버가 모든 배포 환경에서 soak되기 전에는 제거하지 않는다.
 
