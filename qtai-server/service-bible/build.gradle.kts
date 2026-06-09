@@ -38,6 +38,9 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    // ArchUnit — 도메인 경계 자동 검증 (CLAUDE.md §3, §4)
+    testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
 }
 
 tasks.withType<JavaCompile> {

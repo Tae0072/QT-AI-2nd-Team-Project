@@ -8,7 +8,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
@@ -38,8 +40,12 @@ public class JwtValidator {
             KeyFactory kf = KeyFactory.getInstance("RSA");
             byte[] publicBytes = Base64.getDecoder().decode(publicKeyBase64);
             this.publicKey = kf.generatePublic(new X509EncodedKeySpec(publicBytes));
-        } catch (Exception e) {
-            throw new IllegalStateException("JWT 공개키 초기화 실패 — security.jwt.public-key 설정을 확인하세요.", e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("RSA 알고리즘을 찾을 수 없습니다.", e);
+        } catch (InvalidKeySpecException e) {
+            throw new IllegalStateException("JWT 공개키 형식이 올바르지 않습니다 — security.jwt.public-key 확인.", e);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("JWT 공개키 Base64 디코딩에 실패했습니다 — security.jwt.public-key 확인.", e);
         }
     }
 

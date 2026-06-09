@@ -15,6 +15,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -36,14 +37,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException e) {
-        String message = e.getBindingResult().getFieldErrors().stream()
-                .map(f -> f.getField() + ": " + f.getDefaultMessage())
-                .reduce((a, b) -> a + ", " + b)
-                .orElse("유효성 검증 실패");
-        log.warn("Validation failed: {}", message);
+        List<ApiResponse.FieldError> fields = e.getBindingResult().getFieldErrors().stream()
+                .map(f -> new ApiResponse.FieldError(f.getField(), f.getDefaultMessage()))
+                .toList();
+        log.warn("Validation failed: {}", fields);
         return ResponseEntity
                 .badRequest()
-                .body(ApiResponse.error(ErrorCode.INVALID_INPUT.getCode(), message));
+                .body(ApiResponse.error(ErrorCode.INVALID_INPUT.getCode(), "입력값 검증에 실패했습니다.", fields));
     }
 
     /**

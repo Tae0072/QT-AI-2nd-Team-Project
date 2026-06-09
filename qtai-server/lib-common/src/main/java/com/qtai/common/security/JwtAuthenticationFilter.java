@@ -63,8 +63,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         );
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            } catch (JwtException e) {
-                // 토큰 값은 로그에 남기지 않음 (CLAUDE.md §9)
+            } catch (JwtException | IllegalArgumentException e) {
+                // JwtException: 만료·변조·서명불일치 / IllegalArgumentException: null·malformed 토큰
+                // 둘 다 인증 실패(401)로 처리해 500 누출을 막는다. 토큰 값은 로그에 남기지 않음 (CLAUDE.md §9)
                 log.warn("JWT 검증 실패 — uri={}, error={}", request.getRequestURI(), e.getMessage());
                 SecurityContextHolder.clearContext();
                 securityErrorResponseWriter.write(response, ErrorCode.UNAUTHORIZED);
