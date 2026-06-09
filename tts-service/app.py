@@ -16,6 +16,7 @@ GPU 없이(Edge TTS) CPU 클라우드에서 동작하는 최소 구현이다.
 import io
 import os
 import re
+from xml.sax.saxutils import escape as xml_escape
 
 import edge_tts
 from fastapi import Depends, FastAPI, HTTPException
@@ -24,6 +25,12 @@ from fastapi.responses import Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydub import AudioSegment
 from pydantic import BaseModel
+
+# Azure Speech(선택) — 키가 있으면 멀티 목소리(선희/인준/현수)를 클라우드에서도
+# 그대로 쓸 수 있다. Edge TTS 무료 엔드포인트는 데이터센터 IP에서 Microsoft가
+# 차단하는 경우가 많아, 인증된 Azure Speech로 같은 목소리를 안정적으로 제공한다.
+AZURE_SPEECH_KEY = os.environ.get("AZURE_SPEECH_KEY", "")
+AZURE_SPEECH_REGION = os.environ.get("AZURE_SPEECH_REGION", "")
 
 # 표시 이름 → Edge 음성 ID (기존 edge_tts_engine.py와 동일하게 유지)
 KOREAN_VOICES = {
@@ -102,6 +109,38 @@ async def _edge_mp3(text: str, voice_id: str) -> bytes:
     return bytes(buf)
 
 
+async def _azure_mp3(text: str, voice_id: str) -> bytes:
+    """Azure Speech REST로 한 조각을 mp3 바이트로 생성 (멀티 목소리)."""
+    import aiohttp
+
+    endpoint = (
+        f"https://{AZURE_SPEECH_REGION}.tts.speech.microsoft.com"
+        "/cognitiveservices/v1"
+    )
+    ssml = (
+        "<speak version='1.0' xml:lang='ko-KR'>"
+        f"<voice name='{voice_id}'>{xml_escape(text)}</voice></speak>"
+    )
+    headers = {
+        "Ocp-Apim-Subscription-Key": AZURE_SPEECH_KEY,
+        "Content-Type": "application/ssml+xml",
+        "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
+        "User-Agent": "qt-ai-tts",
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            endpoint, data=ssml.encode("utf-8"), headers=headers,
+            timeout=aiohttp.ClientTimeout(total=30),
+        ) as resp:
+            if resp.status != 200:
+                body = await resp.text()
+                raise RuntimeError(f"azure {resp.status}: {body[:120]}")
+            data = await resp.read()
+    if not data:
+        raise RuntimeError("azure: 빈 응답")
+    return data
+
+
 def _gtts_mp3(text: str) -> bytes:
     """gTTS(구글) 폴백 — 데이터센터 IP에서도 동작. 한국어 단일 음성."""
     from gtts import gTTS
@@ -116,33 +155,49 @@ _last_engine = {"name": "edge"}
 
 
 async def _synthesize(text: str, voice_id: str) -> bytes:
-    """Edge TTS 우선, 실패 시 gTTS로 자동 폴백.
+    """엔진 우선순위: Azure(키 있으면) → Edge TTS → gTTS.
 
-    Edge TTS는 일부 클라우드(데이터센터 IP)에서 Microsoft가 차단해 실패할 수
-    있다. 그 경우 gTTS로 폴백해 기능이 끊기지 않게 한다(단, gTTS는 한국어 단일
-    음성이라 목소리 구분은 사라진다).
+    - Azure Speech: 인증 호출이라 클라우드에서도 멀티 목소리(선희/인준/현수) OK.
+    - Edge TTS: 무료지만 데이터센터 IP에서 Microsoft가 차단하는 경우가 많음.
+    - gTTS: 어디서든 동작하지만 한국어 단일 음성(목소리 구분 사라짐).
     """
+    import asyncio
+
+    errors = []
+
+    if AZURE_SPEECH_KEY and AZURE_SPEECH_REGION:
+        try:
+            data = await _azure_mp3(text, voice_id)
+            _last_engine["name"] = "azure"
+            return data
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"azure: {e}")
+
     try:
         data = await _edge_mp3(text, voice_id)
         _last_engine["name"] = "edge"
         return data
-    except Exception as edge_err:  # noqa: BLE001
-        try:
-            import asyncio
+    except Exception as e:  # noqa: BLE001
+        errors.append(f"edge: {e}")
 
-            data = await asyncio.to_thread(_gtts_mp3, text)
-            _last_engine["name"] = "gtts"
-            return data
-        except Exception as gtts_err:  # noqa: BLE001
-            raise HTTPException(
-                status_code=502,
-                detail=f"TTS 실패 — edge: {edge_err} / gtts: {gtts_err}",
-            )
+    try:
+        data = await asyncio.to_thread(_gtts_mp3, text)
+        _last_engine["name"] = "gtts"
+        return data
+    except Exception as e:  # noqa: BLE001
+        errors.append(f"gtts: {e}")
+        raise HTTPException(status_code=502, detail="TTS 실패 — " + " / ".join(errors))
 
 
 @app.get("/")
 def root():
-    return {"status": "ok", "service": "qt-ai-tts", "engine": "edge-tts"}
+    azure = bool(AZURE_SPEECH_KEY and AZURE_SPEECH_REGION)
+    return {
+        "status": "ok",
+        "service": "qt-ai-tts",
+        "engine_priority": (["azure"] if azure else []) + ["edge-tts", "gtts"],
+        "azure_configured": azure,
+    }
 
 
 @app.get("/voices")
