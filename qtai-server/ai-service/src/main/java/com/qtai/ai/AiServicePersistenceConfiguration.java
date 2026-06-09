@@ -8,6 +8,7 @@ import javax.sql.DataSource;
 import jakarta.persistence.EntityManagerFactory;
 
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.FlywayException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -58,7 +59,7 @@ public class AiServicePersistenceConfiguration {
     }
 
     @Bean(name = "aiServiceFlywayMigrationInitializer")
-    Object aiServiceFlywayMigrationInitializer(
+    AiServiceFlywayMigrationMarker aiServiceFlywayMigrationInitializer(
             @Qualifier("aiServiceDataSource") DataSource dataSource,
             AiServicePersistenceProperties properties
     ) {
@@ -70,7 +71,7 @@ public class AiServicePersistenceConfiguration {
                         .locations(locations)
                         .load()
                         .migrate();
-            } catch (RuntimeException exception) {
+            } catch (FlywayException exception) {
                 log.error(
                         "AI service Flyway migration failed. locations={}, exceptionType={}",
                         locations,
@@ -80,7 +81,7 @@ public class AiServicePersistenceConfiguration {
                 throw exception;
             }
         }
-        return new Object();
+        return new AiServiceFlywayMigrationMarker();
     }
 
     @Bean(name = "aiServiceEntityManagerFactory")
@@ -115,4 +116,7 @@ public class AiServicePersistenceConfiguration {
         }
         return result;
     }
+}
+
+record AiServiceFlywayMigrationMarker() {
 }

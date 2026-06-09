@@ -45,9 +45,11 @@
 ## REQUEST_CHANGES 대응
 
 - `V1__create_ai_owned_tables.sql`은 PR diff에 포함되어 있으며, 이번 보강 커밋에서도 DDL 파일 헤더를 추가해 diff에 명시적으로 다시 포함했다.
+- 재확인 명령 기준 `git diff --stat origin/dev...HEAD -- qtai-server/ai-service/src/main/resources/db/migration/V1__create_ai_owned_tables.sql` 결과는 `155 insertions`이며, `git diff origin/dev...HEAD -- ...`에서 SQL 본문 전체가 표시된다.
 - migration 실패 시 민감 설정값 없이 `locations`와 예외 타입을 error log context로 남기도록 보강했다.
 - `flyway-enabled=false` 경로 context load 테스트를 추가했다.
 - `validation_reference_jobs.storage_uri`, `index_storage_uri`는 후속 admin/API mapping PR에서 직접 노출 차단 테스트 또는 ArchUnit 정책 테스트를 수용 기준으로 둔다.
+- Flyway migration 실패 catch 범위를 `FlywayException`으로 좁히고, initializer bean 반환값을 전용 marker 타입으로 변경했다.
 
 ## 제외 확인
 
