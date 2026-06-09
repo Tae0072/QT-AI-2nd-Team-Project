@@ -40,6 +40,9 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-mysql")
 
+    // Resilience4j Circuit Breaker — external/bible HTTP 호출 장애 격리(게이트웨이 Resilience4j와 정합, 2.x)
+    implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.2.0")
+
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
 
