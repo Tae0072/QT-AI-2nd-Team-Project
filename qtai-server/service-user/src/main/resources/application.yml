@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: service-user
+  # 단일 DB: 로컬/테스트는 H2(MySQL 모드), 운영은 env로 MySQL 주입
+  datasource:
+    url: ${DB_URL:jdbc:h2:mem:user;DB_CLOSE_DELAY=-1;MODE=MySQL}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      # 운영 안전 기본값 validate(env 누락 시 데이터 손실 방지). 로컬은 env로 create-drop/update 주입.
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+# 사용자/인증 서비스 포트 (env 주입 가능, 기본 8081)
+server:
+  port: ${USER_SERVICE_PORT:8081}
