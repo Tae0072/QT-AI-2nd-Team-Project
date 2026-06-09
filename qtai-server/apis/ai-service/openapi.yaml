@@ -59,8 +59,8 @@ x-ai-inbound-api-skeleton:
     default: false
     enabledValue: true
   implementationPolicy:
-    businessLogic: Not implemented in this PR.
-    useCaseBeans: Must be provided by later ai-service internal migration; no production fake use cases.
+    businessLogic: Implemented only when inbound and persistence opt-in properties are both enabled.
+    useCaseBeans: Provided by ai-service internal persistence skeleton under opt-in conditions; no production fake use cases.
     adminAuthorization: ROLE_ADMIN authority plus AdminAuthClient.verifyAnyRole.
     systemAuthorization: SYSTEM_BATCH or ROLE_SYSTEM_BATCH authority.
     openApiParity: Detailed path/schema parity is deferred to a dedicated follow-up PR.
@@ -848,7 +848,7 @@ components:
           enum: [AUTO, ADVISOR, ADMIN]
         result:
           type: string
-          enum: [PASSED, FAILED]
+          enum: [PASSED, REJECTED, NEEDS_REVIEW]
         checklistVersionId:
           type: integer
           format: int64
