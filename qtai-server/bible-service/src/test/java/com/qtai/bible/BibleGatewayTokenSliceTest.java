@@ -71,6 +71,15 @@ class BibleGatewayTokenSliceTest {
     }
 
     @Test
+    void systemCall_validTokenWithoutIdentityHeaders_returns200() throws Exception {
+        // 내부 SYSTEM 서비스 호출(배치/캐시 경계) — 사용자 헤더 없이 공유 토큰만으로 통과
+        mockMvc.perform(get("/api/v1/bible/books")
+                        .header("X-Gateway-Token", SHARED_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
     void identityHeaders_withWrongGatewayToken_returns401() throws Exception {
         mockMvc.perform(get("/api/v1/bible/books")
                         .header("X-Member-Id", "42")

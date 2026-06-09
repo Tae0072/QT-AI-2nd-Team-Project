@@ -120,6 +120,33 @@ class GatewayHeaderAuthenticationFilterTest {
         assertThat(chain.getRequest()).isNotNull();
     }
 
+    @Test
+    @DisplayName("토큰 설정됨 + 유효 토큰 + 사용자 헤더 없음 → 통과(SYSTEM 서비스 호출)")
+    void systemCall_validTokenWithoutIdentityHeaders_passes() throws Exception {
+        MockHttpServletRequest request = req("/api/v1/bible/books");
+        request.addHeader("X-Gateway-Token", "secret-gw-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter("secret-gw-token").doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chain.getRequest()).isNotNull(); // SYSTEM 호출 전달
+    }
+
+    @Test
+    @DisplayName("토큰 미설정 환경에서는 사용자 헤더 없는 SYSTEM 호출 불가 → 401")
+    void systemCall_withoutTokenConfigured_returns401() throws Exception {
+        MockHttpServletRequest request = req("/api/v1/bible/books");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter(null).doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(chain.getRequest()).isNull();
+    }
+
     // ── actuator 예외 ──
 
     @Test
