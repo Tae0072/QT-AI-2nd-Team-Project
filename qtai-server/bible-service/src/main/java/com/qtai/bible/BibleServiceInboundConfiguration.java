@@ -2,6 +2,7 @@ package com.qtai.bible;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,7 +30,10 @@ import com.qtai.domain.bible.web.BibleController;
 public class BibleServiceInboundConfiguration {
 
     @Bean
-    GatewayHeaderAuthenticationFilter gatewayHeaderAuthenticationFilter(ObjectMapper objectMapper) {
-        return new GatewayHeaderAuthenticationFilter(objectMapper);
+    GatewayHeaderAuthenticationFilter gatewayHeaderAuthenticationFilter(
+            ObjectMapper objectMapper,
+            @Value("${qtai.bible.gateway.shared-token:}") String gatewaySharedToken) {
+        // 공유 토큰은 env 주입(저장소 평문 키 금지). 미설정이면 2차 방어선 비활성(헤더 필수 1단만).
+        return new GatewayHeaderAuthenticationFilter(objectMapper, gatewaySharedToken);
     }
 }
