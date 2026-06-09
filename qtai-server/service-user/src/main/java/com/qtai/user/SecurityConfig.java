@@ -51,6 +51,10 @@ public class SecurityConfig {
     @Value("${cors.allowed-origins:http://localhost:3000}")
     private String allowedOrigins;
 
+    /** H2 콘솔 사용 여부. 콘솔을 켠 환경(로컬)에서만 {@code /h2-console/**}을 permitAll로 연다(운영 노출 차단). */
+    @Value("${spring.h2.console.enabled:false}")
+    private boolean h2ConsoleEnabled;
+
     public SecurityConfig(ObjectProvider<JwtAuthenticationFilter> jwtAuthenticationFilterProvider,
                           SecurityErrorResponseWriter securityErrorResponseWriter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilterProvider.getIfAvailable();
@@ -71,17 +75,21 @@ public class SecurityConfig {
                                 securityErrorResponseWriter.write(response, ErrorCode.UNAUTHORIZED))
                         .accessDeniedHandler((request, response, accessDeniedException) ->
                                 securityErrorResponseWriter.write(response, ErrorCode.FORBIDDEN)))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
-                        // 인증 없이 허용 (CLAUDE.md §5: Flutter SDK가 카카오 토큰을 직접 받아 전달)
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/kakao").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
-                        .requestMatchers("/h2-console/**").permitAll()
-                        // 시스템·배치 내부 API — 필터 레벨에서 ROLE_SYSTEM_BATCH 강제
-                        .requestMatchers("/api/v1/system/**").hasRole("SYSTEM_BATCH")
-                        // 관리자 API — admin-server 책임. 사용자 서비스에서는 차단.
-                        .requestMatchers("/api/v1/admin/**").denyAll()
-                        .anyRequest().authenticated());
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
+                            // 인증 없이 허용 (CLAUDE.md §5: Flutter SDK가 카카오 토큰을 직접 받아 전달)
+                            .requestMatchers(HttpMethod.POST, "/api/v1/auth/kakao").permitAll()
+                            .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll();
+                    // H2 콘솔은 콘솔이 켜진 환경(로컬)에서만 연다 — 운영에서 실수로 활성화돼도 SecurityConfig가 막는다.
+                    if (h2ConsoleEnabled) {
+                        auth.requestMatchers("/h2-console/**").permitAll();
+                    }
+                    // 시스템·배치 내부 API — 필터 레벨에서 ROLE_SYSTEM_BATCH 강제
+                    auth.requestMatchers("/api/v1/system/**").hasRole("SYSTEM_BATCH")
+                            // 관리자 API — admin-server 책임. 사용자 서비스에서는 차단.
+                            .requestMatchers("/api/v1/admin/**").denyAll()
+                            .anyRequest().authenticated();
+                });
 
         if (jwtAuthenticationFilter != null) {
             http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

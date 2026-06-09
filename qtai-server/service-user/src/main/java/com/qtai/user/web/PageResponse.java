@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
  * @param totalPages    전체 페이지 수
  * @param first         첫 페이지 여부
  * @param last          마지막 페이지 여부
+ * @param sort          정렬 기준 목록("property,direction" 형식, 미정렬이면 빈 목록)
  */
 public record PageResponse<T>(
         List<T> content,
@@ -28,11 +29,15 @@ public record PageResponse<T>(
         long totalElements,
         int totalPages,
         boolean first,
-        boolean last
+        boolean last,
+        List<String> sort
 ) {
 
     /** Spring {@link Page}를 표준 envelope로 변환한다. */
     public static <T> PageResponse<T> from(Page<T> page) {
+        List<String> sort = page.getSort().stream()
+                .map(order -> order.getProperty() + "," + order.getDirection().name())
+                .toList();
         return new PageResponse<>(
                 page.getContent(),
                 page.getNumber(),
@@ -40,6 +45,7 @@ public record PageResponse<T>(
                 page.getTotalElements(),
                 page.getTotalPages(),
                 page.isFirst(),
-                page.isLast());
+                page.isLast(),
+                sort);
     }
 }
