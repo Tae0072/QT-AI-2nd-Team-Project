@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
@@ -16,7 +15,7 @@ import java.time.LocalDateTime;
 
 /**
  * 좋아요 엔티티. updatedAt이 불필요하므로 BaseEntity를 상속하지 않고
- * createdAt만 {@code @PrePersist}로 직접 관리한다.
+ * createdAt만 보관한다. createdAt은 공통 Clock(Asia/Seoul) 기준 시각을 Service가 주입한다.
  */
 @Entity
 @Table(name = "post_likes", uniqueConstraints = {
@@ -39,21 +38,16 @@ public class PostLike {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @PrePersist
-    void prePersist() {
-        if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
-        }
-    }
-
     /**
      * 좋아요 한 건 생성. 생성자가 protected라(JPA 전용) 외부는 이 팩토리로만 만든다.
-     * createdAt은 {@code @PrePersist}가 저장 직전에 채운다.
+     * createdAt은 공통 Clock(Asia/Seoul) 기준 시각을 호출자(Service)가 주입한다 — 엔티티에서
+     * {@code LocalDateTime.now()}를 직접 부르지 않아 04:00 KST 등 시간 정책을 일관되게 유지한다.
      */
-    public static PostLike of(Long sharingPostId, Long memberId) {
+    public static PostLike of(Long sharingPostId, Long memberId, LocalDateTime createdAt) {
         PostLike like = new PostLike();
         like.sharingPostId = sharingPostId;
         like.memberId = memberId;
+        like.createdAt = createdAt;
         return like;
     }
 }

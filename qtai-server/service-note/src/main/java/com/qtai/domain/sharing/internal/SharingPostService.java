@@ -31,6 +31,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -66,6 +67,8 @@ public class SharingPostService
     private final GetMemberUseCase getMemberUseCase;
     // 좋아요 알림 발송용(P1-13).
     private final com.qtai.domain.notification.api.SendNotificationUseCase sendNotificationUseCase;
+    // 공통 시계(Asia/Seoul) — 좋아요 생성/삭제/숨김 시각을 시간 정책과 일관되게 기록한다.
+    private final Clock clock;
 
     @Override
     public SharingPostListResponse list(Long memberId, String category, String q, Pageable pageable) {
@@ -220,7 +223,7 @@ public class SharingPostService
         if (postLikeRepository.existsBySharingPostIdAndMemberId(postId, memberId)) {
             throw new BusinessException(ErrorCode.DUPLICATE_LIKE);
         }
-        postLikeRepository.save(PostLike.of(postId, memberId));
+        postLikeRepository.save(PostLike.of(postId, memberId, LocalDateTime.now(clock)));
         // 원자적 UPDATE로 likeCount를 실제 행 수에 동기화 (P1-2 lost update 방지).
         // managed 엔티티를 mutate하지 않으므로 dirty-checking이 atomic UPDATE를 덮어쓰지 않는다.
         sharingPostRepository.syncLikeCount(postId);
@@ -273,7 +276,7 @@ public class SharingPostService
         if (post.getStatus() == SharingPostStatus.DELETED) {
             return; // 이미 삭제됨 — 멱등
         }
-        post.delete(LocalDateTime.now());
+        post.delete(LocalDateTime.now(clock));
     }
 
     /**
@@ -287,7 +290,7 @@ public class SharingPostService
         if (post.getStatus() == SharingPostStatus.HIDDEN) {
             return; // 이미 숨김 — 멱등
         }
-        post.hide(LocalDateTime.now());
+        post.hide(LocalDateTime.now(clock));
     }
 
     /**

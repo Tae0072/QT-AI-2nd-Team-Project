@@ -27,6 +27,7 @@ import com.qtai.domain.note.api.dto.NoteUpdateResponse;
 import com.qtai.domain.note.api.dto.NoteVerseItem;
 import com.qtai.domain.note.api.dto.UpdateNoteCommand;
 import com.qtai.domain.note.client.qt.NoteQtClient;
+import com.qtai.domain.sharing.api.MarkSourceNoteDeletedUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -57,7 +58,7 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
     private final GetBibleVerseUseCase getBibleVerseUseCase;
     private final NoteQtClient noteQtClient;
     // 나눔 글 원본 삭제 통지(명세 §4.3.7) — sharing api 포트 (CLAUDE.md §4)
-    private final com.qtai.domain.sharing.api.MarkSourceNoteDeletedUseCase markSourceNoteDeletedUseCase;
+    private final MarkSourceNoteDeletedUseCase markSourceNoteDeletedUseCase;
     // 노트 변경 이벤트를 같은 트랜잭션에서 적재하는 아웃박스(P1-10) — 기존 eventPublisher 대체
     private final JournalEventOutbox journalOutbox;
     private final Clock clock;

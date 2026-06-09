@@ -35,16 +35,25 @@ admin-server 소관인 신고 검수 8파일을 제외했다: `AdminReportContro
 
 note 변경(묵상 노트 생성/수정/삭제)을 호출자 트랜잭션과 원자적으로 `journal_events`(PENDING)에 적재(`JournalEventOutbox`)하고, `JournalEventReprocessor`가 `@Scheduled` 폴링으로 처리한다. 전달 실패 시 **FAILED + 지수 백오프(nextAttemptAt) + retryCount 증가**로 남겨 "재처리 가능 상태"를 보존하고, 실패 로그에 eventId·eventType·handlerName·errorMessage를 남긴다(CLAUDE.md §9, §10).
 
-## 3. 테스트 (총 19개, 실패·스킵 0)
+## 3. 테스트 (총 42개, 실패·스킵 0)
 
 | 클래스 | 수 | 내용 |
 |--------|----|------|
 | `DomainBoundaryTest` | 1 | ArchUnit 커스텀 ArchCondition — 타 도메인 `.internal` 직접 의존 금지(api/api.dto 허용). sharing→note.api, report→sharing.api 같은 합법 in-svc 의존 통과 |
 | `NoteApiSecurityIntegrationTest` | 7 | MockMvc 통합 — 미인증 401/403, 인증 노트목록 200, qtPassageId 쿼리파라미터 200, 노트생성 201, 신고접수 201, /api/v1/admin/** denyAll 403 |
 | `NoteServiceTest` | 4 | 카테고리별 입력검증(QT_PASSAGE_REQUIRED/FORBIDDEN, VERSE_REQUIRED, NOT_FOUND) |
+| `SharingPostServiceTest` | 10 | 공개 동의 가드, 좋아요(없는 글/중복/성공·동기화), 좋아요취소, 삭제(소유권/멱등/DELETED 전이), 숨김·되돌리기, 내목록 잘못된 status |
+| `CommentServiceTest` | 6 | 없는 글/댓글 OFF 차단, 작성 시 카운트 동기화, 삭제 소유권, **탈퇴 회원 닉네임 폴백(회귀)** |
+| `MeditationCalendarServiceTest` | 4 | **streak 계산(P1-9 회귀)** — 오늘까지 연속/오늘 미저장 시 어제 anchor/중간 공백 끊김/이력 없음 |
+| `PurgeServiceTest` | 3 | report·note·sharing 정리 — 자기 테이블만, 순서·합계 검증(JdbcTemplate mock) |
 | `ReportServiceTest` | 4 | 대상타입 검증, 중복 신고, POST 대상 미존재→TARGET_NOT_FOUND, 정상 접수 RECEIVED |
 | `JournalEventReprocessorTest` | 2 | 핸들러 실패→FAILED·재처리 가능 상태 보존 / 성공→PROCESSED |
 | `NoteServiceApplicationTest` | 1 | 컨텍스트 로드 스모크 |
+
+### 3.1 자동 리뷰(claude-review) 대응 — REQUEST_CHANGES 2건 해소
+- **BLOCK1 시간 정책(Clock 우회)**: `PostLike.prePersist()`의 `LocalDateTime.now()` 제거 → 팩토리에서 Clock 기반 createdAt 주입. `SharingPostService.delete()/hide()/like()`도 주입 Clock(`now(clock)`) 사용. service-note 전체 무인자 `now()` 0건.
+- **BLOCK2 테스트 누락**: 핵심 미검증 서비스(SharingPostService·CommentService·MeditationCalendarService·Purge 3종) 단위테스트 추가(19→42개).
+- WARN: `NoteService`의 sharing UseCase FQN 참조 → import로 정리.
 
 ## 4. 검증
 
