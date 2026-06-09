@@ -21,13 +21,13 @@
 - PR 크기: 서비스 스캐폴드라 파일 수가 많음(ai-service 스캐폴드와 동일 성격) — 기능 응집 단위라 분할하지 않음.
 
 ## 리뷰 후속 보강(머지 전)
-초기 스캐폴드 리뷰 3건 보강:
+초기 스캐폴드 리뷰 3건 + 2차 리뷰(보안 강화·테스트 사유) 반영:
 - **(c) 캐시 누락** — bible 도메인의 `@Cacheable("bibleBooks")`가 동작하도록 `BibleCacheConfig`(@EnableCaching + Caffeine, 모놀리식 CacheConfig의 bible 캐시 이전) 추가. 없으면 @Cacheable이 조용히 무시되어 캐싱 동작 차이. starter-cache + caffeine 의존.
-- **(b) 무인증 노출 방지** — inbound 활성 시 `/api/v1/bible/**`가 무인증 노출되는 위험 차단. `GatewayHeaderAuthenticationFilter`(게이트웨이 주입 `X-Member-Id` 없으면 401, actuator 예외)를 inbound 구성과 **한 단위로 게이트**해 "켤 때 보안 누락"을 방지. full Spring Security 대신 경량 필터(자동설정 미간섭).
-- **(a) 테스트 보강** — contextLoads 외 단위 테스트 추가: 필터 deny/allow/actuator 3건 + CacheManager 빈 1건.
+- **(b) 무인증 노출 + 게이트웨이 우회 차단** — `GatewayHeaderAuthenticationFilter`를 inbound 구성과 **한 단위로 게이트**(켤 때 보안 누락 방지). **2단 방어선**: ① 게이트웨이 주입 `X-Member-Id`·`X-Member-Role` **2종 모두 필수**(하나라도 없으면 401), ② `qtai.bible.gateway.shared-token` 설정 시 `X-Gateway-Token` 상수시간 비교로 검증(헤더 위조한 직접 호출 차단). 토큰은 env 주입(평문 키 미커밋). **게이트웨이 측 토큰 주입은 Inc2(라우트 컷오버) 전제**.
+- **(a) 테스트 사유 명시 + 보강** — `BibleService`/`BibleController`는 모놀리식에서 **verbatim 복사**한 코드로, 본 PR은 skeleton(트래픽 오프)이라 도메인 빈을 활성화하지 않는다. 도메인 단위/슬라이스·통합 테스트는 **inbound/persistence를 활성화하는 Inc1b/Inc2에서 일괄 추가**한다(모놀리식 원본 테스트는 유지). 본 PR은 신규 작성 인프라(필터·캐시)에 단위 테스트를 둔다.
 
 ## 검증
-- `gradlew :bible-service:build` — **BUILD SUCCESSFUL / 0 failures (5건)**: contextLoads 1 + GatewayHeaderAuthenticationFilterTest 3(헤더없음 401·M0002 / 헤더있음 통과 / actuator 예외) + BibleCacheConfigTest 1(bibleBooks 캐시 등록)
+- `gradlew :bible-service:build` — **BUILD SUCCESSFUL / 0 failures (9건)**: contextLoads 1 + GatewayHeaderAuthenticationFilterTest 7(id없음·role없음 401 / 2종 통과 / 토큰 필수·불일치 401 / 토큰 일치 통과 / actuator 예외) + BibleCacheConfigTest 1(bibleBooks 캐시 등록)
 - skeleton 기본값(persistence/inbound 비활성)에서 자동설정 exclude로 DataSource 없이 컨텍스트 로드 확인.
 - 금지 데이터: 마이그레이션·문서의 번역본 언급은 모두 `금지`/`KJV·KRV` 문맥(requirements-guard 제외 패턴) — 본문 데이터 미포함.
 - 전체 `./gradlew build`(타 모듈 포함)·통합 테스트는 CI.

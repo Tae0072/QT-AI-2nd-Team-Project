@@ -40,6 +40,7 @@
 - **glossary_terms FK 제거**는 study 오너(김태혁) 협의 필요.
 - **시드 데이터 이전·번역본 정책** — bible 오너(이지윤) 협의.
 - bible-service 인증·헤더 신뢰 모델은 이후 4개 서비스 공통 → 여기서 확정.
+- **Inc2 전제(보안)**: bible-service는 게이트웨이 미경유 직접 호출을 deny-by-default로 차단(`X-Member-Id`·`X-Member-Role` 필수 + 선택적 `X-Gateway-Token` 공유 토큰). 라우트 컷오버(Inc2) 시 **게이트웨이가 `X-Gateway-Token`을 주입**하도록 설정해 2차 방어선을 활성화한다(공유 토큰 = env 주입). 이 토큰 정책도 이후 서비스 공통.
 
 ## 5. 첫 PR(Inc1) 산출물 예정
 

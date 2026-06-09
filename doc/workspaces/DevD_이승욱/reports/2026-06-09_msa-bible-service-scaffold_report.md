@@ -29,11 +29,12 @@ MSA Phase 1 첫 단계로 읽기 전용 성경 도메인을 독립 `bible-servic
 | 지적 | 조치 |
 |------|------|
 | (c) `@Cacheable` 복사 시 CacheManager 누락 | `BibleCacheConfig`(@EnableCaching + Caffeine `bibleBooks`) 추가 — 없으면 @Cacheable 무시되어 캐싱 동작 차이. starter-cache+caffeine 의존 |
-| (b) inbound 활성 시 무인증 노출 | `GatewayHeaderAuthenticationFilter`(X-Member-Id 없으면 401, actuator 예외)를 inbound와 한 단위로 게이트 — deny-by-default. 게이트웨이 미경유 직접 호출 차단 |
-| (a) 단위/슬라이스 테스트 0건 | 필터 3건(deny/allow/actuator) + CacheManager 1건 추가 |
+| (b) inbound 활성 시 무인증 노출 | `GatewayHeaderAuthenticationFilter`를 inbound와 한 단위로 게이트 — deny-by-default |
+| (b-2) X-Member-Role 미수신 + 우회 2차 방어선 부재 | **2단 방어선**: ① `X-Member-Id`·`X-Member-Role` 2종 모두 필수 ② `qtai.bible.gateway.shared-token` 설정 시 `X-Gateway-Token` 상수시간 검증(우회 차단, env 주입). 게이트웨이 토큰 주입은 Inc2 전제 |
+| (a) 단위/슬라이스 테스트 0건(도메인 KPI) | **사유 명시**: 도메인은 verbatim 복사 + skeleton(트래픽 오프)이라 활성화하는 Inc1b/Inc2에서 통합 테스트 일괄 추가. 본 PR은 신규 인프라(필터·캐시)에 단위 테스트 |
 
 ## 검증
-- `gradlew :bible-service:build` — **BUILD SUCCESSFUL / 0 failures (5건)**: contextLoads 1 + 필터 3 + 캐시 1
+- `gradlew :bible-service:build` — **BUILD SUCCESSFUL / 0 failures (9건)**: contextLoads 1 + 필터 7(id/role 필수·토큰 2차 방어·actuator) + 캐시 1
 - 자동설정 exclude로 skeleton(DataSource 없음)에서 컨텍스트 로드 확인.
 - 금지 데이터: 본문 미포함. 번역본 언급은 `금지`/`KJV·KRV` 문맥(requirements-guard 제외).
 - 전체 빌드·통합 테스트는 CI.
