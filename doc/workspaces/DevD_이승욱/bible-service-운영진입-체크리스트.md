@@ -27,7 +27,9 @@
 
 ## 4. 후속 증분
 - [x] Inc3b(grace window) · Inc3c-2(`external/bible` HTTP 클라이언트+어댑터, 기본 inprocess) 구현
-- [ ] **Inc3d 컷오버 전 보강**: HTTP 호출 **재시도/Circuit Breaker**(Resilience4j) 도입(다운스트림 bible-service 장애 격리) + `BibleHttpClientConfiguration` 활성화 통합 테스트 + 소비자(qt/note/study) 계약 테스트(오너 협의)
+- [x] **재시도(retry)** — `BibleServiceClient`에 일시 오류(5xx·IO) 재시도(4xx 무재시도, maxAttempts 상한 가드) + `BibleHttpClientConfiguration` 통합 테스트(Inc3d 준비 #403 + 보강 회수).
+- [ ] **Circuit Breaker — 의존성 결정 선행(Lead/인프라)**: 모놀리식엔 resilience4j도 spring-cloud BOM도 없음 → CB 도입 시 ① `spring-cloud-starter-circuitbreaker-resilience4j`(BOM 포함) 추가 또는 ② `io.github.resilience4j:resilience4j-circuitbreaker` 버전 핀(게이트웨이 Resilience4j 버전과 정합). **새 의존성/버전 관리 결정이라 Lead/인프라 승인 후 도입**(비차단 — 재시도+타임아웃으로 일시 장애는 커버, CB는 지속 장애 fast-fail 보강). 실패 기록은 EXTERNAL_API_FAILURE만(4xx 제외).
+- [ ] **소비자(qt/note/study) 계약 테스트** — 오너 협의(Inc3d 컷오버).
 - [ ] Inc3d: `mode=http` 전환 + 양측 토큰 동기화(`qtai.bible.client.gateway-token` = bible-service `gateway.shared-token`)
 - [ ] Inc4: DB-per-service(시드 이전, `glossary_terms` FK 제거)
 - [ ] Inc5: 모놀리식 bible 도메인 제거(Strangler 완료)
