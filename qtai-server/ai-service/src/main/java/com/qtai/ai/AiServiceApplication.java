@@ -9,7 +9,8 @@ import org.springframework.context.annotation.Import;
         AiServiceClientConfiguration.class,
         AiServiceInboundConfiguration.class,
         AiServicePersistenceConfiguration.class,
-        AiServiceUseCaseConfiguration.class
+        AiServiceUseCaseConfiguration.class,
+        AiServiceWorkerConfiguration.class
 })
 public class AiServiceApplication {
 
