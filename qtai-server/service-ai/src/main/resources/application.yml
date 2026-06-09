@@ -18,3 +18,21 @@ spring:
 # AI 서비스 포트 (env 주입 가능, 기본 8084)
 server:
   port: ${AI_SERVICE_PORT:8084}
+
+# AI 도메인 설정
+ai:
+  # 사전 생성/검증 파이프라인의 @Scheduled 워커·시더 활성화 스위치.
+  # 기본 false → 테스트·기동 검증 시 스케줄러가 돌지 않는다(부팅 안정).
+  # 운영에서는 env로 true 주입. (CLAUDE.md §6: 00:05 시딩 등)
+  scheduling:
+    enabled: ${AI_SCHEDULING_ENABLED:false}
+
+# 외부 LLM(DeepSeek, OpenAI 호환) 연동. API key는 env로만 주입하며 로그에 남기지 않는다(CLAUDE.md §7).
+external:
+  llm:
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY:}
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+      model: ${DEEPSEEK_MODEL:deepseek-chat}
+      connect-timeout-ms: ${DEEPSEEK_CONNECT_TIMEOUT_MS:3000}
+      read-timeout-ms: ${DEEPSEEK_READ_TIMEOUT_MS:60000}
