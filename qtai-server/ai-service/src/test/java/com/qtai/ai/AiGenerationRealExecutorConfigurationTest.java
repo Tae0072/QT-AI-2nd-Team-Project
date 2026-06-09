@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import com.qtai.domain.ai.internal.AiGenerationWorkerExecutor;
 import com.qtai.domain.ai.internal.AiGenerationWorkerService;
+import com.qtai.domain.ai.client.deepseek.DeepSeekGenerationClient;
 import com.qtai.domain.ai.internal.DeepSeekGenerationWorkerExecutor;
 
 class AiGenerationRealExecutorConfigurationTest {
@@ -31,6 +32,7 @@ class AiGenerationRealExecutorConfigurationTest {
                 .withPropertyValues(deepSeekModeProperties())
                 .run(context -> {
                     assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(DeepSeekGenerationClient.class);
                     assertThat(context).hasSingleBean(AiGenerationWorkerExecutor.class);
                     assertThat(context.getBean(AiGenerationWorkerExecutor.class))
                             .isInstanceOf(DeepSeekGenerationWorkerExecutor.class);
@@ -93,6 +95,7 @@ class AiGenerationRealExecutorConfigurationTest {
                 .withPropertyValues(workerPersistenceProperties())
                 .run(context -> {
                     assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(DeepSeekGenerationClient.class);
                     assertThat(context).hasSingleBean(DeepSeekGenerationWorkerExecutor.class);
                     assertThat(context).hasSingleBean(AiGenerationWorkerService.class);
                 });

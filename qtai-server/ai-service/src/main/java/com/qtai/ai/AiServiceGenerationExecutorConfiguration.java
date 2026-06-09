@@ -6,6 +6,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.qtai.domain.ai.client.deepseek.DeepSeekGenerationClient;
+import com.qtai.domain.ai.client.deepseek.DeepSeekGenerationClientHttpAdapter;
 import com.qtai.domain.ai.internal.AiGenerationWorkerExecutor;
 import com.qtai.domain.ai.internal.DeepSeekGenerationWorkerExecutor;
 
@@ -15,13 +18,28 @@ import com.qtai.domain.ai.internal.DeepSeekGenerationWorkerExecutor;
 public class AiServiceGenerationExecutorConfiguration {
 
     @Bean
-    AiGenerationWorkerExecutor deepSeekGenerationWorkerExecutor(AiGenerationExecutorProperties properties) {
+    DeepSeekGenerationClient deepSeekGenerationClient(
+            AiGenerationExecutorProperties properties,
+            ObjectMapper objectMapper
+    ) {
         AiGenerationExecutorProperties.DeepSeek deepSeek = properties.validatedDeepSeek();
-        return new DeepSeekGenerationWorkerExecutor(
+        return new DeepSeekGenerationClientHttpAdapter(
                 deepSeek.baseUrl(),
                 deepSeek.apiKey(),
-                deepSeek.model(),
-                deepSeek.timeoutMs()
+                deepSeek.timeoutMs(),
+                objectMapper
+        );
+    }
+
+    @Bean
+    AiGenerationWorkerExecutor deepSeekGenerationWorkerExecutor(
+            AiGenerationExecutorProperties properties,
+            DeepSeekGenerationClient deepSeekGenerationClient
+    ) {
+        AiGenerationExecutorProperties.DeepSeek deepSeek = properties.validatedDeepSeek();
+        return new DeepSeekGenerationWorkerExecutor(
+                deepSeekGenerationClient,
+                deepSeek.model()
         );
     }
 }
