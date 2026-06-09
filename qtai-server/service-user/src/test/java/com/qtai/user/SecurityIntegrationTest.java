@@ -114,4 +114,12 @@ class SecurityIntegrationTest {
         mvc.perform(get("/api/v1/admin/anything").header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void H2콘솔은_콘솔비활성_환경에서_permitAll이_아니다() throws Exception {
+        // 테스트 프로파일은 spring.h2.console.enabled를 켜지 않으므로 /h2-console permitAll 매처가 추가되지 않는다.
+        // → 운영에서 실수로 H2 의존이 올라가도 SecurityConfig가 무인증 노출을 막는다(인증 요구 = 401).
+        mvc.perform(get("/h2-console/"))
+                .andExpect(status().isUnauthorized());
+    }
 }
