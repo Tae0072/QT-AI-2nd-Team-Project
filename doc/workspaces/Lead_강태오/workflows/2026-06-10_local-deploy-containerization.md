@@ -15,7 +15,7 @@
 | service-bible | 8082 | O | 공개키 **검증만** |
 | service-note | 8083 | O | 공개키 **검증만** |
 | service-ai | 8084 | O | 공개키 **검증만** |
-| admin-server | 8090 | **TODO** | 공개키 검증만 (PR #433 머지 후) |
+| admin-server | 8090 | O | 모놀리식 복사본 — 개인키+공개키, Flyway off+JPA update |
 | lib-common | - | X(라이브러리) | - |
 
 ## 결정 사항
@@ -24,18 +24,18 @@
 2. **단일 DB(`qtai`) 공유** — DB-per-service 금지. 각 서비스가 자기 도메인 테이블만 생성(JPA `update`, 로컬 한정). 운영 기본은 `validate`.
 3. **JWT 키 최소 권한** — 개인키(`JWT_PRIVATE_KEY`)는 service-user에만. bible/note/ai/admin은 공개키(`SECURITY_JWT_PUBLIC_KEY`)만 주입해 검증만. 평문 키는 `.env`(gitignore)/k8s Secret으로만 주입(저장소 미커밋, gitleaks 통과).
 4. **서비스 소스 미변경** — bible/note/ai는 `security.jwt.public-key` 미설정 상태라, 배포 설정에서 env(`SECURITY_JWT_PUBLIC_KEY`, relaxed binding)만 주입해 lib-common 검증 필터를 활성화. application.yml/코드 수정 없음(불필요 리팩터링 회피).
-5. **admin-server는 PR #433 OPEN(미머지)이라 4개로 우선 구성**, admin은 compose 주석 블록 + `k8s/34-service-admin.yaml.todo` 템플릿으로 준비만.
+5. **admin-server**: 작업 시작 시 PR #433 OPEN이었으나 진행 중 dev-msa 병합으로 **머지 확인 → 5개 모두 포함**. admin은 모놀리식 복사본이라 (a) `server.port` 미설정 → `SERVER_PORT=8090` 주입, (b) JwtProvider 포함 → 개인키+공개키 모두 필요, (c) Flyway+ddl validate → 단일 DB 일관성 위해 env로 `SPRING_FLYWAY_ENABLED=false`+`SPRING_JPA_HIBERNATE_DDL_AUTO=update`로 통일, (d) 음원 시더/AI 워커/외부 SU 호출 off. 소스 변경 없이 env만으로 해결.
 
 ## 산출물 (TODO 체크리스트)
 
-- [x] ① 서비스별 Dockerfile 4종 (`qtai-server/service-*/Dockerfile`, temurin 21-jre, 비루트, bootJar 복사) + `.dockerignore`
-- [x] ② `docker-compose.yml` (루트) — mysql:8.0 1개 + redis + 4서비스, env(DB/REDIS/JWT/PROFILE), healthcheck·depends_on, admin 주석 TODO
+- [x] ① 서비스별 Dockerfile **5종**(service-user/bible/note/ai + admin-server, temurin 21-jre, 비루트, bootJar 복사) + `.dockerignore`
+- [x] ② `docker-compose.yml` (루트) — mysql:8.0 1개 + redis + **5서비스**, env(DB/REDIS/JWT/PROFILE), healthcheck·depends_on
 - [x] ② `.env.example` 갱신 + `scripts/generate-keys.(ps1|sh)` (RS256 PKCS8 생성→.env, 평문 미커밋)
-- [x] ③ `k8s/` 매니페스트 — namespace/configmap/secret 템플릿/mysql(PVC)/redis/4서비스(Deployment+NodePort) + `k8s/README.md` + `k8s/scripts/generate-secret.(ps1|sh)`
-- [x] 빌드·이미지·기동 검증 (compose up, 전 컨테이너 healthy, HTTP 401/403, JWT 검증, 단일 DB 31테이블) — 2~3회 검토 완료
+- [x] ③ `k8s/` 매니페스트 — namespace/configmap/secret 템플릿/mysql(PVC)/redis/**5서비스**(Deployment+NodePort) + `k8s/README.md` + `k8s/scripts/generate-secret.(ps1|sh)`
+- [x] 빌드·이미지·기동 검증 (compose up, **7개 컨테이너 healthy**, HTTP 401/403, JWT 검증, 단일 DB 테이블) — 2~3회 검토 완료
+- [x] admin-server 포함(PR #433 머지) — Dockerfile + compose/k8s 활성화
 - [x] 워크플로우·리포트·스터디노트
 - [ ] 커밋·푸시·PR(base=dev-msa) — 첫푸시 APPROVE 체크리스트 적용
-- [ ] (후속) PR #433 머지 후 admin-server Dockerfile + compose/k8s 활성화
 
 ## 검증 요약 (재현 절차)
 
@@ -58,4 +58,5 @@ docker compose ps                            # 6개 컨테이너 (healthy)
 1. **JWT 개인키 PKCS#1 vs PKCS#8** — `openssl genpkey -outform DER`이 이 빌드에서 PKCS#1(1191B)을 내보내 Java `PKCS8EncodedKeySpec`이 "algid parse error"로 실패. `openssl pkcs8 -topk8 -nocrypt`로 PKCS#8(1217~1218B) 변환 강제. 스크립트 4종 모두 반영.
 2. **PowerShell 5.1 + UTF-8(BOM 없음)** — 한글 `.ps1`을 ANSI로 오독해 파싱 붕괴. 스크립트 `.ps1`은 **UTF-8 BOM**으로 저장.
 3. **컨테이너명 충돌** — 모놀리식 데모 스택의 잔류 `qtai-mysql`/`qtai-redis`와 충돌 → `docker rm -f`로 제거 후 기동.
-4. **기존 루트 docker-compose.yml은 모놀리식(8080)** — MSA 4서비스로 교체.
+4. **기존 루트 docker-compose.yml은 모놀리식(8080)** — MSA 서비스로 교체.
+5. **admin-server(모놀리식 복사본) 단일 DB 충돌** — (a) `server.port` 미설정으로 8080 기동 → `SERVER_PORT=8090`, (b) 음원 시더(`MusicSeedRunner`, 기본 ON)가 LONGBLOB 음원을 단일 DB 음원 테이블에 시딩하다 `Data too long for column 'audio_data'` → `QTAI_MUSIC_SEED_ENABLED=false`(service-bible과 동일, 자산 미이전), (c) Flyway+validate가 4서비스 JPA update와 스키마 소유권 경합 → admin도 `SPRING_FLYWAY_ENABLED=false`+`SPRING_JPA_HIBERNATE_DDL_AUTO=update`로 통일. 모두 env로만 해결(소스 불변).

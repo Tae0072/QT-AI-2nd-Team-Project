@@ -12,7 +12,7 @@
 | service-bible | Deployment | NodePort 30082 | 공개키 **검증만** |
 | service-note | Deployment | NodePort 30083 | 공개키 **검증만** |
 | service-ai | Deployment | NodePort 30084 | 공개키 **검증만** |
-| service-admin | (TODO) | NodePort 30090 | PR #433 머지 후, `34-service-admin.yaml.todo` 참고 |
+| service-admin | Deployment | NodePort 30090 | 모놀리식 복사본 — 개인키+공개키, Flyway off+JPA update, `SERVER_PORT=8090` |
 
 `lib-common`은 라이브러리라 배포 대상이 아닙니다.
 
@@ -22,9 +22,9 @@
 2. 서비스 이미지 빌드(로컬 Docker 이미지 스토어에 올라가며, Docker Desktop k8s가 그대로 사용 — `imagePullPolicy: IfNotPresent`):
    ```bash
    cd qtai-server
-   ./gradlew :service-user:bootJar :service-bible:bootJar :service-note:bootJar :service-ai:bootJar
+   ./gradlew :service-user:bootJar :service-bible:bootJar :service-note:bootJar :service-ai:bootJar :admin-server:bootJar
    cd ..
-   docker compose build      # docker-compose.yml의 4개 서비스 이미지(qtai/service-*:local) 생성
+   docker compose build      # docker-compose.yml의 5개 서비스 이미지(qtai/service-*:local, qtai/admin-server:local) 생성
    ```
    (compose 없이 개별 빌드도 가능: `docker build -t qtai/service-user:local qtai-server/service-user` 등)
 
@@ -43,8 +43,8 @@ kubectl apply -f k8s/10-configmap.yaml
 # 3) 데이터스토어 → 서비스
 kubectl apply -f k8s/20-mysql.yaml -f k8s/25-redis.yaml
 kubectl apply -f k8s/30-service-user.yaml -f k8s/31-service-bible.yaml \
-              -f k8s/32-service-note.yaml -f k8s/33-service-ai.yaml
-# (또는 한 번에: kubectl apply -f k8s/   — .yaml.todo 는 자동 제외)
+              -f k8s/32-service-note.yaml -f k8s/33-service-ai.yaml -f k8s/34-service-admin.yaml
+# (또는 한 번에: kubectl apply -f k8s/)
 ```
 
 ## 확인

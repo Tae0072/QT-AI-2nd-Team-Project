@@ -3,10 +3,11 @@
 # (2026-06-10 Lead 결정 / 회의록 2026-06-09 §9 "로컬은 쿠버네티스 배포로 마무리"의
 #  컨테이너화 1단계. k8s 매니페스트는 k8s/ 참고)
 #
-# 구성: 단일 MySQL 8.0 + Redis + 사용자 서비스 4개(user/bible/note/ai).
+# 구성: 단일 MySQL 8.0 + Redis + 서비스 5개(user/bible/note/ai/admin).
 #   - 단일 DB(qtai) 공유: 도메인 테이블로 구분(DB-per-service 아님, 회의록 2026-06-09).
-#   - JWT: service-user가 RS256 발급(개인키), 나머지는 공개키로 검증만.
-#   - admin-server(8090)는 PR #433 머지 후 추가 — 아래 주석 블록 + k8s/README 참고.
+#   - JWT: service-user가 RS256 발급(개인키), bible/note/ai는 공개키로 검증만,
+#     admin-server는 모놀리식 복사본이라 개인키+공개키 모두 필요.
+#   - admin-server(8090): PR #433 머지로 포함됨(맨 아래 service-admin 블록).
 #
 # 사용법:
 #   1) 키 생성:  ./scripts/generate-keys.ps1   (또는 scripts/generate-keys.sh)  → .env 생성
@@ -207,31 +208,55 @@ services:
       - qtai-net
 
   # ---------------------------------------------------------------------------
-  # admin-server (8090) — TODO: PR #433(admin-server 분리) 머지 후 활성화
-  # 머지되면 settings.gradle.kts에 :admin-server 가 추가되고,
-  # qtai-server/admin-server/Dockerfile + 아래 블록을 주석 해제하면 된다.
+  # admin-server (8090) — PR #433 머지 후 활성화됨.
+  # 모놀리식 복사본이라 prod 프로파일로 Flyway가 단일 DB(qtai) 스키마를 구성하고,
+  # JWT 개인키+공개키를 모두 요구한다(JwtProvider 포함). AI 생성 워커는 로컬 기동 안정성을 위해 off.
   # ---------------------------------------------------------------------------
-  # service-admin:
-  #   build:
-  #     context: ./qtai-server/admin-server
-  #     dockerfile: Dockerfile
-  #   image: qtai/admin-server:local
-  #   container_name: qtai-admin-server
-  #   depends_on:
-  #     mysql:
-  #       condition: service_healthy
-  #   environment:
-  #     SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
-  #     DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qtai}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-  #     DB_USERNAME: ${DB_USERNAME:-qtai}
-  #     DB_PASSWORD: ${DB_PASSWORD:-changeme-local}
-  #     JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
-  #     SECURITY_JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
-  #   ports:
-  #     - "${ADMIN_SERVICE_PORT:-8090}:8090"
-  #   restart: unless-stopped
-  #   networks:
-  #     - qtai-net
+  service-admin:
+    build:
+      context: ./qtai-server/admin-server
+      dockerfile: Dockerfile
+    image: qtai/admin-server:local
+    container_name: qtai-admin-server
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # prod 프로파일: env 기반 MySQL + 정식 JWT 인증(dev-bypass off)
+      SPRING_PROFILES_ACTIVE: prod
+      # admin-server(모놀리식)는 yml에 server.port가 없어 기본 8080 → 8090으로 지정
+      SERVER_PORT: "8090"
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qtai}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${DB_USERNAME:-qtai}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme-local}
+      # 단일 DB 일관성: 4개 슬림 서비스가 JPA update를 쓰므로 admin도 Flyway off + JPA update로 통일
+      # (env가 prod 프로파일의 ddl-auto:validate / flyway.enabled:true 를 오버라이드 — 스키마 소유권 경합 방지)
+      SPRING_FLYWAY_ENABLED: "false"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      # admin-server(모놀리식 복사본)는 개인키+공개키 모두 필요
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      # 로컬 기동 안정성: AI 생성 워커·외부 SU 호출 비활성
+      AI_GENERATION_WORKER_ENABLED: "false"
+      QT_TODAY_SUM_ENABLED: "false"
+      # 음원 시더 off — service-bible과 동일(음원 자산 미이전). 단일 DB에서 음원 테이블 시딩 충돌 방지.
+      QTAI_MUSIC_SEED_ENABLED: "false"
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    ports:
+      - "${ADMIN_SERVICE_PORT:-8090}:8090"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8090' 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    restart: unless-stopped
+    networks:
+      - qtai-net
 
 networks:
   qtai-net:
