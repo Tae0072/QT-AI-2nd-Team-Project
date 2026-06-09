@@ -99,6 +99,7 @@
 - AI 자유 챗봇, 다중 턴 대화, SSE, `/ai/sessions/**`
 - RAG, ChromaDB, vector DB, Elasticsearch
 - Kafka, Kubernetes, Helm v1 도입
+  - 예외(2026-06-10 Lead 승인): MSA 전환 마무리를 위해 **로컬 배포 한정 Kubernetes/Helm 매니페스트**를 허용한다(회의록 2026-06-09 §9 "로컬은 쿠버네티스 배포 형태로 마무리"). 운영(프로덕션) K8s/Helm 도입은 별도 결정이 필요하며, Kafka 확장 금지는 그대로 유지(Kafka는 AI 영역만). 이에 맞춰 CI Requirements Guard의 K8s/Helm 차단을 비차단으로 완화. 근거: `doc/workspaces/Lead_강태오/workflows/2026-06-10_local-k8s-deploy.md`
 - 교회 인증 화면, 버튼, API, DB 필드
 - AI 찬양 추천
 - 찬양 가사, 음원 파일, 직접 YouTube URL 입력·저장
