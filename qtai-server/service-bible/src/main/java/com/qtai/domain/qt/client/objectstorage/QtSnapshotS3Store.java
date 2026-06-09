@@ -52,6 +52,12 @@ public class QtSnapshotS3Store implements QtSnapshotStore {
         this.s3Client = builder.build();
     }
 
+    /** 테스트용 — 외부 네트워크 없이 mock {@link S3Client}로 동작 검증. */
+    QtSnapshotS3Store(S3Client s3Client, String bucket) {
+        this.s3Client = s3Client;
+        this.bucket = bucket;
+    }
+
     @Override
     public String store(String objectKey, String json) {
         try {

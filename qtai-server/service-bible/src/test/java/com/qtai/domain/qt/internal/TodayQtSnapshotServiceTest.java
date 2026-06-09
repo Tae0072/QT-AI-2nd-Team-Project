@@ -83,4 +83,17 @@ class TodayQtSnapshotServiceTest {
         assertThat(location).isEmpty();
         verify(snapshotStore, never()).store(anyString(), anyString());
     }
+
+    @Test
+    @DisplayName("미공개(published=false) 본문은 정적 URL로 새어 나가지 않도록 저장하지 않는다(§8)")
+    void does_not_store_when_passage_unpublished() {
+        QtPassageContentContext unpublished =
+                new QtPassageContentContext(101L, DATE, "오늘의 QT", List.of(1001L), false);
+        when(contentContextUseCase.findContentContextByDate(DATE)).thenReturn(Optional.of(unpublished));
+
+        Optional<String> location = service.exportSnapshot(DATE);
+
+        assertThat(location).isEmpty();
+        verify(snapshotStore, never()).store(anyString(), anyString());
+    }
 }
