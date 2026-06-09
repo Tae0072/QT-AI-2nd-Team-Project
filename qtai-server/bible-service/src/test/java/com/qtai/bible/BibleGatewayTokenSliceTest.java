@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class BibleGatewayTokenSliceTest {
 
-    private static final String SHARED_TOKEN = "test-gateway-shared-token";
+    private static final String SHARED_TOKEN = "test-gateway-shared-token"; // gitleaks:allow — 테스트 전용 더미 토큰
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -65,6 +65,15 @@ class BibleGatewayTokenSliceTest {
         mockMvc.perform(get("/api/v1/bible/books")
                         .header("X-Member-Id", "42")
                         .header("X-Member-Role", "USER")
+                        .header("X-Gateway-Token", SHARED_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void systemCall_validTokenWithoutIdentityHeaders_returns200() throws Exception {
+        // 내부 SYSTEM 서비스 호출(배치/캐시 경계) — 사용자 헤더 없이 공유 토큰만으로 통과
+        mockMvc.perform(get("/api/v1/bible/books")
                         .header("X-Gateway-Token", SHARED_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
