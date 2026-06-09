@@ -1,73 +1,241 @@
-# QT-AI 시연/통합 스택 — 앱 + MySQL + Redis를 한 번에 기동한다.
+# =============================================================================
+# QT-AI MSA 로컬 배포 — Docker Compose
+# (2026-06-10 Lead 결정 / 회의록 2026-06-09 §9 "로컬은 쿠버네티스 배포로 마무리"의
+#  컨테이너화 1단계. k8s 매니페스트는 k8s/ 참고)
 #
-# 실행:
-#   1) cp .env.example .env  (JWT 키 직접 생성해 채우기 — 생성법은 .env.example 참조)
-#   2) docker compose up --build
-#   3) 앱이 MySQL(healthy)을 기다린 뒤 demo 프로파일로 기동. http://localhost:8080
+# 구성: 단일 MySQL 8.0 + Redis + 사용자 서비스 4개(user/bible/note/ai).
+#   - 단일 DB(qtai) 공유: 도메인 테이블로 구분(DB-per-service 아님, 회의록 2026-06-09).
+#   - JWT: service-user가 RS256 발급(개인키), 나머지는 공개키로 검증만.
+#   - admin-server(8090)는 PR #433 머지 후 추가 — 아래 주석 블록 + k8s/README 참고.
 #
-# 시연 스택은 demo 프로파일(정식 JWT 인증 ON)을 사용한다 — 무인증(dev-bypass) 노출 금지.
-# 로컬 빠른 개발(H2, 인프라 없이)은 IDE에서 local 프로파일로 직접 실행한다.
-# 인프라만 띄우려면: docker compose up -d mysql redis
+# 사용법:
+#   1) 키 생성:  ./scripts/generate-keys.ps1   (또는 scripts/generate-keys.sh)  → .env 생성
+#   2) 빌드:     cd qtai-server && ./gradlew :service-user:bootJar :service-bible:bootJar \
+#                  :service-note:bootJar :service-ai:bootJar
+#   3) 기동:     docker compose up -d --build
+#   4) 종료:     docker compose down            (데이터까지: docker compose down -v)
+#
+# 평문 키/시크릿은 이 파일에 두지 않는다. 값은 프로젝트 루트 .env(gitignore)에서 자동 주입한다.
+# =============================================================================
+
+name: qtai-msa-local
+
 services:
+  # ---------------------------------------------------------------------------
+  # 공유 데이터스토어
+  # ---------------------------------------------------------------------------
   mysql:
     image: mysql:8.0
     container_name: qtai-mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: qtai
-      MYSQL_USER: qtai
-      MYSQL_PASSWORD: qtai
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-qtai}
+      MYSQL_USER: ${DB_USERNAME:-qtai}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-changeme-local}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme-root-local}
+      TZ: Asia/Seoul
     ports:
-      - "3306:3306"
-    command: >
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_unicode_ci
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 20s
+      - "${MYSQL_HOST_PORT:-3307}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-changeme-root-local}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - qtai-net
 
   redis:
     image: redis:7-alpine
     container_name: qtai-redis
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+      - "${REDIS_HOST_PORT:-6380}:6379"
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - qtai-net
 
-  qtai-server:
+  # ---------------------------------------------------------------------------
+  # 사용자 서비스 (JWT 발급 주체, port 8081)
+  # ---------------------------------------------------------------------------
+  service-user:
     build:
-      context: ./qtai-server
-    image: qtai-server:local
-    container_name: qtai-server
+      context: ./qtai-server/service-user
+      dockerfile: Dockerfile
+    image: qtai/service-user:local
+    container_name: qtai-service-user
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      # 실DB 연결 — demo 프로파일(application-demo.yml: MySQL + 정식 JWT 인증, 무인증 노출 없음)
-      SPRING_PROFILES_ACTIVE: demo
-      DB_URL: "jdbc:mysql://mysql:3306/qtai?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
-      DB_USERNAME: qtai
-      DB_PASSWORD: qtai
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qtai}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${DB_USERNAME:-qtai}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme-local}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-    # JWT_PRIVATE_KEY / JWT_PUBLIC_KEY 등 비밀값은 .env에서 주입(레포에 평문 금지)
-    env_file:
-      - path: .env
-        required: false
+      # JWT — service-user만 개인키(발급) + 공개키(검증) 둘 다 주입
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      KAKAO_USER_INFO_URL: ${KAKAO_USER_INFO_URL:-https://kapi.kakao.com/v2/user/me}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     ports:
-      - "8080:8080"
+      - "${USER_SERVICE_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8081' 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - qtai-net
+
+  # ---------------------------------------------------------------------------
+  # 읽기전용 콘텐츠 서비스 (공개키로 검증만, port 8082)
+  # ---------------------------------------------------------------------------
+  service-bible:
+    build:
+      context: ./qtai-server/service-bible
+      dockerfile: Dockerfile
+    image: qtai/service-bible:local
+    container_name: qtai-service-bible
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qtai}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${DB_USERNAME:-qtai}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme-local}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      # 공개키 주입 시 lib-common JWT 검증 필터가 활성화된다(security.jwt.public-key relaxed binding)
+      SECURITY_JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      MUSIC_SEED_ENABLED: ${MUSIC_SEED_ENABLED:-false}
+      QT_SNAPSHOT_ENABLED: ${QT_SNAPSHOT_ENABLED:-false}
+      QT_SNAPSHOT_STORAGE: ${QT_SNAPSHOT_STORAGE:-local}
+    ports:
+      - "${BIBLE_SERVICE_PORT:-8082}:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8082' 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - qtai-net
+
+  # ---------------------------------------------------------------------------
+  # 노트/나눔/신고 서비스 (공개키로 검증만, port 8083)
+  # ---------------------------------------------------------------------------
+  service-note:
+    build:
+      context: ./qtai-server/service-note
+      dockerfile: Dockerfile
+    image: qtai/service-note:local
+    container_name: qtai-service-note
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qtai}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${DB_USERNAME:-qtai}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme-local}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      SECURITY_JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+    ports:
+      - "${NOTE_SERVICE_PORT:-8083}:8083"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8083' 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - qtai-net
+
+  # ---------------------------------------------------------------------------
+  # AI 서비스 (공개키로 검증만 / DeepSeek 등 시크릿은 env 주입, port 8084)
+  # ---------------------------------------------------------------------------
+  service-ai:
+    build:
+      context: ./qtai-server/service-ai
+      dockerfile: Dockerfile
+    image: qtai/service-ai:local
+    container_name: qtai-service-ai
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qtai}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${DB_USERNAME:-qtai}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme-local}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      SECURITY_JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      # 사전 생성/검증 스케줄러는 로컬 기동 안정성을 위해 기본 비활성(CLAUDE.md §6)
+      AI_SCHEDULING_ENABLED: ${AI_SCHEDULING_ENABLED:-false}
+      # DeepSeek API key는 env로만 주입(미설정 시 빈 값 — 호출 시점에만 필요)
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    ports:
+      - "${AI_SERVICE_PORT:-8084}:8084"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8084' 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - qtai-net
+
+  # ---------------------------------------------------------------------------
+  # admin-server (8090) — TODO: PR #433(admin-server 분리) 머지 후 활성화
+  # 머지되면 settings.gradle.kts에 :admin-server 가 추가되고,
+  # qtai-server/admin-server/Dockerfile + 아래 블록을 주석 해제하면 된다.
+  # ---------------------------------------------------------------------------
+  # service-admin:
+  #   build:
+  #     context: ./qtai-server/admin-server
+  #     dockerfile: Dockerfile
+  #   image: qtai/admin-server:local
+  #   container_name: qtai-admin-server
+  #   depends_on:
+  #     mysql:
+  #       condition: service_healthy
+  #   environment:
+  #     SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+  #     DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qtai}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+  #     DB_USERNAME: ${DB_USERNAME:-qtai}
+  #     DB_PASSWORD: ${DB_PASSWORD:-changeme-local}
+  #     JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+  #     SECURITY_JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+  #   ports:
+  #     - "${ADMIN_SERVICE_PORT:-8090}:8090"
+  #   restart: unless-stopped
+  #   networks:
+  #     - qtai-net
+
+networks:
+  qtai-net:
+    driver: bridge
 
 volumes:
   mysql-data:
