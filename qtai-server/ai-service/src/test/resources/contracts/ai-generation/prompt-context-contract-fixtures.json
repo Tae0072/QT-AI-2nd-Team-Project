@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "0.1.0",
+  "job": {
+    "jobId": 1001,
+    "jobType": "EXPLANATION",
+    "targetType": "QT_PASSAGE",
+    "targetId": 35,
+    "promptVersionId": 7,
+    "startedAt": "2026-06-09T09:00:00+09:00"
+  },
+  "promptVersion": {
+    "promptVersionId": 7,
+    "promptType": "EXPLANATION",
+    "version": "v2026.06.09",
+    "contentHash": "sha256:allowed-prompt-contract-hash"
+  },
+  "providerContext": {
+    "qtContext": {
+      "passageId": 35,
+      "bibleBook": "John",
+      "chapter": 3,
+      "startVerse": 16,
+      "endVerse": 17,
+      "passageReference": "John 3:16-17",
+      "title": "Allowed QT title",
+      "summary": "Allowed metadata summary",
+      "passageContext": "ALLOWED_METADATA_CONTEXT_BLOCK: passage metadata, section labels, and reviewer-approved context markers only"
+    },
+    "bibleVerseRefs": [
+      {
+        "verseId": 30016,
+        "reference": "John 3:16"
+      },
+      {
+        "verseId": 30017,
+        "reference": "John 3:17"
+      }
+    ]
+  },
+  "expectedResult": {
+    "assetType": "EXPLANATION",
+    "sourceLabel": "AI-WORKER-CONTRACT",
+    "payloadJson": {
+      "summary": "Allowed generated summary",
+      "explanation": "Allowed generated explanation",
+      "sourceRefs": [
+        {
+          "type": "QT_PASSAGE",
+          "id": "35",
+          "reference": "John 3:16-17"
+        }
+      ],
+      "generationMetadata": {
+        "schemaVersion": "0.1.0",
+        "promptVersionId": 7,
+        "contextBlockType": "ALLOWED_METADATA_CONTEXT_BLOCK"
+      }
+    }
+  },
+  "forbiddenPayloadExamples": [
+    {
+      "name": "prompt field",
+      "payloadJson": {
+        "prompt": "blocked test value"
+      }
+    },
+    {
+      "name": "provider raw response field",
+      "payloadJson": {
+        "providerRawResponse": "blocked test value"
+      }
+    },
+    {
+      "name": "reference text field",
+      "payloadJson": {
+        "referenceText": "blocked test value"
+      }
+    },
+    {
+      "name": "auth header field",
+      "payloadJson": {
+        "authHeaderValue": "blocked test value"
+      }
+    },
+    {
+      "name": "db connection field",
+      "payloadJson": {
+        "dbConnectionValue": "blocked test value"
+      }
+    }
+  ]
+}
