@@ -85,6 +85,9 @@ qtai:
       base-url: ${QTAI_BIBLE_CLIENT_BASE_URL:}
       gateway-token: ${QTAI_BIBLE_CLIENT_GATEWAY_TOKEN:}
       timeout-ms: ${QTAI_BIBLE_CLIENT_TIMEOUT_MS:3000}
+      # 일시 오류(5xx·연결/타임아웃) 재시도. 4xx는 재시도 안 함. (CB는 컷오버 전 별도 도입.)
+      retry-max-attempts: ${QTAI_BIBLE_CLIENT_RETRY_MAX_ATTEMPTS:3}
+      retry-backoff-ms: ${QTAI_BIBLE_CLIENT_RETRY_BACKOFF_MS:100}
 
 qt:
   today-source:

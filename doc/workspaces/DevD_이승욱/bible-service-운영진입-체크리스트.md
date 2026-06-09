@@ -26,6 +26,8 @@
 - [ ] 롤백 절차: 게이트웨이 라우트 설정만 되돌리면 모놀리식 복귀(병존, Inc5까지)
 
 ## 4. 후속 증분
-- [ ] Inc3b~3d: `external/bible` HTTP 클라이언트 + 어댑터(기본 inprocess=무변경) + grace window + qt/note/study 전환(오너 협의)
+- [x] Inc3b(grace window) · Inc3c-2(`external/bible` HTTP 클라이언트+어댑터, 기본 inprocess) 구현
+- [ ] **Inc3d 컷오버 전 보강**: HTTP 호출 **재시도/Circuit Breaker**(Resilience4j) 도입(다운스트림 bible-service 장애 격리) + `BibleHttpClientConfiguration` 활성화 통합 테스트 + 소비자(qt/note/study) 계약 테스트(오너 협의)
+- [ ] Inc3d: `mode=http` 전환 + 양측 토큰 동기화(`qtai.bible.client.gateway-token` = bible-service `gateway.shared-token`)
 - [ ] Inc4: DB-per-service(시드 이전, `glossary_terms` FK 제거)
 - [ ] Inc5: 모놀리식 bible 도메인 제거(Strangler 완료)
