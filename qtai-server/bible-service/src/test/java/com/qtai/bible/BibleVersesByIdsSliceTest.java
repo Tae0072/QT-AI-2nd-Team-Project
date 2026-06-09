@@ -72,6 +72,43 @@ class BibleVersesByIdsSliceTest {
     }
 
     @Test
+    void getVersesByIds_missingId_returns404_allOrNothing() throws Exception {
+        // 정책: all-or-nothing — 요청 ID 중 하나라도(999) 없으면 404 B0002 (500 누출 아님)
+        mockMvc.perform(get("/api/v1/bible/verses/by-ids")
+                        .param("ids", "10", "999")
+                        .header("X-Member-Id", "42")
+                        .header("X-Member-Role", "USER"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("B0002"));
+    }
+
+    @Test
+    void getVersesByIds_emptyIds_returns400() throws Exception {
+        // ids 파라미터 누락 → 400 + C0002
+        mockMvc.perform(get("/api/v1/bible/verses/by-ids")
+                        .header("X-Member-Id", "42")
+                        .header("X-Member-Role", "USER"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("C0002"));
+    }
+
+    @Test
+    void getVersesByIds_overLimit_returns400() throws Exception {
+        String[] tooMany = new String[201];
+        for (int i = 0; i < tooMany.length; i++) {
+            tooMany[i] = String.valueOf(i + 1);
+        }
+        mockMvc.perform(get("/api/v1/bible/verses/by-ids")
+                        .param("ids", tooMany)
+                        .header("X-Member-Id", "42")
+                        .header("X-Member-Role", "USER"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("C0002"));
+    }
+
+    @Test
     void getVersesByIds_withoutGatewayHeaders_returns401() throws Exception {
         mockMvc.perform(get("/api/v1/bible/verses/by-ids").param("ids", "10"))
                 .andExpect(status().isUnauthorized())
