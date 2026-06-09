@@ -1,6 +1,19 @@
 spring:
   application:
     name: service-bible
+  # 단일 DB: 로컬/테스트는 H2(MySQL 모드), 운영은 env로 MySQL 주입
+  datasource:
+    url: ${DB_URL:jdbc:h2:mem:bible;DB_CLOSE_DELAY=-1;MODE=MySQL}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      # 로컬/테스트 create-drop, 운영은 env로 validate 주입
+      ddl-auto: ${JPA_DDL_AUTO:create-drop}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
 
 # 읽기전용 콘텐츠 서비스 포트 (env 주입 가능, 기본 8082)
 server:
