@@ -4,18 +4,15 @@ import com.qtai.common.config.ServiceEndpointsProperties;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.common.security.ServiceCallAuthForwarder;
 import com.qtai.domain.bible.api.GetBibleVerseUseCase;
 import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriBuilder;
 
 import java.net.URI;
@@ -91,7 +88,7 @@ public class GetBibleVerseRestClientAdapter implements GetBibleVerseUseCase {
         try {
             ApiResponse<T> body = restClient.get()
                     .uri(uriFunction)
-                    .headers(this::forwardAuthorization)
+                    .headers(ServiceCallAuthForwarder::forward)
                     .retrieve()
                     .onStatus(status -> status.value() == 404, (request, response) -> {
                         throw new BusinessException(ErrorCode.BIBLE_VERSE_NOT_FOUND);
@@ -111,16 +108,5 @@ public class GetBibleVerseRestClientAdapter implements GetBibleVerseUseCase {
             throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
         }
         return body.data();
-    }
-
-    /** 노트 요청에 실린 Authorization 헤더를 bible 호출에 그대로 전달한다(공유키 검증, 유저 서비스 재호출 없음). */
-    private void forwardAuthorization(HttpHeaders headers) {
-        RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
-        if (attributes instanceof ServletRequestAttributes servletAttributes) {
-            String authorization = servletAttributes.getRequest().getHeader(HttpHeaders.AUTHORIZATION);
-            if (authorization != null && !authorization.isBlank()) {
-                headers.set(HttpHeaders.AUTHORIZATION, authorization);
-            }
-        }
     }
 }
