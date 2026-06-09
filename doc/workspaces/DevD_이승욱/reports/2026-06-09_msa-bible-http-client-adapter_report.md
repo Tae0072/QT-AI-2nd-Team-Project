@@ -21,9 +21,14 @@
 - **SYSTEM 인증**: 사용자 컨텍스트 없는 배치/캐시 호출이라 X-Gateway-Token만 주입(bible-service SYSTEM 주체).
 - 토큰·base-url은 env 주입(평문 키 금지). bible/코어/소비자 무변경.
 
+## 리뷰 후속 보강(컷오버 전)
+- **빈 입력 방어**: `getVerses(빈/null)`은 네트워크 호출 없이 빈 결과 — in-process 계약과 동일(불필요 400 회피).
+- **커버리지 보강**: 범위 조회(`getVerses(range)`) 쿼리·언랩, 빈 입력, `ListBibleBooksHttpAdapter` 위임 테스트 추가.
+- (추적) **재시도/Circuit Breaker**: HTTP 호출 회복탄력성은 Inc3d 컷오버 전 도입 — 운영 진입 체크리스트에 추적(설계 사안). `BibleHttpClientConfiguration` 활성화 컨텍스트 테스트도 컷오버 시 통합으로.
+
 ## 검증
-- `gradlew :test --tests "com.qtai.external.bible.*"` — **0 failures (5건)**: 클라이언트 3(토큰·언랩·오류 역매핑) + 어댑터 2(단건 위임·미발견)
+- `gradlew :test --tests "com.qtai.external.bible.*"` — **0 failures (8건)**: 클라이언트 5(토큰·books 언랩·범위·빈입력·오류 역매핑) + 어댑터 3(단건 위임·미발견·목록 위임)
 - 전체 회귀·통합은 CI(기본 inprocess라 영향 없음).
 
 ## 미해결
-- Inc3d(`mode=http` 컷오버 + 소비자 계약 테스트, 토큰 동기화) → Inc4(DB 분리) → Inc5(모놀리식 제거).
+- Inc3d(`mode=http` 컷오버 + 소비자 계약 테스트 + 재시도/CB, 토큰 동기화) → Inc4(DB 분리) → Inc5(모놀리식 제거).

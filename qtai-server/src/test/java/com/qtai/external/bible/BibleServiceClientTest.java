@@ -80,6 +80,33 @@ class BibleServiceClientTest {
     }
 
     @Test
+    @DisplayName("getVerses(범위) — bookCode/chapter/verseFrom/verseTo 쿼리 + 언랩")
+    void getVersesRange_buildsQueryAndUnwraps() {
+        server.expect(method(GET))
+                .andExpect(queryParam("bookCode", "GEN"))
+                .andExpect(queryParam("chapter", "1"))
+                .andExpect(queryParam("verseFrom", "1"))
+                .andExpect(queryParam("verseTo", "3"))
+                .andExpect(header("X-Gateway-Token", TOKEN))
+                .andRespond(withSuccess("{\"success\":true,\"data\":{}}", MediaType.APPLICATION_JSON));
+
+        var range = client.getVerses("GEN", 1, 1, 3);
+
+        assertThat(range).isNotNull();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("빈 ID 입력은 네트워크 호출 없이 빈 결과(in-process 계약)")
+    void getVersesByIds_emptyInput_returnsEmptyWithoutCall() {
+        // server에 어떤 expect도 걸지 않음 → 호출이 일어나면 verify에서 실패
+        List<BibleVerseResponse> verses = client.getVerses(List.of());
+
+        assertThat(verses).isEmpty();
+        server.verify();
+    }
+
+    @Test
     @DisplayName("오류 응답(404 B0002) → error 코드 역매핑한 BusinessException(BIBLE_VERSE_NOT_FOUND)")
     void errorResponse_mapsToBusinessException() {
         server.expect(method(GET))

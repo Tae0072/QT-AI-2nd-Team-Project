@@ -87,6 +87,10 @@ public class BibleServiceClient {
     }
 
     public List<BibleVerseResponse> getVerses(List<Long> verseIds) {
+        // 빈 입력은 네트워크 호출 없이 빈 결과 — in-process BibleService.getVerses(빈)과 동일 계약.
+        if (verseIds == null || verseIds.isEmpty()) {
+            return List.of();
+        }
         return unwrap(restClient.get()
                 .uri(builder -> builder.path("/api/v1/bible/verses/by-ids")
                         .queryParam("ids", verseIds.toArray())
