@@ -17,7 +17,7 @@ cross-domain 의존 중 같은 서비스 안에 있는 것은 in-process, 다른
 
 ## TODO (순서대로)
 
-- [ ] **Day2-1 service-user 모듈 스켈레톤 + 빌드** — settings include + boot app(web only) 스켈레톤 + 부팅 스모크
+- [x] **Day2-1 service-user 모듈 스켈레톤 + 빌드** — settings include + boot app(web+jpa, H2/MySQL) + 부팅 스모크. `:service-user:build` 통과 (`a82724b`)
 - [ ] **Day2-2 member 이전** — api/internal/web/client. JwtProvider(발급), KakaoOAuthClient, AuthController. 타 도메인은 Mock. JPA/DB(H2 로컬·MySQL env)/보안.
 - [ ] **Day2-3 notification·mission 이전 + 테스트 + PR** — notification(→member in-svc)·mission(→note Mock). MockMvc 통합테스트·단위·ArchUnit. → service-user PR(base dev-msa)
 - [ ] **Day2-4 service-note 모듈** — note·sharing·report제출. verseId 쿼리, JournalEvent 재처리 로그. 테스트·PR.

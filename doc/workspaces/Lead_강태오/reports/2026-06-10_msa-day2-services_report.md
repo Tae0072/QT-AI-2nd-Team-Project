@@ -11,7 +11,7 @@ PR#1으로 멀티모듈 골격 + lib-common + service-bible(bible·music·praise
 ## 2. 수행 내용
 (각 단계 완료 시 갱신)
 
-- **Day2-1 service-user 스켈레톤**: _진행 예정_
+- **Day2-1 service-user 스켈레톤**: ✅ 완료 (`a82724b`). settings include + boot app(web+jpa) + @SpringBootTest contextLoads 통과(14s). 운영 ddl-auto=validate, 테스트 create-drop override.
 - **Day2-2 member 이전**: _대기_
 - **Day2-3 notification·mission + PR**: _대기_
 - **Day2-4 service-note**: _대기_
