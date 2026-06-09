@@ -47,19 +47,26 @@ class BibleHttpClientConfigurationTest {
 
     @Test
     void httpMode_missingGatewayToken_failsFast() {
+        // 부팅 실패에 그치지 않고 원인(어느 설정 누락인지)까지 검증 — 가드가 의도한 이유로 막혔음을 보장.
         runner.withPropertyValues(
                         "qtai.bible.client.mode=http",
                         "qtai.bible.client.base-url=http://bible-service")
-                .run(context -> assertThat(context).hasFailed());
+                .run(context -> assertThat(context).getFailure()
+                        .rootCause()
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessageContaining("gateway-token"));
     }
 
     @Test
     void httpMode_missingBaseUrl_failsFast() {
         // 컷오버 오설정 가드: mode=http인데 base-url 미설정이면 부팅 시점에 fast-fail —
-        // 잘못 전환된 환경이 조용히 잘못된 호출을 하지 않도록 막는다.
+        // 잘못 전환된 환경이 조용히 잘못된 호출을 하지 않도록 막는다. 실패 원인까지 검증해 token 가드와 대칭.
         runner.withPropertyValues(
                         "qtai.bible.client.mode=http",
                         "qtai.bible.client.gateway-token=gw-test-token") // gitleaks:allow
-                .run(context -> assertThat(context).hasFailed());
+                .run(context -> assertThat(context).getFailure()
+                        .rootCause()
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessageContaining("base-url"));
     }
 }

@@ -1,5 +1,7 @@
 # 2026-06-09 bible 컷오버(Inc5a) — 결과 보고
 
+> **관련 F-ID**: F-01(성경·QT 본문) 기반 인프라. 소비자 qt(F-01)·note(F-03)·ai(F-02·F-08). 동작 무변경.
+
 ## 요약
 모놀리식 bible 호출을 bible-service HTTP로 전환하는 **컷오버를 안전하게 실행·검증·롤백**하기 위한 런북을 작성하고, 컷오버 오설정 가드의 빈 케이스(base-url 누락 fail-fast) 테스트를 보강했다. 조사 결과 HTTP 경로·안전장치는 Inc3~Inc3d에서 이미 구현·검증 완료였고, 컷오버는 env 플래그 활성화(운영)임을 확인 — 본 Inc5a는 그 실행을 문서·테스트로 확정한다. Inc5b(제거)의 선행.
 
@@ -26,5 +28,8 @@
 
 ## 미해결 / 후속
 - **컷오버 실행은 ops/Lead**: 런북의 env 플래그를 dev→demo→prod 순차 활성화 + soak.
-- **Inc5b**(soak 후): 모놀리식 bible internal/web/dead-UseCase 제거 + HTTP 어댑터 무조건 활성 + `V31` 테이블 DROP(ops DB 분리 전제) + ArchUnit 갱신.
-- (선택) 소비자→@Primary 어댑터→http end-to-end 통합 테스트(MockRestServiceServer).
+- **Inc5b**(soak 후) — 권장 착수 순서:
+  1. **소비자→@Primary 어댑터→http end-to-end 통합 테스트**(MockRestServiceServer) 선행 추가 — 제거 전 안전망. `BibleServiceClient`를 주입형 `RestClient.Builder`로 받도록 소폭 조정해야 바인딩 가능(컷오버 경로 변경이라 test-only PR인 Inc5a에 넣지 않고 Inc5b 첫 단계로 분리).
+  2. 모놀리식 bible internal/web/dead-UseCase(`ListChapters`/`SearchBible`/`BibleSearchRequest`) 제거 + HTTP 어댑터 무조건 활성(mode 분기 제거, 기본 http).
+  3. `V31__drop_bible_tables.sql`(bible_books/bible_verses DROP) — ops 전용 DB 분리·시드 완료 전제 명시.
+  4. ArchUnit/Modulith 경계 갱신.
