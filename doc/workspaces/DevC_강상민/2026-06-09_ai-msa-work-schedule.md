@@ -8,7 +8,7 @@
 
 AI MSA 분리는 `ai-service` 물리 분리, inbound/outbound 계약, DB ownership, runtime smoke, gateway route skeleton, cutover 문서, event-driven 설계, outbox/worker 기반까지 완료된 상태다.
 
-이번 업데이트 기준으로 **prompt/context 계약 고정도 완료**되었고, 다음 작업은 **DeepSeek 호환 HTTP client adapter를 executor와 분리된 호출 계층으로 추가하는 것**이다. Kafka 구현은 outbox relay skeleton 이후에 진행한다.
+이번 업데이트 기준으로 **DeepSeek 호환 HTTP client adapter도 완료**되었고, 다음 작업은 **worker executor가 prompt/context를 조립하고 DeepSeek adapter를 호출해 asset payload를 생성하도록 연결하는 것**이다. Kafka 구현은 outbox relay skeleton 이후에 진행한다.
 
 | 영역 | 현재 상태 | 설명 |
 | --- | --- | --- |
@@ -17,21 +17,20 @@ AI MSA 분리는 `ai-service` 물리 분리, inbound/outbound 계약, DB ownersh
 | ai-service 물리 분리 | ✅ 완료 | 독립 모듈, inbound API, DB ownership, usecase persistence, runtime smoke, gateway skeleton, runbook이 준비됐다. |
 | event-driven 전환 설계 | ✅ 완료 | event 전환 방향, fixture, outbox 결정, provider input event, worker 설계가 정리됐다. |
 | outbox / generation worker 기반 | ✅ 완료 | outbox persistence, requested event append, worker/scheduler/executor contract, real executor skeleton/toggle이 준비됐다. |
-| Kafka 도입 전 작업 | ▶️ 진행 대상 | DeepSeek adapter, real executor 구현, runtime smoke, outbox relay 설계/skeleton 순서로 진행한다. |
+| Kafka 도입 전 작업 | ▶️ 진행 대상 | real executor 구현, runtime smoke, outbox relay 설계/skeleton 순서로 진행한다. |
 | Kafka 이벤트 구현 | ⏳ 대기 | outbox relay skeleton 완료 후 Kafka foundation, topic, adapter, consumer 순서로 진행한다. |
 | Provider / MSA cutover | 🔒 조건부 | provider endpoint, provider input event, gateway live cutover 조건 충족 후 진행한다. |
 | 최종 정리 | 🔒 조건부 | live cutover 안정화 후 monolith write freeze, route deprecation, dashboard, final handoff를 진행한다. |
 
 ## 2. 다음 작업 흐름
 
-1. `ai-generation-deepseek-client-adapter`
-2. `ai-generation-real-executor-implementation`
-3. `ai-generation-real-executor-runtime-smoke`
-4. `ai-event-outbox-relay-design`
-5. `ai-event-outbox-relay-skeleton`
-6. Kafka foundation 이후 이벤트 구현
-7. provider live smoke / gateway cutover
-8. monolith write freeze / final handoff
+1. `ai-generation-real-executor-implementation`
+2. `ai-generation-real-executor-runtime-smoke`
+3. `ai-event-outbox-relay-design`
+4. `ai-event-outbox-relay-skeleton`
+5. Kafka foundation 이후 이벤트 구현
+6. provider live smoke / gateway cutover
+7. monolith write freeze / final handoff
 
 ## 3. 전체 작업 스케줄 표
 
@@ -71,8 +70,8 @@ AI MSA 분리는 `ai-service` 물리 분리, inbound/outbound 계약, DB ownersh
 | ✅ 완료 | outbox / worker 기반 | `ai-generation-real-executor-skeleton` | real executor를 꽂을 deepseek mode skeleton을 추가했다. | runtime smoke | skeleton config 테스트 통과 | `feature/ai-generation-real-executor-skeleton` |
 | ✅ 완료 | outbox / worker 기반 | `ai-generation-real-executor-runtime-toggle` | fake executor와 real skeleton executor 전환을 검증했다. | real executor skeleton | runtime toggle 테스트 통과 | `test/ai-generation-real-executor-runtime-toggle` |
 | ✅ 완료 | Kafka 도입 전 | `ai-generation-prompt-context-contract` | real executor가 사용할 prompt 입력, provider context 조회, 저장 금지 필드 범위를 계약으로 고정했다. | real executor toggle | prompt/context 문서와 fixture 테스트 완료 | `docs/ai-generation-prompt-context-contract` |
-| ▶️ 다음 | Kafka 도입 전 | `ai-generation-deepseek-client-adapter` | DeepSeek 호환 HTTP client adapter를 skeleton executor와 분리된 호출 계층으로 추가한다. | prompt/context contract | adapter 계약 테스트 통과 | `feature/ai-generation-deepseek-client-adapter` |
-| ⏳ 대기 | Kafka 도입 전 | `ai-generation-real-executor-implementation` | worker executor가 prompt/context를 조립하고 DeepSeek adapter를 호출해 asset payload를 생성하도록 연결한다. | DeepSeek adapter | worker real executor 테스트 통과 | `feature/ai-generation-real-executor-implementation` |
+| ✅ 완료 | Kafka 도입 전 | `ai-generation-deepseek-client-adapter` | DeepSeek 호환 HTTP client adapter를 skeleton executor와 분리된 호출 계층으로 추가했다. | prompt/context contract | adapter 계약 테스트 통과 | `feature/ai-generation-deepseek-client-adapter` |
+| ▶️ 다음 | Kafka 도입 전 | `ai-generation-real-executor-implementation` | worker executor가 prompt/context를 조립하고 DeepSeek adapter를 호출해 asset payload를 생성하도록 연결한다. | DeepSeek adapter | worker real executor 테스트 통과 | `feature/ai-generation-real-executor-implementation` |
 | ⏳ 대기 | Kafka 도입 전 | `ai-generation-real-executor-runtime-smoke` | H2 또는 opt-in 환경에서 real executor 실행 경로를 안전하게 smoke 검증한다. | real executor implementation | opt-in smoke 통과 | `test/ai-generation-real-executor-runtime-smoke` |
 | ⏳ 대기 | Kafka 도입 전 | `ai-event-outbox-relay-design` | outbox row를 외부 broker로 발행하는 relay 책임, retry, 실패 기록 정책을 설계한다. | real executor smoke | relay design 문서 완료 | `docs/ai-event-outbox-relay-design` |
 | ⏳ 대기 | Kafka 도입 전 | `ai-event-outbox-relay-skeleton` | Kafka 없이 DB polling relay skeleton과 상태 전이 테스트를 추가한다. | relay design | relay skeleton 테스트 통과 | `feature/ai-event-outbox-relay-skeleton` |
@@ -97,11 +96,10 @@ AI MSA 분리는 `ai-service` 물리 분리, inbound/outbound 계약, DB ownersh
 
 | 순서 | 작업명 | 목적 | 완료 후 다음 |
 | --- | --- | --- | --- |
-| 1 | `ai-generation-deepseek-client-adapter` | 실제 LLM 호출 계층을 executor와 분리해 테스트 가능하게 만든다. | real executor implementation |
-| 2 | `ai-generation-real-executor-implementation` | worker가 실제 adapter를 호출하고 asset payload를 저장하게 연결한다. | real executor runtime smoke |
-| 3 | `ai-generation-real-executor-runtime-smoke` | 실제 실행 경로를 opt-in smoke로 검증한다. | outbox relay 설계 |
-| 4 | `ai-event-outbox-relay-design` | Kafka 전 relay 책임과 실패 정책을 확정한다. | relay skeleton |
-| 5 | `ai-event-outbox-relay-skeleton` | Kafka 없이 DB polling relay 기반을 만든다. | Kafka foundation |
+| 1 | `ai-generation-real-executor-implementation` | worker가 실제 adapter를 호출하고 asset payload를 저장하게 연결한다. | real executor runtime smoke |
+| 2 | `ai-generation-real-executor-runtime-smoke` | 실제 실행 경로를 opt-in smoke로 검증한다. | outbox relay 설계 |
+| 3 | `ai-event-outbox-relay-design` | Kafka 전 relay 책임과 실패 정책을 확정한다. | relay skeleton |
+| 4 | `ai-event-outbox-relay-skeleton` | Kafka 없이 DB polling relay 기반을 만든다. | Kafka foundation |
 
 ## 5. Provider/Kafka 전 대기 조건
 

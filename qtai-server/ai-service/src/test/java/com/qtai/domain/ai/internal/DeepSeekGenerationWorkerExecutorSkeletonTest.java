@@ -1,11 +1,13 @@
 package com.qtai.domain.ai.internal;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.OffsetDateTime;
 
 import org.junit.jupiter.api.Test;
 
+import com.qtai.domain.ai.client.deepseek.DeepSeekGenerationClient;
 import com.qtai.domain.ai.internal.AiGenerationWorkerExecutor.AiGenerationWorkerJob;
 
 class DeepSeekGenerationWorkerExecutorSkeletonTest {
@@ -15,42 +17,22 @@ class DeepSeekGenerationWorkerExecutorSkeletonTest {
     @Test
     void constructorRejectsMissingRequiredConfiguration() {
         assertThatThrownBy(() -> new DeepSeekGenerationWorkerExecutor(
-                " ",
-                "redacted-generation-executor-value",
-                "deepseek-test-model",
-                3000
-        )).isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("qtai.ai.worker.generation.executor.deepseek.base-url");
+                null,
+                "deepseek-test-model"
+        )).isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("deepSeekGenerationClient must not be null");
         assertThatThrownBy(() -> new DeepSeekGenerationWorkerExecutor(
-                "http://localhost:65535",
-                " ",
-                "deepseek-test-model",
-                3000
-        )).isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("qtai.ai.worker.generation.executor.deepseek.api-key");
-        assertThatThrownBy(() -> new DeepSeekGenerationWorkerExecutor(
-                "http://localhost:65535",
-                "redacted-generation-executor-value",
-                " ",
-                3000
+                fakeClient(),
+                " "
         )).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("qtai.ai.worker.generation.executor.deepseek.model");
-        assertThatThrownBy(() -> new DeepSeekGenerationWorkerExecutor(
-                "http://localhost:65535",
-                "redacted-generation-executor-value",
-                "deepseek-test-model",
-                0
-        )).isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("qtai.ai.worker.generation.executor.deepseek.timeout-ms");
     }
 
     @Test
     void executeFailsSafelyWithoutCallingProvider() {
         DeepSeekGenerationWorkerExecutor executor = new DeepSeekGenerationWorkerExecutor(
-                "http://localhost:65535",
-                "redacted-generation-executor-value",
-                "deepseek-test-model",
-                3000
+                fakeClient(),
+                "deepseek-test-model"
         );
 
         assertThatThrownBy(() -> executor.execute(validJob()))
@@ -66,15 +48,31 @@ class DeepSeekGenerationWorkerExecutorSkeletonTest {
     @Test
     void executeRejectsNullJob() {
         DeepSeekGenerationWorkerExecutor executor = new DeepSeekGenerationWorkerExecutor(
-                "http://localhost:65535",
-                "redacted-generation-executor-value",
-                "deepseek-test-model",
-                3000
+                fakeClient(),
+                "deepseek-test-model"
         );
 
         assertThatThrownBy(() -> executor.execute(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("job must not be null");
+    }
+
+    @Test
+    void skeletonKeepsClientAndModelSeparatedFromHttpConfiguration() {
+        DeepSeekGenerationClient client = fakeClient();
+        DeepSeekGenerationWorkerExecutor executor = new DeepSeekGenerationWorkerExecutor(
+                client,
+                "deepseek-test-model"
+        );
+
+        assertThat(executor.client()).isSameAs(client);
+        assertThat(executor.model()).isEqualTo("deepseek-test-model");
+    }
+
+    private static DeepSeekGenerationClient fakeClient() {
+        return request -> {
+            throw new AssertionError("DeepSeek client must not be called by skeleton executor");
+        };
     }
 
     private static AiGenerationWorkerJob validJob() {
