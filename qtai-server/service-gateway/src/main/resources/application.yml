@@ -1,6 +1,11 @@
 server:
   port: 8000
 
+# 게이트웨이 JWT 검증(공개키 전용). 발급(개인키)은 인증 서비스에만 — 저장소에 평문 키 금지.
+gateway:
+  jwt:
+    public-key: ${JWT_PUBLIC_KEY}
+
 spring:
   application:
     name: service-gateway
