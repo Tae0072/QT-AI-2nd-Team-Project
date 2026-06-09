@@ -28,7 +28,8 @@ import {
 import { formatDateTime } from '../utils/datetime';
 
 // ===== AD-08 AI 운영 모니터링 (읽기 전용) =====
-// GET /api/v1/admin/ai/monitoring — 생성/검증/배치/Q&A 집계 대시보드. 권한: OPERATOR.
+// GET /api/v1/admin/ai/monitoring — 생성/검증/배치/Q&A 집계 대시보드.
+// 권한: OPERATOR/REVIEWER/SUPER_ADMIN.
 
 export default function AiMonitoringPage() {
   const [data, setData] = useState<AiMonitoringSummary | null>(null);
@@ -124,7 +125,7 @@ export default function AiMonitoringPage() {
         </Space>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
           AI 생성 작업·검증·배치·Q&amp;A 집계를 조회합니다(읽기 전용, 원문 미포함).
-          권한: OPERATOR.
+          권한: OPERATOR / REVIEWER / SUPER_ADMIN.
         </Typography.Paragraph>
 
         <Space wrap>

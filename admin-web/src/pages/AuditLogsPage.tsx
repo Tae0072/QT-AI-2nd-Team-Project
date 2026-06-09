@@ -22,7 +22,7 @@ import { formatDateTime } from '../utils/datetime';
 
 // ===== AD-07 감사 로그 (읽기 전용) =====
 // GET /api/v1/admin/audit-logs — 표 + 필터(행위자/액션/기간) + 서버 페이지네이션.
-// 행 펼치기로 변경 전/후(JSON)를 본다. 권한: SUPER_ADMIN (백엔드에서 검증).
+// 행 펼치기로 변경 전/후(JSON)를 본다. 권한: OPERATOR/REVIEWER/SUPER_ADMIN.
 
 const ACTOR_TYPE_OPTIONS = [
   { label: 'ADMIN', value: 'ADMIN' },
