@@ -25,6 +25,24 @@ Day2 4서비스 중 service-ai(ai 도메인) 추출. PR#1(멀티모듈+lib-commo
 - **관리자 AI 경로**: ai/web의 Admin 컨트롤러는 함께 이전하되 SecurityConfig `denyAll`로 차단(관리자 기능은 admin_role 이중검증 포함 admin-server 소관). PR#1에서 확립한 패턴 재사용.
 - 빌드 중 막힘 2건 해결: ① `@ConditionalOnMissingBean`을 `@Component`에 달아 빈 미등록 → 순수 `@Component`로 변경, ② PowerShell `Set-Content`의 BOM 삽입 → Write 도구로 재작성.
 
+## 4-1. 테스트 커버리지·누락 사유 (v3.1 기준 명시)
+
+claude-review 1차(REQUEST_CHANGES) 지적을 반영해 다음을 보강했다.
+
+**보강(추가) 테스트**
+- `DeepSeekLlmClientTest`(6): 정상 파싱 / 429→LLM_RATE_LIMIT / 타임아웃→LLM_TIMEOUT / api-key 미설정→LLM_CONFIGURATION_ERROR / 비정상 응답→LLM_RESPONSE_INVALID / 외부오류 INTERNAL_ERROR 매핑.
+- `AiServiceTest`(3): SIMULATOR 생성 즉시 거부(저장소 미접근 검증) / null command / 미지원 jobType.
+- 보안 보강: `VerifyAdminRoleUseCaseMock`을 `BusinessException(ADMIN_ROLE_INSUFFICIENT, 403)`으로 변경(인가 경로 500 누출 방지).
+
+**이번 PR에서 의도적으로 보류한 테스트(사유)**
+- 본 PR은 **구조 이전(Strangler) 중심**으로, 모놀리식에서 이미 검증된 ai 도메인 로직을 패키지 무수정 복사한 것이다. 따라서 회귀 위험이 큰 영역(부팅·도메인경계·보안·금지기능·정책 가드·외부 LLM 경계)에 테스트를 집중했다.
+- 아래는 **통합 단계(Mock→RestClient 교체) PR에서 함께 보강**한다. 그 전에는 cross-domain Mock이 stub이라 행위 검증의 의미가 제한적이기 때문이다:
+  - `AiAssetReviewService` 승인·반려·숨김 + APPROVED 게이트(layer1/2 PASSED) 단위테스트
+  - `AiAutoValidationService` payload schema/verse scope/forbidden fields 분기
+  - `AiGenerationJobRunner.sweepStaleRunningJobs`(P1-3) 회수
+  - `Admin*Controller` MockMvc 통합(현재 service-ai에서 `/api/v1/admin/**` denyAll로 차단되어 admin-server 이관 시 그쪽에서 검증)
+- 위 보류는 `25_기능_명세서`/`18_코드_품질_게이트` 위반이 아니라, MSA 분리 PR의 범위 한정(구조 이전)에 따른 단계적 보강 계획이다.
+
 ## 5. 다음 단계
 - `feature/msa-ai-service` → dev-msa PR. 필수체크(qtai-server Build & Test / Flutter / no-cross-merge) green 확인 → claude-review APPROVE 시 자동 squash.
 - 통합 단계: cross-domain UseCaseMock 7종을 RestClient 어댑터로 교체하고 Mock 삭제. AI 생성 파이프라인 Kafka 전환 검토.
