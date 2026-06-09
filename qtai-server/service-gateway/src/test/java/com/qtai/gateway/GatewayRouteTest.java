@@ -46,6 +46,35 @@ class GatewayRouteTest {
                 .doesNotContain(AiServiceRouteConfiguration.ROUTE_ID);
     }
 
+    @Test
+    @DisplayName("bible-service 라우트가 Path 예측자 + CircuitBreaker + X-Gateway-Token 주입 필터로 적재된다")
+    void bibleRouteHasCircuitBreakerAndGatewayTokenHeader() {
+        RouteDefinition bible = routeDefinitions().stream()
+                .filter(definition -> "bible-service".equals(definition.getId()))
+                .findFirst()
+                .orElse(null);
+
+        assertThat(bible).as("bible-service 라우트 정의").isNotNull();
+        assertThat(bible.getPredicates())
+                .extracting(PredicateDefinition::getName)
+                .contains("Path");
+        assertThat(bible.getFilters())
+                .extracting(FilterDefinition::getName)
+                .contains("CircuitBreaker", "AddRequestHeader");
+    }
+
+    @Test
+    @DisplayName("bible-service 라우트가 monolith catch-all 보다 앞 순서다(순서 회귀 방지)")
+    void bibleRouteIsOrderedBeforeMonolithCatchAll() {
+        List<String> ids = routeDefinitions().stream().map(RouteDefinition::getId).toList();
+
+        // Spring Cloud Gateway는 순차 평가 → bible 라우트가 catch-all(monolith)보다 먼저 와야 매칭된다.
+        assertThat(ids).contains("bible-service", "monolith");
+        assertThat(ids.indexOf("bible-service"))
+                .as("bible-service 라우트가 monolith 보다 앞")
+                .isLessThan(ids.indexOf("monolith"));
+    }
+
     private List<RouteDefinition> routeDefinitions() {
         List<RouteDefinition> definitions =
                 routeDefinitionLocator.getRouteDefinitions().collectList().block();
