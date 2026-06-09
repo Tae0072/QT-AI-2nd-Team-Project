@@ -18,6 +18,8 @@ export interface MenuItem {
 //  - AD-05 찬양       : OPERATOR            (04_API_명세서 §4.7.6)
 //  - AD-07 감사로그    : OPERATOR/REVIEWER   (AdminAuditAuthentication.requireAudit)
 //  - AD-08 AI모니터링  : OPERATOR/REVIEWER   (AdminAiAuthentication.requireMonitoring)
+//  - AD-09 검증체크리스트: REVIEWER           (AdminAiValidationChecklistController.requireReviewer)
+//  - AD-10 배치실행로그  : OPERATOR/REVIEWER   (AdminAiBatchRunLogController.requireMonitoring)
 //  - AD-01 대시보드 / AD-02 오늘QT관리 / AD-06 시스템공지: 백엔드 미구현(E단계) → 명세 추정값, 백엔드 확정 시 갱신.
 export const MENU_ITEMS: MenuItem[] = [
   { code: 'AD-01', path: '/dashboard', label: '대시보드', requiredRoles: [] },
@@ -61,6 +63,18 @@ export const MENU_ITEMS: MenuItem[] = [
     code: 'AD-08',
     path: '/ai-monitoring',
     label: 'AI 운영 모니터링',
+    requiredRoles: [ADMIN_ROLES.OPERATOR, ADMIN_ROLES.REVIEWER],
+  },
+  {
+    code: 'AD-09',
+    path: '/ai-checklists',
+    label: 'AI 검증 체크리스트',
+    requiredRoles: [ADMIN_ROLES.REVIEWER],
+  },
+  {
+    code: 'AD-10',
+    path: '/ai-batch-logs',
+    label: 'AI 배치 실행 로그',
     requiredRoles: [ADMIN_ROLES.OPERATOR, ADMIN_ROLES.REVIEWER],
   },
 ];

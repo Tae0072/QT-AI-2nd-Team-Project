@@ -15,7 +15,8 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import {
   getAiMonitoring,
   type AiMonitoringSummary,
@@ -32,6 +33,7 @@ import { formatDateTime } from '../utils/datetime';
 // 권한: OPERATOR/REVIEWER/SUPER_ADMIN.
 
 export default function AiMonitoringPage() {
+  const navigate = useNavigate();
   const [data, setData] = useState<AiMonitoringSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [from, setFrom] = useState('');
@@ -281,6 +283,15 @@ export default function AiMonitoringPage() {
               <Card
                 size="small"
                 title={`배치 실행 (성공 ${data.batchRuns.succeeded} · 부분실패 ${data.batchRuns.partialFailed} · 실패 ${data.batchRuns.failed})`}
+                extra={
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={() => navigate('/ai-batch-logs')}
+                  >
+                    전체 로그 보기 <ArrowRightOutlined />
+                  </Button>
+                }
               >
                 <Table
                   rowKey="id"
@@ -293,7 +304,19 @@ export default function AiMonitoringPage() {
                 />
               </Card>
 
-              <Card size="small" title="체크리스트 통과율">
+              <Card
+                size="small"
+                title="체크리스트 통과율"
+                extra={
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={() => navigate('/ai-checklists')}
+                  >
+                    체크리스트 관리 <ArrowRightOutlined />
+                  </Button>
+                }
+              >
                 <Table
                   rowKey="checklistType"
                   size="small"
