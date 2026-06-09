@@ -103,7 +103,7 @@ class AiServiceSystemInboundControllerTest {
         when(assetUseCase.registerAiGeneratedAsset(any(RegisterAiGeneratedAssetCommand.class)))
                 .thenReturn(new RegisterAiGeneratedAssetResult(501L, "VALIDATING"));
         when(validationLogUseCase.registerAiValidationLog(any(RegisterAiValidationLogCommand.class)))
-                .thenReturn(new RegisterAiValidationLogResult(701L, "PASS", "APPROVED"));
+                .thenReturn(new RegisterAiValidationLogResult(701L, "PASSED", "VALIDATING"));
         when(createReferenceUseCase.createValidationReferenceJob(any(CreateValidationReferenceJobCommand.class)))
                 .thenReturn(referenceResponse(901L, "READY"));
         when(getReferenceUseCase.getValidationReferenceJob(any(GetValidationReferenceJobQuery.class)))
@@ -148,14 +148,14 @@ class AiServiceSystemInboundControllerTest {
                                   "validationReferenceJobId": 901,
                                   "checklistVersionId": 12,
                                   "layer": 1,
-                                  "result": "PASS",
+                                  "result": "PASSED",
                                   "checklistJson": {"items": []},
-                                  "reviewerType": "SYSTEM_BATCH"
+                                  "reviewerType": "AUTO"
                                 }
                                 """))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.data.validationLogId").value(701))
-                .andExpect(jsonPath("$.data.result").value("PASS"));
+                .andExpect(jsonPath("$.data.result").value("PASSED"));
 
         mockMvc.perform(post("/api/v1/system/validation-reference-jobs")
                         .principal(systemPrincipal("SYSTEM_BATCH"))
