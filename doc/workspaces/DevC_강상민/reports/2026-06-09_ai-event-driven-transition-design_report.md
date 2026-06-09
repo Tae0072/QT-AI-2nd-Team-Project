@@ -19,6 +19,7 @@
 - HTTP 유지 대상과 event-driven 전환 후보를 분리했다.
 - AI generation job, validation, approved asset publish, audit/notification 후처리를 event 후보로 정리했다.
 - provider가 AI 입력 이벤트를 발행하는 구조는 합의 필요 항목으로 분리했다.
+- Provider AI input event 계약 확정 전까지 QT/Bible 참조 조회는 HTTP client 계약을 유지한다고 명시했다.
 - 이벤트 payload 허용 필드와 금지 필드를 명시했다.
 - 멱등성, 순서 보장, 실패 처리, 관측성 기준을 정리했다.
 - 다음 작업 순서를 `ai-event-contract-fixtures`, `ai-event-outbox-decision-record`, `provider-ai-input-event-contract`, `ai-generation-worker-design`로 제안했다.
