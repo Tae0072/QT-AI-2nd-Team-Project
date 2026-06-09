@@ -1,0 +1,9 @@
+# QT-AI MSA 로컬 배포 네임스페이스
+# (2026-06-10 Lead 결정: 로컬 배포 한정 Kubernetes 허용)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: qtai
+  labels:
+    app.kubernetes.io/part-of: qtai-msa
+    qtai.scope: local-deploy
