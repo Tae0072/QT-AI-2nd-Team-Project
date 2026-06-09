@@ -19,6 +19,13 @@ qtai:
       generation:
         enabled: ${QTAI_AI_GENERATION_WORKER_ENABLED:false}
         batch-size: ${QTAI_AI_GENERATION_WORKER_BATCH_SIZE:1}
+        executor:
+          mode: ${QTAI_AI_GENERATION_EXECUTOR_MODE:none}
+          deepseek:
+            base-url: ${QTAI_AI_GENERATION_EXECUTOR_DEEPSEEK_BASE_URL:}
+            api-key: ${QTAI_AI_GENERATION_EXECUTOR_DEEPSEEK_API_KEY:}
+            model: ${QTAI_AI_GENERATION_EXECUTOR_DEEPSEEK_MODEL:}
+            timeout-ms: ${QTAI_AI_GENERATION_EXECUTOR_DEEPSEEK_TIMEOUT_MS:3000}
         scheduler:
           enabled: ${QTAI_AI_GENERATION_WORKER_SCHEDULER_ENABLED:false}
           fixed-delay-ms: ${QTAI_AI_GENERATION_WORKER_SCHEDULER_FIXED_DELAY_MS:30000}
