@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:qtai;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MYSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  # H2 Console — local 프로파일 전용. SecurityConfig에서 /h2-console/** permitAll 필요.
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+# JWT — 로컬 개발 시 환경변수 설정 필요 (CLAUDE.md §8: plain private key 커밋 금지)
+# export JWT_PRIVATE_KEY="..." JWT_PUBLIC_KEY="..."
+# 테스트용 키는 src/test/resources/application.yml 참조
+security:
+  jwt:
+    private-key: ${JWT_PRIVATE_KEY}
+    public-key: ${JWT_PUBLIC_KEY}
+    access-expiry-ms: 1800000
+    refresh-expiry-ms: 1209600000
+
+# Kakao
+kakao:
+  api:
+    user-info-url: https://kapi.kakao.com/v2/user/me
