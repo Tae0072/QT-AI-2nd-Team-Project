@@ -39,6 +39,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class GatewayHeaderAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(GatewayHeaderAuthenticationFilter.class);
+    // 감사 트레일 — SYSTEM 서비스-to-서비스 호출을 INFO로 남겨 별도 감사 appender로 라우팅 가능(CLAUDE.md §5).
+    private static final Logger auditLog = LoggerFactory.getLogger("com.qtai.audit.bible");
 
     static final String HEADER_MEMBER_ID = "X-Member-Id";
     static final String HEADER_MEMBER_ROLE = "X-Member-Role";
@@ -69,7 +71,8 @@ public class GatewayHeaderAuthenticationFilter extends OncePerRequestFilter {
             }
             if (!StringUtils.hasText(request.getHeader(HEADER_MEMBER_ID))) {
                 // 사용자 헤더 없음 + 토큰 유효 → SYSTEM_BATCH 주체의 서비스-to-서비스 호출(배치/캐시 경계).
-                log.debug("SYSTEM 서비스 호출 허용(토큰 검증, 사용자 헤더 없음) path={}", path);
+                // 감사 트레일에 INFO로 기록(주체=SYSTEM_BATCH, token 값·PII 미기록).
+                auditLog.info("SYSTEM_BATCH bible 서비스 호출 허용 method={} path={}", request.getMethod(), path);
             }
             chain.doFilter(request, response);
             return;

@@ -147,6 +147,35 @@ class GatewayHeaderAuthenticationFilterTest {
         assertThat(chain.getRequest()).isNull();
     }
 
+    @Test
+    @DisplayName("토큰 유효 + 부분 신원 헤더(role 누락)여도 토큰이 게이트라 통과")
+    void validToken_withPartialIdentityHeader_passes() throws Exception {
+        MockHttpServletRequest request = req("/api/v1/bible/books");
+        request.addHeader("X-Member-Id", "42"); // role 누락(부분 헤더)
+        request.addHeader("X-Gateway-Token", "secret-gw-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter("secret-gw-token").doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chain.getRequest()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("토큰 미설정 + 부분 신원 헤더(id만)는 401 (dev는 2종 헤더 필수)")
+    void noToken_withPartialIdentityHeader_returns401() throws Exception {
+        MockHttpServletRequest request = req("/api/v1/bible/books");
+        request.addHeader("X-Member-Id", "42"); // role 누락
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter(null).doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(chain.getRequest()).isNull();
+    }
+
     // ── actuator 예외 ──
 
     @Test

@@ -24,8 +24,18 @@
   - `BibleGatewayTokenSliceTest` 4(+1: 토큰만으로 SYSTEM 호출 200) + 슬라이스 2 + persistence 1 + 캐시 1 + contextLoads 1
 - **기존 테스트 전부 유지**(토큰 미설정=헤더 요구, 토큰설정+불일치=401 등 의미 불변, SYSTEM 경로만 추가).
 
+## 리뷰 후속 보강(2차)
+- **감사 트레일 격상**: SYSTEM 호출 로그를 `debug` → 전용 감사 로거(`com.qtai.audit.bible`) **INFO**로(주체=SYSTEM_BATCH, method·path만, token/PII 미기록). 감사 appender로 라우팅 가능.
+- **부분 신원 헤더 테스트**: 토큰 유효+role 누락(부분 헤더) → 통과(토큰이 게이트), 토큰 미설정+id만 → 401(dev 2종 필수) 단언 추가.
+- **토큰 유출 대비 정책**: 설계 문서 (D) 추가 — 서비스별 개별 토큰(범위 한정)·env 주입·정기/유출 시 회전·무중단 회전용 grace window(현재값+직전값, Inc3b 확장)·mTLS/네트워크 정책 병행.
+
+## ⚠ 머지 상태 — Lead 합의 대기(머지 보류)
+본 변경은 Inc2 승인 필터의 보안 의미를 바꾸므로, **Lead 합의 기록(이슈 코멘트/결정 문서 링크)이 PR에 첨부되기 전까지 머지 보류**한다.
+- [ ] Lead 합의 기록 첨부(토큰=서비스 신뢰 자격 격상 승인)
+- 합의 기록: _(PR/이슈 링크 추가 예정)_
+
 ## 미해결 / 후속
-- ⚠ **Lead/리뷰 합의**: 토큰=서비스 신뢰 자격으로의 모델 변경은 Inc2 승인 필터 의미를 바꾸므로 합의 필요(PR 본문에 명시).
+- ⚠ **Lead/리뷰 합의**: 토큰=서비스 신뢰 자격으로의 모델 변경은 Inc2 승인 필터 의미를 바꾸므로 합의 필요(위 머지 보류 체크 참조).
 - **Inc3b~3d**: `external/bible` HTTP 클라이언트 + api 어댑터(`@Primary`, `qtai.bible.client.mode=http` 게이트, 기본 inprocess=무변경) → qt/note/study 소비자 전환(오너 협의) + 계약 테스트.
 - Inc4(DB 분리) → Inc5(모놀리식 bible 제거).
 
