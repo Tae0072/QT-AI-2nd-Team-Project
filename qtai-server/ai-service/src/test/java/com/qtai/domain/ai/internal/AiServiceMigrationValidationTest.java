@@ -52,7 +52,9 @@ class AiServiceMigrationValidationTest {
                         "AiPromptVersion",
                         "AiValidationChecklistVersion",
                         "ValidationReferenceJob",
-                        "AiBatchRunLog"
+                        "AiBatchRunLog",
+                        "AiEventOutbox",
+                        "AiProcessedEvent"
                 );
 
         assertThat(tableNames()).contains(
@@ -63,6 +65,8 @@ class AiServiceMigrationValidationTest {
                 "ai_validation_checklist_versions",
                 "validation_reference_jobs",
                 "ai_batch_run_logs",
+                "ai_event_outbox",
+                "ai_processed_events",
                 "flyway_schema_history"
         );
     }
