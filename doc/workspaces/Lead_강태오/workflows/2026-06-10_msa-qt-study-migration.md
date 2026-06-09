@@ -31,11 +31,12 @@ PR #1에서 골격(lib-common + service-bible)과 `bible`·`music`·`praise`를 
   - [x] `SecurityConfig`에 인증 실패 401 / 인가 실패·denyAll 403 표준 응답 연결
 - [x] **6. 테스트**
   - [x] Controller MockMvc 통합테스트(qt/study + bible/music/praise): 미인증 401, 인증 200, admin denyAll 403
-  - [x] 도메인 단위테스트: `QtServiceTest`(5), `QtStudyAvailabilityServiceTest`(3)
+  - [x] 도메인 단위테스트: `QtServiceTest`(7), `QtStudyAvailabilityServiceTest`(3)
   - [x] ArchUnit 경계테스트: 타 도메인 `internal` import 금지 규칙으로 교체
-- [x] **7. 빌드 검증** — 호스트 gradlew `:service-bible:build` GREEN (32 tests, 0 fail)
+- [x] **7. 빌드 검증** — 호스트 gradlew `:service-bible:build` GREEN (33 tests, 0 fail)
 - [x] **8. 문서** — 워크플로/리포트/스터디노트 작성
-- [ ] **9. 커밋·푸시·PR** — base=dev-msa, head=feature/msa-qt-study, 자동 squash 머지
+- [x] **9. 커밋·푸시·PR** — base=dev-msa, head=feature/msa-qt-study (PR #424)
+- [x] **10. 리뷰 대응** — claude-review REQUEST_CHANGES BLOCK 3건 수정 후 재리뷰
 
 ## PR #2 범위
 
@@ -63,7 +64,21 @@ BibleServiceApplicationTest 1 · ControllerSecurityIntegrationTest 4 · BibleSer
 MusicTrackServiceTest 2 · PraiseServiceTest 6 · QtServiceTest 5 · QtStudyAvailabilityServiceTest 3 ·
 DomainBoundaryTest(ArchUnit) 1.
 
+## 리뷰 대응 (claude-review v3.1 REQUEST_CHANGES → 수정)
+
+첫 리뷰가 BLOCK 3건으로 REQUEST_CHANGES. 모두 수정 후 재리뷰 요청:
+
+1. **PraiseController `@PreAuthorize("hasRole('ADMIN')")` 단독** → `@PreAuthorize("denyAll()")`.
+   admin_role 이중검증 없이 ADMIN만으로 열리는 회귀 위험 제거(SecurityConfig denyAll + 메서드보안 이중 차단).
+2. **`QtService.resolveDraftNoteId` `catch (Exception e)`** → `catch (RuntimeException e)`.
+   CLAUDE.md §9 광범위 catch 금지. note 호출은 검사 예외 없음.
+3. **`QtService.getPassage` `cacheStatus="HIT"` 하드코딩** → `"DIRECT"`.
+   ID 직접 조회는 todayQt 캐시 미경유라 HIT가 거짓. `TodayQtResponse` javadoc에 DIRECT 문서화.
+   `QtServiceTest`에 미래 본문 차단 + DIRECT 라벨 테스트 추가(5→7건).
+
+WARN/INFO 지적(QtPassageLookup 4상태 테스트, 파서 테스트 등)은 비차단이라 후속 PR 과제로 남김.
+
 ## 커밋 / PR
 
-- 커밋: (커밋 후 채움)
-- PR: (생성 후 채움)
+- PR: #424 (https://github.com/Tae0072/QT-AI-2nd-Team-Project/pull/424)
+- 커밋: `d6a368f`(이전 본체) + 리뷰 대응 커밋(아래 push)

@@ -14,6 +14,7 @@ package com.qtai.domain.qt.api.dto;
  *   MISS           — 캐시 미스 (배치 미완료 상태, 클라이언트 재시도 권장)
  *   STALE_FALLBACK — 새 캐시 없음, 이전 캐시 제공 중 (00:00~04:00 구간)
  *   EMPTY          — 제공 가능한 데이터 없음
+ *   DIRECT         — ID 기반 직접 조회(todayQt 캐시 미경유). GET /passages/{id} 응답용
  *
  * @param qtPassageId     QT 본문 식별자
  * @param passageDate     본문 날짜 (yyyy-MM-dd)

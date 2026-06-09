@@ -100,7 +100,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 "MISSING",    // simulatorStatus 기본값 — study 연동 실패 시 fallback
                 false,        // hasExplanation 기본값 — study 연동 실패 시 fallback
                 draftNoteId,
-                "HIT",
+                "DIRECT",     // ID 기반 직접 조회는 todayQt 캐시를 거치지 않으므로 HIT가 아님(리뷰 §8)
                 rangeResolver.resolve(passage)
         );
         return enrichWithStudyAvailability(base);
@@ -214,7 +214,9 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
             NoteDraftResponse draft = getNoteUseCase.getDraft(
                     memberId, NoteCategory.MEDITATION, qtPassageId);
             return draft.exists() ? draft.note().id() : null;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+            // 광범위 catch(Exception) 금지(CLAUDE.md §9). note 도메인 호출(현재 Mock, 추후
+            // RestClient 어댑터)은 검사 예외를 던지지 않으므로 RuntimeException으로 좁힌다.
             log.warn("DRAFT 노트 조회 실패. memberId={}, qtPassageId={}, error={}",
                     memberId, qtPassageId, e.getMessage());
             return null;
