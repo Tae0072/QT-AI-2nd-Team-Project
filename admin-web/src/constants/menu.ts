@@ -15,7 +15,7 @@ export interface MenuItem {
 // 권한 기준(2026-06-08 D1 확정): 백엔드 컨트롤러의 실제 인가(enforce)를 기준으로 한다.
 //  - AD-03 AI검증     : REVIEWER            (AdminAiAuthentication.requireReviewer)
 //  - AD-04 신고처리    : OPERATOR            (AdminReportController.requireOperator)
-//  - AD-05 찬양       : ADMIN 공통          (PraiseController @hasRole('ADMIN'))
+//  - AD-05 찬양       : OPERATOR            (04_API_명세서 §4.7.6)
 //  - AD-07 감사로그    : OPERATOR/REVIEWER   (AdminAuditAuthentication.requireAudit)
 //  - AD-08 AI모니터링  : OPERATOR/REVIEWER   (AdminAiAuthentication.requireMonitoring)
 //  - AD-01 대시보드 / AD-02 오늘QT관리 / AD-06 시스템공지: 백엔드 미구현(E단계) → 명세 추정값, 백엔드 확정 시 갱신.
@@ -43,7 +43,7 @@ export const MENU_ITEMS: MenuItem[] = [
     code: 'AD-05',
     path: '/praise-songs',
     label: '찬양 큐레이션',
-    requiredRoles: [],
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
   {
     code: 'AD-06',
