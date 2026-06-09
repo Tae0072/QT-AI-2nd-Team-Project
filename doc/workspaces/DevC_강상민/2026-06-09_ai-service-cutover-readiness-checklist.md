@@ -123,7 +123,12 @@
 
 | 항목 | 기준 |
 | --- | --- |
-| route 대상 | system/admin AI path만 ai-service로 보냄 |
+| route id | `ai-service-cutover` |
+| route enable flag | `QTAI_GATEWAY_AI_ROUTE_ENABLED=false` 기본값 유지 |
+| route target | `GATEWAY_AI_SERVICE_URI`가 ai-service base URL을 가리킴 |
+| route health | `GATEWAY_AI_SERVICE_HEALTH_PATH=/actuator/health` |
+| route order | `QTAI_GATEWAY_AI_ROUTE_ORDER=-10`으로 monolith catch-all보다 먼저 매칭 |
+| route 대상 | `/api/v1/system/ai/**`, `/api/v1/system/validation-reference-jobs/**`, `/api/v1/admin/ai/**`만 ai-service로 보냄 |
 | route 충돌 | monolith route와 우선순위 충돌 없음 |
 | target URL | ai-service base URL과 health path가 배포 환경에 등록됨 |
 | health check | `/actuator/health` 기반으로 route enable 판단 |
