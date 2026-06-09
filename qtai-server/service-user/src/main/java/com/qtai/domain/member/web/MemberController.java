@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * 회원 REST 엔드포인트.
  *
@@ -55,6 +57,19 @@ public class MemberController {
     @GetMapping("/api/v1/members/{id}")
     public ResponseEntity<ApiResponse<MemberPublicResponse>> getMember(@PathVariable("id") Long id) {
         MemberPublicResponse response = getMemberUseCase.getMemberPublic(id);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * GET /api/v1/members?ids=1,2,3 — 활성 회원 공개 프로필 일괄 조회.
+     *
+     * <p>서비스 간 호출(예: service-note sharing/댓글 작성자 닉네임 N+1 방지)용. 탈퇴·정지 회원은
+     * 결과에서 제외되며(요청 순서 보장 없음), 호출자는 누락 id에 자체 폴백 정책을 적용한다
+     * ({@link GetMemberUseCase#getActivePublicProfiles}).
+     */
+    @GetMapping("/api/v1/members")
+    public ResponseEntity<ApiResponse<List<MemberPublicResponse>>> getMembers(@RequestParam("ids") List<Long> ids) {
+        List<MemberPublicResponse> response = getMemberUseCase.getActivePublicProfiles(ids);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
