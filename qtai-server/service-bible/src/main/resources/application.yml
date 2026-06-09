@@ -25,3 +25,19 @@ qtai:
       # TODO(③ 후속): 150MB 번들 mp3 시드 자산을 service-bible로 이전한 뒤 true로 전환.
       # 현재는 자산 미이전이라 시드 비활성(코드만 이전).
       enabled: ${MUSIC_SEED_ENABLED:false}
+
+# QT 일자별 JSON 스냅샷 → 오브젝트 스토리지 (회의록 2026-06-09 §2)
+qt:
+  snapshot:
+    # 00:00 KST 스냅샷 스케줄러 활성 스위치. 기본 false → 테스트·기동 시 비활성(외부 스토리지 미접근).
+    enabled: ${QT_SNAPSHOT_ENABLED:false}
+    # storage: local(기본, 파일) | s3(S3/R2/MinIO)
+    storage: ${QT_SNAPSHOT_STORAGE:local}
+    local:
+      dir: ${QT_SNAPSHOT_LOCAL_DIR:./qt-snapshots}
+    s3:
+      bucket: ${QT_SNAPSHOT_S3_BUCKET:}
+      endpoint: ${QT_SNAPSHOT_S3_ENDPOINT:}
+      region: ${QT_SNAPSHOT_S3_REGION:us-east-1}
+      access-key: ${QT_SNAPSHOT_S3_ACCESS_KEY:}
+      secret-key: ${QT_SNAPSHOT_S3_SECRET_KEY:}
