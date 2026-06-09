@@ -3,7 +3,7 @@ name: Claude PR Auto Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [dev]
+    branches: [dev, dev-msa, dev-admin-web]
 
 # =============================================================================
 # 환경변수 — 변경 가능 (한 곳만 수정하면 전체 반영)
