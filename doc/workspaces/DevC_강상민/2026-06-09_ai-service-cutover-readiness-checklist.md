@@ -1,5 +1,7 @@
 # ai-service Cutover Readiness Checklist
 
+관련 실행 문서: `doc/workspaces/DevC_강상민/2026-06-09_ai-service-cutover-runbook.md`
+
 ## 1. 목적
 
 이 문서는 monolith의 AI endpoint 트래픽을 `ai-service`로 넘기기 전에 팀이 확인해야 하는 준비 조건을 고정한다.
