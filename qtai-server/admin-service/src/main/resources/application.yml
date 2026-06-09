@@ -1,0 +1,13 @@
+server:
+  port: ${ADMIN_SERVICE_PORT:8083}
+
+spring:
+  application:
+    name: admin-service
+
+# 스캐폴드 단계는 health 만 노출한다. 도메인/DB 엔드포인트는 후속 작업에서 게이트 추가.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
