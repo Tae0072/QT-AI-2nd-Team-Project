@@ -97,7 +97,47 @@ async def _edge_mp3(text: str, voice_id: str) -> bytes:
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
             buf.extend(chunk["data"])
+    if not buf:
+        raise RuntimeError("edge-tts: 음성을 받지 못했습니다(NoAudioReceived)")
     return bytes(buf)
+
+
+def _gtts_mp3(text: str) -> bytes:
+    """gTTS(구글) 폴백 — 데이터센터 IP에서도 동작. 한국어 단일 음성."""
+    from gtts import gTTS
+
+    out = io.BytesIO()
+    gTTS(text=text, lang="ko").write_to_fp(out)
+    return out.getvalue()
+
+
+# 마지막 요청에서 어떤 엔진이 쓰였는지(진단용 응답 헤더)
+_last_engine = {"name": "edge"}
+
+
+async def _synthesize(text: str, voice_id: str) -> bytes:
+    """Edge TTS 우선, 실패 시 gTTS로 자동 폴백.
+
+    Edge TTS는 일부 클라우드(데이터센터 IP)에서 Microsoft가 차단해 실패할 수
+    있다. 그 경우 gTTS로 폴백해 기능이 끊기지 않게 한다(단, gTTS는 한국어 단일
+    음성이라 목소리 구분은 사라진다).
+    """
+    try:
+        data = await _edge_mp3(text, voice_id)
+        _last_engine["name"] = "edge"
+        return data
+    except Exception as edge_err:  # noqa: BLE001
+        try:
+            import asyncio
+
+            data = await asyncio.to_thread(_gtts_mp3, text)
+            _last_engine["name"] = "gtts"
+            return data
+        except Exception as gtts_err:  # noqa: BLE001
+            raise HTTPException(
+                status_code=502,
+                detail=f"TTS 실패 — edge: {edge_err} / gtts: {gtts_err}",
+            )
 
 
 @app.get("/")
@@ -134,7 +174,7 @@ async def qt_read(req: QtReadRequest, _=Depends(verify_token)):
     prev_kind = None
     for kind, value in segments:
         if kind == "text":
-            mp3 = await _edge_mp3(value, voice_id)
+            mp3 = await _synthesize(value, voice_id)
             if not mp3:
                 continue
             seg = AudioSegment.from_file(io.BytesIO(mp3), format="mp3")
@@ -155,7 +195,12 @@ async def qt_read(req: QtReadRequest, _=Depends(verify_token)):
     else:
         combined.export(out, format="mp3", bitrate="128k")
         media_type = "audio/mpeg"
-    return Response(content=out.getvalue(), media_type=media_type)
+    # 어떤 엔진이 쓰였는지 헤더로 노출(진단용)
+    return Response(
+        content=out.getvalue(),
+        media_type=media_type,
+        headers={"X-TTS-Engine": _last_engine["name"]},
+    )
 
 
 if __name__ == "__main__":
