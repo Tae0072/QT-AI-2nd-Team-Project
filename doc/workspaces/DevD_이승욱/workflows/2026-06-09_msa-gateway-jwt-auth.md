@@ -15,7 +15,7 @@
    - `Authorization: Bearer` access token을 공개키 검증. 누락·`Bearer` 미접두·만료·서명 불일치·refresh 타입·claim 누락이면 **401 표준 envelope**(`ErrorCode.UNAUTHORIZED` = M0002, `ApiResponse`로 직렬화).
    - 검증 성공 시 다운스트림에 `X-Member-Id`/`X-Member-Role` 주입. **클라이언트가 보낸 동일 헤더는 항상 제거**(인증 예외 경로 포함)해 신원 위조 차단.
    - 로그에 token 값 미기록(CLAUDE.md §9).
-4. **테스트 공개키 설정** — `service-gateway/src/test/resources/application.properties`에 컨텍스트 로드용 테스트 공개키(개인키 미포함, 비밀 아님). 파일명이 main `application.yml`과 달라 라우트 설정을 shadow하지 않고 병합되며 `${JWT_PUBLIC_KEY}` placeholder 미해결을 방지.
+4. **테스트 키 런타임 주입** — 모놀리식의 `com.qtai.support.JwtTestKeysContextCustomizerFactory`와 동일 패턴으로 게이트웨이용 `JwtTestKeysContextCustomizerFactory`(+ `META-INF/spring.factories` 등록) 추가. 테스트 부팅 시 RSA 공개키를 생성해 `gateway.jwt.public-key`로 주입한다. **저장소에 평문 키를 커밋하지 않는다**(CLAUDE.md §8 — 테스트 키의 운영 키 승격 위험 차단). 게이트웨이는 검증 전용이라 공개키만 주입.
 
 ## 범위
 - 브랜치: `feature/msa-gateway-jwt-auth` (base: `dev`)
