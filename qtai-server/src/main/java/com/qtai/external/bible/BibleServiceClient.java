@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -15,19 +16,27 @@ import com.qtai.domain.bible.api.dto.BibleBookResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 /**
  * bible-service HTTP 클라이언트 (MSA Inc3, mode=http일 때만 활성).
  *
  * <p>내부 SYSTEM 서비스-to-서비스 호출 — 사용자 컨텍스트 없이 {@code X-Gateway-Token}만 주입한다
- * (bible-service의 SYSTEM 주체 인증). 성공 응답은 표준 envelope({@link ApiResponse})를 언랩해 data를 반환한다.
- * <b>오류 응답(4xx/5xx)은 error 코드를 {@link ErrorCode}로 역매핑한 {@link BusinessException}으로 변환</b>해
- * in-process 호출과 동일한 예외 계약을 유지한다(소비자 동작 무변경). 매핑 불가·통신 오류는 EXTERNAL_API_FAILURE.
+ * (bible-service의 SYSTEM 주체 인증). 성공 응답은 표준 envelope({@link ApiResponse})를 언랩한다.
+ *
+ * <p><b>오류 처리</b>: 4xx(결정적 오류)는 error 코드를 {@link ErrorCode}로 역매핑한 {@link BusinessException}으로
+ * 변환하고 <b>재시도하지 않는다</b>(in-process 예외 계약 보존). 5xx·연결/타임아웃(일시 오류)은 짧은 백오프로
+ * 제한 횟수 재시도하고, 소진 시 EXTERNAL_API_FAILURE로 감싼다. (CB는 컷오버 전 별도 도입 — 운영 진입 체크리스트.)
  */
 public class BibleServiceClient {
+
+    private static final Logger log = LoggerFactory.getLogger(BibleServiceClient.class);
 
     private static final Map<String, ErrorCode> ERROR_CODE_BY_CODE =
             java.util.Arrays.stream(ErrorCode.values())
@@ -50,24 +59,33 @@ public class BibleServiceClient {
     private final RestClient restClient;
     private final String gatewayToken;
     private final ObjectMapper objectMapper;
+    private final int maxAttempts;
+    private final long retryBackoffMs;
 
     public BibleServiceClient(RestClient restClient, String gatewayToken, ObjectMapper objectMapper) {
+        this(restClient, gatewayToken, objectMapper, 3, 100L);
+    }
+
+    public BibleServiceClient(RestClient restClient, String gatewayToken, ObjectMapper objectMapper,
+                              int maxAttempts, long retryBackoffMs) {
         this.restClient = restClient;
         this.gatewayToken = gatewayToken;
         this.objectMapper = objectMapper;
+        this.maxAttempts = Math.max(1, maxAttempts);
+        this.retryBackoffMs = Math.max(0, retryBackoffMs);
     }
 
     public List<BibleBookResponse> listBibleBooks() {
-        return unwrap(restClient.get()
+        return withRetry(() -> unwrap(restClient.get()
                 .uri("/api/v1/bible/books")
                 .header(HEADER_GATEWAY_TOKEN, gatewayToken)
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, this::handleError)
-                .body(BOOK_LIST));
+                .onStatus(HttpStatusCode::is4xxClientError, this::handle4xx)
+                .body(BOOK_LIST)));
     }
 
     public BibleVerseRangeResponse getVerses(String bookCode, int chapter, Integer verseFrom, Integer verseTo) {
-        return unwrap(restClient.get()
+        return withRetry(() -> unwrap(restClient.get()
                 .uri(builder -> {
                     builder.path("/api/v1/bible/verses")
                             .queryParam("bookCode", bookCode)
@@ -82,8 +100,8 @@ public class BibleServiceClient {
                 })
                 .header(HEADER_GATEWAY_TOKEN, gatewayToken)
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, this::handleError)
-                .body(VERSE_RANGE));
+                .onStatus(HttpStatusCode::is4xxClientError, this::handle4xx)
+                .body(VERSE_RANGE)));
     }
 
     public List<BibleVerseResponse> getVerses(List<Long> verseIds) {
@@ -91,18 +109,48 @@ public class BibleServiceClient {
         if (verseIds == null || verseIds.isEmpty()) {
             return List.of();
         }
-        return unwrap(restClient.get()
+        return withRetry(() -> unwrap(restClient.get()
                 .uri(builder -> builder.path("/api/v1/bible/verses/by-ids")
                         .queryParam("ids", verseIds.toArray())
                         .build())
                 .header(HEADER_GATEWAY_TOKEN, gatewayToken)
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, this::handleError)
-                .body(VERSE_LIST));
+                .onStatus(HttpStatusCode::is4xxClientError, this::handle4xx)
+                .body(VERSE_LIST)));
     }
 
-    private void handleError(org.springframework.http.HttpRequest request,
-                             org.springframework.http.client.ClientHttpResponse response) throws IOException {
+    /** 일시 오류(5xx·연결/타임아웃)만 제한 재시도. 4xx 역매핑({@link BusinessException})은 즉시 전파. */
+    private <T> T withRetry(Supplier<T> call) {
+        RuntimeException lastTransient = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return call.get();
+            } catch (BusinessException e) {
+                throw e; // 4xx 결정적 오류 — 재시도 안 함
+            } catch (HttpServerErrorException | ResourceAccessException e) {
+                lastTransient = e;
+                log.debug("bible-service 호출 일시 오류 — 재시도 {}/{}: {}", attempt, maxAttempts, e.getClass().getSimpleName());
+                if (attempt < maxAttempts && retryBackoffMs > 0) {
+                    sleep(retryBackoffMs);
+                }
+            }
+        }
+        log.warn("bible-service 호출 재시도 소진({}회): {}", maxAttempts,
+                lastTransient == null ? "unknown" : lastTransient.getClass().getSimpleName());
+        throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
+    }
+
+    private static void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
+        }
+    }
+
+    private void handle4xx(org.springframework.http.HttpRequest request,
+                           org.springframework.http.client.ClientHttpResponse response) throws IOException {
         ErrorCode mapped = ErrorCode.EXTERNAL_API_FAILURE;
         try {
             ApiResponse<Void> envelope = objectMapper.readValue(response.getBody(), ERROR_ENVELOPE);

@@ -43,7 +43,8 @@ public class BibleHttpClientConfiguration {
                 .baseUrl(properties.requireBaseUrl())
                 .requestFactory(ClientHttpRequestFactories.get(settings))
                 .build();
-        return new BibleServiceClient(restClient, properties.gatewayToken(), objectMapper);
+        return new BibleServiceClient(restClient, properties.gatewayToken(), objectMapper,
+                properties.retryMaxAttemptsOrDefault(), properties.retryBackoffMsOrDefault());
     }
 
     @Bean

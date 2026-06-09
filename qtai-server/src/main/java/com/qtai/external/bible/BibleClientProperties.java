@@ -15,11 +15,21 @@ public record BibleClientProperties(
         String mode,
         String baseUrl,
         String gatewayToken,
-        Long timeoutMs
+        Long timeoutMs,
+        Integer retryMaxAttempts,
+        Long retryBackoffMs
 ) {
 
     public boolean isHttpMode() {
         return "http".equalsIgnoreCase(mode);
+    }
+
+    int retryMaxAttemptsOrDefault() {
+        return retryMaxAttempts != null && retryMaxAttempts > 0 ? retryMaxAttempts : 3;
+    }
+
+    long retryBackoffMsOrDefault() {
+        return retryBackoffMs != null && retryBackoffMs >= 0 ? retryBackoffMs : 100L;
     }
 
     String requireBaseUrl() {

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -34,13 +35,15 @@ class BibleServiceClientTest {
     private static final String TOKEN = "gw-test-token"; // gitleaks:allow — 테스트 전용 더미 토큰
 
     private MockRestServiceServer server;
+    private RestClient restClient;
     private BibleServiceClient client;
 
     @BeforeEach
     void setUp() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://bible-service");
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new BibleServiceClient(builder.build(), TOKEN, new ObjectMapper().findAndRegisterModules());
+        restClient = builder.build();
+        client = new BibleServiceClient(restClient, TOKEN, new ObjectMapper().findAndRegisterModules());
     }
 
     @Test
@@ -107,7 +110,41 @@ class BibleServiceClientTest {
     }
 
     @Test
-    @DisplayName("오류 응답(404 B0002) → error 코드 역매핑한 BusinessException(BIBLE_VERSE_NOT_FOUND)")
+    @DisplayName("일시 오류(503) 2회 후 200 — 재시도로 복구")
+    void transientServerError_retriesThenSucceeds() {
+        BibleServiceClient retryClient = new BibleServiceClient(
+                restClient, TOKEN, new ObjectMapper().findAndRegisterModules(), 3, 0);
+        server.expect(ExpectedCount.times(2), requestToUriTemplate("http://bible-service/api/v1/bible/books"))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+        server.expect(ExpectedCount.once(), requestToUriTemplate("http://bible-service/api/v1/bible/books"))
+                .andRespond(withSuccess(
+                        "{\"success\":true,\"data\":[{\"id\":1,\"testament\":\"OLD\",\"code\":\"GEN\","
+                                + "\"koreanName\":\"x\",\"englishName\":\"Genesis\",\"displayOrder\":1}]}",
+                        MediaType.APPLICATION_JSON));
+
+        List<BibleBookResponse> books = retryClient.listBibleBooks();
+
+        assertThat(books).hasSize(1);
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("일시 오류(503) 재시도 소진 → BusinessException(EXTERNAL_API_FAILURE)")
+    void transientServerError_exhaustsRetries_throwsExternalFailure() {
+        BibleServiceClient retryClient = new BibleServiceClient(
+                restClient, TOKEN, new ObjectMapper().findAndRegisterModules(), 3, 0);
+        server.expect(ExpectedCount.times(3), requestToUriTemplate("http://bible-service/api/v1/bible/books"))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+
+        assertThatThrownBy(retryClient::listBibleBooks)
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.EXTERNAL_API_FAILURE);
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("오류 응답(404 B0002) → error 코드 역매핑한 BusinessException(BIBLE_VERSE_NOT_FOUND), 재시도 안 함")
     void errorResponse_mapsToBusinessException() {
         server.expect(method(GET))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND)
