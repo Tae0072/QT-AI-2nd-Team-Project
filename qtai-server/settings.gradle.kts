@@ -18,3 +18,4 @@ include("lib-common")     // 공통: 응답/예외, JWT 검증 필터, RestClien
 include("service-user")   // 사용자/인증: member, notification, mission (JWT 발급, port 8081)
 include("service-bible")  // 읽기전용 콘텐츠: bible, qt, study, music, praise (port 8082)
 include("service-note")   // 노트/나눔/신고: note, sharing, report(제출) (port 8083)
+include("service-ai")     // AI: ai (사전생성/검증·F-15 Q&A) (port 8084)
