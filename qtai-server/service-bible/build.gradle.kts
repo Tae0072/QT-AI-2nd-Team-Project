@@ -41,6 +41,9 @@ dependencies {
 
     // ArchUnit — 도메인 경계 자동 검증 (CLAUDE.md §3, §4)
     testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
+
+    // Spring Security 테스트 지원 (MockMvc 인증 주입: SecurityMockMvcRequestPostProcessors)
+    testImplementation("org.springframework.security:spring-security-test")
 }
 
 tasks.withType<JavaCompile> {
