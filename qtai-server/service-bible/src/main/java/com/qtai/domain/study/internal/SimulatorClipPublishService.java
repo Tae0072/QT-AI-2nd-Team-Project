@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
@@ -88,7 +89,9 @@ class SimulatorClipPublishService implements
         }
         try {
             objectMapper.readTree(sceneScriptJson);
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
+            // 광범위 catch(Exception) 금지(CLAUDE.md §9). readTree는 JSON 파싱 실패 시
+            // JsonProcessingException만 던지므로 그 타입으로 좁힌다.
             throw new BusinessException(ErrorCode.INVALID_INPUT, "sceneScriptJson 형식이 올바르지 않습니다.");
         }
     }
