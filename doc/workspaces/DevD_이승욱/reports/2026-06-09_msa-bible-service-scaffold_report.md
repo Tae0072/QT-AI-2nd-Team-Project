@@ -24,8 +24,16 @@ MSA Phase 1 첫 단계로 읽기 전용 성경 도메인을 독립 `bible-servic
 - **리프 검증**: bible는 `com.qtai.common`만 의존해 복사 시 lib-common만으로 컴파일 → 첫 추출 도메인으로 적합함을 확인.
 - 모놀리식·코어·다른 서비스 무변경.
 
+## 리뷰 후속 보강(머지 전)
+
+| 지적 | 조치 |
+|------|------|
+| (c) `@Cacheable` 복사 시 CacheManager 누락 | `BibleCacheConfig`(@EnableCaching + Caffeine `bibleBooks`) 추가 — 없으면 @Cacheable 무시되어 캐싱 동작 차이. starter-cache+caffeine 의존 |
+| (b) inbound 활성 시 무인증 노출 | `GatewayHeaderAuthenticationFilter`(X-Member-Id 없으면 401, actuator 예외)를 inbound와 한 단위로 게이트 — deny-by-default. 게이트웨이 미경유 직접 호출 차단 |
+| (a) 단위/슬라이스 테스트 0건 | 필터 3건(deny/allow/actuator) + CacheManager 1건 추가 |
+
 ## 검증
-- `gradlew :bible-service:build` — **BUILD SUCCESSFUL** (compile + bootJar + contextLoads 1건 0 failures)
+- `gradlew :bible-service:build` — **BUILD SUCCESSFUL / 0 failures (5건)**: contextLoads 1 + 필터 3 + 캐시 1
 - 자동설정 exclude로 skeleton(DataSource 없음)에서 컨텍스트 로드 확인.
 - 금지 데이터: 본문 미포함. 번역본 언급은 `금지`/`KJV·KRV` 문맥(requirements-guard 제외).
 - 전체 빌드·통합 테스트는 CI.

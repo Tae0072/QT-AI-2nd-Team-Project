@@ -20,8 +20,14 @@
 - 변경: `:bible-service` 신규 모듈(도메인 복사 15 + 인프라 4 + build/yml/migration/test) + settings. 모놀리식·다른 서비스·코어 무변경.
 - PR 크기: 서비스 스캐폴드라 파일 수가 많음(ai-service 스캐폴드와 동일 성격) — 기능 응집 단위라 분할하지 않음.
 
+## 리뷰 후속 보강(머지 전)
+초기 스캐폴드 리뷰 3건 보강:
+- **(c) 캐시 누락** — bible 도메인의 `@Cacheable("bibleBooks")`가 동작하도록 `BibleCacheConfig`(@EnableCaching + Caffeine, 모놀리식 CacheConfig의 bible 캐시 이전) 추가. 없으면 @Cacheable이 조용히 무시되어 캐싱 동작 차이. starter-cache + caffeine 의존.
+- **(b) 무인증 노출 방지** — inbound 활성 시 `/api/v1/bible/**`가 무인증 노출되는 위험 차단. `GatewayHeaderAuthenticationFilter`(게이트웨이 주입 `X-Member-Id` 없으면 401, actuator 예외)를 inbound 구성과 **한 단위로 게이트**해 "켤 때 보안 누락"을 방지. full Spring Security 대신 경량 필터(자동설정 미간섭).
+- **(a) 테스트 보강** — contextLoads 외 단위 테스트 추가: 필터 deny/allow/actuator 3건 + CacheManager 빈 1건.
+
 ## 검증
-- `gradlew :bible-service:build` — **BUILD SUCCESSFUL** (compile + bootJar + contextLoads 1건 0 failures)
+- `gradlew :bible-service:build` — **BUILD SUCCESSFUL / 0 failures (5건)**: contextLoads 1 + GatewayHeaderAuthenticationFilterTest 3(헤더없음 401·M0002 / 헤더있음 통과 / actuator 예외) + BibleCacheConfigTest 1(bibleBooks 캐시 등록)
 - skeleton 기본값(persistence/inbound 비활성)에서 자동설정 exclude로 DataSource 없이 컨텍스트 로드 확인.
 - 금지 데이터: 마이그레이션·문서의 번역본 언급은 모두 `금지`/`KJV·KRV` 문맥(requirements-guard 제외 패턴) — 본문 데이터 미포함.
 - 전체 `./gradlew build`(타 모듈 포함)·통합 테스트는 CI.
