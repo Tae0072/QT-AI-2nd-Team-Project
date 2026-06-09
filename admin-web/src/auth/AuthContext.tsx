@@ -7,6 +7,7 @@ import {
 } from 'react';
 import { getToken, setToken as saveToken, clearToken } from './tokenStorage';
 import { getAdminMe, type AdminMe } from '../api/adminMe';
+import { ApiClientError } from '../api/client';
 
 // ===== 로그인 상태(토큰)를 앱 전체에서 공유하는 Context =====
 // React 의 Context 는 "여러 화면이 함께 쓰는 값"을 전달하는 통로다.
@@ -18,6 +19,7 @@ export interface AuthContextValue {
   token: string | null;
   adminInfo: AdminMe | null;
   adminLoading: boolean;
+  adminError: string | null;
   isLoggedIn: boolean;
   login: (token: string) => void;
   logout: () => void;
@@ -34,11 +36,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(() => getToken());
   const [adminInfo, setAdminInfo] = useState<AdminMe | null>(null);
   const [adminLoading, setAdminLoading] = useState<boolean>(() => getToken() != null);
+  const [adminError, setAdminError] = useState<string | null>(null);
+
+  const handleAdminInfoError = useCallback((error: unknown) => {
+    if (
+      error instanceof ApiClientError &&
+      (error.status === 401 || error.status === 403)
+    ) {
+      clearToken();
+      setTokenState(null);
+      setAdminInfo(null);
+      setAdminError(null);
+      setAdminLoading(false);
+      return;
+    }
+
+    setAdminInfo(null);
+    setAdminError(
+      error instanceof Error
+        ? error.message
+        : '관리자 권한을 확인하지 못했습니다.',
+    );
+  }, []);
 
   const clearSession = useCallback(() => {
     clearToken();
     setTokenState(null);
     setAdminInfo(null);
+    setAdminError(null);
     setAdminLoading(false);
   }, []);
 
@@ -50,15 +75,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setAdminLoading(true);
+    setAdminError(null);
     try {
       const me = await getAdminMe();
       setAdminInfo(me);
-    } catch {
-      clearSession();
+    } catch (error) {
+      handleAdminInfoError(error);
     } finally {
       setAdminLoading(false);
     }
-  }, [clearSession]);
+  }, [handleAdminInfoError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,12 +96,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setAdminLoading(true);
+    setAdminError(null);
     getAdminMe()
       .then((me) => {
         if (!cancelled) setAdminInfo(me);
       })
-      .catch(() => {
-        if (!cancelled) clearSession();
+      .catch((error) => {
+        if (!cancelled) handleAdminInfoError(error);
       })
       .finally(() => {
         if (!cancelled) setAdminLoading(false);
@@ -84,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [clearSession, token]);
+  }, [handleAdminInfoError, token]);
 
   const login = useCallback((newToken: string) => {
     saveToken(newToken);
@@ -99,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     token,
     adminInfo,
     adminLoading,
+    adminError,
     isLoggedIn: token !== null && token.length > 0,
     login,
     logout,
