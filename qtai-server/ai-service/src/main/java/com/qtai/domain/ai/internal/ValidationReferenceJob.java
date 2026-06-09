@@ -17,7 +17,7 @@ import com.qtai.common.exception.ErrorCode;
 
 @Entity
 @Table(name = "validation_reference_jobs")
-public class ValidationReferenceJob {
+class ValidationReferenceJob {
 
     private static final int SOURCE_NAME_MAX_LENGTH = 150;
     private static final int SOURCE_FILE_NAME_MAX_LENGTH = 255;

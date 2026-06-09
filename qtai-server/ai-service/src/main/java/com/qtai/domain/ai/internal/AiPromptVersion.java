@@ -14,7 +14,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "ai_prompt_versions")
-public class AiPromptVersion {
+class AiPromptVersion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -17,7 +17,7 @@ import com.qtai.common.exception.ErrorCode;
 
 @Entity
 @Table(name = "ai_generated_assets")
-public class AiGeneratedAsset {
+class AiGeneratedAsset {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

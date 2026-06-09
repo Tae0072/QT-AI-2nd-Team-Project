@@ -31,7 +31,7 @@ import com.qtai.common.exception.ErrorCode;
                 )
         }
 )
-public class AiGenerationJob {
+class AiGenerationJob {
 
     private static final int ERROR_MESSAGE_MAX_LENGTH = 1_000;
     private static final String ACTIVE_UNIQUE_KEY = "ACTIVE";
@@ -117,6 +117,7 @@ public class AiGenerationJob {
     }
 
     public void markFailed(String errorMessage, OffsetDateTime finishedAt) {
+        // Queue-time validation failures can fail before the worker marks the job RUNNING.
         requireTransition(AiGenerationJobStatus.FAILED, AiGenerationJobStatus.QUEUED, AiGenerationJobStatus.RUNNING);
         this.finishedAt = Objects.requireNonNull(finishedAt, "finishedAt must not be null");
         this.status = AiGenerationJobStatus.FAILED;

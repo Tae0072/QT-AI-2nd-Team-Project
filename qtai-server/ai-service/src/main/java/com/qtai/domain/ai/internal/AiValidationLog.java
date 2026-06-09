@@ -14,7 +14,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "ai_validation_logs")
-public class AiValidationLog {
+class AiValidationLog {
 
     private static final int ERROR_MESSAGE_MAX_LENGTH = 1_000;
 

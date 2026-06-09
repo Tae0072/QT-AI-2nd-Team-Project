@@ -57,6 +57,16 @@
 - `ai_batch_run_logs.createdAt` auditing 값이 저장 시 채워짐을 검증했다.
 - `enabled=true`인데 DB URL이 누락되면 fail-fast 되는지 검증했다.
 
+## REQUEST_CHANGES 대응
+
+- `AiJsonStorageGuard`가 provider 원문, 검증 참조 원문, 원문 해설 필드를 포함한 JSON 저장을 거부하는지 단위 테스트를 추가했다.
+- `AiGenerationJob`, `AiGeneratedAsset`, `AiValidationChecklistVersion`의 잘못된 상태 전이가 `BusinessException`으로 차단되는지 검증했다.
+- `AiGenerationJob`이 queue-time validation 실패로 RUNNING 전 단계에서 실패 처리될 수 있음을 테스트와 주석으로 명시했다.
+- `AiBatchRunLog`가 민감 문자열이 포함된 오류 메시지를 redaction 처리하는지 단위 테스트를 추가했다.
+- `AiGenerationJobRepository.findStaleRunningJobIds`의 FQN 타입 사용을 import로 정리했다.
+- `findReadyExplanationBibleVerseTargetIds`가 사용자 노출용이 아니라 생성/검증 pipeline readiness 조회임을 Javadoc으로 명시했다.
+- ai-service 복제본의 AI entity class 가시성을 package-private로 낮추고, opt-in JPA context 테스트로 entity scan과 repository 동작을 재검증했다.
+
 ## 제외 확인
 
 - 운영 Flyway migration은 추가하지 않았다.

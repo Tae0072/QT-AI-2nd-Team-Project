@@ -1,5 +1,6 @@
 package com.qtai.domain.ai.internal;
 
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,9 @@ public interface AiGenerationJobRepository extends JpaRepository<AiGenerationJob
             """)
     List<Long> findQueuedJobIds(AiGenerationJobStatus status, Pageable pageable);
 
+    /**
+     * 사용자 노출용 조회가 아니라 생성/검증 pipeline의 중복 생성 방지용 readiness 조회다.
+     */
     @Query("""
             select distinct job.targetId
             from AiGenerationJob job
@@ -58,5 +62,5 @@ public interface AiGenerationJobRepository extends JpaRepository<AiGenerationJob
               and job.startedAt < :threshold
             order by job.startedAt asc, job.id asc
             """)
-    List<Long> findStaleRunningJobIds(java.time.OffsetDateTime threshold, Pageable pageable);
+    List<Long> findStaleRunningJobIds(OffsetDateTime threshold, Pageable pageable);
 }

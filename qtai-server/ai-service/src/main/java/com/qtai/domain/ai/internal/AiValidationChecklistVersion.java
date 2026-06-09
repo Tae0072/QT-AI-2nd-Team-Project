@@ -24,7 +24,7 @@ import com.qtai.common.exception.ErrorCode;
                 columnNames = {"checklist_type", "version"}
         )
 )
-public class AiValidationChecklistVersion {
+class AiValidationChecklistVersion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

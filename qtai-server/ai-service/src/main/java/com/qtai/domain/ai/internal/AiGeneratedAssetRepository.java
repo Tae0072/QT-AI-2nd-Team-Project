@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface AiGeneratedAssetRepository extends JpaRepository<AiGeneratedAsset, Long> {
 
+    /**
+     * 사용자 노출용 조회가 아니라 검증 pipeline에서 추가 생성 대상인지 판별하는 readiness 조회다.
+     */
     @Query("""
             select distinct asset.targetId
             from AiGeneratedAsset asset
