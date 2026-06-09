@@ -1,100 +1,112 @@
 import { useState } from 'react';
 import {
-  App,
-  Button,
   Card,
-  Checkbox,
-  Form,
-  Input,
-  Modal,
-  Select,
-  Space,
   Table,
   Tag,
+  Typography,
+  Space,
+  Select,
+  Button,
+  Tooltip,
+  Modal,
+  Input,
+  Checkbox,
+  message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { useList } from '../hooks/useList';
+import { ReloadOutlined } from '@ant-design/icons';
 import {
   listReports,
-  rejectReport,
   resolveReport,
+  rejectReport,
   type Report,
   type ReportListParams,
 } from '../api/reports';
+import { usePagedList } from '../hooks/usePagedList';
+import { formatDateTime } from '../utils/datetime';
 
-// 신고 상태 → 화면 라벨·색. (코드만 보면 헷갈리니 사람이 읽을 형태로)
-const STATUS_META: Record<string, { label: string; color: string }> = {
-  RECEIVED: { label: '접수', color: 'gold' },
-  RESOLVED: { label: '처리됨', color: 'green' },
-  REJECTED: { label: '반려', color: 'default' },
-};
+// ===== AD-04 신고 처리 =====
+// 목록 + 필터(상태/대상 유형) + 서버 페이지네이션 + 처리(resolve)/반려(reject) 모달.
+// 권한: OPERATOR / SUPER_ADMIN (백엔드 requireOperator 에서 검증).
 
-// 처리(resolve) 시 취할 조치 (04 §4.7.4).
-const RESOLVE_ACTIONS = [
-  { value: 'HIDE_TARGET', label: '대상 숨김' },
-  { value: 'SUSPEND_USER', label: '작성자 제재' },
-  { value: 'NO_ACTION', label: '조치 없음' },
+const STATUS_OPTIONS = [
+  { label: '접수(RECEIVED)', value: 'RECEIVED' },
+  { label: '검토중(REVIEWING)', value: 'REVIEWING' },
+  { label: '처리완료(RESOLVED)', value: 'RESOLVED' },
+  { label: '반려(REJECTED)', value: 'REJECTED' },
 ];
 
-const STATUS_FILTER = ['RECEIVED', 'RESOLVED', 'REJECTED'];
-const TARGET_FILTER = ['POST', 'COMMENT', 'AI_QA_REQUEST', 'AI_ASSET'];
+const TARGET_TYPE_OPTIONS = [
+  { label: '나눔글(POST)', value: 'POST' },
+  { label: '댓글(COMMENT)', value: 'COMMENT' },
+  { label: 'AI Q&A(AI_QA_REQUEST)', value: 'AI_QA_REQUEST' },
+  { label: 'AI 산출물(AI_ASSET)', value: 'AI_ASSET' },
+];
 
-function formatDateTime(iso: string | null): string {
-  return iso ? iso.replace('T', ' ').slice(0, 16) : '-';
+function statusTag(status: string) {
+  const map: Record<string, { color: string; text: string }> = {
+    RECEIVED: { color: 'blue', text: '접수' },
+    REVIEWING: { color: 'gold', text: '검토중' },
+    RESOLVED: { color: 'green', text: '처리완료' },
+    REJECTED: { color: 'red', text: '반려' },
+  };
+  const m = map[status] ?? { color: 'default', text: status };
+  return <Tag color={m.color}>{m.text}</Tag>;
 }
 
-// 처리/반려 모달이 어떤 신고를 대상으로, 어떤 동작으로 열렸는지 담는 상태 타입.
-type ActionTarget = { report: Report; type: 'resolve' | 'reject' } | null;
+const isOpenStatus = (s: string) => s === 'RECEIVED' || s === 'REVIEWING';
 
-// AD-04 신고 처리 — 신고 목록 조회·필터 + 행별 처리/반려(모달).
 export default function ReportsPage() {
-  const { message } = App.useApp();
-  // 목록은 AD-07과 동일하게 공통 훅 재사용(데이터·로딩·필터·페이징).
-  const { rows, loading, data, params, setParams, reload } = useList<
-    Report,
-    ReportListParams
-  >(listReports, { page: 0, size: 20 });
+  const { rows, page, size, total, loading, applyFilters, changePage, reload } =
+    usePagedList<Report, ReportListParams>(listReports, { page: 0, size: 20 });
 
-  // 필터 폼 제출 → params 반영(첫 페이지부터).
-  const [filterForm] = Form.useForm();
-  const onFilter = (v: { status?: string; targetType?: string }) => {
-    setParams({ status: v.status, targetType: v.targetType, page: 0 });
-  };
+  const [status, setStatus] = useState<string | undefined>(undefined);
+  const [targetType, setTargetType] = useState<string | undefined>(undefined);
 
-  // 처리/반려 모달 상태 + 모달 안 입력 폼.
-  const [actionTarget, setActionTarget] = useState<ActionTarget>(null);
-  const [modalForm] = Form.useForm();
+  // 처리/반려 모달 상태
+  const [action, setAction] = useState<{
+    mode: 'resolve' | 'reject';
+    report: Report;
+  } | null>(null);
+  const [reason, setReason] = useState('');
+  const [notify, setNotify] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const openAction = (report: Report, type: 'resolve' | 'reject') => {
-    modalForm.resetFields(); // 이전 입력이 남지 않게 매번 초기화
-    setActionTarget({ report, type });
+  const onSearch = () =>
+    applyFilters({
+      status: status || undefined,
+      targetType: targetType || undefined,
+    });
+
+  const onReset = () => {
+    setStatus(undefined);
+    setTargetType(undefined);
+    applyFilters({ status: undefined, targetType: undefined });
   };
 
-  // 모달 [확인]: 폼 검증 → resolve/reject API → 목록 새로고침.
-  const onSubmitAction = async () => {
-    if (!actionTarget) return;
-    let values: { action?: string; reason?: string; notifyReporter?: boolean };
-    try {
-      values = await modalForm.validateFields(); // 검증 실패면 모달 유지
-    } catch {
-      return;
-    }
+  const openAction = (mode: 'resolve' | 'reject', report: Report) => {
+    setAction({ mode, report });
+    setReason('');
+    setNotify(true);
+  };
+
+  const submitAction = async () => {
+    if (!action) return;
     setSubmitting(true);
     try {
-      if (actionTarget.type === 'resolve') {
-        await resolveReport(actionTarget.report.id, {
-          action: values.action,
-          reason: values.reason,
-          notifyReporter: values.notifyReporter ?? false,
-        });
-        message.success('신고를 처리했습니다.');
+      const payload = {
+        reason: reason.trim() || undefined,
+        notifyReporter: notify,
+      };
+      if (action.mode === 'resolve') {
+        await resolveReport(action.report.id, payload);
+        message.success('신고를 처리(인정)했습니다.');
       } else {
-        await rejectReport(actionTarget.report.id, { reason: values.reason });
+        await rejectReport(action.report.id, payload);
         message.success('신고를 반려했습니다.');
       }
-      setActionTarget(null);
-      reload(); // 처리 결과(상태 변경)를 목록에 반영
+      setAction(null);
+      reload();
     } catch (e) {
       message.error(e instanceof Error ? e.message : '처리에 실패했습니다.');
     } finally {
@@ -102,126 +114,176 @@ export default function ReportsPage() {
     }
   };
 
-  // 컬럼은 액션 버튼이 openAction(클로저)을 써야 해서 컴포넌트 안에 둔다.
   const columns: ColumnsType<Report> = [
-    { title: '신고시각', dataIndex: 'createdAt', key: 'createdAt', width: 150, render: formatDateTime },
+    { title: 'ID', dataIndex: 'id', width: 70 },
+    {
+      title: '신고일',
+      dataIndex: 'createdAt',
+      width: 160,
+      render: (v: string) => formatDateTime(v),
+    },
     {
       title: '대상',
-      key: 'target',
-      width: 160,
-      render: (_, r) => `${r.targetType}${r.targetId != null ? ` #${r.targetId}` : ''}`,
+      width: 180,
+      render: (_, r) =>
+        `${r.targetType}${r.targetId != null ? ` #${r.targetId}` : ''}`,
     },
-    { title: '사유', dataIndex: 'reason', key: 'reason', width: 140 },
+    {
+      title: '사유',
+      dataIndex: 'reason',
+      render: (v: string | null) => v ?? '-',
+    },
+    {
+      title: '신고자',
+      dataIndex: 'reporterMemberId',
+      width: 90,
+      render: (v: number | null) => (v != null ? `#${v}` : '-'),
+    },
     {
       title: '상태',
       dataIndex: 'status',
-      key: 'status',
-      width: 90,
-      render: (s: string) => {
-        const meta = STATUS_META[s] ?? { label: s, color: 'default' };
-        return <Tag color={meta.color}>{meta.label}</Tag>;
-      },
+      width: 110,
+      render: (v: string) => statusTag(v),
     },
     {
-      // 접수(RECEIVED) 상태만 처리/반려 가능. 이미 처리/반려된 건 버튼 숨김.
-      title: '액션',
-      key: 'action',
-      width: 150,
+      title: '처리',
+      width: 190,
       render: (_, r) =>
-        r.status === 'RECEIVED' ? (
+        r.processedAt
+          ? `${formatDateTime(r.processedAt)}${r.processedByAdminId != null ? ` (admin #${r.processedByAdminId})` : ''}`
+          : '-',
+    },
+    {
+      title: '액션',
+      width: 150,
+      fixed: 'right',
+      render: (_, r) =>
+        isOpenStatus(r.status) ? (
           <Space>
-            <Button size="small" type="primary" onClick={() => openAction(r, 'resolve')}>
+            <Button
+              size="small"
+              type="primary"
+              onClick={() => openAction('resolve', r)}
+            >
               처리
             </Button>
-            <Button size="small" danger onClick={() => openAction(r, 'reject')}>
+            <Button size="small" danger onClick={() => openAction('reject', r)}>
               반려
             </Button>
           </Space>
         ) : (
-          <span style={{ color: '#aaa' }}>—</span>
+          <Typography.Text type="secondary">완료</Typography.Text>
         ),
     },
   ];
 
-  const isResolve = actionTarget?.type === 'resolve';
-
   return (
-    <Card title="AD-04 신고 처리">
-      {/* 필터: 상태·대상 유형을 골라 [조회]. 빈 값이면 전체. */}
-      <Form form={filterForm} layout="inline" onFinish={onFilter} style={{ marginBottom: 16 }}>
-        <Form.Item name="status" label="상태">
+    <Card>
+      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space align="center">
+          <Tag color="blue">AD-04</Tag>
+          <Typography.Title level={3} style={{ margin: 0 }}>
+            신고 처리
+          </Typography.Title>
+        </Space>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+          나눔 글·댓글 신고를 검토하고 처리(인정)하거나 반려합니다. 권한:
+          OPERATOR / SUPER_ADMIN.
+        </Typography.Paragraph>
+
+        <Space wrap>
           <Select
+            placeholder="상태"
             allowClear
-            placeholder="전체"
-            style={{ width: 140 }}
-            options={STATUS_FILTER.map((s) => ({ value: s, label: STATUS_META[s]?.label ?? s }))}
+            style={{ width: 180 }}
+            value={status}
+            onChange={(v) => setStatus(v)}
+            options={STATUS_OPTIONS}
           />
-        </Form.Item>
-        <Form.Item name="targetType" label="대상">
           <Select
+            placeholder="대상 유형"
             allowClear
-            placeholder="전체"
-            style={{ width: 160 }}
-            options={TARGET_FILTER.map((t) => ({ value: t, label: t }))}
+            style={{ width: 210 }}
+            value={targetType}
+            onChange={(v) => setTargetType(v)}
+            options={TARGET_TYPE_OPTIONS}
           />
-        </Form.Item>
-        <Form.Item>
-          <Button type="primary" htmlType="submit">
+          <Button type="primary" onClick={onSearch}>
             조회
           </Button>
-        </Form.Item>
-      </Form>
+          <Button onClick={onReset}>초기화</Button>
+          <Tooltip title="새로고침">
+            <Button icon={<ReloadOutlined />} onClick={reload} />
+          </Tooltip>
+        </Space>
 
-      <Table<Report>
-        rowKey="id"
-        columns={columns}
-        dataSource={rows}
-        loading={loading}
-        size="small"
-        scroll={{ x: true }}
-        pagination={{
-          current: (params.page ?? 0) + 1, // 백엔드 0-based ↔ antd 1-based
-          pageSize: params.size ?? 20,
-          total: data?.totalElements ?? 0,
-          showSizeChanger: true,
-          showTotal: (t) => `총 ${t}건`,
-          onChange: (page, pageSize) => setParams({ page: page - 1, size: pageSize }),
-        }}
-      />
+        <Table<Report>
+          rowKey="id"
+          size="middle"
+          loading={loading}
+          columns={columns}
+          dataSource={rows}
+          scroll={{ x: 'max-content' }}
+          expandable={{
+            expandedRowRender: (r) => (
+              <Typography.Paragraph
+                style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}
+              >
+                <Typography.Text strong>상세 내용: </Typography.Text>
+                {r.detail ?? '-'}
+              </Typography.Paragraph>
+            ),
+            rowExpandable: (r) => Boolean(r.detail),
+          }}
+          pagination={{
+            current: page + 1, // antd 1-based, 서버 0-based
+            pageSize: size,
+            total,
+            showSizeChanger: true,
+            showTotal: (t) => `총 ${t}건`,
+            onChange: (p, ps) => changePage(p - 1, ps),
+          }}
+        />
+      </Space>
 
-      {/* 처리/반려 공용 모달 — type에 따라 입력 항목이 달라진다. */}
       <Modal
-        open={actionTarget != null}
-        title={isResolve ? '신고 처리' : '신고 반려'}
-        okText={isResolve ? '처리' : '반려'}
+        open={action !== null}
+        title={action?.mode === 'resolve' ? '신고 처리(인정)' : '신고 반려'}
+        okText={action?.mode === 'resolve' ? '처리' : '반려'}
+        okButtonProps={{ danger: action?.mode === 'reject', loading: submitting }}
+        cancelText="취소"
         confirmLoading={submitting}
-        onOk={onSubmitAction}
-        onCancel={() => setActionTarget(null)}
+        onOk={submitAction}
+        onCancel={() => setAction(null)}
         destroyOnClose
       >
-        <Form form={modalForm} layout="vertical">
-          {isResolve && (
-            <Form.Item
-              name="action"
-              label="조치"
-              rules={[{ required: true, message: '조치를 선택하세요' }]}
+        {action && (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Typography.Text type="secondary">
+              대상 {action.report.targetType}
+              {action.report.targetId != null
+                ? ` #${action.report.targetId}`
+                : ''}{' '}
+              · 신고 #{action.report.id}
+            </Typography.Text>
+            <div>
+              <Typography.Text>처리 사유 (선택)</Typography.Text>
+              <Input.TextArea
+                rows={3}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="처리/반려 사유를 남길 수 있습니다."
+                style={{ marginTop: 4 }}
+              />
+            </div>
+            <Checkbox
+              checked={notify}
+              onChange={(e) => setNotify(e.target.checked)}
             >
-              <Select placeholder="조치 선택" options={RESOLVE_ACTIONS} />
-            </Form.Item>
-          )}
-          <Form.Item
-            name="reason"
-            label="사유"
-            rules={[{ required: true, message: '사유를 입력하세요' }]}
-          >
-            <Input.TextArea rows={3} placeholder="처리/반려 사유" />
-          </Form.Item>
-          {isResolve && (
-            <Form.Item name="notifyReporter" valuePropName="checked" initialValue={false}>
-              <Checkbox>신고자에게 처리 결과 알림</Checkbox>
-            </Form.Item>
-          )}
-        </Form>
+              신고자에게 결과 알림 보내기
+            </Checkbox>
+          </Space>
+        )}
       </Modal>
     </Card>
   );

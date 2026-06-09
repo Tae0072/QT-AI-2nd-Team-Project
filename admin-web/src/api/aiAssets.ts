@@ -3,22 +3,49 @@ import type { ApiResponse, Page, PageParams } from './types';
 
 // ===== AD-03 AI 산출물 검증 =====
 // 연결 API (권한: REVIEWER / SUPER_ADMIN)
-//   GET  /api/v1/admin/ai/assets                      목록
-//   GET  /api/v1/admin/ai/assets/{assetId}            상세
-//   POST /api/v1/admin/ai/assets/{assetId}/approve    승인
-//   POST /api/v1/admin/ai/assets/{assetId}/reject     반려
-//   POST /api/v1/admin/ai/assets/{assetId}/hide       숨김
-//   POST /api/v1/admin/ai/assets/{assetId}/regenerate 재생성
-// 주의: 승인 전 원문·검증 참조 자료는 사용자·일반 목록에 노출하지 않는다 (CLAUDE.md §7)
+//   GET  /api/v1/admin/ai/assets              목록 (메타데이터만, 원문 미포함)
+//   POST /api/v1/admin/ai/assets/{id}/approve 승인 (activateForTarget=게시)
+//   POST /api/v1/admin/ai/assets/{id}/reject  반려
+//   POST /api/v1/admin/ai/assets/{id}/hide    숨김
+// 주의: 승인 전 원문·검증 참조 자료는 사용자·일반 목록에 노출하지 않는다. (CLAUDE.md §7)
 
+export interface PromptVersionSummary {
+  id: number | null;
+  promptType: string | null;
+  version: string | null;
+  status: string | null;
+}
+
+// 백엔드 ai/api/admin/asset/dto/AdminAiAssetListItem 과 1:1 (원문 미포함, 메타데이터만)
 export interface AiAsset {
   id: number;
-  [key: string]: unknown;
+  assetType: string; // EXPLANATION / BIBLE_VERSE
+  targetType: string | null;
+  targetId: number | null;
+  status: string; // VALIDATING / NEEDS_REVIEW / APPROVED / REJECTED / HIDDEN
+  promptVersion: PromptVersionSummary | null;
+  checklistVersionId: number | null;
+  latestValidationResult: string | null;
+  sourceLabelPresent: boolean;
+  createdAt: string; // ISO
 }
 
 export interface AiAssetListParams extends PageParams {
-  assetType?: string; // 예: EXPLANATION, BIBLE_VERSE
-  status?: string; // 예: VALIDATING, APPROVED, REJECTED
+  assetType?: string;
+  targetType?: string;
+  status?: string;
+}
+
+// 백엔드 ReviewAiAssetResult
+export interface ReviewAiAssetResult {
+  assetId: number;
+  status: string;
+}
+
+// approve/reject/hide 요청 본문 (백엔드 AdminAiAssetReviewRequest: reason, activateForTarget)
+export interface ReviewPayload {
+  reason?: string;
+  activateForTarget?: boolean; // approve 시 대상에 게시(활성화) 여부
 }
 
 export function listAiAssets(params: AiAssetListParams = {}) {
@@ -27,22 +54,29 @@ export function listAiAssets(params: AiAssetListParams = {}) {
   );
 }
 
-export function getAiAsset(assetId: number) {
-  return unwrap<AiAsset>(
-    apiClient.get<ApiResponse<AiAsset>>(`/admin/ai/assets/${assetId}`),
-  );
-}
-
-export function approveAiAsset(assetId: number) {
-  return unwrap<AiAsset>(
-    apiClient.post<ApiResponse<AiAsset>>(`/admin/ai/assets/${assetId}/approve`),
+export function approveAiAsset(assetId: number, payload?: ReviewPayload) {
+  return unwrap<ReviewAiAssetResult>(
+    apiClient.post<ApiResponse<ReviewAiAssetResult>>(
+      `/admin/ai/assets/${assetId}/approve`,
+      payload ?? {},
+    ),
   );
 }
 
 export function rejectAiAsset(assetId: number, reason?: string) {
-  return unwrap<AiAsset>(
-    apiClient.post<ApiResponse<AiAsset>>(`/admin/ai/assets/${assetId}/reject`, {
-      reason,
-    }),
+  return unwrap<ReviewAiAssetResult>(
+    apiClient.post<ApiResponse<ReviewAiAssetResult>>(
+      `/admin/ai/assets/${assetId}/reject`,
+      { reason },
+    ),
+  );
+}
+
+export function hideAiAsset(assetId: number, reason?: string) {
+  return unwrap<ReviewAiAssetResult>(
+    apiClient.post<ApiResponse<ReviewAiAssetResult>>(
+      `/admin/ai/assets/${assetId}/hide`,
+      { reason },
+    ),
   );
 }
