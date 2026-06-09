@@ -47,11 +47,22 @@ public class GatewayHeaderAuthenticationFilter extends OncePerRequestFilter {
     static final String HEADER_GATEWAY_TOKEN = "X-Gateway-Token";
 
     private final ObjectMapper objectMapper;
-    private final String expectedGatewayToken; // null/blank이면 토큰 미설정(dev) — 신원 헤더 요구
+    private final String expectedGatewayToken; // 현재 토큰. null/blank이면 토큰 미설정(dev) — 신원 헤더 요구
+    private final String previousGatewayToken; // 직전 토큰(회전 grace window). null/blank이면 미사용
 
     public GatewayHeaderAuthenticationFilter(ObjectMapper objectMapper, String expectedGatewayToken) {
+        this(objectMapper, expectedGatewayToken, null);
+    }
+
+    /**
+     * @param previousGatewayToken 직전 토큰(무중단 회전용 grace window). 현재값과 함께 한시적으로 허용하며,
+     *                             모든 호출자가 새 토큰으로 전환되면 비운다. blank이면 현재값만 허용.
+     */
+    public GatewayHeaderAuthenticationFilter(
+            ObjectMapper objectMapper, String expectedGatewayToken, String previousGatewayToken) {
         this.objectMapper = objectMapper;
         this.expectedGatewayToken = expectedGatewayToken;
+        this.previousGatewayToken = previousGatewayToken;
     }
 
     @Override
@@ -96,10 +107,21 @@ public class GatewayHeaderAuthenticationFilter extends OncePerRequestFilter {
         if (!StringUtils.hasText(provided)) {
             return false;
         }
-        // 상수시간 비교(타이밍 공격 방지)
+        // 현재값 또는 직전값(회전 grace window) 일치. 각각 상수시간 비교(타이밍 공격 방지).
+        // 단락 평가 회피를 위해 두 비교를 모두 수행한 뒤 OR.
+        boolean matchesCurrent = constantTimeEquals(provided, expectedGatewayToken);
+        boolean matchesPrevious = StringUtils.hasText(previousGatewayToken)
+                && constantTimeEquals(provided, previousGatewayToken);
+        return matchesCurrent || matchesPrevious;
+    }
+
+    private static boolean constantTimeEquals(String provided, String expected) {
+        if (!StringUtils.hasText(expected)) {
+            return false;
+        }
         return MessageDigest.isEqual(
                 provided.getBytes(StandardCharsets.UTF_8),
-                expectedGatewayToken.getBytes(StandardCharsets.UTF_8));
+                expected.getBytes(StandardCharsets.UTF_8));
     }
 
     private void writeUnauthorized(HttpServletResponse response) throws IOException {

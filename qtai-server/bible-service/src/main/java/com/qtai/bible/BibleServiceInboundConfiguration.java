@@ -32,8 +32,10 @@ public class BibleServiceInboundConfiguration {
     @Bean
     GatewayHeaderAuthenticationFilter gatewayHeaderAuthenticationFilter(
             ObjectMapper objectMapper,
-            @Value("${qtai.bible.gateway.shared-token:}") String gatewaySharedToken) {
+            @Value("${qtai.bible.gateway.shared-token:}") String gatewaySharedToken,
+            @Value("${qtai.bible.gateway.previous-token:}") String previousSharedToken) {
         // 공유 토큰은 env 주입(저장소 평문 키 금지). 미설정이면 2차 방어선 비활성(헤더 필수 1단만).
-        return new GatewayHeaderAuthenticationFilter(objectMapper, gatewaySharedToken);
+        // previous-token은 무중단 회전(grace window)용 — 회전 중 현재·직전값 동시 허용, 전환 완료 후 비운다.
+        return new GatewayHeaderAuthenticationFilter(objectMapper, gatewaySharedToken, previousSharedToken);
     }
 }
