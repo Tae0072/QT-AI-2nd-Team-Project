@@ -71,8 +71,15 @@ class AiGenerationWorkerSkeletonTest {
         assertThat(workerService.runOnce()).isTrue();
 
         assertThat(executor.executedJobs())
-                .extracting(AiGenerationWorkerJob::jobId)
-                .containsExactly(job.getId());
+                .singleElement()
+                .satisfies(executedJob -> {
+                    assertThat(executedJob.jobId()).isEqualTo(job.getId());
+                    assertThat(executedJob.jobType()).isEqualTo(AiGenerationJobType.EXPLANATION);
+                    assertThat(executedJob.targetType()).isEqualTo(AiTargetType.QT_PASSAGE);
+                    assertThat(executedJob.targetId()).isEqualTo(35L);
+                    assertThat(executedJob.promptVersionId()).isEqualTo(1L);
+                    assertThat(executedJob.startedAt()).isNotNull();
+                });
         assertThat(generationJobRepository.findById(job.getId()))
                 .map(AiGenerationJob::getStatus)
                 .contains(AiGenerationJobStatus.SUCCEEDED);
@@ -83,6 +90,7 @@ class AiGenerationWorkerSkeletonTest {
                     assertThat(asset.getAssetType()).isEqualTo(AiGeneratedAssetType.EXPLANATION);
                     assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.VALIDATING);
                     assertThat(asset.getPayloadJson()).contains("Allowed worker summary");
+                    assertThat(asset.getSourceLabel()).isEqualTo("AI-WORKER");
                 });
 
         List<AiEventOutbox> events = eventOutboxRepository.findAll(Sort.by("createdAt").and(Sort.by("id")));
@@ -123,8 +131,31 @@ class AiGenerationWorkerSkeletonTest {
     }
 
     @Test
-    void runJobIdSkipsWhenJobIsAlreadyClaimedByAnotherWorker() {
+    void runOnceMarksJobFailedWhenExecutorResultViolatesContract() {
         AiGenerationJob job = saveQueuedJob(37L, BASE_TIME);
+        executor.returnPayload("[{\"summary\":\"Allowed worker summary\"}]", "AI-WORKER");
+
+        assertThat(workerService.runOnce()).isTrue();
+
+        assertThat(generationJobRepository.findById(job.getId()))
+                .get()
+                .satisfies(failedJob -> {
+                    assertThat(failedJob.getStatus()).isEqualTo(AiGenerationJobStatus.FAILED);
+                    assertThat(failedJob.getErrorMessage()).contains("payloadJson must be a JSON object");
+                });
+        assertThat(generatedAssetRepository.findAll()).isEmpty();
+
+        List<AiEventOutbox> events = eventOutboxRepository.findAll(Sort.by("createdAt").and(Sort.by("id")));
+        assertThat(events).extracting(AiEventOutbox::getEventName)
+                .containsExactly("AiGenerationJobStarted", "AiGenerationJobFailed");
+        assertThat(events.get(1).getPayloadJson())
+                .contains("\"jobId\":" + job.getId())
+                .contains("\"failureCode\":\"GENERATION_EXECUTION_FAILED\"");
+    }
+
+    @Test
+    void runJobIdSkipsWhenJobIsAlreadyClaimedByAnotherWorker() {
+        AiGenerationJob job = saveQueuedJob(38L, BASE_TIME);
         job.markRunning(BASE_TIME.plusMinutes(1));
         generationJobRepository.saveAndFlush(job);
 
@@ -139,9 +170,9 @@ class AiGenerationWorkerSkeletonTest {
 
     @Test
     void runBatchStopsAtConfiguredBatchSize() {
-        saveQueuedJob(38L, BASE_TIME);
         saveQueuedJob(39L, BASE_TIME.plusMinutes(1));
         saveQueuedJob(40L, BASE_TIME.plusMinutes(2));
+        saveQueuedJob(41L, BASE_TIME.plusMinutes(3));
 
         assertThat(workerService.runBatch()).isEqualTo(2);
 
@@ -179,6 +210,8 @@ class AiGenerationWorkerSkeletonTest {
 
         private final List<AiGenerationWorkerJob> executedJobs = new ArrayList<>();
         private RuntimeException failure;
+        private String payloadJson = "{\"summary\":\"Allowed worker summary\"}";
+        private String sourceLabel = "AI-WORKER";
 
         @Override
         public AiGenerationWorkerResult execute(AiGenerationWorkerJob job) {
@@ -188,8 +221,8 @@ class AiGenerationWorkerSkeletonTest {
             }
             return AiGenerationWorkerResult.of(
                     AiGeneratedAssetType.EXPLANATION,
-                    "{\"summary\":\"Allowed worker summary\"}",
-                    "AI-WORKER"
+                    payloadJson,
+                    sourceLabel
             );
         }
 
@@ -201,9 +234,16 @@ class AiGenerationWorkerSkeletonTest {
             this.failure = failure;
         }
 
+        private void returnPayload(String payloadJson, String sourceLabel) {
+            this.payloadJson = payloadJson;
+            this.sourceLabel = sourceLabel;
+        }
+
         private void reset() {
             executedJobs.clear();
             failure = null;
+            payloadJson = "{\"summary\":\"Allowed worker summary\"}";
+            sourceLabel = "AI-WORKER";
         }
     }
 }
