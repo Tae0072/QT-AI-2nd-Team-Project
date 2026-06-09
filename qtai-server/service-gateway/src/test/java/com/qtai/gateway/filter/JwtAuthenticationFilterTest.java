@@ -190,6 +190,62 @@ class JwtAuthenticationFilterTest {
         assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
+    @Test
+    @DisplayName("role claim 누락(유효 서명) 토큰 → 401")
+    void missing_role_claim_returns_401() {
+        String noRole = Jwts.builder()
+                .subject("42")
+                .claim("type", "access")
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + 60_000))
+                .signWith(signingPair.getPrivate())
+                .compact();
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/notes")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + noRole));
+        AtomicReference<ServerWebExchange> captured = new AtomicReference<>();
+
+        filter.filter(exchange, capturing(captured)).block();
+
+        assertThat(captured.get()).isNull();
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("subject(memberId) 누락(유효 서명) 토큰 → 401")
+    void missing_subject_returns_401() {
+        String noSub = Jwts.builder()
+                .claim("role", "USER")
+                .claim("type", "access")
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + 60_000))
+                .signWith(signingPair.getPrivate())
+                .compact();
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/notes")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + noSub));
+        AtomicReference<ServerWebExchange> captured = new AtomicReference<>();
+
+        filter.filter(exchange, capturing(captured)).block();
+
+        assertThat(captured.get()).isNull();
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("빈 Bearer 토큰 → 401")
+    void empty_bearer_token_returns_401() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/notes")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer    "));
+        AtomicReference<ServerWebExchange> captured = new AtomicReference<>();
+
+        filter.filter(exchange, capturing(captured)).block();
+
+        assertThat(captured.get()).isNull();
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
     // ── 인증 예외 경로(미인증 허용) + 스푸핑 차단 ──
 
     @Test

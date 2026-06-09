@@ -10,6 +10,8 @@ import com.qtai.common.security.AuthenticatedUser;
 import com.qtai.common.security.JwtTokenVerifier;
 
 import io.jsonwebtoken.JwtException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
@@ -39,6 +41,8 @@ import reactor.core.publisher.Mono;
  */
 @Component
 public class JwtAuthenticationFilter implements WebFilter, Ordered {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     public static final String HEADER_MEMBER_ID = "X-Member-Id";
     public static final String HEADER_MEMBER_ROLE = "X-Member-Role";
@@ -74,15 +78,21 @@ public class JwtAuthenticationFilter implements WebFilter, Ordered {
 
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+            log.debug("JWT 인증 실패: Authorization 헤더 누락 또는 Bearer 형식 아님 (path={})", path);
             return unauthorized(exchange);
         }
         String token = authHeader.substring(BEARER_PREFIX.length()).trim();
+        if (token.isEmpty()) {
+            log.debug("JWT 인증 실패: 빈 Bearer 토큰 (path={})", path);
+            return unauthorized(exchange);
+        }
 
         AuthenticatedUser user;
         try {
             user = verifier.verifyAccessToken(token);
         } catch (JwtException | IllegalArgumentException e) {
-            // 검증 실패 원인 메시지는 로깅하되 token 값은 남기지 않는다.
+            // 사유만 기록하고 token 값은 남기지 않는다(CLAUDE.md §9).
+            log.debug("JWT 인증 실패: {} (path={})", e.getMessage(), path);
             return unauthorized(exchange);
         }
 
