@@ -2,8 +2,12 @@ package com.qtai.bible;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -174,6 +178,39 @@ class GatewayHeaderAuthenticationFilterTest {
 
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(chain.getRequest()).isNull();
+    }
+
+    // ── 감사 무결성 ──
+
+    @Test
+    @DisplayName("SYSTEM 호출만 감사 로거에 INFO로 기록되고 USER 호출은 기록되지 않는다")
+    void systemCall_isAuditLogged_butUserCallIsNot() throws Exception {
+        ch.qos.logback.classic.Logger auditLogger =
+                (ch.qos.logback.classic.Logger) LoggerFactory.getLogger("com.qtai.audit.bible");
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        auditLogger.addAppender(appender);
+        try {
+            // SYSTEM 호출(토큰만, 사용자 헤더 없음)
+            MockHttpServletRequest system = req("/api/v1/bible/books");
+            system.addHeader("X-Gateway-Token", "secret-gw-token");
+            filter("secret-gw-token").doFilter(system, new MockHttpServletResponse(), new MockFilterChain());
+
+            // USER 호출(토큰 + 신원 헤더)
+            MockHttpServletRequest user = req("/api/v1/bible/books");
+            user.addHeader("X-Member-Id", "42");
+            user.addHeader("X-Member-Role", "USER");
+            user.addHeader("X-Gateway-Token", "secret-gw-token");
+            filter("secret-gw-token").doFilter(user, new MockHttpServletResponse(), new MockFilterChain());
+
+            // SYSTEM 호출 1건만 INFO로 기록, USER는 미기록
+            assertThat(appender.list).hasSize(1);
+            ILoggingEvent event = appender.list.get(0);
+            assertThat(event.getLevel()).isEqualTo(Level.INFO);
+            assertThat(event.getFormattedMessage()).contains("SYSTEM_BATCH").doesNotContain("secret-gw-token");
+        } finally {
+            auditLogger.detachAppender(appender);
+        }
     }
 
     // ── actuator 예외 ──

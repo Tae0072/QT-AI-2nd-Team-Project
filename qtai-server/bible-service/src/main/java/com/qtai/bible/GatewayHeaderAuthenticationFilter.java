@@ -69,8 +69,11 @@ public class GatewayHeaderAuthenticationFilter extends OncePerRequestFilter {
                 writeUnauthorized(response);
                 return;
             }
-            if (!StringUtils.hasText(request.getHeader(HEADER_MEMBER_ID))) {
-                // 사용자 헤더 없음 + 토큰 유효 → SYSTEM_BATCH 주체의 서비스-to-서비스 호출(배치/캐시 경계).
+            // 주체 판정 기준(명확화): 토큰 유효 + 사용자 신원 헤더(X-Member-Id) 부재 = SYSTEM_BATCH 서비스 호출.
+            //   X-Member-Id가 있으면 게이트웨이가 전달한 USER 호출(별도 감사 불필요).
+            //   (role 부재 여부는 판정에 쓰지 않는다 — 사용자 식별자 X-Member-Id 유무가 단일 기준.)
+            boolean systemCall = !StringUtils.hasText(request.getHeader(HEADER_MEMBER_ID));
+            if (systemCall) {
                 // 감사 트레일에 INFO로 기록(주체=SYSTEM_BATCH, token 값·PII 미기록).
                 auditLog.info("SYSTEM_BATCH bible 서비스 호출 허용 method={} path={}", request.getMethod(), path);
             }

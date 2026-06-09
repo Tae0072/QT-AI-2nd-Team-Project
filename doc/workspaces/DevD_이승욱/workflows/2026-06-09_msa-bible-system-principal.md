@@ -29,6 +29,10 @@
 - **부분 신원 헤더 테스트**: 토큰 유효+role 누락(부분 헤더) → 통과(토큰이 게이트), 토큰 미설정+id만 → 401(dev 2종 필수) 단언 추가.
 - **토큰 유출 대비 정책**: 설계 문서 (D) 추가 — 서비스별 개별 토큰(범위 한정)·env 주입·정기/유출 시 회전·무중단 회전용 grace window(현재값+직전값, Inc3b 확장)·mTLS/네트워크 정책 병행.
 
+## 리뷰 후속 보강(3차 — audit 무결성)
+- **SYSTEM 판정 기준 명확화**: 주체 판정을 단일 기준으로 고정 — "토큰 유효 + `X-Member-Id` 부재 = SYSTEM_BATCH". `X-Member-Id` 있으면 USER(감사 불필요). role 부재 여부는 판정에 미사용. 명시적 `boolean systemCall` + 주석.
+- **감사 로깅 단언 테스트**: logback `ListAppender`로 감사 로거(`com.qtai.audit.bible`) 캡처 — SYSTEM 호출은 INFO 1건(`SYSTEM_BATCH` 포함, token 값 미포함), USER 호출은 미기록임을 단언.
+
 ## ⚠ 머지 상태 — Lead 합의 대기(머지 보류)
 본 변경은 Inc2 승인 필터의 보안 의미를 바꾸므로, **Lead 합의 기록(이슈 코멘트/결정 문서 링크)이 PR에 첨부되기 전까지 머지 보류**한다.
 - [ ] Lead 합의 기록 첨부(토큰=서비스 신뢰 자격 격상 승인)
