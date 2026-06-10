@@ -2,6 +2,9 @@ package com.qtai.support;
 
 import com.qtai.domain.bible.internal.BibleBook;
 import com.qtai.domain.bible.internal.BibleVerse;
+import com.qtai.domain.qtvideo.internal.QtVideoClip;
+import com.qtai.domain.qtvideo.internal.SourceVideo;
+import com.qtai.domain.qtvideo.internal.SourceVideoStorageProvider;
 import com.qtai.domain.study.internal.GlossaryTerm;
 import com.qtai.domain.study.internal.GlossaryTermStatus;
 import com.qtai.domain.study.internal.SimulatorClip;
@@ -11,6 +14,8 @@ import com.qtai.domain.study.internal.VerseExplanation;
 import com.qtai.domain.study.internal.VerseExplanationStatus;
 
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public final class TestEntityFactory {
 
@@ -119,6 +124,30 @@ public final class TestEntityFactory {
         set(clip, "sceneScriptJson", sceneScriptJson);
         set(clip, "status", status);
         set(clip, "aiAssetId", 300L);
+        return clip;
+    }
+
+    public static SourceVideo sourceVideo(Long id, Short bibleBookId, String videoUrl) {
+        SourceVideo sourceVideo = SourceVideo.active(
+                bibleBookId,
+                "test source video",
+                SourceVideoStorageProvider.EXTERNAL_URL,
+                videoUrl,
+                new BigDecimal("600.000"));
+        set(sourceVideo, "id", id);
+        return sourceVideo;
+    }
+
+    public static QtVideoClip qtVideoClip(Long id, Long qtPassageId, SourceVideo sourceVideo, String videoUrl) {
+        QtVideoClip clip = QtVideoClip.approvedSingleCut(
+                qtPassageId,
+                "test QT video",
+                sourceVideo,
+                videoUrl,
+                new BigDecimal("10.000"),
+                new BigDecimal("30.000"),
+                LocalDateTime.of(2026, 6, 10, 0, 5));
+        set(clip, "id", id);
         return clip;
     }
 

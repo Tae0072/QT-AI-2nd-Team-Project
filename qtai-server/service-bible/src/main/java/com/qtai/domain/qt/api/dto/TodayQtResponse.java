@@ -33,8 +33,23 @@ public record TodayQtResponse(
         boolean hasExplanation,
         Long draftNoteId,
         String cacheStatus,
-        TodayQtRangeResponse range
+        TodayQtRangeResponse range,
+        String videoStatus
 ) {
+    public TodayQtResponse(
+            Long qtPassageId,
+            String passageDate,
+            String title,
+            String simulatorStatus,
+            boolean hasExplanation,
+            Long draftNoteId,
+            String cacheStatus,
+            TodayQtRangeResponse range
+    ) {
+        this(qtPassageId, passageDate, title, simulatorStatus, hasExplanation, draftNoteId,
+                cacheStatus, range, "MISSING");
+    }
+
     public TodayQtResponse(
             Long qtPassageId,
             String passageDate,

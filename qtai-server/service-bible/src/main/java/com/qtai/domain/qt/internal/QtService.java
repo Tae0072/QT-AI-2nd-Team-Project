@@ -9,6 +9,7 @@ import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
 import com.qtai.domain.qt.api.GetTodayQtUseCase;
 import com.qtai.domain.qt.api.dto.QtPassageContentContext;
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
+import com.qtai.domain.qtvideo.api.GetQtVideoAvailabilityUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -47,6 +48,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
     private final TodayQtRangeResolver rangeResolver;
     private final GetNoteUseCase getNoteUseCase;
     private final com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase getQtStudyAvailabilityUseCase;
+    private final GetQtVideoAvailabilityUseCase getQtVideoAvailabilityUseCase;
     private final java.time.Clock clock;
 
     // ------------------------------------------------------------------
@@ -70,7 +72,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
         TodayQtResponse base = passageLookup.findTodayPassage();
         Long draftNoteId = resolveDraftNoteId(memberId, base.qtPassageId());
         // 시뮬레이터 상태·해설 진입점은 승인 시점에 바뀌므로 캐시(todayQt) 밖에서 enrich한다
-        return enrichWithStudyAvailability(enrichWithDraftNoteId(base, draftNoteId));
+        return enrichWithVideoAvailability(enrichWithStudyAvailability(enrichWithDraftNoteId(base, draftNoteId)));
     }
 
     /**
@@ -103,7 +105,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 "DIRECT",     // ID 기반 직접 조회는 todayQt 캐시를 거치지 않으므로 HIT가 아님(리뷰 §8)
                 rangeResolver.resolve(passage)
         );
-        return enrichWithStudyAvailability(base);
+        return enrichWithVideoAvailability(enrichWithStudyAvailability(base));
     }
 
     @Override
@@ -186,10 +188,38 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                     availability.hasExplanation(),
                     base.draftNoteId(),
                     base.cacheStatus(),
-                    base.range()
+                    base.range(),
+                    base.videoStatus()
             );
         } catch (RuntimeException exception) {
             log.warn("study 가용성 조회 실패 — 기본값(MISSING/false)으로 응답. qtPassageId={}, errorType={}, errorMessage={}",
+                    base.qtPassageId(), exception.getClass().getSimpleName(), exception.getMessage());
+            return base;
+        }
+    }
+
+    private TodayQtResponse enrichWithVideoAvailability(TodayQtResponse base) {
+        if (base.qtPassageId() == null) {
+            return base;
+        }
+        try {
+            var availability = getQtVideoAvailabilityUseCase.getAvailability(base.qtPassageId());
+            if (availability == null) {
+                return base;
+            }
+            return new TodayQtResponse(
+                    base.qtPassageId(),
+                    base.passageDate(),
+                    base.title(),
+                    base.simulatorStatus(),
+                    base.hasExplanation(),
+                    base.draftNoteId(),
+                    base.cacheStatus(),
+                    base.range(),
+                    availability.videoStatus()
+            );
+        } catch (RuntimeException exception) {
+            log.warn("QT video availability lookup failed. qtPassageId={}, errorType={}, errorMessage={}",
                     base.qtPassageId(), exception.getClass().getSimpleName(), exception.getMessage());
             return base;
         }
@@ -235,7 +265,8 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 base.hasExplanation(),
                 draftNoteId,
                 base.cacheStatus(),
-                base.range()
+                base.range(),
+                base.videoStatus()
         );
     }
 

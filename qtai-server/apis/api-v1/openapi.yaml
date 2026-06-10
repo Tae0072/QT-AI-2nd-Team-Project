@@ -15,6 +15,8 @@ tags:
     description: QT 본문에 연결된 승인 해설, 용어, 시뮬레이터 조회 API
   - name: Admin
     description: 관리자 웹 공통 운영 API
+  - name: QT Video
+    description: QT passage video clip playback API
   - name: Admin AI
     description: 관리자 웹이 AI 산출물과 검증 로그를 검토하는 운영 API
   - name: Admin Audit
@@ -126,6 +128,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/QtStudyContentApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/qt/{qtPassageId}/video:
+    get:
+      tags:
+        - QT Video
+      operationId: getQtVideo
+      summary: QT video clip lookup
+      description: >
+        Returns the approved video clip URL for a QT passage. This is separate
+        from the simulator scene API and does not trigger AI generation or video
+        cutting at request time.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qtPassageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: QT video clip lookup result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QtVideoClipApiResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -4027,6 +4064,71 @@ components:
             - APPROVED
           example: APPROVED
     QtSimulatorUserStatus:
+      type: string
+      enum:
+        - READY
+        - MISSING
+        - FAILED
+        - DISABLED
+    QtVideoClipApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/QtVideoClipResponse"
+    QtVideoClipResponse:
+      type: object
+      required:
+        - status
+        - qtPassageId
+      properties:
+        status:
+          $ref: "#/components/schemas/QtVideoUserStatus"
+        clipId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 12
+        qtPassageId:
+          type: integer
+          format: int64
+          example: 35
+        title:
+          type: string
+          nullable: true
+          example: QT video clip
+        videoUrl:
+          type: string
+          nullable: true
+          example: https://cdn.example.com/media/qt/qt-2026-06-17.mp4
+        sourceVideoId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 1
+        startTimeSec:
+          type: number
+          format: double
+          nullable: true
+          example: 300.0
+        endTimeSec:
+          type: number
+          format: double
+          nullable: true
+          example: 420.0
+        compositionType:
+          type: string
+          nullable: true
+          enum:
+            - SINGLE_CUT
+        clipStatus:
+          type: string
+          nullable: true
+          enum:
+            - APPROVED
+          example: APPROVED
+    QtVideoUserStatus:
       type: string
       enum:
         - READY
