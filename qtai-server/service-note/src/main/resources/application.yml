@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: service-note
+  # 단일 DB: 로컬/테스트는 H2(MySQL 모드), 운영은 env로 MySQL 주입
+  datasource:
+    url: ${DB_URL:jdbc:h2:mem:note;DB_CLOSE_DELAY=-1;MODE=MySQL}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      # 운영 안전 기본값 validate(env 누락 시 데이터 손실 방지). 로컬은 env로 create-drop/update 주입.
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+# 노트/나눔/신고 서비스 포트 (env 주입 가능, 기본 8083)
+server:
+  port: ${NOTE_SERVICE_PORT:8083}
+
+# 서비스 간 RestClient 호출 대상 base URL (회의록 2026-06-09 §3 — 동기 통신).
+# note는 bible(구절 메타 조회, qt readability)·user(sharing 작성자 닉네임)를 호출한다. 로컬/배포는 env로 호스트를 주입한다.
+qtai:
+  services:
+    bible-base-url: ${QTAI_SERVICES_BIBLE_BASE_URL:http://localhost:8082}
+    user-base-url: ${QTAI_SERVICES_USER_BASE_URL:http://localhost:8081}

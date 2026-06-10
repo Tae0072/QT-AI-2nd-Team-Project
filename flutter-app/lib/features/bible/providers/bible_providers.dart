@@ -15,3 +15,22 @@ final todayQtPassageProvider =
   // UI는 '준비 중/오류'로 처리한다. 다른 본문을 오늘 QT로 보여주지 않는다.
   return repository.getTodayQtPassage();
 });
+
+/// 성경 권 목록 (B-02 성경 브라우저 드롭다운).
+///
+/// ② Riverpod 일관화: 화면 FutureBuilder/setState 대신 Provider로 조회한다.
+final bibleBooksProvider = FutureProvider.autoDispose<List<BibleBook>>((ref) {
+  return ref.watch(bibleRepositoryProvider).getBooks();
+});
+
+final qtStudyContentProvider =
+    FutureProvider.autoDispose.family<QtStudyContent, int>((ref, qtPassageId) {
+  final repository = ref.watch(bibleRepositoryProvider);
+  return repository.getQtStudyContent(qtPassageId);
+});
+
+final qtVideoClipProvider =
+    FutureProvider.autoDispose.family<QtVideoClip, int>((ref, qtPassageId) {
+  final repository = ref.watch(bibleRepositoryProvider);
+  return repository.getQtVideo(qtPassageId);
+});

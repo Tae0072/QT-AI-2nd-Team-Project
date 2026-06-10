@@ -23,11 +23,17 @@ class BibleRepository {
     return TodayQtSummary.fromJson(data);
   }
 
-  /// QT 학습 콘텐츠(해설/주석) 조회 — TTS 주석 읽기에 사용.
+  /// QT 학습 콘텐츠(해설) 조회 — TTS 해설 읽기에 사용.
   Future<QtStudyContent> getQtStudyContent(int qtPassageId) async {
     final response = await _dio.get('/qt/$qtPassageId/study-content');
     final data = response.data['data'] as Map<String, dynamic>;
     return QtStudyContent.fromJson(data);
+  }
+
+  Future<QtVideoClip> getQtVideo(int qtPassageId) async {
+    final response = await _dio.get('/qt/$qtPassageId/video');
+    final data = response.data['data'] as Map<String, dynamic>;
+    return QtVideoClip.fromJson(data);
   }
 
   Future<BibleVerseRange> getVerses({
@@ -41,6 +47,18 @@ class BibleRepository {
       'chapter': chapter,
       'verseFrom': verseFrom,
       'verseTo': verseTo,
+    });
+    final data = response.data['data'] as Map<String, dynamic>;
+    return BibleVerseRange.fromJson(data);
+  }
+
+  Future<BibleVerseRange> getChapterVerses({
+    required String bookCode,
+    required int chapter,
+  }) async {
+    final response = await _dio.get('/bible/verses', queryParameters: {
+      'bookCode': bookCode,
+      'chapter': chapter,
     });
     final data = response.data['data'] as Map<String, dynamic>;
     return BibleVerseRange.fromJson(data);
@@ -73,9 +91,7 @@ class BibleRepository {
     final todayQt = await getTodayQt();
     final todayRange = todayQt.range;
 
-    // 버그 수정(2026-06-05): range가 없을 때 하드코딩된 고린도전서 본문을
-    // '오늘 QT'처럼 보여주던 fallback 제거 — 말씀 앱에서 다른 본문을 오늘
-    // 본문으로 표시하는 것은 치명적 오동작이다. 준비 전이면 오류로 알린다.
+    // range가 없을 때 하드코딩된 본문을 '오늘 QT'처럼 보여주지 않는다.
     if (todayRange == null) {
       throw StateError('오늘 QT 본문 범위가 아직 준비되지 않았습니다.');
     }

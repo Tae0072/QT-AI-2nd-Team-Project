@@ -142,57 +142,6 @@ class TodayQtPassage {
   });
 }
 
-/// QT 학습 콘텐츠 (해설/주석) — `GET /qt/{qtPassageId}/study-content`.
-class QtStudyContent {
-  final String? summary;
-  final List<QtExplanationItem> explanations;
-
-  const QtStudyContent({
-    required this.summary,
-    required this.explanations,
-  });
-
-  factory QtStudyContent.fromJson(Map<String, dynamic> json) {
-    return QtStudyContent(
-      summary: json['summary'] as String?,
-      explanations: (json['explanations'] as List<dynamic>? ?? const [])
-          .map((item) =>
-              QtExplanationItem.fromJson(item as Map<String, dynamic>))
-          .toList(),
-    );
-  }
-
-  /// TTS 낭독용 주석 전체 텍스트 (절 순서대로, 빈 항목 제외).
-  String get readableText {
-    final buf = StringBuffer();
-    for (final item in explanations) {
-      final t = item.explanation?.trim();
-      if (t != null && t.isNotEmpty) buf.writeln(t);
-    }
-    return buf.toString().trim();
-  }
-}
-
-class QtExplanationItem {
-  final int? verseId;
-  final String? summary;
-  final String? explanation;
-
-  const QtExplanationItem({
-    required this.verseId,
-    required this.summary,
-    required this.explanation,
-  });
-
-  factory QtExplanationItem.fromJson(Map<String, dynamic> json) {
-    return QtExplanationItem(
-      verseId: json['verseId'] as int?,
-      summary: json['summary'] as String?,
-      explanation: json['explanation'] as String?,
-    );
-  }
-}
-
 class TodayQtSummary {
   final int? qtPassageId;
   final String? passageDate;
@@ -223,7 +172,10 @@ class TodayQtSummary {
 
   /// 서버가 보장하는 시뮬레이터 상태 4값 — 미지의 값은 MISSING으로 방어한다.
   static const Set<String> _knownSimulatorStatuses = {
-    'READY', 'MISSING', 'FAILED', 'DISABLED',
+    'READY',
+    'MISSING',
+    'FAILED',
+    'DISABLED',
   };
 
   factory TodayQtSummary.fromJson(Map<String, dynamic> json) {
@@ -242,6 +194,50 @@ class TodayQtSummary {
       range: rangeJson == null
           ? null
           : TodayQtRange.fromJson(rangeJson as Map<String, dynamic>),
+    );
+  }
+}
+
+class QtVideoClip {
+  final String status;
+  final int? clipId;
+  final int? qtPassageId;
+  final String? title;
+  final String? videoUrl;
+  final int? sourceVideoId;
+  final double? startTimeSec;
+  final double? endTimeSec;
+  final String? compositionType;
+  final String? clipStatus;
+
+  const QtVideoClip({
+    required this.status,
+    required this.clipId,
+    required this.qtPassageId,
+    required this.title,
+    required this.videoUrl,
+    required this.sourceVideoId,
+    required this.startTimeSec,
+    required this.endTimeSec,
+    required this.compositionType,
+    required this.clipStatus,
+  });
+
+  bool get isReady =>
+      status == 'READY' && videoUrl != null && videoUrl!.isNotEmpty;
+
+  factory QtVideoClip.fromJson(Map<String, dynamic> json) {
+    return QtVideoClip(
+      status: json['status'] as String? ?? 'MISSING',
+      clipId: json['clipId'] as int?,
+      qtPassageId: json['qtPassageId'] as int?,
+      title: json['title'] as String?,
+      videoUrl: json['videoUrl'] as String?,
+      sourceVideoId: json['sourceVideoId'] as int?,
+      startTimeSec: (json['startTimeSec'] as num?)?.toDouble(),
+      endTimeSec: (json['endTimeSec'] as num?)?.toDouble(),
+      compositionType: json['compositionType'] as String?,
+      clipStatus: json['clipStatus'] as String?,
     );
   }
 }
@@ -287,6 +283,103 @@ class TodayQtRange {
       chapter: chapter,
       verseFrom: verseFrom,
       verseTo: verseTo,
+    );
+  }
+}
+
+class QtStudyContent {
+  final String? summary;
+  final List<QtStudyExplanation> explanations;
+  final List<QtStudyGlossaryTerm> glossaryTerms;
+
+  const QtStudyContent({
+    required this.summary,
+    required this.explanations,
+    required this.glossaryTerms,
+  });
+
+  factory QtStudyContent.fromJson(Map<String, dynamic> json) {
+    return QtStudyContent(
+      summary: json['summary'] as String?,
+      explanations: ((json['explanations'] as List<dynamic>?) ?? const [])
+          .map((item) =>
+              QtStudyExplanation.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      glossaryTerms: ((json['glossaryTerms'] as List<dynamic>?) ?? const [])
+          .map((item) =>
+              QtStudyGlossaryTerm.fromJson(item as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  bool get hasVisibleContent {
+    final summaryText = summary?.trim();
+    return (summaryText != null && summaryText.isNotEmpty) ||
+        explanations.isNotEmpty ||
+        glossaryTerms.isNotEmpty;
+  }
+
+  /// TTS 낭독용 해설 전체 텍스트 (절 순서대로, 빈 항목 제외).
+  String get readableText {
+    final buf = StringBuffer();
+    for (final item in explanations) {
+      final text = item.explanation.trim();
+      if (text.isNotEmpty) {
+        buf.writeln(text);
+      }
+    }
+    return buf.toString().trim();
+  }
+}
+
+class QtStudyExplanation {
+  final int verseId;
+  final String? summary;
+  final String explanation;
+  final String? sourceLabel;
+  final int? aiAssetId;
+
+  const QtStudyExplanation({
+    required this.verseId,
+    required this.summary,
+    required this.explanation,
+    required this.sourceLabel,
+    required this.aiAssetId,
+  });
+
+  factory QtStudyExplanation.fromJson(Map<String, dynamic> json) {
+    return QtStudyExplanation(
+      verseId: json['verseId'] as int,
+      summary: json['summary'] as String?,
+      explanation: json['explanation'] as String? ?? '',
+      sourceLabel: json['sourceLabel'] as String?,
+      aiAssetId: json['aiAssetId'] as int?,
+    );
+  }
+}
+
+class QtStudyGlossaryTerm {
+  final int id;
+  final int verseId;
+  final String term;
+  final String meaning;
+  final String? sourceLabel;
+
+  const QtStudyGlossaryTerm({
+    required this.id,
+    required this.verseId,
+    required this.term,
+    required this.meaning,
+    required this.sourceLabel,
+  });
+
+  factory QtStudyGlossaryTerm.fromJson(Map<String, dynamic> json) {
+    return QtStudyGlossaryTerm(
+      id: json['id'] as int,
+      verseId: json['verseId'] as int,
+      term: json['term'] as String? ?? '',
+      meaning: json['meaning'] as String? ?? '',
+      sourceLabel: json['sourceLabel'] as String?,
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
@@ -18,19 +19,18 @@ class NoteListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notesAsync = ref.watch(notesProvider);
     final selectedCategory = ref.watch(noteCategoryFilterProvider);
     final showCalendar = ref.watch(noteCalendarViewProvider);
-    final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('노트'),
+        title: Text(l.noteListTitle),
         centerTitle: true,
         // ✏️ 목록↔달력 전환 토글. 상태는 noteCalendarViewProvider에 둬 화면 전체가 따라 바뀜.
         actions: [
           IconButton(
-            tooltip: showCalendar ? '목록 보기' : '달력 보기',
+            tooltip: showCalendar ? l.noteViewList : l.noteViewCalendar,
             icon: Icon(showCalendar
                 ? Icons.view_list_outlined
                 : Icons.calendar_month_outlined),
@@ -47,97 +47,111 @@ class NoteListScreen extends ConsumerWidget {
             Navigator.of(context).pushNamed(AppRouter.noteCategorySelect),
         child: const Icon(Icons.add),
       ),
-      // ✏️ 달력 모드면 묵상 달력 위젯, 아니면 기존 목록(칩+리스트).
+      // ✏️ 달력 모드(기본): 달력 + 그 아래 노트 목록. 목록 모드: 카테고리 칩 + 목록.
       body: showCalendar
-          ? const MeditationCalendarView()
-          : Column(
-        children: [
-          // 카테고리 필터 칩 (전체 + 5종)
-          SizedBox(
-            height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ? const Column(
               children: [
-                _CategoryChip(
-                    label: '전체', value: null, selected: selectedCategory),
-                for (final entry in noteCategoryLabels.entries)
-                  _CategoryChip(
-                    label: entry.value,
-                    value: entry.key,
-                    selected: selectedCategory,
+                MeditationCalendarView(),
+                Divider(height: 1),
+                Expanded(child: _NoteListBody()),
+              ],
+            )
+          : Column(
+              children: [
+                // 카테고리 필터 칩 (전체 + 5종)
+                SizedBox(
+                  height: 48,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    children: [
+                      _CategoryChip(
+                          label: l.noteFilterAll,
+                          value: null,
+                          selected: selectedCategory),
+                      for (final entry in noteCategoryLabels.entries)
+                        _CategoryChip(
+                          label: entry.value,
+                          value: entry.key,
+                          selected: selectedCategory,
+                        ),
+                    ],
                   ),
+                ),
+                const Expanded(child: _NoteListBody()),
               ],
             ),
-          ),
-
-          // 목록 (로딩/에러/빈 화면은 공통 위젯 whenOrDefault가 처리)
-          Expanded(
-            child: notesAsync.whenOrDefault(
-              data: (response) {
-                if (response.items.isEmpty) {
-                  return const EmptyView(message: '작성한 노트가 없습니다');
-                }
-                return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(notesProvider),
-                  child: ListView.separated(
-                    itemCount: response.items.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final item = response.items[index];
-                      return ListTile(
-                        title: Text(
-                          item.title.isEmpty ? '(제목 없음)' : item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Row(
-                          children: [
-                            // 카테고리 한글 라벨
-                            Text(
-                              noteCategoryLabel(item.category),
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: theme.colorScheme.primary),
-                            ),
-                            // 임시저장(DRAFT) 표시
-                            if (item.status == 'DRAFT') ...[
-                              const SizedBox(width: 8),
-                              Text('임시저장',
-                                  style: theme.textTheme.bodySmall
-                                      ?.copyWith(color: Colors.orange)),
-                            ],
-                            const Spacer(),
-                            // 작성/수정일 (있으면 날짜만)
-                            if (item.updatedAt != null)
-                              Text(
-                                _formatDate(item.updatedAt!),
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(color: Colors.grey),
-                              ),
-                          ],
-                        ),
-                        // 항목 탭 → N-04 상세로 이동(노트 id를 arguments로 전달).
-                        // 상세에서 수정·삭제하면 그쪽이 notesProvider를 invalidate하므로
-                        // 돌아오면 이 목록도 자동으로 최신으로 다시 그려진다.
-                        onTap: () => Navigator.of(context).pushNamed(
-                          AppRouter.noteDetail,
-                          arguments: item.id,
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
     );
   }
 
-  // ✏️ 왜 이렇게 짰냐면:
-  // DateTime을 화면엔 'yyyy.MM.dd'로만 보여주면 충분해서 간단히 직접 포맷한다.
-  // (intl 패키지까지 쓸 필요 없는 V1 수준)
+}
+
+/// 노트 목록 본문(칩 제외) — 달력 모드(달력 아래)·목록 모드가 공유한다.
+class _NoteListBody extends ConsumerWidget {
+  const _NoteListBody();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notesAsync = ref.watch(notesProvider);
+    final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
+
+    // 로딩/에러/빈 화면은 공통 위젯 whenOrDefault가 처리.
+    return notesAsync.whenOrDefault(
+      data: (response) {
+        if (response.items.isEmpty) {
+          return EmptyView(message: l.noteEmpty);
+        }
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(notesProvider),
+          child: ListView.separated(
+            itemCount: response.items.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final item = response.items[index];
+              return ListTile(
+                title: Text(
+                  item.title.isEmpty ? l.noteUntitled : item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Row(
+                  children: [
+                    Text(
+                      noteCategoryLabel(item.category),
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.primary),
+                    ),
+                    if (item.status == 'DRAFT') ...[
+                      const SizedBox(width: 8),
+                      Text(l.noteDraft,
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: Colors.orange)),
+                    ],
+                    const Spacer(),
+                    if (item.updatedAt != null)
+                      Text(
+                        _formatDate(item.updatedAt!),
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.grey),
+                      ),
+                  ],
+                ),
+                // 항목 탭 → N-04 상세. 수정·삭제 시 그쪽이 invalidate → 돌아오면 최신 반영.
+                onTap: () => Navigator.of(context).pushNamed(
+                  AppRouter.noteDetail,
+                  arguments: item.id,
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  // DateTime을 'yyyy.MM.dd'로만 표시(V1, intl 불필요).
   String _formatDate(DateTime d) =>
       '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
 }

@@ -36,11 +36,11 @@ final noteDetailProvider =
 });
 
 /// N-01 화면 보기 모드 (false=목록, true=달력). AppBar 아이콘으로 토글.
-final noteCalendarViewProvider = StateProvider<bool>((ref) => false);
+/// 기본값 true = 노트 탭 진입 시 달력이 첫 화면(요구사항 2026-06-08). 버튼으로 목록 전환.
+final noteCalendarViewProvider = StateProvider<bool>((ref) => true);
 
 /// 묵상 달력 (월별).
 ///
-/// ✏️ 왜 이렇게 짰냐면:
 /// 달은 "yyyy-MM"마다 결과가 달라서 family로 month를 인자로 받는다.
 /// 사용자가 이전/다음 달로 넘기면 그 달 문자열로 provider를 다시 watch한다.
 final meditationCalendarProvider =

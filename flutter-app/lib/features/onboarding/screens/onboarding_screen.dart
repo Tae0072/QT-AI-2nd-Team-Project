@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../models/onboarding_page_data.dart';
 import '../widgets/onboarding_page_widget.dart';
 import '../widgets/page_indicator.dart';
@@ -62,6 +63,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final pages = _pages;
+    final l = AppLocalizations.of(context);
     return Scaffold(
       body: Stack(
         children: [
@@ -85,7 +87,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: TextButton(
                 onPressed: _isLastPage ? null : _onSkip,
                 child: Text(
-                  '건너뛰기',
+                  l.onbSkip,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 16,
@@ -126,7 +128,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         elevation: 0,
                       ),
                       child: Text(
-                        _isLastPage ? '시작하기' : '다음',
+                        _isLastPage ? l.onbStart : l.onbNext,
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,

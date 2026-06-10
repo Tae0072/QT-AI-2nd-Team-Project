@@ -1,10 +1,14 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
+import '../../sharing/providers/sharing_providers.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
+import '../widgets/note_publish_sheet.dart';
 import '../widgets/note_share_sheet.dart';
 import 'note_edit_screen.dart';
 
@@ -23,10 +27,11 @@ class NoteDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // family provider에 noteId를 넘겨 이 노트 전용 상세를 watch한다.
     final detailAsync = ref.watch(noteDetailProvider(noteId));
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('노트'),
+        title: Text(l.noteListTitle),
         centerTitle: true,
         // 액션 버튼은 상세를 받은 뒤에야 카테고리를 알 수 있으므로,
         // detail이 data일 때만 [수정]/[삭제]를 만든다(로딩/에러 땐 안 보임).
@@ -53,11 +58,20 @@ class _Actions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     return Row(
       children: [
+        // 닉네임 나눔 공개(앱 안 피드) — 아직 공개되지 않은 노트에만 노출.
+        // 외부 OS 공유(아래 ios_share)와 구분되는 별개 동작이다(F-10).
+        if (!detail.shared)
+          IconButton(
+            tooltip: l.notePublishTooltip,
+            icon: const Icon(Icons.public),
+            onPressed: () => _confirmPublish(context, ref),
+          ),
         // 외부 공유는 카테고리 무관 제공(텍스트/카드 이미지).
         IconButton(
-          tooltip: '공유',
+          tooltip: l.noteShareTooltip,
           icon: const Icon(Icons.ios_share),
           onPressed: () => showNoteShareSheet(context, detail),
         ),
@@ -67,12 +81,12 @@ class _Actions extends ConsumerWidget {
         // TODO(v2): 묵상은 QT 4섹션 화면, 설교는 절 선택 화면(B-03)이 생기면 연결.
         if (writableNoteCategories.contains(detail.category))
           IconButton(
-            tooltip: '수정',
+            tooltip: l.commonEdit,
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => _goEdit(context, ref),
           ),
         IconButton(
-          tooltip: '삭제',
+          tooltip: l.commonDelete,
           icon: const Icon(Icons.delete_outline),
           onPressed: () => _confirmDelete(context, ref),
         ),
@@ -92,21 +106,73 @@ class _Actions extends ConsumerWidget {
     ref.invalidate(notesProvider);
   }
 
+  /// 닉네임 나눔 공개 — 공개 확인 시트(닉네임 고지+댓글 ON/OFF) → POST /notes/{id}/share.
+  Future<void> _confirmPublish(BuildContext context, WidgetRef ref) async {
+    final l = AppLocalizations.of(context);
+    //   저장 완료(SAVED) 노트만 공개 가능. 임시저장(DRAFT)은 서버가 422로 막으므로
+    //   시트를 띄우기 전에 안내만 하고 멈춘다(04 §4.3.8: 저장 확정 전 공유 불가).
+    if (detail.status != 'SAVED') {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.notePublishNeedSave)));
+      return;
+    }
+    // 시트 반환: 댓글 허용 여부(true/false) = 공개 확정, null = 취소.
+    final commentsEnabled = await showNotePublishSheet(context);
+    if (commentsEnabled == null || !context.mounted) return;
+
+    try {
+      await ref
+          .read(sharingRepositoryProvider)
+          .publishNote(noteId, commentsEnabled: commentsEnabled);
+      //   공개 성공: 이 노트 상세(공유됨 뱃지)·노트 목록·나눔 피드를 모두 무효화해
+      //   방금 만든 공유본이 즉시 반영되게 한다.
+      ref.invalidate(noteDetailProvider(noteId));
+      ref.invalidate(notesProvider);
+      ref.invalidate(sharingPostsProvider);
+      if (!context.mounted) return;
+      //   성공 스낵바에 "보기"를 달아 원하는 사람만 나눔 피드로 가게 한다(강제 이동 X).
+      //   "조용한 나눔" 철학에 맞춰 기본은 상세에 머물고, 즉시 확인 경로만 제공.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l.notePublishSuccess),
+          action: SnackBarAction(
+            label: l.notePublishView,
+            onPressed: () => Navigator.of(context).pushNamed(AppRouter.sharing),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      //   409(DUPLICATE_SHARING_POST) = 이미 공개된 노트 → 실패가 아니라 "이미 했음" 안내.
+      //   현재 서버 갭으로 공개 후에도 버튼이 안 사라져 재탭이 가능하므로, 그 경우 친절한
+      //   안내로 바꿔 "버그처럼 보이는" 회귀를 막는다(백엔드 visibility 갱신은 후속 PR).
+      final isAlreadyShared =
+          e is DioException && e.response?.statusCode == 409;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              isAlreadyShared ? l.notePublishAlready : l.notePublishFailed),
+        ),
+      );
+    }
+  }
+
   /// 삭제 확인창 → 삭제 → 목록 새로고침 후 뒤로. (08 §8.2: 되돌리기 어려운 동작은 확인 절차)
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final l = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('노트를 삭제할까요?'),
-        content: const Text('삭제한 노트는 되돌릴 수 없습니다.'),
+        title: Text(l.noteDeleteConfirmTitle),
+        content: Text(l.noteDeleteConfirmBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('취소'),
+            child: Text(l.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('삭제'),
+            child: Text(l.commonDelete),
           ),
         ],
       ),
@@ -115,18 +181,19 @@ class _Actions extends ConsumerWidget {
 
     try {
       await ref.read(noteRepositoryProvider).delete(noteId);
-      // ✏️ 삭제 성공: 목록을 무효화해 사라진 노트를 반영하고 상세 화면을 닫는다.
-      // TODO(달력 탭 구현 후): 묵상 노트면 묵상 달력 provider도 invalidate.
+      //   삭제 성공: 목록을 무효화해 사라진 노트를 반영하고 상세 화면을 닫는다.
       ref.invalidate(notesProvider);
+      // 삭제 시 묵상 달력 체크리스트도 자동 갱신(모든 월 무효화).
+      ref.invalidate(meditationCalendarProvider);
       if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('삭제되었습니다')));
+          .showSnackBar(SnackBar(content: Text(l.noteDeleted)));
     } catch (e) {
-      // ✏️ 실패 시 화면 유지 + 안내(되돌리기 어려운 동작이라 실패를 명확히 알림).
+      //   실패 시 화면 유지 + 안내(되돌리기 어려운 동작이라 실패를 명확히 알림).
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('삭제에 실패했습니다. 다시 시도해 주세요')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.noteDeleteFailed)));
     }
   }
 }
@@ -140,13 +207,14 @@ class _DetailBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         // 제목
         Text(
-          detail.title.isEmpty ? '(제목 없음)' : detail.title,
+          detail.title.isEmpty ? l.noteUntitled : detail.title,
           style: theme.textTheme.titleLarge,
         ),
         const SizedBox(height: 8),
@@ -160,37 +228,49 @@ class _DetailBody extends StatelessWidget {
             ),
             if (detail.status == 'DRAFT') ...[
               const SizedBox(width: 8),
-              Text('임시저장',
+              Text(l.noteDraft,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: Colors.orange)),
             ],
             if (detail.shared) ...[
               const SizedBox(width: 8),
-              Text('공유됨',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.secondary)),
+              //   공개된 노트는 "공유됨 ›"을 탭하면 나눔 피드로 이동(지속 경로).
+              //   스낵바("보기")가 사라진 뒤에도 언제든 공유본을 찾아갈 수 있다.
+              InkWell(
+                onTap: () => Navigator.of(context).pushNamed(AppRouter.sharing),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l.noteShared,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.secondary)),
+                    Icon(Icons.chevron_right,
+                        size: 14, color: theme.colorScheme.secondary),
+                  ],
+                ),
+              ),
             ],
           ],
         ),
         const Divider(height: 24),
 
-        // ✏️ 카테고리 분기: 묵상은 4섹션, 그 외(자유노트)는 body 한 덩이.
+        //   카테고리 분기: 묵상은 4섹션, 그 외(자유노트)는 body 한 덩이.
         if (detail.isFreeNote)
           Text(
-            (detail.body?.isNotEmpty ?? false) ? detail.body! : '(내용 없음)',
+            (detail.body?.isNotEmpty ?? false) ? detail.body! : l.noteNoContent,
             style: theme.textTheme.bodyLarge,
           )
         else ...[
-          _Section(label: '느낀 점', text: detail.rememberSection),
-          _Section(label: '기억할 구절', text: detail.interpretSection),
-          _Section(label: '적용할 점', text: detail.applySection),
-          _Section(label: '기도', text: detail.praySection),
+          _Section(label: l.noteSectionFelt, text: detail.rememberSection),
+          _Section(label: l.noteSectionVerse, text: detail.interpretSection),
+          _Section(label: l.noteSectionApply, text: detail.applySection),
+          _Section(label: l.noteSectionPray, text: detail.praySection),
         ],
 
         // 인용 절(있을 때만 표시) — V1은 보기 전용
         if (detail.verses.isNotEmpty) ...[
           const Divider(height: 24),
-          Text('인용 구절', style: theme.textTheme.titleSmall),
+          Text(l.noteQuotedVerses, style: theme.textTheme.titleSmall),
           const SizedBox(height: 4),
           for (final v in detail.verses)
             Text('· ${v.bookCode} ${v.chapterNo ?? ''}:${v.verseNo ?? ''}',
@@ -210,7 +290,7 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✏️ 빈 섹션은 굳이 자리 차지하지 않게 숨긴다(일부 섹션만 작성 가능, 07 F-03).
+    //   빈 섹션은 굳이 자리 차지하지 않게 숨긴다(일부 섹션만 작성 가능, 07 F-03).
     if (text == null || text!.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     return Padding(

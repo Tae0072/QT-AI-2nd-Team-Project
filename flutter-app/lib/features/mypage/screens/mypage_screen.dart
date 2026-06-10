@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../providers/mypage_providers.dart';
@@ -18,6 +19,7 @@ class MyPageScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboardAsync = ref.watch(dashboardProvider);
+    final l = AppLocalizations.of(context);
 
     // 위젯 에러 SnackBar 표시
     ref.listen(dashboardProvider, (prev, next) {
@@ -26,7 +28,7 @@ class MyPageScreen extends ConsumerWidget {
           final errorNames = dashboard.widgetErrors.join(', ');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('일부 정보를 불러오지 못했습니다: $errorNames'),
+              content: Text('${l.mypagePartialError}: $errorNames'),
               duration: const Duration(seconds: 3),
             ),
           );
@@ -36,7 +38,7 @@ class MyPageScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('마이페이지'),
+        title: Text(l.mypageTitle),
         centerTitle: true,
       ),
       body: dashboardAsync.whenOrDefault(

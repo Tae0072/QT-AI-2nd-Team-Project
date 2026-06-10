@@ -1,0 +1,13 @@
+# 빌드 컨텍스트 최소화 — 런타임에 필요한 build/libs/*.jar 만 남긴다.
+src/
+.gradle/
+build/classes/
+build/generated/
+build/tmp/
+build/resources/
+build/reports/
+build/test-results/
+build/jacoco/
+build/distributions/
+*.md
+Dockerfile

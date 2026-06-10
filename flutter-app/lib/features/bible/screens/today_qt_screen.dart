@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../../routes/app_router.dart';
+import '../../note/screens/qt_note_editor_screen.dart';
+import '../../study/screens/qt_study_content_screen.dart';
+import '../../music/widgets/music_toggle_button.dart';
 import '../../tts/widgets/qt_tts_button.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
+import '../widgets/qt_video_player.dart';
 
 /// QT 본문 전체 텍스트 (TTS 입력용).
 String _fullTextOf(TodayQtPassage data) {
@@ -28,10 +34,11 @@ class TodayQtScreen extends ConsumerWidget {
     final passage = ref.watch(todayQtPassageProvider);
     final data = passage.valueOrNull;
     final fullText = data == null ? '' : _fullTextOf(data);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('오늘 QT'),
+        title: Text(l.bibleTodayQt),
         actions: [
           // 본문 읽기(TTS) — 아이콘 하나로 재생/정지 토글
           if (data != null && fullText.isNotEmpty)
@@ -40,36 +47,51 @@ class TodayQtScreen extends ConsumerWidget {
               qtDate: _qtDateOf(data),
               qtPassageId: data.qtPassageId,
             ),
+          // 배경음악 켜기/끄기 — TTS 버튼 오른쪽 음표 토글
+          const MusicToggleButton(),
           IconButton(
-            tooltip: '새로고침',
+            tooltip: l.commonRefresh,
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.invalidate(todayQtPassageProvider),
           ),
         ],
       ),
       body: passage.whenOrDefault(
-        loading: () => const LoadingView(message: '오늘 본문을 불러오는 중입니다.'),
+        loading: () => LoadingView(message: l.bibleTodayLoading),
         error: (error, _) => ErrorView(
-          message: '오늘 본문을 불러오지 못했습니다.\n$error',
+          message: '${l.bibleTodayLoadError}\n$error',
           onRetry: () => ref.invalidate(todayQtPassageProvider),
         ),
-        data: (data) => _TodayQtContent(data: data),
+        data: (data) => _TodayQtContent(
+          data: data,
+          // 당겨서 새로고침: 오늘 QT를 다시 불러오고 완료될 때까지 대기한다.
+          onRefresh: () => ref.refresh(todayQtPassageProvider.future),
+        ),
       ),
     );
   }
 }
 
-class _TodayQtContent extends StatelessWidget {
+class _TodayQtContent extends StatefulWidget {
   final TodayQtPassage data;
+  final Future<void> Function() onRefresh;
 
-  const _TodayQtContent({required this.data});
+  const _TodayQtContent({required this.data, required this.onRefresh});
+
+  @override
+  State<_TodayQtContent> createState() => _TodayQtContentState();
+}
+
+class _TodayQtContentState extends State<_TodayQtContent> {
+  bool _showEnglish = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final data = widget.data;
 
     return RefreshIndicator(
-      onRefresh: () async {},
+      onRefresh: widget.onRefresh,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         children: [
@@ -87,20 +109,33 @@ class _TodayQtContent extends StatelessWidget {
             ),
             const SizedBox(height: 6),
           ],
-          Text(
-            data.book.englishName,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          if (_showEnglish) ...[
+            Text(
+              data.book.englishName,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
+            const SizedBox(height: 6),
+          ],
           const SizedBox(height: 16),
           _ActionRow(
-            qtPassageId: data.qtPassageId,
-            simulatorStatus: data.simulatorStatus,
-            hasExplanation: data.hasExplanation,
+            data: data,
+            showEnglish: _showEnglish,
+            onShowEnglishChanged: (selected) {
+              setState(() => _showEnglish = selected);
+            },
           ),
           const SizedBox(height: 20),
-          for (final verse in data.verses) _VerseTile(verse: verse),
+          for (final verse in data.verses)
+            _VerseTile(
+              verse: verse,
+              showEnglish: _showEnglish,
+            ),
+          if (data.qtPassageId != null) ...[
+            const SizedBox(height: 12),
+            QtVideoSection(qtPassageId: data.qtPassageId!),
+          ],
         ],
       ),
     );
@@ -108,57 +143,75 @@ class _TodayQtContent extends StatelessWidget {
 }
 
 class _ActionRow extends StatelessWidget {
-  final int? qtPassageId;
-  final String simulatorStatus;
-  final bool hasExplanation;
+  final TodayQtPassage data;
+  final bool showEnglish;
+  final ValueChanged<bool> onShowEnglishChanged;
 
   const _ActionRow({
-    required this.qtPassageId,
-    required this.simulatorStatus,
-    required this.hasExplanation,
+    required this.data,
+    required this.showEnglish,
+    required this.onShowEnglishChanged,
   });
 
   void _showComingSoon(BuildContext context, String feature) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature 화면은 곧 제공됩니다.')),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).bibleComingSoon(feature)),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // 버그 수정(2026-06-05): 서버 simulatorStatus/hasExplanation을 파싱하지 않고
-    // 버튼을 영구 비활성(qtPassageId: null 고정)하던 단절 수정.
-    // 활성 조건은 고정 제품 결정(CLAUDE.md §6)을 따른다:
-    //  - 시뮬레이터 버튼은 simulatorStatus == READY 일 때만 활성화
-    //  - 해설 버튼은 승인 해설 존재(hasExplanation) 시 활성화
-    // 각 상세 화면 연결은 후속 작업(서버 계약 파리티 우선).
-    final simulatorReady = qtPassageId != null && simulatorStatus == 'READY';
-    final explanationReady = qtPassageId != null && hasExplanation;
+    final qtPassageId = data.qtPassageId;
+    final simulatorReady =
+        qtPassageId != null && data.simulatorStatus == 'READY';
+    final explanationReady = qtPassageId != null && data.hasExplanation;
+    final l = AppLocalizations.of(context);
 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
         FilledButton.icon(
-          onPressed: explanationReady
-              ? () => _showComingSoon(context, '해설')
-              : null,
+          onPressed: !explanationReady
+              ? null
+              : () => Navigator.of(context).pushNamed(
+                    AppRouter.qtStudyContent,
+                    arguments: QtStudyContentArgs(
+                      qtPassageId: qtPassageId,
+                      referenceText: data.reference.displayText,
+                      verseLabels: {
+                        for (final verse in data.verses)
+                          verse.id: '${verse.chapterNo}:${verse.verseNo}',
+                      },
+                    ),
+                  ),
           icon: const Icon(Icons.menu_book_outlined),
-          label: const Text('해설'),
+          label: Text(l.bibleExplanation),
         ),
         OutlinedButton.icon(
           onPressed: simulatorReady
-              ? () => _showComingSoon(context, '시뮬레이터')
+              ? () => _showComingSoon(context, l.bibleSimulator)
               : null,
           icon: const Icon(Icons.movie_outlined),
-          label: const Text('시뮬레이터'),
+          label: Text(l.bibleSimulator),
         ),
         OutlinedButton.icon(
           onPressed: qtPassageId == null
               ? null
-              : () => _showComingSoon(context, '묵상 노트 작성'),
+              : () => Navigator.of(context).pushNamed(
+                    AppRouter.qtNoteEditor,
+                    arguments: QtNoteEditorArgs(passage: data),
+                  ),
           icon: const Icon(Icons.edit_note_outlined),
-          label: const Text('노트'),
+          label: Text(l.navNote),
+        ),
+        FilterChip(
+          key: const Key('today-qt-english-toggle'),
+          selected: showEnglish,
+          onSelected: onShowEnglishChanged,
+          label: const Text('영어'),
         ),
       ],
     );
@@ -167,8 +220,12 @@ class _ActionRow extends StatelessWidget {
 
 class _VerseTile extends StatelessWidget {
   final BibleVerse verse;
+  final bool showEnglish;
 
-  const _VerseTile({required this.verse});
+  const _VerseTile({
+    required this.verse,
+    required this.showEnglish,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -194,7 +251,7 @@ class _VerseTile extends StatelessWidget {
               koreanText,
               style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
             ),
-          if (englishText != null && englishText.isNotEmpty) ...[
+          if (showEnglish && englishText != null && englishText.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               englishText,
