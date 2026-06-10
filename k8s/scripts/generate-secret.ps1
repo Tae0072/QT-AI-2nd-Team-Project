@@ -40,6 +40,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "openssl rsa(pubout) 실패(exit $LASTEXITCODE)" }
     $priv = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $tmp "private.der")))
     $pub  = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $tmp "public.der")))
+    $sysBytes = New-Object byte[] 48
+    [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($sysBytes)
+    $sys = [Convert]::ToBase64String($sysBytes)
 
     # 기존 Secret 있으면 교체
     kubectl -n qtai delete secret qtai-secret --ignore-not-found | Out-Null
@@ -48,6 +51,7 @@ try {
         --from-literal=MYSQL_ROOT_PASSWORD="$rootPw" `
         --from-literal=JWT_PRIVATE_KEY="$priv" `
         --from-literal=JWT_PUBLIC_KEY="$pub" `
+        --from-literal=SECURITY_JWT_SYSTEM_SECRET="$sys" `
         --from-literal=DEEPSEEK_API_KEY="$deep"
     Write-Host "완료: qtai 네임스페이스에 qtai-secret 생성됨(평문 파일 미저장)."
 }

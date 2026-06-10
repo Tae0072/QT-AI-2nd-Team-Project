@@ -32,6 +32,8 @@ spec:
               valueFrom: { secretKeyRef: { name: qtai-secret, key: JWT_PRIVATE_KEY } }
             - name: JWT_PUBLIC_KEY
               valueFrom: { secretKeyRef: { name: qtai-secret, key: JWT_PUBLIC_KEY } }
+            - name: SECURITY_JWT_SYSTEM_SECRET
+              valueFrom: { secretKeyRef: { name: qtai-secret, key: SECURITY_JWT_SYSTEM_SECRET } }
           readinessProbe:
             tcpSocket: { port: 8081 }
             initialDelaySeconds: 30

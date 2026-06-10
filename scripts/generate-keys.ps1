@@ -46,6 +46,9 @@ try {
 
     $priv = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $tmp "private.der")))
     $pub  = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $tmp "public.der")))
+    $sysBytes = New-Object byte[] 48
+    [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($sysBytes)
+    $sys = [Convert]::ToBase64String($sysBytes)
 
     # .env 준비
     if (-not (Test-Path $envFile)) {
@@ -54,18 +57,20 @@ try {
     }
 
     $lines = Get-Content $envFile
-    $hasPriv = $false; $hasPub = $false
+    $hasPriv = $false; $hasPub = $false; $hasSys = $false
     $out = foreach ($l in $lines) {
         if ($l -match '^\s*JWT_PRIVATE_KEY=') { $hasPriv = $true; "JWT_PRIVATE_KEY=$priv" }
         elseif ($l -match '^\s*JWT_PUBLIC_KEY=') { $hasPub = $true; "JWT_PUBLIC_KEY=$pub" }
+        elseif ($l -match '^\s*SECURITY_JWT_SYSTEM_SECRET=') { $hasSys = $true; "SECURITY_JWT_SYSTEM_SECRET=$sys" }
         else { $l }
     }
     if (-not $hasPriv) { $out += "JWT_PRIVATE_KEY=$priv" }
     if (-not $hasPub)  { $out += "JWT_PUBLIC_KEY=$pub" }
+    if (-not $hasSys) { $out += "SECURITY_JWT_SYSTEM_SECRET=$sys" }
 
     # UTF-8 (BOM 없음)로 기록
     [IO.File]::WriteAllLines($envFile, $out, (New-Object Text.UTF8Encoding $false))
-    Write-Host "완료: .env 의 JWT_PRIVATE_KEY / JWT_PUBLIC_KEY 갱신됨."
+    Write-Host "완료: .env 의 JWT_PRIVATE_KEY / JWT_PUBLIC_KEY / SECURITY_JWT_SYSTEM_SECRET 갱신됨."
     Write-Host "DB 비밀번호 등 나머지 값도 .env 에서 확인/변경하세요."
 }
 finally {
