@@ -62,6 +62,10 @@ ai:
 qtai:
   validation:
     restricted-storage-root: ${QTAI_RESTRICTED_STORAGE_ROOT:./restricted}
+  retention:
+    purge:
+      # 탈퇴 회원 보존기간 만료 정리 배치(hard delete) 활성화 게이트. 비가역이라 기본 off — 운영(prod)에서만 켠다.
+      enabled: ${QTAI_RETENTION_PURGE_ENABLED:false}
 
 qt:
   today-source:

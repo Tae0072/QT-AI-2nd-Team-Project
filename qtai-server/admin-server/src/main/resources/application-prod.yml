@@ -25,3 +25,7 @@ security:
 qtai:
   security:
     dev-bypass: false
+  # 탈퇴 회원 보존기간(2년) 만료 정리 배치 활성화 — admin 검증 통합 완료 후 운영에서 켠다(매일 03:00 KST hard delete).
+  retention:
+    purge:
+      enabled: ${QTAI_RETENTION_PURGE_ENABLED:true}

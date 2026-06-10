@@ -3,6 +3,7 @@ package com.qtai.batch;
 import com.qtai.domain.member.api.PurgeExpiredWithdrawnMembersUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -15,9 +16,15 @@ import org.springframework.stereotype.Component;
  *
  * <p>사용자 요청 경로가 아니라 SYSTEM_BATCH 주체로 동작한다. 회원 단위 트랜잭션으로
  * 처리하므로 일부 실패는 로그로 남고 다음 회원 처리를 막지 않는다(재처리 가능 상태 유지).
+ *
+ * <p><b>활성화 게이트</b>({@code qtai.retention.purge.enabled}): hard delete는 비가역이라 기본 off로 두고
+ * 운영(prod)에서만 켠다(개발/로컬/테스트 데이터가 실수로 삭제되지 않도록). 관리자 연결 회원 제외는
+ * {@code MemberRetentionPurgeService}가 admin 도메인 포트({@code VerifyAdminRoleUseCase})로 판정한다 —
+ * 이 판정이 신뢰 가능해진 뒤(admin 검증 통합 완료) 활성화한다.
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(prefix = "qtai.retention.purge", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class MemberRetentionPurgeBatch {
 
