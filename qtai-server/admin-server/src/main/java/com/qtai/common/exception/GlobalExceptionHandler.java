@@ -88,7 +88,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException e) {
         log.warn("DataIntegrityViolation(동시성 또는 제약 위반): {}", e.getMostSpecificCause().getMessage());
-        ErrorCode code = ErrorCode.INVALID_STATUS_TRANSITION; // C0003 / 409
+        ErrorCode code = ErrorCode.DUPLICATE_RESOURCE; // C0003 / 409
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(code.getCode(), "이미 처리되었거나 중복된 요청입니다."));
