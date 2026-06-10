@@ -30,6 +30,12 @@ class BibleRepository {
     return QtStudyContent.fromJson(data);
   }
 
+  Future<QtVideoClip> getQtVideo(int qtPassageId) async {
+    final response = await _dio.get('/qt/$qtPassageId/video');
+    final data = response.data['data'] as Map<String, dynamic>;
+    return QtVideoClip.fromJson(data);
+  }
+
   Future<BibleVerseRange> getVerses({
     required String bookCode,
     required int chapter,
@@ -103,6 +109,7 @@ class BibleRepository {
       title: todayQt.title,
       cacheStatus: todayQt.cacheStatus,
       simulatorStatus: todayQt.simulatorStatus,
+      videoStatus: todayQt.videoStatus,
       hasExplanation: todayQt.hasExplanation,
       draftNoteId: todayQt.draftNoteId,
       reference: todayRange.toReference(),

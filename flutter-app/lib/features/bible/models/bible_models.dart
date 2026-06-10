@@ -118,6 +118,8 @@ class TodayQtPassage {
   /// 버튼은 READY일 때만 활성화한다. 미지의 값은 MISSING으로 다룬다.
   final String simulatorStatus;
 
+  final String videoStatus;
+
   /// 승인된 해설 존재 여부 — 해설 진입점 활성 기준.
   final bool hasExplanation;
 
@@ -134,6 +136,7 @@ class TodayQtPassage {
     this.title,
     this.cacheStatus,
     this.simulatorStatus = 'MISSING',
+    this.videoStatus = 'MISSING',
     this.hasExplanation = false,
     this.draftNoteId,
     required this.reference,
@@ -151,6 +154,8 @@ class TodayQtSummary {
   /// 시뮬레이터 상태 — 서버 enum READY/MISSING/FAILED/DISABLED (CLAUDE.md §6).
   final String simulatorStatus;
 
+  final String videoStatus;
+
   /// 승인된 해설 존재 여부 — 해설 진입점 활성 기준.
   final bool hasExplanation;
 
@@ -165,6 +170,7 @@ class TodayQtSummary {
     required this.title,
     required this.cacheStatus,
     this.simulatorStatus = 'MISSING',
+    this.videoStatus = 'MISSING',
     this.hasExplanation = false,
     this.draftNoteId,
     required this.range,
@@ -178,9 +184,17 @@ class TodayQtSummary {
     'DISABLED',
   };
 
+  static const Set<String> _knownVideoStatuses = {
+    'READY',
+    'MISSING',
+    'FAILED',
+    'DISABLED',
+  };
+
   factory TodayQtSummary.fromJson(Map<String, dynamic> json) {
     final rangeJson = json['range'];
     final rawSimulatorStatus = json['simulatorStatus'] as String?;
+    final rawVideoStatus = json['videoStatus'] as String?;
     return TodayQtSummary(
       qtPassageId: json['qtPassageId'] as int?,
       passageDate: json['passageDate'] as String?,
@@ -189,11 +203,58 @@ class TodayQtSummary {
       simulatorStatus: _knownSimulatorStatuses.contains(rawSimulatorStatus)
           ? rawSimulatorStatus!
           : 'MISSING',
+      videoStatus: _knownVideoStatuses.contains(rawVideoStatus)
+          ? rawVideoStatus!
+          : 'MISSING',
       hasExplanation: json['hasExplanation'] as bool? ?? false,
       draftNoteId: json['draftNoteId'] as int?,
       range: rangeJson == null
           ? null
           : TodayQtRange.fromJson(rangeJson as Map<String, dynamic>),
+    );
+  }
+}
+
+class QtVideoClip {
+  final String status;
+  final int? clipId;
+  final int? qtPassageId;
+  final String? title;
+  final String? videoUrl;
+  final int? sourceVideoId;
+  final double? startTimeSec;
+  final double? endTimeSec;
+  final String? compositionType;
+  final String? clipStatus;
+
+  const QtVideoClip({
+    required this.status,
+    required this.clipId,
+    required this.qtPassageId,
+    required this.title,
+    required this.videoUrl,
+    required this.sourceVideoId,
+    required this.startTimeSec,
+    required this.endTimeSec,
+    required this.compositionType,
+    required this.clipStatus,
+  });
+
+  bool get isReady =>
+      status == 'READY' && videoUrl != null && videoUrl!.isNotEmpty;
+
+  factory QtVideoClip.fromJson(Map<String, dynamic> json) {
+    return QtVideoClip(
+      status: json['status'] as String? ?? 'MISSING',
+      clipId: json['clipId'] as int?,
+      qtPassageId: json['qtPassageId'] as int?,
+      title: json['title'] as String?,
+      videoUrl: json['videoUrl'] as String?,
+      sourceVideoId: json['sourceVideoId'] as int?,
+      startTimeSec: (json['startTimeSec'] as num?)?.toDouble(),
+      endTimeSec: (json['endTimeSec'] as num?)?.toDouble(),
+      compositionType: json['compositionType'] as String?,
+      clipStatus: json['clipStatus'] as String?,
     );
   }
 }
