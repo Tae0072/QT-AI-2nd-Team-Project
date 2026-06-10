@@ -75,6 +75,27 @@ class AuditQueryRepository {
                 .toList(), totalElements);
     }
 
+    List<DashboardAuditLogRow> findRecent(Pageable pageable) {
+        List<Object[]> rows = entityManager.createQuery("""
+                        select auditLog.id,
+                               auditLog.adminUserId,
+                               auditLog.actorType,
+                               auditLog.actionType,
+                               auditLog.targetType,
+                               auditLog.targetId,
+                               auditLog.createdAt
+                        """ + LIST_FROM + """
+                        order by auditLog.createdAt desc, auditLog.id desc
+                        """, Object[].class)
+                .setFirstResult((int) pageable.getOffset())
+                .setMaxResults(pageable.getPageSize())
+                .getResultList();
+
+        return rows.stream()
+                .map(DashboardAuditLogRow::from)
+                .toList();
+    }
+
     record Filter(
             String actorType,
             Long actorId,
@@ -119,6 +140,29 @@ class AuditQueryRepository {
                     (String) row[8],
                     (String) row[9],
                     (OffsetDateTime) row[10]
+            );
+        }
+    }
+
+    record DashboardAuditLogRow(
+            Long id,
+            Long adminUserId,
+            String actorType,
+            String actionType,
+            String targetType,
+            Long targetId,
+            OffsetDateTime createdAt
+    ) {
+
+        private static DashboardAuditLogRow from(Object[] row) {
+            return new DashboardAuditLogRow(
+                    (Long) row[0],
+                    (Long) row[1],
+                    (String) row[2],
+                    (String) row[3],
+                    (String) row[4],
+                    (Long) row[5],
+                    (OffsetDateTime) row[6]
             );
         }
     }
