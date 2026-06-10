@@ -9,8 +9,8 @@ final class QtVideoUserStatusResolver {
 
     static final List<QtVideoClipStatus> USER_STATUS_CANDIDATE_STATUSES = List.of(
             QtVideoClipStatus.APPROVED,
-            QtVideoClipStatus.FAILED,
-            QtVideoClipStatus.HIDDEN
+            QtVideoClipStatus.HIDDEN,
+            QtVideoClipStatus.FAILED
     );
 
     private QtVideoUserStatusResolver() {

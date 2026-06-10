@@ -86,6 +86,18 @@ JOIN bible_verse_video_segments segment
 WHERE passage_verse.qt_passage_id = @qt_passage_id
   AND segment.source_video_id = @source_video_id;
 
+-- This template uses an idempotent ACTIVE-row upsert. If operations need to
+-- preserve the old active clip as history instead of updating it in place, run
+-- the following in the same transaction before the INSERT and remove the
+-- ON DUPLICATE KEY UPDATE clause below:
+--
+-- UPDATE qt_video_clips
+-- SET status = 'HIDDEN',
+--     active_unique_key = NULL,
+--     updated_at = CURRENT_TIMESTAMP(6)
+-- WHERE qt_passage_id = @qt_passage_id
+--   AND active_unique_key = 'ACTIVE';
+
 INSERT INTO qt_video_clips (
     qt_passage_id,
     title,

@@ -65,7 +65,7 @@ class _QtVideoBlock extends StatelessWidget {
         const SizedBox(height: 10),
         QtVideoPlayer(
           videoUrl: clip.videoUrl!,
-          cacheKey: _qtVideoCacheKey(qtPassageId, clip.videoUrl!),
+          cacheKey: qtVideoCacheKey(qtPassageId, clip.videoUrl!),
           startTimeSec: clip.startTimeSec,
           endTimeSec: clip.endTimeSec,
         ),
@@ -1037,10 +1037,11 @@ String _format(Duration duration) {
   return '$minutes:$seconds';
 }
 
-String _qtVideoCacheKey(int qtPassageId, String videoUrl) {
+String qtVideoCacheKey(int qtPassageId, String videoUrl) {
   final uri = Uri.tryParse(videoUrl);
   final fileName = uri == null || uri.pathSegments.isEmpty
       ? 'video.mp4'
       : uri.pathSegments.last;
-  return 'qt-video-$qtPassageId-$fileName';
+  final safeFileName = fileName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+  return 'qt-video-$qtPassageId-$safeFileName';
 }

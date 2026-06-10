@@ -31,10 +31,10 @@ public record QtVideoClipResponse(
 
     public static QtVideoClipResponse unavailable(
             Long qtPassageId,
-            String status,
+            QtVideoUserStatus status,
             String clipStatus) {
         return new QtVideoClipResponse(
-                status,
+                status.name(),
                 null,
                 qtPassageId,
                 null,

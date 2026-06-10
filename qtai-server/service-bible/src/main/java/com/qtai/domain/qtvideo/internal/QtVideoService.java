@@ -46,7 +46,7 @@ public class QtVideoService implements GetQtVideoUseCase {
         if (status != QtVideoUserStatus.READY) {
             return QtVideoClipResponse.unavailable(
                     clip.getQtPassageId(),
-                    status.name(),
+                    status,
                     clip.getStatus().name()
             );
         }

@@ -153,6 +153,34 @@ class QtVideoServiceTest {
     }
 
     @Test
+    @DisplayName("숨김 클립은 실패 클립보다 우선한다")
+    void hiddenClipHasPriorityOverFailedClip() {
+        when(getQtPassageContentContextUseCase.getContentContext(14L))
+                .thenReturn(context(14L, true));
+        SourceVideo sourceVideo = TestEntityFactory.sourceVideo(1L, (short) 46, "https://cdn.example.com/1co.mp4");
+        QtVideoClip failed = TestEntityFactory.qtVideoClip(
+                15L,
+                14L,
+                sourceVideo,
+                "https://cdn.example.com/qt-failed.mp4",
+                QtVideoClipStatus.FAILED);
+        QtVideoClip hidden = TestEntityFactory.qtVideoClip(
+                16L,
+                14L,
+                sourceVideo,
+                "https://cdn.example.com/qt-hidden.mp4",
+                QtVideoClipStatus.HIDDEN);
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+                14L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
+                .thenReturn(List.of(failed, hidden));
+
+        QtVideoClipResponse result = service.getVideo(14L);
+
+        assertEquals("DISABLED", result.status());
+        assertEquals("HIDDEN", result.clipStatus());
+    }
+
+    @Test
     @DisplayName("미공개 QT 본문은 차단한다")
     void unpublishedPassage_blocked() {
         when(getQtPassageContentContextUseCase.getContentContext(6L))
