@@ -28,3 +28,9 @@ final qtStudyContentProvider =
   final repository = ref.watch(bibleRepositoryProvider);
   return repository.getQtStudyContent(qtPassageId);
 });
+
+final qtVideoClipProvider =
+    FutureProvider.autoDispose.family<QtVideoClip, int>((ref, qtPassageId) {
+  final repository = ref.watch(bibleRepositoryProvider);
+  return repository.getQtVideo(qtPassageId);
+});

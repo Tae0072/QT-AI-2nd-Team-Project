@@ -198,6 +198,50 @@ class TodayQtSummary {
   }
 }
 
+class QtVideoClip {
+  final String status;
+  final int? clipId;
+  final int? qtPassageId;
+  final String? title;
+  final String? videoUrl;
+  final int? sourceVideoId;
+  final double? startTimeSec;
+  final double? endTimeSec;
+  final String? compositionType;
+  final String? clipStatus;
+
+  const QtVideoClip({
+    required this.status,
+    required this.clipId,
+    required this.qtPassageId,
+    required this.title,
+    required this.videoUrl,
+    required this.sourceVideoId,
+    required this.startTimeSec,
+    required this.endTimeSec,
+    required this.compositionType,
+    required this.clipStatus,
+  });
+
+  bool get isReady =>
+      status == 'READY' && videoUrl != null && videoUrl!.isNotEmpty;
+
+  factory QtVideoClip.fromJson(Map<String, dynamic> json) {
+    return QtVideoClip(
+      status: json['status'] as String? ?? 'MISSING',
+      clipId: json['clipId'] as int?,
+      qtPassageId: json['qtPassageId'] as int?,
+      title: json['title'] as String?,
+      videoUrl: json['videoUrl'] as String?,
+      sourceVideoId: json['sourceVideoId'] as int?,
+      startTimeSec: (json['startTimeSec'] as num?)?.toDouble(),
+      endTimeSec: (json['endTimeSec'] as num?)?.toDouble(),
+      compositionType: json['compositionType'] as String?,
+      clipStatus: json['clipStatus'] as String?,
+    );
+  }
+}
+
 class TodayQtRange {
   final String testament;
   final String bookCode;

@@ -1,0 +1,85 @@
+# service-admin (admin-server, 8090) — PR #433 머지 후 활성화됨.
+#
+# 모놀리식 복사본(admin 컨트롤러만 잔류). prod 프로파일로 env 기반 MySQL을 쓰되,
+# 단일 DB(qtai) 일관성을 위해 Flyway off + JPA update로 통일하고(다른 4서비스와 동일),
+# 음원 시더/AI 워커/외부 SU 호출은 로컬 기동 안정성을 위해 끈다.
+# admin-server는 JwtProvider 포함이라 개인키+공개키를 모두 요구한다.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-admin
+  namespace: qtai
+  labels:
+    app: service-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-admin
+  template:
+    metadata:
+      labels:
+        app: service-admin
+    spec:
+      containers:
+        - name: service-admin
+          image: qtai/admin-server:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8090
+          envFrom:
+            - configMapRef: { name: qtai-config }   # DB_URL/DB_USERNAME/REDIS_* 등 공유
+          env:
+            # prod 프로파일(env DataSource + 정식 인증). configMap의 SPRING_PROFILES_ACTIVE=docker 를 덮어쓴다.
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            # yml에 server.port가 없어 기본 8080 → 8090 지정
+            - name: SERVER_PORT
+              value: "8090"
+            # 단일 DB 일관성: Flyway off + JPA update(다른 4서비스와 동일, 스키마 소유권 경합 방지)
+            - name: SPRING_FLYWAY_ENABLED
+              value: "false"
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: "update"
+            # 로컬 기동 안정성
+            - name: QTAI_MUSIC_SEED_ENABLED
+              value: "false"
+            - name: AI_GENERATION_WORKER_ENABLED
+              value: "false"
+            - name: QT_TODAY_SUM_ENABLED
+              value: "false"
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: qtai-secret, key: DB_PASSWORD } }
+            # admin-server(모놀리식)는 개인키+공개키 모두 필요
+            - name: JWT_PRIVATE_KEY
+              valueFrom: { secretKeyRef: { name: qtai-secret, key: JWT_PRIVATE_KEY } }
+            - name: JWT_PUBLIC_KEY
+              valueFrom: { secretKeyRef: { name: qtai-secret, key: JWT_PUBLIC_KEY } }
+            - name: SECURITY_JWT_SYSTEM_SECRET
+              valueFrom: { secretKeyRef: { name: qtai-secret, key: SECURITY_JWT_SYSTEM_SECRET } }
+          readinessProbe:
+            tcpSocket: { port: 8090 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 15
+          livenessProbe:
+            tcpSocket: { port: 8090 }
+            initialDelaySeconds: 90
+            periodSeconds: 20
+          resources:
+            requests: { cpu: "200m", memory: "512Mi" }
+            limits: { memory: "1Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-admin
+  namespace: qtai
+spec:
+  type: NodePort
+  selector:
+    app: service-admin
+  ports:
+    - port: 8090
+      targetPort: 8090
+      nodePort: 30090       # http://localhost:30090
