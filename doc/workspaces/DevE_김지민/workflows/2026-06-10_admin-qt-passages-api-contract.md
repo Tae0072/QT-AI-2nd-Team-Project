@@ -231,7 +231,7 @@ GET /api/v1/admin/qt-passages?status=DRAFT&from=2026-06-01&to=2026-06-30&q=&page
 | 엔드포인트·에러 | ✅ OK — 경로 5종·공통 envelope·코드(C0002/M0002/M0003·AD0003/Q0001/C0003) 그대로 수용 | `client.ts`가 `error.code`/`message` 처리 |
 
 **✅ 확정 결과 (2026-06-10 이지윤 협의):**
-1. **요청 필드**: `bookId`+`chapter`+`startVerse`+`endVerse` 기준 확정. ⚠️ **`04_API_명세서.md §4.7.2`가 아직 `startVerseId/endVerseId`라 SSoT 불일치 → `04 §4.7.2` 갱신 PR(별도) + Lead 검토 후속 필요**(`CLAUDE.md §2` 절차). 그 전까지 본 결정은 **팀 합의 기준 확정 · SSoT 반영 대기**.
+1. **요청 필드**: `bookId`+`chapter`+`startVerse`+`endVerse` 기준 확정. ✅ **`04_API_명세서.md §4.7.2`를 본 PR에서 이 기준으로 갱신 완료**(Lead 사후 승인은 PR 본문 트래킹, `CLAUDE.md §2`). 별도 문서 저장소 캐논 04 동기화는 추가 필요.
 2. **상태값**: **6/9 결정 5종이 최종** — `active/hidden/pending_review/deletion_notified/removed`. 기존 `DRAFT/PUBLISHED/HIDDEN`은 각각 `pending_review/active/hidden`으로 매핑. **admin-web 상태 Tag·버튼도 5종 기준**으로 맞춘다.
 
 **FE 후속:** `qtPassages.ts`의 generic `QtPassage`를 §6 단건 응답(+5종 status)으로 구체화 + `create/update` 함수 + `QtPassagesPage`에 5종 Tag·버튼.
