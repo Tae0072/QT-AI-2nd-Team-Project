@@ -1,6 +1,7 @@
 package com.qtai.domain.notification.internal;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,7 +20,8 @@ class NoticeNotificationChunkWriter {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     int writeChunk(PublishedNotice notice, List<Long> memberIds, LocalDateTime now) {
-        Map<Long, String> eventKeysByMemberId = memberIds.stream()
+        Set<Long> uniqueMemberIds = new LinkedHashSet<>(memberIds);
+        Map<Long, String> eventKeysByMemberId = uniqueMemberIds.stream()
                 .collect(Collectors.toMap(
                         Function.identity(),
                         memberId -> "NOTICE:" + notice.id() + ":" + memberId,
@@ -33,7 +35,7 @@ class NoticeNotificationChunkWriter {
                         .memberId(entry.getKey())
                         .type(NotificationType.NOTICE)
                         .title(notice.title())
-                        .body(NoticeService.preview(notice.body(), 500))
+                        .body(NoticeService.preview(notice.body(), 497))
                         .noticeId(notice.id())
                         .linkType("NOTICE")
                         .linkId(notice.id())

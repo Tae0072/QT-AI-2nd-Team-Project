@@ -3,6 +3,7 @@ package com.qtai.domain.notification.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -77,12 +78,25 @@ class NoticeServiceTest {
     void update_allowsDraftOnly() {
         Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
         when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
+        ArgumentCaptor<AuditLogWriteRequest> captor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
 
         var response = noticeService.updateNotice(1L, new AdminNoticeCommand(
                 100L, "수정 공지", "수정 본문", null));
 
         assertThat(response.title()).isEqualTo("수정 공지");
         assertThat(response.body()).isEqualTo("수정 본문");
+        verify(writeAuditLogUseCase).write(captor.capture());
+        assertThat(captor.getValue().actionType()).isEqualTo("NOTICE_UPDATE");
+    }
+
+    @Test
+    void update_rejectsStatusField() {
+        assertThatThrownBy(() -> noticeService.updateNotice(1L, new AdminNoticeCommand(
+                100L, "수정 공지", "수정 본문", "PUBLISHED")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+        verify(noticeRepository, never()).findById(any());
     }
 
     @Test
@@ -100,8 +114,6 @@ class NoticeServiceTest {
 
     @Test
     void publish_changesDraftToPublishedAndCreatesNotifications() {
-        Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
-        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
         when(listActiveMemberIdsUseCase.listActiveMemberIds()).thenReturn(List.of(10L, 11L));
         when(noticePublishStateService.publish(1L)).thenReturn(new PublishedNotice(
                 1L, "공지", "본문", "PUBLISHED",
@@ -116,6 +128,7 @@ class NoticeServiceTest {
         assertThat(response.notificationResult().requestedCount()).isEqualTo(2);
         assertThat(response.notificationResult().createdCount()).isEqualTo(2);
         assertThat(response.notificationResult().failedCount()).isZero();
+        verify(noticeRepository, never()).findById(1L);
     }
 
     @Test
@@ -156,9 +169,6 @@ class NoticeServiceTest {
 
     @Test
     void publish_auditSnapshotIncludesNotificationResult() {
-        Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
-        notice.publish(CLOCK);
-        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
         when(listActiveMemberIdsUseCase.listActiveMemberIds()).thenReturn(List.of(10L, 11L));
         when(noticePublishStateService.publish(1L)).thenReturn(new PublishedNotice(
                 1L, "공지", "본문", "PUBLISHED",

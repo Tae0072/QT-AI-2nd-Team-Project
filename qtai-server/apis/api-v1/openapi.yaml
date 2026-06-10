@@ -1999,7 +1999,6 @@ components:
         - first
         - last
         - sort
-        - sort
       properties:
         content:
           type: array
@@ -2231,14 +2230,18 @@ components:
           type: string
           minLength: 1
           maxLength: 100
+          description: Plain text only. HTML tag characters `<` and `>` are rejected.
           example: 서비스 점검 안내
         body:
           type: string
           minLength: 1
           maxLength: 10000
+          description: Plain text only. HTML tag characters `<` and `>` are rejected.
           example: 오늘 밤 점검이 예정되어 있습니다.
         status:
-          $ref: "#/components/schemas/AdminNoticeStatus"
+          allOf:
+            - $ref: "#/components/schemas/AdminNoticeStatus"
+          description: POST accepts omitted or DRAFT only. PATCH rejects status.
     AdminNoticeStatus:
       type: string
       enum:
@@ -2255,6 +2258,7 @@ components:
         - totalPages
         - first
         - last
+        - sort
       properties:
         content:
           type: array

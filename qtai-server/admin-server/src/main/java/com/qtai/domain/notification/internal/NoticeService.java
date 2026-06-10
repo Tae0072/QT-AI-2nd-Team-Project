@@ -65,6 +65,7 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
     @Override
     @Transactional
     public AdminNoticeDetailResponse updateNotice(Long noticeId, AdminNoticeCommand command) {
+        validateUpdateStatus(command.status());
         Notice notice = findNotice(noticeId);
         String before = noticeAuditSnapshotFactory.snapshot(notice);
         notice.updateDraft(command.title(), command.body());
@@ -103,9 +104,8 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
 
     private void writePublishAudit(Long adminUserId, PublishedNotice publishedNotice,
                                    NoticeNotificationFanoutResult result) {
-        Notice notice = findNotice(publishedNotice.id());
-        writeAudit(adminUserId, "NOTICE_PUBLISH", notice, publishedNotice.beforeJson(),
-                noticeAuditSnapshotFactory.snapshot(notice, result));
+        noticeAuditWriter.write(adminUserId, "NOTICE_PUBLISH", publishedNotice.id(), publishedNotice.beforeJson(),
+                noticeAuditSnapshotFactory.snapshot(publishedNotice, result));
     }
 
     private Notice findNotice(Long noticeId) {
@@ -146,6 +146,13 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
             return;
         }
         throw new BusinessException(ErrorCode.INVALID_INPUT, "공지 생성 상태는 DRAFT만 허용됩니다.");
+    }
+
+    private static void validateUpdateStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return;
+        }
+        throw new BusinessException(ErrorCode.INVALID_INPUT, "공지 수정 요청에는 status를 포함할 수 없습니다.");
     }
 
     private static void validatePage(int page, int size) {

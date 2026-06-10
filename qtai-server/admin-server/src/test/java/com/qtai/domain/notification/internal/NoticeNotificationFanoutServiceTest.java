@@ -78,6 +78,25 @@ class NoticeNotificationFanoutServiceTest {
         assertThat(result.failedCount()).isZero();
     }
 
+    @Test
+    void fanout_countsPartialFailureDuringSingleMemberRetry() {
+        AtomicInteger callCount = new AtomicInteger();
+        when(chunkWriter.writeChunk(any(), any(), any(LocalDateTime.class))).thenAnswer(invocation -> {
+            int current = callCount.getAndIncrement();
+            if (current == 0 || current == 2) {
+                throw new DataIntegrityViolationException("failed");
+            }
+            return 1;
+        });
+
+        NoticeNotificationFanoutResult result = fanoutService.fanout(
+                publishedNotice(), List.of(10L, 11L));
+
+        assertThat(result.requestedCount()).isEqualTo(2);
+        assertThat(result.createdCount()).isEqualTo(1);
+        assertThat(result.failedCount()).isEqualTo(1);
+    }
+
     private static PublishedNotice publishedNotice() {
         return new PublishedNotice(
                 1L,

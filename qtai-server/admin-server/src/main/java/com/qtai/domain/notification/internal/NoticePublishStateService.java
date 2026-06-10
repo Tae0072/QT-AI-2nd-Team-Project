@@ -18,7 +18,7 @@ class NoticePublishStateService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     PublishedNotice publish(Long noticeId) {
-        Notice notice = noticeRepository.findById(noticeId)
+        Notice notice = noticeRepository.findByIdForUpdate(noticeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
         String before = noticeAuditSnapshotFactory.snapshot(notice);
         notice.publish(clock);
