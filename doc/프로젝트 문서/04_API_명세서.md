@@ -1429,7 +1429,7 @@
 
 ### 4.7.2 QT 본문 관리
 
-- **Method + URL:** `GET /api/v1/admin/qt-passages?status=PUBLISHED&from=2026-05-01&to=2026-05-31&page=0&size=20`
+- **Method + URL:** `GET /api/v1/admin/qt-passages?status=active&from=2026-05-01&to=2026-05-31&page=0&size=20`
 - **Method + URL:** `POST /api/v1/admin/qt-passages`
 - **Method + URL:** `PATCH /api/v1/admin/qt-passages/{id}`
 - **Method + URL:** `POST /api/v1/admin/qt-passages/{id}/publish`
@@ -1449,6 +1449,8 @@
   "status": "pending_review"
 }
 ```
+
+- **상태값:** `active`, `hidden`, `pending_review`, `deletion_notified`, `removed`
 
 > 2026-06-10 팀 결정 반영: 요청 본문을 `startVerseId/endVerseId` → `bookId`+`chapter`+`startVerse`+`endVerse`(+`mainVerseRef`)로 변경(이지윤 admin-server 구현 기준). 상태값은 5종(`active/hidden/pending_review/deletion_notified/removed`)으로 정렬하며, 3종 매핑(`DRAFT→pending_review`·`PUBLISHED→active`·`HIDDEN→hidden`)은 admin-web qt-passages 계약(`doc/workspaces/DevE_김지민/workflows/2026-06-10_admin-qt-passages-api-contract.md`) 참조. (별도 문서 저장소 SSoT 동기화 필요)
 
@@ -2007,7 +2009,8 @@
 | `DUPLICATE_NOTE` | 409 | 동일 사용자+QT 활성 노트 중복 |
 | `DUPLICATE_LIKE` | 409 | 좋아요 중복 |
 | `DUPLICATE_REPORT` | 409 | 동일 대상 중복 신고 |
-| `INVALID_STATUS_TRANSITION` | 409 | 상태 전이 불가 |
+| `DUPLICATE_RESOURCE` (구현 코드 `C0003`) | 409 | 중복 리소스. 예: 이미 등록된 QT 날짜 |
+| `INVALID_STATUS_TRANSITION` (구현 코드 `C0007`) | 409 | 상태 전이 불가 |
 | `CHECKLIST_VERSION_REQUIRED` | 409 | AI 산출물 승인에 필요한 활성 체크리스트 버전 누락 |
 | `DUPLICATE_CHECKLIST_VERSION` | 409 | 같은 `checklistType`과 `version`의 체크리스트 버전 중복 |
 | `AI_QUESTION_BLOCKED` | 422 | 정책상 AI 답변 차단 |

@@ -1,0 +1,12 @@
+# service-bible 테스트 공통 설정.
+spring:
+  jpa:
+    hibernate:
+      # H2 인메모리에 엔티티로 스키마 생성 (운영 기본값 validate를 테스트에서 덮어씀)
+      ddl-auto: create-drop
+qt:
+  today-source:
+    sum:
+      # 성서유니온 수집 스케줄러 빈을 생성하지 않는다(@ConditionalOnProperty).
+      # 통합 테스트 기동 시 외부 HTTP 호출이 일어나지 않도록 차단.
+      enabled: false

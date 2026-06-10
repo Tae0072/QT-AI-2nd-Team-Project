@@ -138,10 +138,11 @@ jobs:
             FAILED=1
           fi
 
-          # 6) Kubernetes / Helm 금지 (메모리 17)
+          # 6) Kubernetes / Helm — 로컬 배포 허용 (2026-06-10 Lead 결정으로 가드 완화)
+          # 회의록 2026-06-09 §9 "로컬은 쿠버네티스 배포 형태로 마무리"에 맞춰 k8s/helm 디렉터리를
+          # 허용한다(기존 "Docker Compose만" 차단 해제). 비차단 정보 로그만 남긴다.
           if [ -d k8s ] || [ -d helm ] || find . -name "Chart.yaml" -not -path "*/\.*" 2>/dev/null | grep -q .; then
-            echo "[BLOCK] Kubernetes / Helm 디렉터리 발견 — v1은 Docker Compose만 (v3.1)"
-            FAILED=1
+            echo "[INFO] Kubernetes / Helm 매니페스트 감지 — 로컬 배포용으로 허용됨 (가드 완화)"
           fi
 
           # 7) 성경 번역본 금지 (메모리 18: 개역개정/ESV/NIV)

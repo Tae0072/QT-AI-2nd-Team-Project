@@ -10,6 +10,7 @@ import '../../music/widgets/music_toggle_button.dart';
 import '../../tts/widgets/qt_tts_button.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
+import '../widgets/qt_video_player.dart';
 
 /// QT 본문 전체 텍스트 (TTS 입력용).
 String _fullTextOf(TodayQtPassage data) {
@@ -131,6 +132,10 @@ class _TodayQtContentState extends State<_TodayQtContent> {
               verse: verse,
               showEnglish: _showEnglish,
             ),
+          if (data.qtPassageId != null) ...[
+            const SizedBox(height: 12),
+            QtVideoSection(qtPassageId: data.qtPassageId!),
+          ],
         ],
       ),
     );
