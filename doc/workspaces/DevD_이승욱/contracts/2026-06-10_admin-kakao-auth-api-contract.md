@@ -1,9 +1,9 @@
-# 관리자 카카오 인증 API 계약 (제안) — 김지민(admin-web) 합의용
+# 관리자 카카오 인증 API 계약 (합의 완료) — 김지민(admin-web)
 
-- **일자**: 2026-06-10
+- **일자**: 2026-06-10 (합의 완료)
 - **작성**: 이승욱(service-user BE)
-- **대상 합의자**: 김지민(admin-web FE)
-- **상태**: 제안 — FE와 응답 형태 확정 후 service-user에 구현(task 3)
+- **합의자**: 김지민(admin-web FE)
+- **상태**: ✅ **합의 완료** — 본 계약대로 service-user에 구현(task 3)
 - **기준**: 기존 사용자 로그인(`POST /api/v1/auth/kakao`, `LoginResponse`)과 일관성 유지. 단일 DB·service-user가 유일한 JWT 발급자(RS256).
 
 ## 1. 엔드포인트
@@ -56,12 +56,14 @@ POST /api/v1/admin/auth/kakao        (permitAll — 인증 전 진입)
   "error": { "code": "ADMIN_USER_NOT_FOUND", "message": "관리자 권한이 없습니다." } }
 ```
 
-## 5. 합의 필요 포인트 (FE 확인 요청)
-1. **응답 키 이름**: 사용자 로그인은 `member`, 관리자는 `admin`으로 구분 제안 — FE가 `member`로 통일하길 원하면 맞춤 가능.
-2. **adminRole 노출 범위**: 단일 역할 문자열로 충분한지, 아니면 권한 목록(향후 다중 역할 대비 배열)이 필요한지.
-3. **refreshToken 전달 방식**: 사용자 앱은 body→SecureStorage. admin-web(브라우저)도 body로 받을지, HttpOnly 쿠키를 원할지(웹 보안상 쿠키 선호 가능).
-4. **권한 부족(403) 처리 UX**: FE가 별도 안내 화면을 띄울지 → ErrorCode/message 문구 합의.
-5. **토큰 만료**: admin access token 만료를 사용자와 동일(30분)로 둘지.
+## 5. 합의 완료 결정 (2026-06-10, 김지민 ↔ 이승욱)
+1. **응답 키 이름**: 사용자 로그인은 `member`, 관리자는 **`admin`** 으로 구분 유지(§3 그대로). ✅
+2. **adminRole 노출 범위**: **단일 역할 문자열**로 확정(배열 미사용). ✅
+3. **refreshToken 전달 방식**: 앱·웹 **모두 body로 전달**(HttpOnly 쿠키 미사용). admin-web도 사용자 앱과 동일하게 body의 `refreshToken`을 받아 저장. ✅
+4. **권한 부족(403) 처리**: FE는 **별도 안내 화면 없이 ErrorCode를 그대로 표시**. 따라서 `error.code`/`error.message`가 그대로 노출 가능하도록 명확히 채운다(§4). ✅
+5. **토큰 만료**: admin access token 만료 = **사용자와 동일(access 30분, refresh 14일)**. ✅
+
+> 위 5건 확정 → §1~§4가 그대로 구현 계약. task 3는 별도 협의 없이 본 문서대로 진행.
 
 ## 6. 비고
 - 카카오 검증·JWT 발급은 service-user의 `KakaoOAuthClient`/`AuthService`/`JwtProvider` 재사용(신규 외부 연동 없음).
