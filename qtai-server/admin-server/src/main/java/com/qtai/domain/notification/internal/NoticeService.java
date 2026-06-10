@@ -23,7 +23,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Service
@@ -39,6 +43,7 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
     private final ListActiveMemberIdsUseCase listActiveMemberIdsUseCase;
     private final WriteAuditLogUseCase writeAuditLogUseCase;
     private final Clock clock;
+    private final PlatformTransactionManager transactionManager;
 
     @Override
     public AdminNoticeListResponse listAdminNotices(int page, int size) {
@@ -75,22 +80,19 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AdminNoticePublishResponse publishNotice(Long adminUserId, Long noticeId) {
-        Notice notice = findNotice(noticeId);
-        String before = snapshot(notice);
-        notice.publish(clock);
-        NotificationStats stats = createNoticeNotifications(notice);
-        String after = snapshot(notice, stats);
-        writeAudit(adminUserId, "NOTICE_PUBLISH", notice, before, after);
+        PublishedNotice publishedNotice = publishNoticeStatus(noticeId);
+        NotificationStats stats = createNoticeNotifications(publishedNotice);
+        writePublishAudit(adminUserId, publishedNotice, stats);
         if (stats.failedCount() > 0) {
             log.warn("공지 알림 일부 생성 실패: noticeId={}, requestedCount={}, createdCount={}, failedCount={}",
-                    notice.getId(), stats.requestedCount(), stats.createdCount(), stats.failedCount());
+                    publishedNotice.id(), stats.requestedCount(), stats.createdCount(), stats.failedCount());
         }
         return new AdminNoticePublishResponse(
-                notice.getId(),
-                notice.getStatus().name(),
-                notice.getPublishedAt(),
+                publishedNotice.id(),
+                publishedNotice.status(),
+                publishedNotice.publishedAt(),
                 new AdminNoticePublishResponse.NotificationResult(
                         stats.requestedCount(), stats.createdCount(), stats.failedCount())
         );
@@ -105,40 +107,74 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
         writeAudit(adminUserId, "NOTICE_HIDE", notice, before, snapshot(notice));
     }
 
-    private NotificationStats createNoticeNotifications(Notice notice) {
+    private PublishedNotice publishNoticeStatus(Long noticeId) {
+        return executeInTransaction(TransactionDefinition.PROPAGATION_REQUIRED, () -> {
+            Notice notice = findNotice(noticeId);
+            String before = snapshot(notice);
+            notice.publish(clock);
+            return new PublishedNotice(
+                    notice.getId(),
+                    notice.getTitle(),
+                    notice.getBody(),
+                    notice.getStatus().name(),
+                    notice.getPublishedAt(),
+                    before
+            );
+        });
+    }
+
+    private void writePublishAudit(Long adminUserId, PublishedNotice publishedNotice, NotificationStats stats) {
+        executeInTransaction(TransactionDefinition.PROPAGATION_REQUIRED, () -> {
+            Notice notice = findNotice(publishedNotice.id());
+            writeAudit(adminUserId, "NOTICE_PUBLISH", notice, publishedNotice.beforeJson(), snapshot(notice, stats));
+            return null;
+        });
+    }
+
+    private NotificationStats createNoticeNotifications(PublishedNotice notice) {
         List<Long> memberIds = listActiveMemberIdsUseCase.listActiveMemberIds();
         long createdCount = 0;
         long failedCount = 0;
         LocalDateTime now = LocalDateTime.now(clock);
         for (Long memberId : memberIds) {
-            String eventKey = "NOTICE:" + notice.getId() + ":" + memberId;
+            String eventKey = "NOTICE:" + notice.id() + ":" + memberId;
             try {
-                if (notificationRepository.existsByMemberIdAndEventKey(memberId, eventKey)) {
-                    continue;
+                NotificationCreateResult result = createNotificationInNewTransaction(notice, memberId, eventKey, now);
+                if (result == NotificationCreateResult.CREATED) {
+                    createdCount++;
                 }
-                notificationRepository.save(Notification.builder()
-                        .memberId(memberId)
-                        .type(NotificationType.NOTICE)
-                        .title(notice.getTitle())
-                        .body(preview(notice.getBody(), 500))
-                        .noticeId(notice.getId())
-                        .linkType("NOTICE")
-                        .linkId(notice.getId())
-                        .eventKey(eventKey)
-                        .createdAt(now)
-                        .build());
-                createdCount++;
             } catch (DataIntegrityViolationException e) {
                 failedCount++;
                 log.warn("공지 알림 중복 또는 제약 위반: noticeId={}, memberId={}, eventKey={}",
-                        notice.getId(), memberId, eventKey);
+                        notice.id(), memberId, eventKey);
             } catch (RuntimeException e) {
                 failedCount++;
                 log.warn("공지 알림 생성 실패: noticeId={}, memberId={}, errorType={}, errorMessage={}",
-                        notice.getId(), memberId, e.getClass().getSimpleName(), e.getMessage());
+                        notice.id(), memberId, e.getClass().getSimpleName(), e.getMessage());
             }
         }
         return new NotificationStats(memberIds.size(), createdCount, failedCount);
+    }
+
+    private NotificationCreateResult createNotificationInNewTransaction(
+            PublishedNotice notice, Long memberId, String eventKey, LocalDateTime now) {
+        return executeInTransaction(TransactionDefinition.PROPAGATION_REQUIRES_NEW, () -> {
+            if (notificationRepository.existsByMemberIdAndEventKey(memberId, eventKey)) {
+                return NotificationCreateResult.SKIPPED_DUPLICATE;
+            }
+            notificationRepository.save(Notification.builder()
+                    .memberId(memberId)
+                    .type(NotificationType.NOTICE)
+                    .title(notice.title())
+                    .body(preview(notice.body(), 500))
+                    .noticeId(notice.id())
+                    .linkType("NOTICE")
+                    .linkId(notice.id())
+                    .eventKey(eventKey)
+                    .createdAt(now)
+                    .build());
+            return NotificationCreateResult.CREATED;
+        });
     }
 
     private Notice findNotice(Long noticeId) {
@@ -221,6 +257,32 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
 
     private static String escapeJson(String value) {
         return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private <T> T executeInTransaction(int propagationBehavior, TransactionCallback<T> callback) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(propagationBehavior);
+        return template.execute(status -> callback.execute());
+    }
+
+    @FunctionalInterface
+    private interface TransactionCallback<T> {
+        T execute();
+    }
+
+    private enum NotificationCreateResult {
+        CREATED,
+        SKIPPED_DUPLICATE
+    }
+
+    private record PublishedNotice(
+            Long id,
+            String title,
+            String body,
+            String status,
+            LocalDateTime publishedAt,
+            String beforeJson
+    ) {
     }
 
     private record NotificationStats(long requestedCount, long createdCount, long failedCount) {

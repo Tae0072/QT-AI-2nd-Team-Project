@@ -3,6 +3,7 @@ package com.qtai.domain.notification.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +26,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 @ExtendWith(MockitoExtension.class)
 class NoticeServiceTest {
@@ -42,6 +45,8 @@ class NoticeServiceTest {
     ListActiveMemberIdsUseCase listActiveMemberIdsUseCase;
     @Mock
     WriteAuditLogUseCase writeAuditLogUseCase;
+    @Mock
+    PlatformTransactionManager transactionManager;
 
     NoticeService noticeService;
 
@@ -52,8 +57,10 @@ class NoticeServiceTest {
                 notificationRepository,
                 listActiveMemberIdsUseCase,
                 writeAuditLogUseCase,
-                CLOCK
+                CLOCK,
+                transactionManager
         );
+        lenient().when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
     }
 
     @Test
@@ -110,6 +117,39 @@ class NoticeServiceTest {
     }
 
     @Test
+    void publish_skipsDuplicateEventKeyWithoutFailure() {
+        Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
+        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
+        when(listActiveMemberIdsUseCase.listActiveMemberIds()).thenReturn(List.of(10L, 11L));
+        when(notificationRepository.existsByMemberIdAndEventKey(10L, "NOTICE:1:10")).thenReturn(true);
+        when(notificationRepository.existsByMemberIdAndEventKey(11L, "NOTICE:1:11")).thenReturn(false);
+
+        var response = noticeService.publishNotice(100L, 1L);
+
+        assertThat(response.notificationResult().requestedCount()).isEqualTo(2);
+        assertThat(response.notificationResult().createdCount()).isEqualTo(1);
+        assertThat(response.notificationResult().failedCount()).isZero();
+    }
+
+    @Test
+    void publish_countsPartialNotificationFailureAndKeepsPublishedStatus() {
+        Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
+        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
+        when(listActiveMemberIdsUseCase.listActiveMemberIds()).thenReturn(List.of(10L, 11L));
+        when(notificationRepository.existsByMemberIdAndEventKey(any(), any())).thenReturn(false);
+        when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate"));
+
+        var response = noticeService.publishNotice(100L, 1L);
+
+        assertThat(notice.getStatus()).isEqualTo(NoticeStatus.PUBLISHED);
+        assertThat(response.notificationResult().requestedCount()).isEqualTo(2);
+        assertThat(response.notificationResult().createdCount()).isEqualTo(1);
+        assertThat(response.notificationResult().failedCount()).isEqualTo(1);
+    }
+
+    @Test
     void hide_changesDraftToHidden() {
         Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
         when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
@@ -130,6 +170,17 @@ class NoticeServiceTest {
         verify(writeAuditLogUseCase).write(captor.capture());
         assertThat(captor.getValue().afterJson()).contains("공지").contains("DRAFT");
         assertThat(captor.getValue().afterJson()).doesNotContain("RAW_BODY_SHOULD_NOT_BE_STORED");
+    }
+
+    @Test
+    void create_escapesHtmlBeforeStoringNotice() {
+        when(noticeRepository.save(any(Notice.class))).thenAnswer(invocation -> persisted(invocation.getArgument(0), 1L));
+
+        var response = noticeService.createNotice(new AdminNoticeCommand(
+                100L, "<script>alert(1)</script>", "<img src=x onerror=alert(1)>", null));
+
+        assertThat(response.title()).isEqualTo("&lt;script&gt;alert(1)&lt;/script&gt;");
+        assertThat(response.body()).isEqualTo("&lt;img src=x onerror=alert(1)&gt;");
     }
 
     @Test

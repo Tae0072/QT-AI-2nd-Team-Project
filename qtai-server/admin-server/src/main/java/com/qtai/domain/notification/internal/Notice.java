@@ -107,6 +107,15 @@ public class Notice {
         if (normalized.length() > maxLength) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, fieldName + " 길이가 너무 깁니다.");
         }
-        return normalized;
+        return escapeHtml(normalized);
+    }
+
+    private static String escapeHtml(String value) {
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }
