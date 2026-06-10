@@ -13,13 +13,14 @@ import org.springframework.transaction.annotation.Transactional;
 class NoticePublishStateService {
 
     private final NoticeRepository noticeRepository;
+    private final NoticeAuditSnapshotFactory noticeAuditSnapshotFactory;
     private final Clock clock;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     PublishedNotice publish(Long noticeId) {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        String before = NoticeService.snapshot(notice);
+        String before = noticeAuditSnapshotFactory.snapshot(notice);
         notice.publish(clock);
         return new PublishedNotice(
                 notice.getId(),

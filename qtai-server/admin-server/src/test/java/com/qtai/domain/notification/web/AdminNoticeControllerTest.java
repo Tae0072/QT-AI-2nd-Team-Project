@@ -193,7 +193,8 @@ class AdminNoticeControllerTest {
                 1,
                 1,
                 true,
-                true
+                true,
+                "createdAt,desc"
         );
     }
 

@@ -3,6 +3,7 @@ package com.qtai.domain.notification.internal;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -30,13 +31,37 @@ class NoticeNotificationFanoutService {
             try {
                 createdCount += chunkWriter.writeChunk(notice, chunk, now);
             } catch (DataIntegrityViolationException e) {
-                failedCount += chunk.size();
                 log.warn("공지 알림 청크 저장 제약 위반: noticeId={}, chunkSize={}, errorMessage={}",
                         notice.id(), chunk.size(), e.getMostSpecificCause().getMessage());
+                NoticeNotificationFanoutResult retryResult = retryIndividually(notice, chunk, now);
+                createdCount += retryResult.createdCount();
+                failedCount += retryResult.failedCount();
             } catch (RuntimeException e) {
-                failedCount += chunk.size();
                 log.warn("공지 알림 청크 저장 실패: noticeId={}, chunkSize={}, errorType={}, errorMessage={}",
                         notice.id(), chunk.size(), e.getClass().getSimpleName(), e.getMessage());
+                NoticeNotificationFanoutResult retryResult = retryIndividually(notice, chunk, now);
+                createdCount += retryResult.createdCount();
+                failedCount += retryResult.failedCount();
+            }
+        }
+        return new NoticeNotificationFanoutResult(memberIds.size(), createdCount, failedCount);
+    }
+
+    private NoticeNotificationFanoutResult retryIndividually(
+            PublishedNotice notice, List<Long> memberIds, LocalDateTime now) {
+        long createdCount = 0;
+        long failedCount = 0;
+        for (Long memberId : memberIds) {
+            try {
+                createdCount += chunkWriter.writeChunk(notice, Collections.singletonList(memberId), now);
+            } catch (DataIntegrityViolationException e) {
+                failedCount++;
+                log.warn("공지 알림 단건 저장 제약 위반: noticeId={}, memberId={}, errorMessage={}",
+                        notice.id(), memberId, e.getMostSpecificCause().getMessage());
+            } catch (RuntimeException e) {
+                failedCount++;
+                log.warn("공지 알림 단건 저장 실패: noticeId={}, memberId={}, errorType={}, errorMessage={}",
+                        notice.id(), memberId, e.getClass().getSimpleName(), e.getMessage());
             }
         }
         return new NoticeNotificationFanoutResult(memberIds.size(), createdCount, failedCount);

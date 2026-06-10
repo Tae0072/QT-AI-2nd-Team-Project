@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
@@ -46,13 +47,16 @@ class NoticeServiceTest {
     NoticeNotificationFanoutService noticeNotificationFanoutService;
 
     NoticeService noticeService;
+    ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
+        objectMapper = new ObjectMapper();
         noticeService = new NoticeService(
                 noticeRepository,
                 listActiveMemberIdsUseCase,
-                writeAuditLogUseCase,
+                new NoticeAuditWriter(writeAuditLogUseCase),
+                new NoticeAuditSnapshotFactory(objectMapper),
                 noticePublishStateService,
                 noticeNotificationFanoutService
         );
@@ -135,6 +139,42 @@ class NoticeServiceTest {
         verify(writeAuditLogUseCase).write(captor.capture());
         assertThat(captor.getValue().afterJson()).contains("공지").contains("DRAFT");
         assertThat(captor.getValue().afterJson()).doesNotContain("RAW_BODY_SHOULD_NOT_BE_STORED");
+    }
+
+    @Test
+    void create_auditSnapshotUsesJsonSerializerForControlCharacters() throws Exception {
+        when(noticeRepository.save(any(Notice.class))).thenAnswer(invocation -> persisted(invocation.getArgument(0), 1L));
+        ArgumentCaptor<AuditLogWriteRequest> captor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
+
+        noticeService.createNotice(new AdminNoticeCommand(
+                100L, "공지\n탭\t문자", "본문", null));
+
+        verify(writeAuditLogUseCase).write(captor.capture());
+        assertThat(objectMapper.readTree(captor.getValue().afterJson()).get("title").asText())
+                .isEqualTo("공지\n탭\t문자");
+    }
+
+    @Test
+    void publish_auditSnapshotIncludesNotificationResult() {
+        Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
+        notice.publish(CLOCK);
+        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
+        when(listActiveMemberIdsUseCase.listActiveMemberIds()).thenReturn(List.of(10L, 11L));
+        when(noticePublishStateService.publish(1L)).thenReturn(new PublishedNotice(
+                1L, "공지", "본문", "PUBLISHED",
+                LocalDateTime.of(2026, 6, 10, 10, 30), "{\"status\":\"DRAFT\"}"));
+        when(noticeNotificationFanoutService.fanout(any(), any())).thenReturn(
+                new NoticeNotificationFanoutResult(2, 1, 1));
+        ArgumentCaptor<AuditLogWriteRequest> captor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
+
+        noticeService.publishNotice(100L, 1L);
+
+        verify(writeAuditLogUseCase).write(captor.capture());
+        assertThat(captor.getValue().afterJson())
+                .contains("\"notificationResult\"")
+                .contains("\"requestedCount\":2")
+                .contains("\"createdCount\":1")
+                .contains("\"failedCount\":1");
     }
 
     @Test

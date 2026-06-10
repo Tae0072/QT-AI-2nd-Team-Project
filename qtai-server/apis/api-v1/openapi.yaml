@@ -1999,6 +1999,7 @@ components:
         - first
         - last
         - sort
+        - sort
       properties:
         content:
           type: array
@@ -2280,6 +2281,9 @@ components:
           type: boolean
         last:
           type: boolean
+        sort:
+          type: string
+          example: createdAt,desc
     AdminNoticeListItem:
       type: object
       required:

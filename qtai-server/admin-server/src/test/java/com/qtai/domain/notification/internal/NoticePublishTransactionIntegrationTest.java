@@ -65,9 +65,9 @@ class NoticePublishTransactionIntegrationTest {
                 "SELECT COUNT(*) FROM notifications WHERE notice_id = ?", Integer.class, created.id());
         assertThat(status).isEqualTo("PUBLISHED");
         assertThat(response.notificationResult().requestedCount()).isEqualTo(2);
-        assertThat(response.notificationResult().createdCount()).isZero();
-        assertThat(response.notificationResult().failedCount()).isEqualTo(2);
-        assertThat(notificationCount).isZero();
+        assertThat(response.notificationResult().createdCount()).isEqualTo(1);
+        assertThat(response.notificationResult().failedCount()).isEqualTo(1);
+        assertThat(notificationCount).isEqualTo(1);
     }
 
     @TestConfiguration

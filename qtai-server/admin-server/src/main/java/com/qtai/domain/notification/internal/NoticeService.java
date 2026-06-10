@@ -2,8 +2,6 @@ package com.qtai.domain.notification.internal;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.audit.api.WriteAuditLogUseCase;
-import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 import com.qtai.domain.member.api.ListActiveMemberIdsUseCase;
 import com.qtai.domain.notification.api.CreateAdminNoticeUseCase;
 import com.qtai.domain.notification.api.HideAdminNoticeUseCase;
@@ -30,10 +28,12 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
         PublishAdminNoticeUseCase, HideAdminNoticeUseCase {
 
     private static final int BODY_PREVIEW_LENGTH = 80;
+    private static final String DEFAULT_SORT = "createdAt,desc";
 
     private final NoticeRepository noticeRepository;
     private final ListActiveMemberIdsUseCase listActiveMemberIdsUseCase;
-    private final WriteAuditLogUseCase writeAuditLogUseCase;
+    private final NoticeAuditWriter noticeAuditWriter;
+    private final NoticeAuditSnapshotFactory noticeAuditSnapshotFactory;
     private final NoticePublishStateService noticePublishStateService;
     private final NoticeNotificationFanoutService noticeNotificationFanoutService;
 
@@ -48,7 +48,8 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
                 notices.getTotalElements(),
                 notices.getTotalPages(),
                 notices.isFirst(),
-                notices.isLast()
+                notices.isLast(),
+                DEFAULT_SORT
         );
     }
 
@@ -57,7 +58,7 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
     public AdminNoticeDetailResponse createNotice(AdminNoticeCommand command) {
         validateCreateStatus(command.status());
         Notice notice = noticeRepository.save(Notice.draft(command.adminUserId(), command.title(), command.body()));
-        writeAudit(command.adminUserId(), "NOTICE_CREATE", notice, null, snapshot(notice));
+        writeAudit(command.adminUserId(), "NOTICE_CREATE", notice, null, noticeAuditSnapshotFactory.snapshot(notice));
         return toDetail(notice);
     }
 
@@ -65,9 +66,9 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
     @Transactional
     public AdminNoticeDetailResponse updateNotice(Long noticeId, AdminNoticeCommand command) {
         Notice notice = findNotice(noticeId);
-        String before = snapshot(notice);
+        String before = noticeAuditSnapshotFactory.snapshot(notice);
         notice.updateDraft(command.title(), command.body());
-        writeAudit(command.adminUserId(), "NOTICE_UPDATE", notice, before, snapshot(notice));
+        writeAudit(command.adminUserId(), "NOTICE_UPDATE", notice, before, noticeAuditSnapshotFactory.snapshot(notice));
         return toDetail(notice);
     }
 
@@ -95,15 +96,16 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
     @Transactional
     public void hideNotice(Long adminUserId, Long noticeId) {
         Notice notice = findNotice(noticeId);
-        String before = snapshot(notice);
+        String before = noticeAuditSnapshotFactory.snapshot(notice);
         notice.hide();
-        writeAudit(adminUserId, "NOTICE_HIDE", notice, before, snapshot(notice));
+        writeAudit(adminUserId, "NOTICE_HIDE", notice, before, noticeAuditSnapshotFactory.snapshot(notice));
     }
 
     private void writePublishAudit(Long adminUserId, PublishedNotice publishedNotice,
                                    NoticeNotificationFanoutResult result) {
         Notice notice = findNotice(publishedNotice.id());
-        writeAudit(adminUserId, "NOTICE_PUBLISH", notice, publishedNotice.beforeJson(), snapshot(notice, result));
+        writeAudit(adminUserId, "NOTICE_PUBLISH", notice, publishedNotice.beforeJson(),
+                noticeAuditSnapshotFactory.snapshot(notice, result));
     }
 
     private Notice findNotice(Long noticeId) {
@@ -136,17 +138,7 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
     }
 
     private void writeAudit(Long adminUserId, String actionType, Notice notice, String beforeJson, String afterJson) {
-        writeAuditLogUseCase.write(new AuditLogWriteRequest(
-                adminUserId,
-                "ADMIN",
-                adminUserId,
-                "ADMIN:" + adminUserId,
-                actionType,
-                "NOTICE",
-                notice.getId(),
-                beforeJson,
-                afterJson
-        ));
+        noticeAuditWriter.write(adminUserId, actionType, notice.getId(), beforeJson, afterJson);
     }
 
     private static void validateCreateStatus(String status) {
@@ -167,25 +159,6 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
             return value;
         }
         return value.substring(0, maxLength) + "...";
-    }
-
-    static String snapshot(Notice notice) {
-        return "{\"id\":" + notice.getId()
-                + ",\"title\":\"" + escapeJson(notice.getTitle())
-                + "\",\"status\":\"" + notice.getStatus().name() + "\"}";
-    }
-
-    private static String snapshot(Notice notice, NoticeNotificationFanoutResult result) {
-        return "{\"id\":" + notice.getId()
-                + ",\"title\":\"" + escapeJson(notice.getTitle())
-                + "\",\"status\":\"" + notice.getStatus().name()
-                + "\",\"notificationResult\":{\"requestedCount\":" + result.requestedCount()
-                + ",\"createdCount\":" + result.createdCount()
-                + ",\"failedCount\":" + result.failedCount() + "}}";
-    }
-
-    private static String escapeJson(String value) {
-        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
 }

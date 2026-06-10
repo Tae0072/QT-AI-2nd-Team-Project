@@ -10,7 +10,8 @@ public record AdminNoticeListResponse(
         long totalElements,
         int totalPages,
         boolean first,
-        boolean last
+        boolean last,
+        String sort
 ) {
 
     public record Item(

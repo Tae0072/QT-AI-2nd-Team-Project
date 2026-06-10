@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -83,7 +84,7 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
     }
 
     @Override
-    public java.util.List<Long> listActiveMemberIds() {
+    public List<Long> listActiveMemberIds() {
         return memberRepository.findActiveMemberIds();
     }
 

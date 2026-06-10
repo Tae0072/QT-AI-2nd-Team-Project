@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,6 +58,24 @@ class NoticeNotificationFanoutServiceTest {
         assertThat(result.requestedCount()).isEqualTo(2);
         assertThat(result.createdCount()).isZero();
         assertThat(result.failedCount()).isEqualTo(2);
+    }
+
+    @Test
+    void fanout_retriesChunkFailureBySingleMember() {
+        AtomicInteger callCount = new AtomicInteger();
+        when(chunkWriter.writeChunk(any(), any(), any(LocalDateTime.class))).thenAnswer(invocation -> {
+            if (callCount.getAndIncrement() == 0) {
+                throw new DataIntegrityViolationException("chunk failed");
+            }
+            return 1;
+        });
+
+        NoticeNotificationFanoutResult result = fanoutService.fanout(
+                publishedNotice(), List.of(10L, 11L));
+
+        assertThat(result.requestedCount()).isEqualTo(2);
+        assertThat(result.createdCount()).isEqualTo(2);
+        assertThat(result.failedCount()).isZero();
     }
 
     private static PublishedNotice publishedNotice() {
