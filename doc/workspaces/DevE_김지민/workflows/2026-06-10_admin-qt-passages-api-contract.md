@@ -170,6 +170,8 @@ GET /api/v1/admin/qt-passages?status=DRAFT&from=2026-06-01&to=2026-06-30&q=&page
 | `PUBLISHED` | 게시됨 | 수정, 숨김 |
 | `HIDDEN` | 숨김 처리됨 | 수정, 게시 |
 
+> ✅ **2026-06-10 확정(이지윤 협의)**: 최종 상태값은 **6/9 결정 5종** `active / hidden / pending_review / deletion_notified / removed`. 위 3종은 매핑으로 본다 — **`DRAFT→pending_review`, `PUBLISHED→active`, `HIDDEN→hidden`**. admin-web 상태 Tag·버튼도 **5종 기준**으로 맞춘다. (백엔드 enum도 5종으로 정렬 예정)
+
 ---
 
 ## 8. 에러 응답 형태
@@ -218,18 +220,18 @@ GET /api/v1/admin/qt-passages?status=DRAFT&from=2026-06-01&to=2026-06-30&q=&page
 
 > 기준: admin-web 현재 코드 `admin-web/src/api/qtPassages.ts` · `pages/QtPassagesPage.tsx`. 현재 **목록·게시(publish)·숨김(hide)만 구현**, `QtPassage` 타입은 generic(응답 키 자동 컬럼), **등록/수정 폼은 미구현**, 페이징은 공통 `Page<T>`(`api/types.ts`) 사용.
 
-**§9 택1 답 → "1번(그대로 연동 가능)", 단 ③ 요청필드와 ④ 상태값 2건은 아래 전제 충족 후 확정.**
+**§9 택1 답 → "1번(그대로 연동 가능)". ③ 요청필드·④ 상태값도 2026-06-10 이지윤 협의로 확정.**
 
 | §9 항목 | FE 회신 | 근거 |
 |---|---|---|
 | **1. 그대로 연결 가능** | ✅ 목록·게시·숨김·페이징·에러는 그대로 가능 | 현 FE가 동일 경로 호출 + generic 컬럼 |
-| **2. `startVerseId`/`endVerseId` 필요?** | ❌ 아니오 — `bookId`+`chapter`+`startVerse`+`endVerse` **그대로 수용**(관리자 폼에 오히려 자연스러움). ⚠️ **단 04 명세 §4.7.2는 `startVerseId`/`endVerseId`로 적혀 있어 불일치** → 이지윤 구현 기준으로 **04 명세 갱신 필요**(Lead 확인) | 04 §4.7.2 vs 본 계약 §3 |
+| **2. `startVerseId`/`endVerseId` 필요?** | ✅ **확정(2026-06-10)** — `bookId`+`chapter`+`startVerse`+`endVerse` 기준으로 간다. **04 명세 §4.7.2의 `startVerseId`/`endVerseId`는 이 기준으로 갱신** | 04 §4.7.2 → 갱신 예정 |
 | **3. 페이징 필드명 변경 필요?** | ❌ 아니오 — **변경 불필요.** `content/page/size/totalElements/totalPages/first/last`가 FE `Page<T>`·`QtPassagesPage` 페이지네이션과 정확히 일치 | `admin-web/src/api/types.ts` |
-| **4. 상태값 표시명/버튼 변경 필요?** | ⚠️ **확인 필요** — 계약은 `DRAFT/PUBLISHED/HIDDEN`(3종)인데 **06-09 결정 ②는 5종**(`active/hidden/pending_review/deletion_notified/removed`)으로 확정돼 **충돌**. FE는 버튼 정책상 3종이 단순해 선호하나, **최종 enum을 이지윤·Lead가 확정**해야 StatusTag·버튼 매핑 고정 가능 | [AD010206 체크리스트](../todos/2026-06-09_admin-backend-AD010206-체크리스트.md) §0 ② |
+| **4. 상태값 표시명/버튼 변경 필요?** | ✅ **확정(2026-06-10)** — 최종은 **6/9 결정 5종** `active/hidden/pending_review/deletion_notified/removed`. 3종은 매핑(`DRAFT→pending_review`·`PUBLISHED→active`·`HIDDEN→hidden`). **admin-web Tag·버튼도 5종 기준** | 6/9 결정 ② |
 | 엔드포인트·에러 | ✅ OK — 경로 5종·공통 envelope·코드(C0002/M0002/M0003·AD0003/Q0001/C0003) 그대로 수용 | `client.ts`가 `error.code`/`message` 처리 |
 
-**선결 2건 (이지윤·Lead에게):**
-1. **요청 필드**: 04 명세를 이지윤 구현(`bookId`+`chapter`+`startVerse`+`endVerse`)에 맞춰 갱신하면 FE가 그대로 폼 구현. (verse ID 방식 고수면 04 유지 + 백엔드 변경)
-2. **상태값 enum**: `DRAFT/PUBLISHED/HIDDEN`(3종, 계약) vs `active/hidden/pending_review/deletion_notified/removed`(5종, 결정②) 중 최종 확정.
+**✅ 확정 결과 (2026-06-10 이지윤 협의):**
+1. **요청 필드**: `bookId`+`chapter`+`startVerse`+`endVerse` 기준 확정. **`04_API_명세서.md §4.7.2`의 `startVerseId/endVerseId`를 이 기준으로 갱신**(별도 04 PR).
+2. **상태값**: **6/9 결정 5종이 최종** — `active/hidden/pending_review/deletion_notified/removed`. 기존 `DRAFT/PUBLISHED/HIDDEN`은 각각 `pending_review/active/hidden`으로 매핑. **admin-web 상태 Tag·버튼도 5종 기준**으로 맞춘다.
 
-**FE 후속(확정 시):** `qtPassages.ts`의 generic `QtPassage`를 §6 단건 응답으로 구체화 + `create/update` 함수 추가 + `QtPassagesPage`에 상태 Tag·게시/숨김 버튼.
+**FE 후속:** `qtPassages.ts`의 generic `QtPassage`를 §6 단건 응답(+5종 status)으로 구체화 + `create/update` 함수 + `QtPassagesPage`에 5종 Tag·버튼.

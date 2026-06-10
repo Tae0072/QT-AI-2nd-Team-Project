@@ -52,10 +52,10 @@
 
 ## ▶ 2단계 — [계약] 화면 실제 API 연결 (계약 합의 후)
 
-### qt-passages (AD-02 · 이지윤) — 계약 거의 합의, 선결 2건 대기
-- [ ] **선결**: ① 요청 필드 04 명세 갱신(book+chapter+verse) · ② 상태값 3종 vs 결정② 5종 확정 ([계약 문서](../workflows/2026-06-10_admin-qt-passages-api-contract.md) §10)
-- [ ] `src/api/qtPassages.ts`: generic `QtPassage` → 계약 §6 단건 응답으로 구체화 + `create/update` 함수
-- [ ] `src/pages/QtPassagesPage.tsx`: 상태 Tag + 게시/숨김/등록/수정 버튼
+### qt-passages (AD-02 · 이지윤) — ✅ 계약 확정(2026-06-10)
+- [x] **확정**: ① 요청필드 `bookId+chapter+startVerse+endVerse`(04 §4.7.2 갱신 예정) · ② 상태값 **5종 최종** `active/hidden/pending_review/deletion_notified/removed`(3종은 `DRAFT→pending_review`·`PUBLISHED→active`·`HIDDEN→hidden` 매핑) ([계약 §10](../workflows/2026-06-10_admin-qt-passages-api-contract.md))
+- [ ] `src/api/qtPassages.ts`: generic `QtPassage` → 계약 §6 단건 응답(+5종 status) 구체화 + `create/update` 함수
+- [ ] `src/pages/QtPassagesPage.tsx`: **5종** 상태 Tag + 게시/숨김/등록/수정 버튼
 - [ ] (페이징·에러는 변경 불필요 — 이미 일치)
 
 ### dashboard (AD-01 · 강상민) — 협의 불요(강상민 독립 구현)
@@ -87,4 +87,4 @@
 
 - [x] 2026-06-10 MSA 8090 전환 반영, FE 워크플로우·체크리스트 신규 작성
 - [x] 2026-06-10 **1단계 [지금] F3·F1·F2 코드 구현 완료**(env 8090 · 카카오 SDK 버튼 · `admin/auth/kakao` 연동 · 합의 5개), typecheck·build 통과
-- [ ] 2단계 [계약] qt-passages(선결 2건 후) · dashboard·notices(강상민 API 후 연결, 협의 불요)
+- [ ] 2단계 [계약] qt-passages(✅확정 — 5종 Tag/버튼·등록폼 구현) · dashboard·notices(강상민 API 후 연결, 협의 불요)

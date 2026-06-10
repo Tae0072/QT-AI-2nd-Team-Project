@@ -48,8 +48,8 @@
 | F1 | LoginPage: 카카오 JS SDK 로그인 버튼 (임시 토큰 붙여넣기 제거) | [지금] ✅ | `KAKAO_JS_KEY`(루트 `.env`)→`VITE_KAKAO_JS_KEY` | `src/pages/LoginPage.tsx`, `index.html`(SDK 로드), `src/auth/kakao.ts` |
 | F2 | 카카오 토큰 → `POST /api/v1/admin/auth/kakao` → ADMIN 토큰 저장 | [지금] ✅ | 이승욱 계약(합의 완료) | `src/api/adminAuth.ts`, `src/auth/AuthContext.tsx` |
 | F3 | config/env: base URL = **8090**(admin-server) 기준 | [지금] ✅ | — | `.env.example`, `src/config/env.ts`, `vite.config.ts` |
-| F4 | 화면 실제 API 연결: qt-passages·dashboard·notices | [계약] | 이지윤(선결2건)·강상민(협의 불요) | `src/api/{qtPassages,dashboard,notices}.ts`, `src/pages/*` |
-| F5 | 계약 정리: 이승욱(인증 ✅)·이지윤(qt-passages 선결2건)·강상민(협의 불요) | [계약] | — | (문서) |
+| F4 | 화면 실제 API 연결: qt-passages·dashboard·notices | [계약] | 이지윤(✅확정)·강상민(협의 불요) | `src/api/{qtPassages,dashboard,notices}.ts`, `src/pages/*` |
+| F5 | 계약 정리: 이승욱(인증 ✅)·이지윤(qt-passages ✅확정)·강상민(협의 불요) | [계약] | — | (문서) |
 
 > ✅ **F1·F2·F3 코드 구현 완료(2026-06-10), typecheck·build 통과.** 실제 로그인 실행은 백엔드·카카오키 준비 후(코드 수정 불요).
 
@@ -66,7 +66,7 @@
 | 담당 | 대상 | 계약 문서 | 상태 |
 |---|---|---|---|
 | 이승욱 | 카카오 인증 (`admin/auth/kakao`) | [admin-kakao-auth-contract](2026-06-10_admin-kakao-auth-contract.md) | ✅ 응답 5개 합의 완료 · **FE F1/F2 코드 완료** · 백엔드 엔드포인트 구현 대기(이승욱 task 3) |
-| 이지윤 | qt-passages (AD-02) | [admin-qt-passages-api-contract](2026-06-10_admin-qt-passages-api-contract.md) | ⚠️ FE 회신 완료(§10) — **선결 2건**(① 요청필드 04 명세 갱신 · ② 상태값 3종 vs 결정② 5종) 확정 대기 |
+| 이지윤 | qt-passages (AD-02) | [admin-qt-passages-api-contract](2026-06-10_admin-qt-passages-api-contract.md) | ✅ **확정(2026-06-10)** — 요청필드 `bookId+chapter+startVerse+endVerse`(04 §4.7.2 갱신 예정) · 상태값 **5종 최종**(`active/hidden/pending_review/deletion_notified/removed`, 3종은 매핑). FE는 5종 Tag/버튼·등록폼 구현 예정 |
 | 강상민 | dashboard(AD-01)·notices(AD-06) | (협의 불요) | ✅ **협의 불필요** — MSA 분리로 김지민 코드 미재사용, 강상민이 admin-server에 **독립 구현**(04 명세 기준). API 올라오면 FE는 연결만 |
 
 ---
@@ -74,7 +74,7 @@
 ## 4. 진행 순서 (권장)
 
 1. **[지금] 로그인 기반 먼저** — F3(env 8090) → F1(카카오 SDK 버튼) → F2(`admin/auth/kakao` 연동 → ADMIN 토큰 저장). 로그인이 돼야 다른 화면 로컬 확인이 가능하므로 최우선.
-2. **[계약] 계약 확정된 화면부터** — qt-passages(선결 2건 확정 시 거의 바로) → dashboard·notices(강상민 계약 후).
+2. **[계약] 계약 확정된 화면부터** — qt-passages(✅확정 — 5종 Tag/버튼·등록폼 구현) → dashboard·notices(강상민 API 후, 협의 불요).
 3. **[정합]** admin-web을 8090 정합 → `dev`.
 4. **(게이트=Lead)** dev-msa→dev → admin-web→dev → 모놀리식 원본 제거 → dev→master.
 
@@ -100,7 +100,7 @@
 
 - **카카오 엔드포인트 라우팅**: admin-web base=8090(admin-server)인데 `POST /api/v1/admin/auth/kakao`의 실제 발급 주체는 service-user(이승욱). admin-server가 8090에서 이 경로를 노출(내부적으로 service-user 호출)하는지 → 이승욱·강상민과 확인.
 - **카카오 콘솔 도메인 등록(나중)**: Web 플랫폼 `http://localhost:5173` 등록 후 팝업/토큰 획득 로컬 확인 가능. 로컬 `admin-web/.env`(gitignore)에 JS 키는 주입 완료.
-- **이지윤 선결 2건** 확정 전까지 qt-passages 등록/수정 폼은 보류.
+- qt-passages는 ✅ 확정(요청필드 `bookId+chapter+startVerse+endVerse` + 상태값 5종) — 5종 Tag/버튼·등록폼 구현 가능. (04 §4.7.2 갱신은 별도 PR)
 
 ---
 
@@ -108,4 +108,5 @@
 
 - 2026-06-10: MSA 8090 전환 반영. admin-web FE 워크플로우·체크리스트 신규 작성. 카카오 경로 충돌 해소(신규 `admin/auth/kakao` 확정) 반영.
 - 2026-06-10: **F3·F1·F2 코드 구현 완료** — env 8090, 카카오 JS SDK 로그인 버튼, `admin/auth/kakao` 연동, 합의 5개 반영. typecheck·build 통과. dashboard·notices(강상민)는 협의 불요로 확정.
-- 2026-06-10: 로컬 `admin-web/.env`(gitignore)에 카카오 JS 키 주입 완료(`.env.example`은 플레이스홀더 유지). **카카오 콘솔 Web 도메인(`localhost:5173`) 등록은 나중.** **다음: 이지윤 선결 2건 확정 후 qt-passages 화면 연동.**
+- 2026-06-10: 로컬 `admin-web/.env`(gitignore)에 카카오 JS 키 주입 완료(`.env.example`은 플레이스홀더 유지). **카카오 콘솔 Web 도메인(`localhost:5173`) 등록은 나중.**
+- 2026-06-10: **SSoT 모순 2건 해소** — ① 카카오 경로 **신규 `admin/auth/kakao` 확정** ② qt-passages(이지윤 협의) **요청필드 `bookId+chapter+startVerse+endVerse` + 상태값 5종 최종** 확정(04 §4.7.2 갱신 예정). **다음: qt-passages 5종 Tag/버튼·등록폼 구현.**
