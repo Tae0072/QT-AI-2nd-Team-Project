@@ -35,7 +35,7 @@ class NoticeNotificationChunkWriter {
                         .memberId(entry.getKey())
                         .type(NotificationType.NOTICE)
                         .title(notice.title())
-                        .body(NoticeService.preview(notice.body(), 497))
+                        .body(NoticeBodyPreview.notificationPreview(notice.body()))
                         .noticeId(notice.id())
                         .linkType("NOTICE")
                         .linkId(notice.id())
@@ -49,5 +49,17 @@ class NoticeNotificationChunkWriter {
         notificationRepository.saveAll(notifications);
         notificationRepository.flush();
         return notifications.size();
+    }
+
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+    boolean existsNoticeNotification(PublishedNotice notice, Long memberId) {
+        if (memberId == null) {
+            return false;
+        }
+        return notificationRepository.existsByMemberIdAndEventKey(memberId, eventKey(notice, memberId));
+    }
+
+    private static String eventKey(PublishedNotice notice, Long memberId) {
+        return "NOTICE:" + notice.id() + ":" + memberId;
     }
 }

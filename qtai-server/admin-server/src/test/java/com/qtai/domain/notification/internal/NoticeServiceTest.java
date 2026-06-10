@@ -142,6 +142,31 @@ class NoticeServiceTest {
     }
 
     @Test
+    void hide_rejectsAlreadyHiddenNotice() {
+        Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
+        notice.hide();
+        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
+
+        assertThatThrownBy(() -> noticeService.hideNotice(100L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION);
+    }
+
+    @Test
+    void list_rejectsInvalidPageRequest() {
+        assertThatThrownBy(() -> noticeService.listAdminNotices(-1, 20))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+
+        assertThatThrownBy(() -> noticeService.listAdminNotices(0, 101))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+    }
+
+    @Test
     void create_auditSnapshotDoesNotContainRawBody() {
         when(noticeRepository.save(any(Notice.class))).thenAnswer(invocation -> persisted(invocation.getArgument(0), 1L));
         ArgumentCaptor<AuditLogWriteRequest> captor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);

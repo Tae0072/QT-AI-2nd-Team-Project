@@ -20,7 +20,7 @@ tags:
   - name: Admin Audit
     description: Admin audit log lookup API
   - name: Admin Notice
-    description: Admin system notice management API
+    description: 관리자 시스템 공지 관리 API
   - name: System AI
     description: 시스템 배치가 AI 생성 작업, 산출물, 검증 로그를 접수하는 내부 운영 API
 paths:
@@ -729,11 +729,10 @@ paths:
       tags:
         - Admin Notice
       operationId: listAdminNotices
-      summary: Admin notice list
+      summary: 관리자 공지 목록 조회
       description: >
-        Lists system notices for the admin web. Requires ROLE_ADMIN and
-        ADMIN_ROLE_OPERATOR or ADMIN_ROLE_SUPER_ADMIN verified through
-        admin_users.
+        관리자 웹에서 시스템 공지를 조회한다. ROLE_ADMIN과 admin_users 기준
+        OPERATOR 또는 SUPER_ADMIN 권한이 필요하다. 정렬은 createdAt,desc로 고정된다.
       security:
         - bearerAuth: []
       parameters:
@@ -756,7 +755,7 @@ paths:
             default: 20
       responses:
         "200":
-          description: Admin notice list returned
+          description: 관리자 공지 목록 조회 성공
           content:
             application/json:
               schema:
@@ -773,10 +772,10 @@ paths:
       tags:
         - Admin Notice
       operationId: createAdminNotice
-      summary: Create admin notice draft
+      summary: 관리자 공지 초안 생성
       description: >
-        Creates a DRAFT notice. status may be omitted or DRAFT only. Requires
-        ROLE_ADMIN and ADMIN_ROLE_OPERATOR or ADMIN_ROLE_SUPER_ADMIN.
+        DRAFT 상태의 공지 초안을 생성한다. status는 생략하거나 DRAFT만 허용한다.
+        ROLE_ADMIN과 OPERATOR 또는 SUPER_ADMIN 권한이 필요하다.
       security:
         - bearerAuth: []
       requestBody:
@@ -787,7 +786,7 @@ paths:
               $ref: "#/components/schemas/AdminNoticeRequest"
       responses:
         "201":
-          description: Admin notice draft created
+          description: 관리자 공지 초안 생성 성공
           content:
             application/json:
               schema:
@@ -807,10 +806,10 @@ paths:
       tags:
         - Admin Notice
       operationId: updateAdminNotice
-      summary: Update admin notice draft
+      summary: 관리자 공지 초안 수정
       description: >
-        Updates a DRAFT notice only. PUBLISHED and HIDDEN notices return
-        INVALID_STATUS_TRANSITION.
+        DRAFT 상태 공지만 수정한다. PUBLISHED 또는 HIDDEN 상태 공지는
+        INVALID_STATUS_TRANSITION을 반환하며, PATCH 요청의 status 필드는 거부된다.
       security:
         - bearerAuth: []
       parameters:
@@ -829,7 +828,7 @@ paths:
               $ref: "#/components/schemas/AdminNoticeRequest"
       responses:
         "200":
-          description: Admin notice updated
+          description: 관리자 공지 수정 성공
           content:
             application/json:
               schema:
@@ -851,11 +850,10 @@ paths:
       tags:
         - Admin Notice
       operationId: publishAdminNotice
-      summary: Publish admin notice
+      summary: 관리자 공지 발행
       description: >
-        Publishes a DRAFT notice and creates NOTICE notifications for active
-        members. Partial notification failures do not roll back the PUBLISHED
-        notice and are returned in notificationResult.
+        DRAFT 공지를 PUBLISHED로 전환하고 활성 회원에게 NOTICE 알림을 생성한다.
+        일부 알림 생성 실패는 공지 발행을 롤백하지 않으며 notificationResult에 반환한다.
       security:
         - bearerAuth: []
       parameters:
@@ -868,7 +866,7 @@ paths:
             minimum: 1
       responses:
         "200":
-          description: Admin notice published
+          description: 관리자 공지 발행 성공
           content:
             application/json:
               schema:
@@ -888,8 +886,8 @@ paths:
       tags:
         - Admin Notice
       operationId: hideAdminNotice
-      summary: Hide admin notice
-      description: Hides a DRAFT or PUBLISHED notice.
+      summary: 관리자 공지 숨김
+      description: DRAFT 또는 PUBLISHED 상태 공지를 HIDDEN으로 변경한다.
       security:
         - bearerAuth: []
       parameters:
@@ -902,7 +900,7 @@ paths:
             minimum: 1
       responses:
         "204":
-          description: Admin notice hidden
+          description: 관리자 공지 숨김 성공
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -2449,6 +2447,7 @@ components:
           type: boolean
         sort:
           type: string
+          description: 공지 목록은 createdAt,desc 단일 정렬만 지원한다.
           example: createdAt,desc
     AdminNoticeListItem:
       type: object

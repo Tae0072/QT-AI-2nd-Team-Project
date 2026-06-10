@@ -128,6 +128,17 @@ class AdminNoticeControllerTest {
     }
 
     @Test
+    void list_invalidPrincipal_401() throws Exception {
+        var auth = new UsernamePasswordAuthenticationToken("not-a-number", null,
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        mockMvc.perform(get("/api/v1/admin/notices"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("M0002"));
+    }
+
+    @Test
     void create_201() throws Exception {
         when(createAdminNoticeUseCase.createNotice(any())).thenReturn(detailResponse("DRAFT"));
 

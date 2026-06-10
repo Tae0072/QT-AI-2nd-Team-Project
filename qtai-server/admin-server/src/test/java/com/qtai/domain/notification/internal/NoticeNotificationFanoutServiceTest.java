@@ -2,6 +2,8 @@ package com.qtai.domain.notification.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -45,6 +47,16 @@ class NoticeNotificationFanoutServiceTest {
         assertThat(result.requestedCount()).isEqualTo(2);
         assertThat(result.createdCount()).isEqualTo(2);
         assertThat(result.failedCount()).isZero();
+    }
+
+    @Test
+    void fanout_emptyMemberIdsReturnsZeroWithoutWriting() {
+        NoticeNotificationFanoutResult result = fanoutService.fanout(publishedNotice(), List.of());
+
+        assertThat(result.requestedCount()).isZero();
+        assertThat(result.createdCount()).isZero();
+        assertThat(result.failedCount()).isZero();
+        verifyNoInteractions(chunkWriter);
     }
 
     @Test
@@ -95,6 +107,22 @@ class NoticeNotificationFanoutServiceTest {
         assertThat(result.requestedCount()).isEqualTo(2);
         assertThat(result.createdCount()).isEqualTo(1);
         assertThat(result.failedCount()).isEqualTo(1);
+    }
+
+    @Test
+    void fanout_skipsDuplicateUniqueViolationDuringSingleMemberRetry() {
+        when(chunkWriter.writeChunk(any(), any(), any(LocalDateTime.class)))
+                .thenThrow(new DataIntegrityViolationException("chunk failed"))
+                .thenThrow(new DataIntegrityViolationException("duplicate"))
+                .thenReturn(1);
+        when(chunkWriter.existsNoticeNotification(any(), eq(10L))).thenReturn(true);
+
+        NoticeNotificationFanoutResult result = fanoutService.fanout(
+                publishedNotice(), List.of(10L, 11L));
+
+        assertThat(result.requestedCount()).isEqualTo(2);
+        assertThat(result.createdCount()).isEqualTo(1);
+        assertThat(result.failedCount()).isZero();
     }
 
     private static PublishedNotice publishedNotice() {

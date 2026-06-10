@@ -60,9 +60,13 @@ class NoticeNotificationFanoutService {
             try {
                 createdCount += chunkWriter.writeChunk(notice, Collections.singletonList(memberId), now);
             } catch (DataIntegrityViolationException e) {
-                failedCount++;
-                log.warn("공지 알림 단건 저장 제약 위반: noticeId={}, memberId={}, errorMessage={}",
-                        notice.id(), memberId, e.getMostSpecificCause().getMessage());
+                if (chunkWriter.existsNoticeNotification(notice, memberId)) {
+                    log.info("공지 알림 중복 skip: noticeId={}, memberId={}", notice.id(), memberId);
+                } else {
+                    failedCount++;
+                    log.warn("공지 알림 단건 저장 제약 위반: noticeId={}, memberId={}, errorMessage={}",
+                            notice.id(), memberId, e.getMostSpecificCause().getMessage());
+                }
             } catch (DataAccessException e) {
                 failedCount++;
                 log.warn("공지 알림 단건 저장 실패: noticeId={}, memberId={}, errorType={}, errorMessage={}",

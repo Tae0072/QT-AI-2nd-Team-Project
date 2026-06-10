@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNoticeUseCase, UpdateAdminNoticeUseCase,
         PublishAdminNoticeUseCase, HideAdminNoticeUseCase {
 
-    private static final int BODY_PREVIEW_LENGTH = 80;
     private static final String DEFAULT_SORT = "createdAt,desc";
 
     private final NoticeRepository noticeRepository;
@@ -129,7 +128,7 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
         return new AdminNoticeListResponse.Item(
                 notice.getId(),
                 notice.getTitle(),
-                preview(notice.getBody(), BODY_PREVIEW_LENGTH),
+                NoticeBodyPreview.listPreview(notice.getBody()),
                 notice.getStatus().name(),
                 notice.getPublishedAt(),
                 notice.getCreatedAt(),
@@ -159,13 +158,6 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
         if (page < 0 || size < 1 || size > 100) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "page는 0 이상, size는 1~100이어야 합니다.");
         }
-    }
-
-    static String preview(String value, int maxLength) {
-        if (value == null || value.length() <= maxLength) {
-            return value;
-        }
-        return value.substring(0, maxLength) + "...";
     }
 
 }
