@@ -32,6 +32,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  * <p>경로별 정책(CLAUDE.md §5):
  * <ul>
  *   <li>{@code POST /api/v1/auth/kakao}, {@code POST /api/v1/auth/refresh} — permitAll(로그인/재발급, 비인증 허용)</li>
+ *   <li>{@code POST /api/v1/admin/auth/kakao} — permitAll(관리자 로그인, 비인증 진입). 자격 검증 후 ADMIN 토큰 발급</li>
  *   <li>{@code /actuator/health}, {@code /actuator/info}, {@code /h2-console/**} — permitAll</li>
  *   <li>{@code /api/v1/system/**} — {@code ROLE_SYSTEM_BATCH} 강제(배치/AI 내부 작업 주체)</li>
  *   <li>{@code /api/v1/admin/**} — denyAll. 관리자 기능은 admin-server가 제공한다. ROLE_ADMIN 단독
@@ -79,7 +80,10 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
                             // 인증 없이 허용 (CLAUDE.md §5: Flutter SDK가 카카오 토큰을 직접 받아 전달)
                             .requestMatchers(HttpMethod.POST, "/api/v1/auth/kakao").permitAll()
-                            .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll();
+                            .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
+                            // 관리자 로그인 — 비인증 진입 허용(아래 /api/v1/admin/** denyAll보다 먼저 선언해 우선 적용).
+                            // 관리자 자격 검증·ADMIN 토큰 발급은 AdminAuthService가 수행한다(CLAUDE.md §5).
+                            .requestMatchers(HttpMethod.POST, "/api/v1/admin/auth/kakao").permitAll();
                     // H2 콘솔은 콘솔이 켜진 환경(로컬)에서만 연다 — 운영에서 실수로 활성화돼도 SecurityConfig가 막는다.
                     if (h2ConsoleEnabled) {
                         auth.requestMatchers("/h2-console/**").permitAll();
