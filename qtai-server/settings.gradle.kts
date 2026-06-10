@@ -12,8 +12,8 @@ pluginManagement {
 
 rootProject.name = "qtai-server"
 
-// MSA 멀티모듈 (Strangler) — 기존 모놀리식 root(qtai-server)는 그대로 유지하고,
-// 도메인을 모듈로 점진 추출한다. 추출이 끝나면 root 모놀리식 코드를 제거한다.
+// MSA 멀티모듈 (Strangler) — 도메인 추출 완료. 옛 모놀리식 root 소스(qtai-server/src)는 제거되었고,
+// 루트는 빌드 묶음(aggregator) 역할만 한다. 실제 코드는 아래 6개 모듈에 있다.
 include("lib-common")     // 공통: 응답/예외, JWT 검증 필터, RestClient 설정
 include("service-user")   // 사용자/인증: member, notification, mission (JWT 발급, port 8081)
 include("service-bible")  // 읽기전용 콘텐츠: bible, qt, study, music, praise (port 8082)

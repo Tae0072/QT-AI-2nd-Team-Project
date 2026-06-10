@@ -1,4 +1,0 @@
-# 모든 Spring 테스트 컨텍스트에 런타임 생성 RSA 키쌍을 주입한다 (P1-5).
-# 평문 테스트 키를 저장소에서 제거하기 위함.
-org.springframework.test.context.ContextCustomizerFactory=\
-  com.qtai.support.JwtTestKeysContextCustomizerFactory
