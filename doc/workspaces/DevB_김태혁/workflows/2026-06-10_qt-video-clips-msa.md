@@ -29,6 +29,7 @@
   - 이유: `qt -> qtvideo` 양방향 의존과 Today QT 응답 지연을 피하기 위해서다.
   - Flutter는 QT 본문 ID가 있을 때 QT 영상 섹션에서 `/video` API를 별도 호출한다.
 - Flutter Today QT 화면 하단에 QT 영상 플레이어를 추가한다.
+- Flutter 캐시 로직은 위젯 파일에서 분리해 `services/qt_video_cache.dart`에서 담당한다.
 
 ## 비범위
 
@@ -51,7 +52,8 @@
 ## 검증 계획
 
 - `./gradlew.bat :service-bible:test`
+- `./gradlew.bat :admin-server:test`
 - `flutter analyze`
 - `flutter test test/features/bible/widgets/qt_video_player_test.dart`
 - `git diff --check`
-- PR 본문에 MockMvc 테스트, 상태 매핑, F-ID 근거, Today QT enrich 제거 결과를 기록한다.
+- PR 본문에 MockMvc 테스트, resolver 단위 테스트, Flutter 위젯/캐시 테스트, F-ID 근거, Today QT enrich 제거 결과를 기록한다.

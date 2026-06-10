@@ -7,6 +7,8 @@ import java.util.Optional;
 
 final class QtVideoUserStatusResolver {
 
+    // PENDING is intentionally excluded; only decided clip states can affect user exposure.
+    // HIDDEN has higher priority than FAILED because an operator hide is an explicit exposure decision.
     static final List<QtVideoClipStatus> USER_STATUS_CANDIDATE_STATUSES = List.of(
             QtVideoClipStatus.APPROVED,
             QtVideoClipStatus.HIDDEN,
