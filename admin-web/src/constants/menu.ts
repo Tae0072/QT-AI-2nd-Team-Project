@@ -3,8 +3,7 @@ import { ADMIN_ROLES } from './roles';
 
 // ===== 사이드바 메뉴 + 라우팅에 함께 쓰는 메뉴 정의 =====
 // 각 항목은 화면 코드(AD-xx), 주소(path), 한글 라벨, 접근 가능 권한을 가진다.
-// requiredRoles 가 빈 배열이면 'ADMIN 이면 누구나'(세부 역할 무관) 접근 가능으로 본다.
-// SUPER_ADMIN 은 우월권으로 모든 화면에 접근 가능하므로 목록에 명시하지 않는다.
+// requiredRoles 가 빈 배열이면 'ADMIN 이면 누구나' 접근 가능으로 본다.
 export interface MenuItem {
   code: string; // 화면 코드 (예: AD-01)
   path: string; // 주소 (예: /dashboard)
@@ -12,15 +11,8 @@ export interface MenuItem {
   requiredRoles: AdminRole[]; // 접근 가능한 세부 권한 (빈 배열이면 ADMIN 공통)
 }
 
-// 권한 기준(2026-06-08 D1 확정): 백엔드 컨트롤러의 실제 인가(enforce)를 기준으로 한다.
-//  - AD-03 AI검증     : REVIEWER            (AdminAiAuthentication.requireReviewer)
-//  - AD-04 신고처리    : OPERATOR            (AdminReportController.requireOperator)
-//  - AD-05 찬양       : OPERATOR            (04_API_명세서 §4.7.6)
-//  - AD-07 감사로그    : OPERATOR/REVIEWER   (AdminAuditAuthentication.requireAudit)
-//  - AD-08 AI모니터링  : OPERATOR/REVIEWER   (AdminAiAuthentication.requireMonitoring)
-//  - AD-09 검증체크리스트: REVIEWER           (AdminAiValidationChecklistController.requireReviewer)
-//  - AD-10 배치실행로그  : OPERATOR/REVIEWER   (AdminAiBatchRunLogController.requireMonitoring)
-//  - AD-01 대시보드 / AD-02 오늘QT관리 / AD-06 시스템공지: 백엔드 미구현(E단계) → 명세 추정값, 백엔드 확정 시 갱신.
+// TODO: requiredRoles 일부는 추정값이다. 04_API_명세서 §AD-01~08 권한표 기준으로 최종 확정한다.
+//       (현재 확인: AD-02/04 OPERATOR, AD-03 REVIEWER·SUPER_ADMIN, AD-08 OPERATOR 집계)
 export const MENU_ITEMS: MenuItem[] = [
   { code: 'AD-01', path: '/dashboard', label: '대시보드', requiredRoles: [] },
   {
@@ -33,7 +25,7 @@ export const MENU_ITEMS: MenuItem[] = [
     code: 'AD-03',
     path: '/ai-assets',
     label: 'AI 산출물 검증',
-    requiredRoles: [ADMIN_ROLES.REVIEWER],
+    requiredRoles: [ADMIN_ROLES.REVIEWER, ADMIN_ROLES.SUPER_ADMIN],
   },
   {
     code: 'AD-04',
@@ -57,24 +49,12 @@ export const MENU_ITEMS: MenuItem[] = [
     code: 'AD-07',
     path: '/audit-logs',
     label: '감사 로그',
-    requiredRoles: [ADMIN_ROLES.OPERATOR, ADMIN_ROLES.REVIEWER],
+    requiredRoles: [ADMIN_ROLES.SUPER_ADMIN],
   },
   {
     code: 'AD-08',
     path: '/ai-monitoring',
     label: 'AI 운영 모니터링',
-    requiredRoles: [ADMIN_ROLES.OPERATOR, ADMIN_ROLES.REVIEWER],
-  },
-  {
-    code: 'AD-09',
-    path: '/ai-checklists',
-    label: 'AI 검증 체크리스트',
-    requiredRoles: [ADMIN_ROLES.REVIEWER],
-  },
-  {
-    code: 'AD-10',
-    path: '/ai-batch-logs',
-    label: 'AI 배치 실행 로그',
-    requiredRoles: [ADMIN_ROLES.OPERATOR, ADMIN_ROLES.REVIEWER],
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
 ];

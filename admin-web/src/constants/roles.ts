@@ -19,13 +19,3 @@ export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
   CONTENT_CREATOR: '콘텐츠 작성자',
   SUPER_ADMIN: '최고 관리자',
 };
-
-export function canAccessAdminRoute(
-  adminRole: AdminRole | null | undefined,
-  requiredRoles: AdminRole[],
-): boolean {
-  if (!adminRole) return false;
-  if (adminRole === ADMIN_ROLES.SUPER_ADMIN) return true;
-  if (requiredRoles.length === 0) return true;
-  return requiredRoles.includes(adminRole);
-}
