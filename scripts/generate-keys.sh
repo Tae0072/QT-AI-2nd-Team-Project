@@ -52,6 +52,9 @@ upsert() {
 }
 upsert "JWT_PRIVATE_KEY" "$PRIV"
 upsert "JWT_PUBLIC_KEY" "$PUB"
+# 서비스 간 시스템 호출용 공유 시크릿(HS256, base64 48바이트=32바이트 초과). 실행마다 갱신.
+SYS="$(openssl rand -base64 48 | tr -d '\n')"
+upsert "SECURITY_JWT_SYSTEM_SECRET" "$SYS"
 
-echo "완료: .env 의 JWT_PRIVATE_KEY / JWT_PUBLIC_KEY 갱신됨."
+echo "완료: .env 의 JWT_PRIVATE_KEY / JWT_PUBLIC_KEY / SECURITY_JWT_SYSTEM_SECRET 갱신됨."
 echo "DB 비밀번호 등 나머지 값도 .env 에서 확인/변경하세요."

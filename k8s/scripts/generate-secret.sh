@@ -28,6 +28,7 @@ openssl pkcs8 -topk8 -nocrypt -in "$TMP/priv.pem" -outform DER -out "$TMP/privat
 openssl rsa -in "$TMP/priv.pem" -pubout -outform DER -out "$TMP/public.der" 2>/dev/null
 PRIV="$(base64 "$TMP/private.der" | tr -d '\n')"
 PUB="$(base64 "$TMP/public.der" | tr -d '\n')"
+SYS="$(openssl rand -base64 48 | tr -d '\n')"
 
 kubectl -n qtai delete secret qtai-secret --ignore-not-found >/dev/null
 kubectl -n qtai create secret generic qtai-secret \
@@ -35,6 +36,7 @@ kubectl -n qtai create secret generic qtai-secret \
   --from-literal=MYSQL_ROOT_PASSWORD="$ROOT_PW" \
   --from-literal=JWT_PRIVATE_KEY="$PRIV" \
   --from-literal=JWT_PUBLIC_KEY="$PUB" \
+  --from-literal=SECURITY_JWT_SYSTEM_SECRET="$SYS" \
   --from-literal=DEEPSEEK_API_KEY="$DEEP"
 
 echo "완료: qtai 네임스페이스에 qtai-secret 생성됨(평문 파일 미저장)."

@@ -29,6 +29,8 @@ spec:
               valueFrom: { secretKeyRef: { name: qtai-secret, key: DB_PASSWORD } }
             - name: SECURITY_JWT_PUBLIC_KEY
               valueFrom: { secretKeyRef: { name: qtai-secret, key: JWT_PUBLIC_KEY } }
+            - name: SECURITY_JWT_SYSTEM_SECRET
+              valueFrom: { secretKeyRef: { name: qtai-secret, key: SECURITY_JWT_SYSTEM_SECRET } }
             # DeepSeek API key (선택) — 미설정 시 빈 값. 로그에 남기지 않는다(CLAUDE.md §7).
             - name: DEEPSEEK_API_KEY
               valueFrom: { secretKeyRef: { name: qtai-secret, key: DEEPSEEK_API_KEY } }
