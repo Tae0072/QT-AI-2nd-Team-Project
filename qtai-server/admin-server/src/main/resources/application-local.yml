@@ -18,6 +18,12 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: true
+    # dev 전용 관리자 시드 location 추가 (prod/demo는 base의 classpath:db/migration만 → 시드 운영 미적용).
+    locations: classpath:db/migration,classpath:db/dev-seed
+    placeholders:
+      devAdminKakaoId: ${DEV_ADMIN_KAKAO_ID:9000000001}
+      devAdminNickname: ${DEV_ADMIN_NICKNAME:개발관리자}
+      devAdminRole: ${DEV_ADMIN_ROLE:SUPER_ADMIN}
   data:
     redis:
       host: localhost
