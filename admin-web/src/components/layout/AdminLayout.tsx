@@ -1,6 +1,7 @@
-import { Layout, Menu, Typography, Button, Space } from 'antd';
+import { Layout, Menu, Typography, Button, Space, Tag } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { MENU_ITEMS } from '../../constants/menu';
+import { ADMIN_ROLE_LABELS, canAccessAdminRoute } from '../../constants/roles';
 import { useAuth } from '../../auth/useAuth';
 
 const { Header, Sider, Content } = Layout;
@@ -11,11 +12,13 @@ const { Header, Sider, Content } = Layout;
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { adminInfo, logout } = useAuth();
 
   // 메뉴 상수를 Ant Design Menu 형식으로 변환한다.
   // (label 앞에 화면코드를 함께 보여 줘서 명세와 대조하기 쉽게 한다.)
-  const menuItems = MENU_ITEMS.map((item) => ({
+  const menuItems = MENU_ITEMS.filter((item) =>
+    canAccessAdminRoute(adminInfo?.adminRole, item.requiredRoles),
+  ).map((item) => ({
     key: item.path,
     label: `${item.label}`,
   }));
@@ -64,6 +67,11 @@ export default function AdminLayout() {
             관리자 콘솔
           </Typography.Title>
           <Space>
+            {adminInfo?.adminRole && (
+              <Tag color="blue">
+                {ADMIN_ROLE_LABELS[adminInfo.adminRole] ?? adminInfo.adminRole}
+              </Tag>
+            )}
             <Button onClick={handleLogout}>로그아웃</Button>
           </Space>
         </Header>
