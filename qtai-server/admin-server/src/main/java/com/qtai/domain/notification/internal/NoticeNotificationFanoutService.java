@@ -8,6 +8,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -31,20 +32,24 @@ class NoticeNotificationFanoutService {
             try {
                 createdCount += chunkWriter.writeChunk(notice, chunk, now);
             } catch (DataIntegrityViolationException e) {
-                log.warn("공지 알림 청크 저장 제약 위반: noticeId={}, chunkSize={}, errorMessage={}",
-                        notice.id(), chunk.size(), e.getMostSpecificCause().getMessage());
-                NoticeNotificationFanoutResult retryResult = retryIndividually(notice, chunk, now);
+                NoticeNotificationFanoutResult retryResult = retryChunk(notice, chunk, now, e, "제약 위반");
                 createdCount += retryResult.createdCount();
                 failedCount += retryResult.failedCount();
-            } catch (RuntimeException e) {
-                log.warn("공지 알림 청크 저장 실패: noticeId={}, chunkSize={}, errorType={}, errorMessage={}",
-                        notice.id(), chunk.size(), e.getClass().getSimpleName(), e.getMessage());
-                NoticeNotificationFanoutResult retryResult = retryIndividually(notice, chunk, now);
+            } catch (DataAccessException e) {
+                NoticeNotificationFanoutResult retryResult = retryChunk(notice, chunk, now, e, "저장 실패");
                 createdCount += retryResult.createdCount();
                 failedCount += retryResult.failedCount();
             }
         }
         return new NoticeNotificationFanoutResult(memberIds.size(), createdCount, failedCount);
+    }
+
+    private NoticeNotificationFanoutResult retryChunk(
+            PublishedNotice notice, List<Long> chunk, LocalDateTime now, DataAccessException exception, String reason) {
+        log.warn("공지 알림 청크 {}: noticeId={}, chunkSize={}, errorType={}, errorMessage={}",
+                reason, notice.id(), chunk.size(), exception.getClass().getSimpleName(),
+                exception.getMostSpecificCause().getMessage());
+        return retryIndividually(notice, chunk, now);
     }
 
     private NoticeNotificationFanoutResult retryIndividually(
@@ -58,7 +63,7 @@ class NoticeNotificationFanoutService {
                 failedCount++;
                 log.warn("공지 알림 단건 저장 제약 위반: noticeId={}, memberId={}, errorMessage={}",
                         notice.id(), memberId, e.getMostSpecificCause().getMessage());
-            } catch (RuntimeException e) {
+            } catch (DataAccessException e) {
                 failedCount++;
                 log.warn("공지 알림 단건 저장 실패: noticeId={}, memberId={}, errorType={}, errorMessage={}",
                         notice.id(), memberId, e.getClass().getSimpleName(), e.getMessage());

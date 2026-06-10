@@ -151,6 +151,18 @@ class AdminNoticeControllerTest {
     }
 
     @Test
+    void update_statusField_400() throws Exception {
+        when(updateAdminNoticeUseCase.updateNotice(eq(1L), any()))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT));
+
+        mockMvc.perform(patch("/api/v1/admin/notices/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"공지\",\"body\":\"본문\",\"status\":\"PUBLISHED\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("C0002"));
+    }
+
+    @Test
     void publish_200() throws Exception {
         when(publishAdminNoticeUseCase.publishNotice(100L, 1L)).thenReturn(new AdminNoticePublishResponse(
                 1L,

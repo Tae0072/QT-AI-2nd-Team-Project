@@ -2392,18 +2392,18 @@ components:
           type: string
           minLength: 1
           maxLength: 100
-          description: Plain text only. HTML tag characters `<` and `>` are rejected.
+          description: 평문만 허용하며 HTML 태그 문자 `<`, `>`는 거부된다.
           example: 서비스 점검 안내
         body:
           type: string
           minLength: 1
           maxLength: 10000
-          description: Plain text only. HTML tag characters `<` and `>` are rejected.
+          description: 평문만 허용하며 HTML 태그 문자 `<`, `>`는 거부된다.
           example: 오늘 밤 점검이 예정되어 있습니다.
         status:
           allOf:
             - $ref: "#/components/schemas/AdminNoticeStatus"
-          description: POST accepts omitted or DRAFT only. PATCH rejects status.
+          description: POST는 생략 또는 DRAFT만 허용하고, PATCH는 status 필드를 거부한다.
     AdminNoticeStatus:
       type: string
       enum:

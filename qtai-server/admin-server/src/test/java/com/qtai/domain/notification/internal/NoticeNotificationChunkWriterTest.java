@@ -55,6 +55,21 @@ class NoticeNotificationChunkWriterTest {
         assertThat(notification.getBody()).hasSize(500);
     }
 
+    @Test
+    void writeChunk_keepsKoreanNotificationBodyWithinColumnLength() {
+        when(notificationRepository.findEventKeysIn(any(Collection.class))).thenReturn(List.of());
+        when(notificationRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        String longBody = "가".repeat(600);
+
+        chunkWriter.writeChunk(publishedNotice(longBody), List.of(10L), now());
+
+        ArgumentCaptor<Iterable<Notification>> captor = ArgumentCaptor.forClass(Iterable.class);
+        verify(notificationRepository).saveAll(captor.capture());
+        Notification notification = captor.getValue().iterator().next();
+        assertThat(notification.getBody()).hasSize(500);
+        assertThat(notification.getBody()).endsWith("...");
+    }
+
     private static PublishedNotice publishedNotice(String body) {
         return new PublishedNotice(
                 1L,
