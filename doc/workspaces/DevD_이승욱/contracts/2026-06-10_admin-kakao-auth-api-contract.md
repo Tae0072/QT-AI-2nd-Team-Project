@@ -45,15 +45,16 @@ POST /api/v1/admin/auth/kakao        (permitAll — 인증 전 진입)
   - **`adminRole`** (string) — `OPERATOR` / `REVIEWER` / `CONTENT_CREATOR` / `SUPER_ADMIN` (admin-web 메뉴 권한 분기용 ← **FE가 가장 필요로 할 값**)
   - `status` (string) — `ACTIVE` 등
 
-## 4. 오류 응답 (공통 envelope, `success:false`)
-| 상황 | HTTP | ErrorCode(안) | 의미 |
-|------|------|---------------|------|
-| 카카오 토큰 무효/만료 | 401 | (기존 카카오 인증 오류 코드 재사용) | 카카오 검증 실패 |
-| 회원은 있으나 관리자 아님 | 403 | `ADMIN_USER_NOT_FOUND` | `admin_users` 없음 → 관리자 로그인 거부 |
-| 관리자 계정 비활성/정지 | 403 | (admin status 오류 코드) | `admin_users.status` 비활성 |
+## 4. 오류 응답 (공통 envelope, `success:false`) — ErrorCode 04 표준 확정
+| 상황 | HTTP | ErrorCode | code | 의미 |
+|------|------|-----------|------|------|
+| 카카오 토큰 무효/만료 | 401 | `KAKAO_AUTH_FAILED` | M0009 | 카카오 검증 실패 |
+| 관리자 회원 없음/일반 회원 | 403 | `ADMIN_USER_NOT_FOUND` | AD0001 | `members.role!=ADMIN` 또는 `admin_users` 없음 → 관리자 로그인 거부 |
+| 관리자 계정 비활성 | 403 | `ADMIN_USER_DISABLED` | AD0002 | `admin_users.status` 비활성 |
+| 회원 정지 | 403 | `MEMBER_SUSPENDED` | M0007 | `members.status=SUSPENDED` |
 ```json
 { "success": false, "data": null,
-  "error": { "code": "ADMIN_USER_NOT_FOUND", "message": "관리자 권한이 없습니다." } }
+  "error": { "code": "AD0001", "message": "관리자 계정을 찾을 수 없습니다." } }
 ```
 
 ## 5. 합의 완료 결정 (2026-06-10, 김지민 ↔ 이승욱)

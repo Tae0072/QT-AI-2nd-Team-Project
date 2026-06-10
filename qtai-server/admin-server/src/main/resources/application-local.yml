@@ -23,7 +23,7 @@ spring:
     placeholders:
       devAdminKakaoId: ${DEV_ADMIN_KAKAO_ID:9000000001}
       devAdminNickname: ${DEV_ADMIN_NICKNAME:개발관리자}
-      devAdminRole: ${DEV_ADMIN_ROLE:SUPER_ADMIN}
+      devAdminRole: ${DEV_ADMIN_ROLE:OPERATOR}
   data:
     redis:
       host: localhost

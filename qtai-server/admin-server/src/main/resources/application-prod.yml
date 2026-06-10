@@ -13,6 +13,8 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
   flyway:
     enabled: true
+    # 운영은 정식 마이그레이션만 — dev 전용 시드(db/dev-seed)가 상속으로 섞이지 않도록 명시 잠금.
+    locations: classpath:db/migration
 
 security:
   jwt:
