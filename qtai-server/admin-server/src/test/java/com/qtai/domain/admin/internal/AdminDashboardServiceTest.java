@@ -10,6 +10,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -85,6 +86,24 @@ class AdminDashboardServiceTest {
         verify(aiMonitoringUseCase).getAdminAiMonitoring(queryCaptor.capture());
         assertThat(queryCaptor.getValue().from()).isNull();
         assertThat(queryCaptor.getValue().to()).isNull();
+    }
+
+    @Test
+    @DisplayName("TodayQtResponse record 필드 순서는 dashboard 매핑 계약과 일치한다")
+    void today_qt_response_record_order_matches_mapping_contract() {
+        assertThat(Arrays.stream(TodayQtResponse.class.getRecordComponents())
+                .map(component -> component.getName())
+                .toList())
+                .containsExactly(
+                        "qtPassageId",
+                        "passageDate",
+                        "title",
+                        "simulatorStatus",
+                        "hasExplanation",
+                        "draftNoteId",
+                        "cacheStatus",
+                        "range"
+                );
     }
 
     @Test

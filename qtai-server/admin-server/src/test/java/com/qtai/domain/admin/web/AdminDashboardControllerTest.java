@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -59,6 +60,15 @@ class AdminDashboardControllerTest {
 
     @MockBean
     GetQtPassageContentContextUseCase qtPassageContentContextUseCase;
+
+    @Test
+    @DisplayName("AdminController는 클래스 레벨에서 ROLE_ADMIN 1차 권한을 강제한다")
+    void admin_controller_requires_admin_role_at_class_level() {
+        PreAuthorize preAuthorize = AdminController.class.getAnnotation(PreAuthorize.class);
+
+        org.assertj.core.api.Assertions.assertThat(preAuthorize).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(preAuthorize.value()).isEqualTo("hasRole('ADMIN')");
+    }
 
     @Test
     @DisplayName("OPERATOR 관리자 권한이면 dashboard를 조회한다")
