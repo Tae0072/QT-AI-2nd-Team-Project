@@ -4,6 +4,7 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.ChangeNicknameUseCase;
 import com.qtai.domain.member.api.GetMemberUseCase;
+import com.qtai.domain.member.api.ListActiveMemberIdsUseCase;
 import com.qtai.domain.member.api.UpdateProfileUseCase;
 import com.qtai.domain.member.api.WithdrawUseCase;
 import com.qtai.domain.member.api.dto.MemberPublicResponse;
@@ -30,7 +31,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, WithdrawUseCase, ChangeNicknameUseCase {
+public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, WithdrawUseCase, ChangeNicknameUseCase,
+        ListActiveMemberIdsUseCase {
 
     private final MemberRepository memberRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -78,6 +80,11 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
                         member.getProfileImageUrl()
                 ))
                 .toList();
+    }
+
+    @Override
+    public java.util.List<Long> listActiveMemberIds() {
+        return memberRepository.findActiveMemberIds();
     }
 
     // ── UpdateProfileUseCase ──

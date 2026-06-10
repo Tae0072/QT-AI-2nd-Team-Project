@@ -1,7 +1,9 @@
 package com.qtai.domain.member.internal;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -14,4 +16,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     boolean existsByKakaoId(Long kakaoId);
 
     boolean existsByNickname(String nickname);
+
+    @Query("select m.id from Member m where m.status = com.qtai.domain.member.internal.MemberStatus.ACTIVE")
+    List<Long> findActiveMemberIds();
 }
