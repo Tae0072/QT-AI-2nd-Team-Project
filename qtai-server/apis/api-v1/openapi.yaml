@@ -13,6 +13,8 @@ tags:
     description: 묵상 노트와 자유 노트 CRUD API
   - name: QT Study
     description: QT 본문에 연결된 승인 해설, 용어, 시뮬레이터 조회 API
+  - name: Admin
+    description: 관리자 웹 공통 운영 API
   - name: Admin AI
     description: 관리자 웹이 AI 산출물과 검증 로그를 검토하는 운영 API
   - name: Admin Audit
@@ -441,6 +443,32 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /api/v1/admin/dashboard:
+    get:
+      tags:
+        - Admin
+      operationId: getAdminDashboard
+      summary: 관리자 대시보드 조회
+      description: >
+        AD-01 관리자 대시보드 요약을 조회한다. ROLE_ADMIN과 OPERATOR, REVIEWER,
+        또는 SUPER_ADMIN 세부 권한이 필요하다. 최근 감사 로그는 dashboard 전용
+        sanitized DTO로 반환하며 beforeJson, afterJson, AI payload, prompt/provider
+        원문, reason 원문을 포함하지 않는다.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 관리자 대시보드 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboardApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/admin/ai/assets:
     get:
       tags:
@@ -1581,6 +1609,140 @@ components:
           format: date-time
         traceId:
           type: string
+    AdminDashboardApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminDashboardResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminDashboardResponse:
+      type: object
+      required:
+        - pendingAiValidationCount
+        - receivedReportCount
+        - reviewingReportCount
+        - todayQt
+        - recentAuditLogs
+      properties:
+        pendingAiValidationCount:
+          type: integer
+          format: int64
+          example: 3
+        receivedReportCount:
+          type: integer
+          format: int64
+          example: 5
+        reviewingReportCount:
+          type: integer
+          format: int64
+          example: 2
+        todayQt:
+          $ref: "#/components/schemas/AdminDashboardTodayQt"
+        recentAuditLogs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminDashboardRecentAuditLog"
+    AdminDashboardTodayQt:
+      type: object
+      required:
+        - qtDate
+        - status
+        - hasExplanation
+      properties:
+        qtDate:
+          type: string
+          format: date
+          example: "2026-06-10"
+        qtPassageId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 35
+        title:
+          type: string
+          nullable: true
+          example: 오늘의 QT
+        status:
+          type: string
+          description: QT passage availability for the dashboard. READY means a public QT passage is available; MISSING means no dashboard-displayable QT exists for the date.
+          enum:
+            - READY
+            - MISSING
+          example: READY
+        simulatorStatus:
+          type: string
+          nullable: true
+          enum:
+            - READY
+            - MISSING
+            - FAILED
+            - DISABLED
+          example: MISSING
+        hasExplanation:
+          type: boolean
+          example: true
+        cacheStatus:
+          type: string
+          nullable: true
+          enum:
+            - HIT
+            - MISS
+            - STALE_FALLBACK
+            - EMPTY
+          example: HIT
+    AdminDashboardRecentAuditLog:
+      type: object
+      required:
+        - id
+        - actorType
+        - actionType
+        - targetType
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10
+        adminUserId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 1
+        actorType:
+          type: string
+          example: ADMIN
+        actionType:
+          type: string
+          example: AI_ASSET_APPROVE
+        targetType:
+          type: string
+          example: AI_GENERATED_ASSET
+        targetId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 500
+        createdAt:
+          type: string
+          format: date-time
     BibleBookListApiResponse:
       type: object
       required:

@@ -30,4 +30,6 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     Page<Report> findForAdmin(@Param("status") ReportStatus status,
                               @Param("targetType") ReportTargetType targetType,
                               Pageable pageable);
+
+    long countByStatus(ReportStatus status);
 }

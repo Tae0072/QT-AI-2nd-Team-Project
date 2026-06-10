@@ -1,11 +1,16 @@
 package com.qtai.domain.admin.web;
 
 import com.qtai.common.dto.ApiResponse;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.admin.api.GetAdminDashboardUseCase;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
+import com.qtai.domain.admin.api.dto.AdminDashboardResponse;
 import com.qtai.domain.admin.api.dto.AdminUserInfo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminController {
 
     private final VerifyAdminRoleUseCase verifyAdminRoleUseCase;
+    private final GetAdminDashboardUseCase getAdminDashboardUseCase;
 
     /**
      * 현재 관리자 본인 정보 조회.
@@ -47,5 +53,39 @@ public class AdminController {
 
         AdminUserInfo adminInfo = verifyAdminRoleUseCase.getActiveAdmin(memberId);
         return ResponseEntity.ok(ApiResponse.success(adminInfo));
+    }
+
+    /**
+     * AD-01 관리자 대시보드 요약 조회.
+     */
+    @GetMapping("/dashboard")
+    public ResponseEntity<ApiResponse<AdminDashboardResponse>> getDashboard(Authentication authentication) {
+        AdminDashboardResponse dashboard = getAdminDashboardUseCase.getDashboard(resolveMemberId(authentication));
+        return ResponseEntity.ok(ApiResponse.success(dashboard));
+    }
+
+    private static Long resolveMemberId(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Number number) {
+            return number.longValue();
+        }
+        if (principal instanceof CharSequence text) {
+            return parseMemberId(text.toString());
+        }
+        return parseMemberId(authentication.getName());
+    }
+
+    private static Long parseMemberId(String value) {
+        if (value == null || value.isBlank()) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException exception) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
     }
 }
