@@ -3,17 +3,6 @@ import { API_BASE_URL } from '../config/env';
 import { getToken, clearToken } from '../auth/tokenStorage';
 import type { ApiResponse } from './types';
 
-export class ApiClientError extends Error {
-  constructor(
-    message: string,
-    public readonly status?: number,
-    public readonly code?: string,
-  ) {
-    super(message);
-    this.name = 'ApiClientError';
-  }
-}
-
 // ===== 모든 API 호출이 함께 쓰는 axios 인스턴스 =====
 // - baseURL    : 모든 요청 앞에 붙는 공통 주소 (예: /api/v1)
 // - 요청 가로채기 : 저장된 ADMIN 토큰을 Authorization 헤더에 자동으로 붙인다.
@@ -47,7 +36,7 @@ apiClient.interceptors.response.use(
 
     const message =
       apiError?.message ?? error.message ?? '알 수 없는 오류가 발생했습니다.';
-    return Promise.reject(new ApiClientError(message, status, apiError?.code));
+    return Promise.reject(new Error(message));
   },
 );
 
