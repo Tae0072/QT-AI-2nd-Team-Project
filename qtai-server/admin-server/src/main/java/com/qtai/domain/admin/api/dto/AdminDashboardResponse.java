@@ -22,11 +22,16 @@ public record AdminDashboardResponse(
             String qtDate,
             Long qtPassageId,
             String title,
-            String status,
+            TodayQtStatus status,
             String simulatorStatus,
             boolean hasExplanation,
             String cacheStatus
     ) {
+    }
+
+    public enum TodayQtStatus {
+        READY,
+        MISSING
     }
 
     public record RecentAuditLog(

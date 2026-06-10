@@ -13,6 +13,7 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.admin.api.GetAdminDashboardUseCase;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
 import com.qtai.domain.admin.api.dto.AdminDashboardResponse;
+import com.qtai.domain.admin.api.dto.AdminDashboardResponse.TodayQtStatus;
 import com.qtai.domain.admin.api.dto.AdminUserInfo;
 import com.qtai.domain.ai.api.admin.monitoring.GetAdminAiMonitoringUseCase;
 import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiMonitoringResponse;
@@ -80,7 +81,7 @@ class AdminDashboardService implements GetAdminDashboardUseCase {
         List<AdminDashboardAuditLog> auditLogs = auditLogsUseCase.listRecentAuditLogs(RECENT_AUDIT_LOG_SIZE);
 
         return new AdminDashboardResponse(
-                aiMonitoring.validation().waitingAssets(),
+                pendingAiValidationCount(aiMonitoring),
                 reportSummary.receivedReportCount(),
                 reportSummary.reviewingReportCount(),
                 toTodayQt(today),
@@ -99,7 +100,7 @@ class AdminDashboardService implements GetAdminDashboardUseCase {
                 todayQt.passageDate() == null ? today.toString() : todayQt.passageDate(),
                 todayQt.qtPassageId(),
                 todayQt.title(),
-                "READY",
+                TodayQtStatus.READY,
                 todayQt.simulatorStatus(),
                 todayQt.hasExplanation(),
                 todayQt.cacheStatus()
@@ -110,12 +111,19 @@ class AdminDashboardService implements GetAdminDashboardUseCase {
         return todayQt.qtPassageId() == null || "EMPTY".equals(todayQt.cacheStatus());
     }
 
+    private static long pendingAiValidationCount(AdminAiMonitoringResponse aiMonitoring) {
+        if (aiMonitoring == null || aiMonitoring.validation() == null) {
+            return 0;
+        }
+        return aiMonitoring.validation().waitingAssets();
+    }
+
     private static AdminDashboardResponse.TodayQt missingTodayQt(LocalDate today) {
         return new AdminDashboardResponse.TodayQt(
                 today.toString(),
                 null,
                 null,
-                "MISSING",
+                TodayQtStatus.MISSING,
                 null,
                 false,
                 null

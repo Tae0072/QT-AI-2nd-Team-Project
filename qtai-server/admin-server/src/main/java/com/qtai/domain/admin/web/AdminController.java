@@ -79,6 +79,9 @@ public class AdminController {
     }
 
     private static Long parseMemberId(String value) {
+        if (value == null || value.isBlank()) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
         try {
             return Long.valueOf(value);
         } catch (NumberFormatException exception) {

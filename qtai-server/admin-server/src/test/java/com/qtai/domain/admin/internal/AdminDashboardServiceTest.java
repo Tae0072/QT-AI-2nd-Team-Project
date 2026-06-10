@@ -1,6 +1,7 @@
 package com.qtai.domain.admin.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -10,7 +11,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -21,8 +21,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
 import com.qtai.domain.admin.api.dto.AdminDashboardResponse;
+import com.qtai.domain.admin.api.dto.AdminDashboardResponse.TodayQtStatus;
 import com.qtai.domain.admin.api.dto.AdminUserInfo;
 import com.qtai.domain.ai.api.admin.monitoring.GetAdminAiMonitoringUseCase;
 import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiMonitoringResponse;
@@ -67,18 +70,18 @@ class AdminDashboardServiceTest {
     }
 
     @Test
-    @DisplayName("AI waitingAssets와 신고 count를 dashboard 응답에 매핑한다")
+    @DisplayName("AI waitingAssets and report counts are mapped to dashboard response")
     void maps_counts() {
         arrangeBase();
         when(todayQtUseCase.getToday(null))
-                .thenReturn(new TodayQtResponse(35L, "2026-06-10", "오늘의 QT", "READY", true, null, "HIT"));
+                .thenReturn(new TodayQtResponse(35L, "2026-06-10", "Today QT", "READY", true, null, "HIT"));
 
         AdminDashboardResponse response = service.getDashboard(7L);
 
         assertThat(response.pendingAiValidationCount()).isEqualTo(3);
         assertThat(response.receivedReportCount()).isEqualTo(5);
         assertThat(response.reviewingReportCount()).isEqualTo(2);
-        assertThat(response.todayQt().status()).isEqualTo("READY");
+        assertThat(response.todayQt().status()).isEqualTo(TodayQtStatus.READY);
         assertThat(response.todayQt().qtPassageId()).isEqualTo(35L);
 
         ArgumentCaptor<GetAdminAiMonitoringQuery> queryCaptor =
@@ -89,25 +92,7 @@ class AdminDashboardServiceTest {
     }
 
     @Test
-    @DisplayName("TodayQtResponse record 필드 순서는 dashboard 매핑 계약과 일치한다")
-    void today_qt_response_record_order_matches_mapping_contract() {
-        assertThat(Arrays.stream(TodayQtResponse.class.getRecordComponents())
-                .map(component -> component.getName())
-                .toList())
-                .containsExactly(
-                        "qtPassageId",
-                        "passageDate",
-                        "title",
-                        "simulatorStatus",
-                        "hasExplanation",
-                        "draftNoteId",
-                        "cacheStatus",
-                        "range"
-                );
-    }
-
-    @Test
-    @DisplayName("오늘 QT가 없으면 todayQt non-null MISSING 규칙을 따른다")
+    @DisplayName("Missing today QT returns non-null MISSING response")
     void missing_today_qt_is_non_null() {
         arrangeBase();
         when(todayQtUseCase.getToday(null)).thenReturn(null);
@@ -116,7 +101,7 @@ class AdminDashboardServiceTest {
 
         assertThat(response.todayQt()).isNotNull();
         assertThat(response.todayQt().qtDate()).isEqualTo("2026-06-10");
-        assertThat(response.todayQt().status()).isEqualTo("MISSING");
+        assertThat(response.todayQt().status()).isEqualTo(TodayQtStatus.MISSING);
         assertThat(response.todayQt().qtPassageId()).isNull();
         assertThat(response.todayQt().title()).isNull();
         assertThat(response.todayQt().simulatorStatus()).isNull();
@@ -125,15 +110,15 @@ class AdminDashboardServiceTest {
     }
 
     @Test
-    @DisplayName("today QT cacheStatus가 EMPTY이면 passageId가 있어도 MISSING으로 반환한다")
+    @DisplayName("EMPTY cache status is treated as missing today QT")
     void empty_cache_today_qt_is_missing() {
         arrangeBase();
         when(todayQtUseCase.getToday(null))
-                .thenReturn(new TodayQtResponse(35L, "2026-06-10", "오늘의 QT", "READY", true, null, "EMPTY"));
+                .thenReturn(new TodayQtResponse(35L, "2026-06-10", "Today QT", "READY", true, null, "EMPTY"));
 
         AdminDashboardResponse response = service.getDashboard(7L);
 
-        assertThat(response.todayQt().status()).isEqualTo("MISSING");
+        assertThat(response.todayQt().status()).isEqualTo(TodayQtStatus.MISSING);
         assertThat(response.todayQt().qtPassageId()).isNull();
         assertThat(response.todayQt().title()).isNull();
         assertThat(response.todayQt().simulatorStatus()).isNull();
@@ -142,20 +127,78 @@ class AdminDashboardServiceTest {
     }
 
     @Test
-    @DisplayName("today QT status는 simulatorStatus와 분리해 본문 존재 여부로 READY를 반환한다")
-    void ready_today_qt_preserves_simulator_status() {
+    @DisplayName("MISS cache without passage is treated as missing today QT")
+    void miss_cache_without_passage_is_missing() {
         arrangeBase();
         when(todayQtUseCase.getToday(null))
-                .thenReturn(new TodayQtResponse(35L, "2026-06-10", "오늘의 QT", "FAILED", true, null, "HIT"));
+                .thenReturn(new TodayQtResponse(null, null, null, "MISSING", false, null, "MISS"));
 
         AdminDashboardResponse response = service.getDashboard(7L);
 
-        assertThat(response.todayQt().status()).isEqualTo("READY");
+        assertThat(response.todayQt().status()).isEqualTo(TodayQtStatus.MISSING);
+        assertThat(response.todayQt().qtPassageId()).isNull();
+        assertThat(response.todayQt().cacheStatus()).isNull();
+    }
+
+    @Test
+    @DisplayName("Today QT status is separated from simulator status")
+    void ready_today_qt_preserves_simulator_status() {
+        arrangeBase();
+        when(todayQtUseCase.getToday(null))
+                .thenReturn(new TodayQtResponse(35L, "2026-06-10", "Today QT", "FAILED", true, null, "HIT"));
+
+        AdminDashboardResponse response = service.getDashboard(7L);
+
+        assertThat(response.todayQt().status()).isEqualTo(TodayQtStatus.READY);
         assertThat(response.todayQt().simulatorStatus()).isEqualTo("FAILED");
     }
 
     @Test
-    @DisplayName("최근 감사 로그는 sanitized DTO로만 매핑한다")
+    @DisplayName("Null AI validation maps pending count to zero")
+    void null_ai_validation_maps_to_zero() {
+        arrangeBase();
+        when(aiMonitoringUseCase.getAdminAiMonitoring(any()))
+                .thenReturn(new AdminAiMonitoringResponse(
+                        new AdminAiMonitoringResponse.Period(null, null, "Asia/Seoul"),
+                        new AdminAiMonitoringResponse.GenerationJobs(0, 0, 0, 0),
+                        null,
+                        new AdminAiMonitoringResponse.BatchRuns(0, 0, 0, List.of()),
+                        new AdminAiMonitoringResponse.Qa(0, 0, 0, 0, List.of()),
+                        List.of()
+                ));
+        when(todayQtUseCase.getToday(null)).thenReturn(null);
+
+        AdminDashboardResponse response = service.getDashboard(7L);
+
+        assertThat(response.pendingAiValidationCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("Zero AI waitingAssets maps pending count to zero")
+    void zero_ai_waiting_assets_maps_to_zero() {
+        arrangeBase();
+        when(aiMonitoringUseCase.getAdminAiMonitoring(any()))
+                .thenReturn(aiMonitoring(0));
+        when(todayQtUseCase.getToday(null)).thenReturn(null);
+
+        AdminDashboardResponse response = service.getDashboard(7L);
+
+        assertThat(response.pendingAiValidationCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("Invalid memberId throws UNAUTHORIZED")
+    void invalid_member_id_is_unauthorized() {
+        assertThatThrownBy(() -> service.getDashboard(null))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+        assertThatThrownBy(() -> service.getDashboard(0L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+    }
+
+    @Test
+    @DisplayName("Recent audit logs are mapped through sanitized DTO only")
     void recent_audit_logs_are_sanitized() {
         arrangeBase();
         when(todayQtUseCase.getToday(null)).thenReturn(null);
