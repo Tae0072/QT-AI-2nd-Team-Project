@@ -1440,16 +1440,19 @@
 ```json
 {
   "qtDate": "2026-05-17",
-  "title": "오늘의 QT",
   "bookId": 19,
   "chapter": 23,
   "startVerse": 1,
   "endVerse": 6,
+  "title": "오늘의 QT",
+  "mainVerseRef": "시편 23:1-6",
   "status": "pending_review"
 }
 ```
 
 - **상태값:** `active`, `hidden`, `pending_review`, `deletion_notified`, `removed`
+
+> 2026-06-10 팀 결정 반영: 요청 본문을 `startVerseId/endVerseId` → `bookId`+`chapter`+`startVerse`+`endVerse`(+`mainVerseRef`)로 변경(이지윤 admin-server 구현 기준). 상태값은 5종(`active/hidden/pending_review/deletion_notified/removed`)으로 정렬하며, 3종 매핑(`DRAFT→pending_review`·`PUBLISHED→active`·`HIDDEN→hidden`)은 admin-web qt-passages 계약(`doc/workspaces/DevE_김지민/workflows/2026-06-10_admin-qt-passages-api-contract.md`) 참조. (별도 문서 저장소 SSoT 동기화 필요)
 
 ### 4.7.3 AI 산출물 검증
 

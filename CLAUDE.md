@@ -11,7 +11,7 @@
 - Redis: token/rate/idempotency 등 필요 범위 검토 후 사용
 - AI: DeepSeek OpenAI-compatible client
 - 외부 API: 사용자 Flutter 앱(`/api/v1/**`)과 별도 관리자 웹 프런트엔드(`/api/v1/admin/**`)가 같은 `qtai-server`를 호출. 관리자 UI는 Flutter 앱이 아니라 별도 웹(2026-05-19 강사님 직강 결정, `03_아키텍처_정의서.md` v1.2 §4.9 / §13.6)
-- OAuth 경로: Flutter SDK가 카카오 토큰을 직접 받아 `POST /api/v1/auth/kakao`로 서버에 전달한다. 서버사이드 `/oauth2/**` 경로는 사용하지 않는다.
+- OAuth 경로: Flutter SDK가 카카오 토큰을 직접 받아 `POST /api/v1/auth/kakao`로 서버에 전달한다. 관리자 웹은 카카오 JS SDK 토큰을 `POST /api/v1/admin/auth/kakao`로 전달한다(2026-06-10 팀 결정). 서버사이드 `/oauth2/**` 경로는 어느 쪽도 사용하지 않는다.
 - 기본 응답·주석·PR 설명 언어: 한국어 우선
 - 백엔드 코드 컨벤션: `CODE_CONVENTION.md`를 우선 확인
 
@@ -59,7 +59,7 @@
 
 ## 5. API 규칙
 
-- 사용자·관리자 HTTP API는 `/api/v1/**` 아래에 둔다. Kakao 인증도 `POST /api/v1/auth/kakao`를 사용하며, `/oauth2/**` 예외 경로는 사용하지 않는다.
+- 사용자·관리자 HTTP API는 `/api/v1/**` 아래에 둔다. Kakao 인증은 사용자 앱 `POST /api/v1/auth/kakao`, 관리자 웹 `POST /api/v1/admin/auth/kakao`를 사용하며(2026-06-10 팀 결정), `/oauth2/**` 예외 경로는 사용하지 않는다.
 - 관리자 API는 일반 회원 토큰의 `members.role=ADMIN`과 `admin_users.admin_role`을 모두 확인한 뒤, `OPERATOR`, `REVIEWER`, `CONTENT_CREATOR`, `SUPER_ADMIN` 중 API 명세에 맞는 세부 권한을 요구한다.
 - 시스템 API와 배치/AI 내부 작업은 사용자 계정이 아니라 `SYSTEM_BATCH` 주체로 기록한다.
 - 서비스 간 시스템(배치·스케줄러) 호출 인증은 사용자 토큰과 **분리**한다. 사용자 토큰은 service-user가 발급하는 **RS256**(비대칭, 공개키 검증)이고, 서비스 간 시스템 호출은 전달할 사용자 JWT가 없으므로 **공유 시크릿 기반 HS256 단명 `SYSTEM_BATCH` 토큰**을 사용한다(`security.jwt.system-secret`, 발급=`SystemTokenProvider`, 검증=`SystemTokenValidator`, `sub=0`·`role=SYSTEM_BATCH`·단명 만료). 공통 `JwtAuthenticationFilter`는 RS256 사용자 검증 실패 시 시스템 토큰으로 폴백 검증한다. 시스템 시크릿은 env로만 주입하고 로그·커밋에 남기지 않는다. 근거: `doc/workspaces/Lead_강태오/workflows/2026-06-10_service-to-service-system-auth.md`
