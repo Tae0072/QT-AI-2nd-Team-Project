@@ -3,6 +3,8 @@ package com.qtai.domain.admin.web;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,9 +18,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.qtai.common.exception.BusinessException;
@@ -66,8 +71,41 @@ class AdminDashboardControllerTest {
     void admin_controller_requires_admin_role_at_class_level() {
         PreAuthorize preAuthorize = AdminController.class.getAnnotation(PreAuthorize.class);
 
-        org.assertj.core.api.Assertions.assertThat(preAuthorize).isNotNull();
-        org.assertj.core.api.Assertions.assertThat(preAuthorize.value()).isEqualTo("hasRole('ADMIN')");
+        assertThat(preAuthorize).isNotNull();
+        assertThat(preAuthorize.value()).isEqualTo("hasRole('ADMIN')");
+    }
+
+    @Test
+    @DisplayName("resolveMemberId supports Number principal")
+    void resolve_member_id_from_number_principal() {
+        assertThat(resolveMemberId(authenticated(7L))).isEqualTo(7L);
+    }
+
+    @Test
+    @DisplayName("resolveMemberId supports CharSequence principal")
+    void resolve_member_id_from_text_principal() {
+        assertThat(resolveMemberId(authenticated("8"))).isEqualTo(8L);
+    }
+
+    @Test
+    @DisplayName("resolveMemberId falls back to authentication name")
+    void resolve_member_id_from_authentication_name() {
+        Object principal = new Object() {
+            @Override
+            public String toString() {
+                return "9";
+            }
+        };
+
+        assertThat(resolveMemberId(authenticated(principal))).isEqualTo(9L);
+    }
+
+    @Test
+    @DisplayName("resolveMemberId rejects null or malformed authentication")
+    void resolve_member_id_rejects_invalid_authentication() {
+        assertUnauthorized(() -> resolveMemberId(null));
+        assertUnauthorized(() -> resolveMemberId(authenticated("")));
+        assertUnauthorized(() -> resolveMemberId(authenticated("abc")));
     }
 
     @Test
@@ -167,5 +205,26 @@ class AdminDashboardControllerTest {
                 new AdminAiMonitoringResponse.Qa(0, 0, 0, 0, List.of()),
                 List.of()
         );
+    }
+
+    private static TestingAuthenticationToken authenticated(Object principal) {
+        TestingAuthenticationToken authentication = new TestingAuthenticationToken(principal, "credentials");
+        authentication.setAuthenticated(true);
+        return authentication;
+    }
+
+    private static Long resolveMemberId(Authentication authentication) {
+        return ReflectionTestUtils.invokeMethod(AdminController.class, "resolveMemberId", authentication);
+    }
+
+    private static void assertUnauthorized(ThrowingCallable callable) {
+        assertThatThrownBy(callable::call)
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+    }
+
+    @FunctionalInterface
+    private interface ThrowingCallable {
+        void call();
     }
 }

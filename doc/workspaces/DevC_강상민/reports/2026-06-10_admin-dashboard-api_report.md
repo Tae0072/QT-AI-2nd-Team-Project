@@ -1,65 +1,85 @@
-# Report — 2026-06-10 admin-dashboard-api
+# Report - 2026-06-10 admin-dashboard-api
 
 ## Summary
 
-- 브랜치: `feature/admin-dashboard-api`
-- PR 대상: `dev-msa`
-- workflow: `doc/workspaces/DevC_강상민/workflows/2026-06-10_admin-dashboard-api.md`
-- 목표: 관리자 웹 AD-01이 호출할 `GET /api/v1/admin/dashboard` 백엔드 API를 신설한다.
+- Branch: `feature/admin-dashboard-api-clean`
+- Target: `dev-msa`
+- Workflow: `doc/workspaces/DevC_강상민/workflows/2026-06-10_admin-dashboard-api.md`
+- Scope: `admin-server` AD-01 `GET /api/v1/admin/dashboard`
+- Excluded: `admin-web` screen/API client changes
 
-## 구현 내용
+## Implementation
 
-- `GET /api/v1/admin/dashboard`를 추가했다.
-  - 응답은 `ApiResponse<AdminDashboardResponse>` envelope다.
-  - `ROLE_ADMIN` 1차 검증 후 `VerifyAdminRoleUseCase.verifyAnyRole(memberId, ["OPERATOR", "REVIEWER"])`로 2차 검증한다.
-  - `SUPER_ADMIN`은 기존 우월권으로 통과하고 `CONTENT_CREATOR`는 403으로 차단된다.
-- AI 대기 검증 건수는 신규 summary UseCase 없이 기존 `GetAdminAiMonitoringUseCase`를 재사용했다.
-  - `pendingAiValidationCount = AdminAiMonitoringResponse.validation.waitingAssets`
-- report 도메인에는 dashboard용 신고 요약 UseCase를 추가했다.
+- Added `GET /api/v1/admin/dashboard`.
+- Response uses `ApiResponse<AdminDashboardResponse>` envelope.
+- Authorization:
+  - 1st gate: `ROLE_ADMIN` via `@PreAuthorize("hasRole('ADMIN')")`
+  - 2nd gate: `VerifyAdminRoleUseCase.verifyAnyRole(memberId, ["OPERATOR", "REVIEWER"])`
+  - `SUPER_ADMIN` passes through existing superiority behavior.
+  - `CONTENT_CREATOR` is rejected with 403.
+- AI count:
+  - Reuses existing `GetAdminAiMonitoringUseCase`.
+  - `pendingAiValidationCount` maps from `AdminAiMonitoringResponse.validation.waitingAssets`.
+  - Null AI validation response is guarded as `0`.
+- Report count:
   - `receivedReportCount = ReportStatus.RECEIVED count`
   - `reviewingReportCount = ReportStatus.REVIEWING count`
-- audit 도메인에는 dashboard 전용 sanitized 최근 로그 UseCase를 추가했다.
-  - 포함 필드: `id`, `adminUserId`, `actorType`, `actionType`, `targetType`, `targetId`, `createdAt`
-  - 제외 필드: `beforeJson`, `afterJson`, AI payload, prompt/provider 원문, reason 원문
-- `todayQt`는 항상 non-null로 조립한다.
-  - 오늘 QT가 없으면 `status=MISSING`, `qtDate=KST 오늘`, `qtPassageId/title/simulatorStatus/cacheStatus=null`, `hasExplanation=false`
-- `qtai-server/apis/api-v1/openapi.yaml`에 AD-01 path와 `AdminDashboardApiResponse` schema를 추가했다.
+- Today QT:
+  - `todayQt` is always non-null.
+  - Missing rule returns `status=MISSING`, `qtDate=KST today`, nullable QT fields as null, `hasExplanation=false`.
+  - `TodayQtStatus` enum is used for `READY/MISSING`.
+  - `simulatorStatus` remains separate from dashboard QT availability status.
+  - `MISS` from QT cache is treated as missing when `qtPassageId` is absent.
+- Recent audit logs:
+  - Dashboard-only sanitized DTO is used.
+  - Included fields: `id`, `adminUserId`, `actorType`, `actionType`, `targetType`, `targetId`, `createdAt`.
+  - Excluded fields: `beforeJson`, `afterJson`, AI payload, prompt/provider raw text, reason raw text.
+  - Repository projection excludes sensitive columns at query level.
+- OpenAPI:
+  - Added `/api/v1/admin/dashboard`.
+  - Added `AdminDashboardApiResponse` and related schemas.
 
-## 제외한 내용
-
-- `admin-web` 화면, 타입, API 호출 코드 변경 없음.
-- QT 본문 관리 상세, 공지, 회원 통계, 관리자 계정 관리 지표는 후속 작업으로 남김.
-
-## 테스트
+## Tests
 
 - `AdminDashboardControllerTest`
   - OPERATOR/REVIEWER/SUPER_ADMIN 200
   - CONTENT_CREATOR 403
   - ROLE_USER 403
-  - 미인증 401 또는 403
-  - 최근 감사 로그 응답에 `beforeJson`, `afterJson` 미노출
+  - Unauthenticated 401/403
+  - `AdminController` class-level `@PreAuthorize("hasRole('ADMIN')")`
+  - `resolveMemberId` Number/CharSequence/fallback/invalid principal branches
 - `AdminDashboardServiceTest`
-  - AI monitoring `waitingAssets` 매핑
-  - RECEIVED/REVIEWING 신고 count 매핑
-  - todayQt READY/MISSING non-null 규칙
-  - sanitized 최근 감사 로그 매핑
+  - AI waitingAssets mapping
+  - AI validation null and zero boundary
+  - RECEIVED/REVIEWING report count mapping
+  - todayQt null/EMPTY/MISS/READY behavior
+  - invalid memberId unauthorized path
+  - sanitized audit log mapping
 - `AdminReportDashboardSummaryServiceTest`
-  - `ReportStatus.RECEIVED`, `ReportStatus.REVIEWING` count 매핑
+  - RECEIVED/REVIEWING count mapping
 - `AdminDashboardAuditLogServiceTest`
-  - `AuditQueryRepository` row에서 dashboard DTO로 민감 snapshot 제외 매핑
+  - sanitized DTO mapping
+  - `Pageable` sort arguments: `createdAt DESC`, `id DESC`
+- `AuditQueryRepositoryTest`
+  - JPA integration test for dashboard projection
+  - verifies sensitive JSON columns are not exposed through projection row
 
-## 검증 결과
+## Verification
 
-| 명령 | 결과 |
+| Command | Result |
 | --- | --- |
-| `.\gradlew.bat :admin-server:test --tests "*AdminDashboard*" --tests "*AdminReportDashboardSummaryServiceTest"` | PASS |
-| `.\gradlew.bat :admin-server:build` | PASS |
-| `git diff --check` | PASS, CRLF 변환 경고만 출력 |
-| `npx.cmd @stoplight/spectral-cli lint qtai-server/apis/api-v1/openapi.yaml --ruleset .spectral.yaml` | FAIL — 저장소 루트에 `.spectral.yaml` 없음 |
-| Python YAML parse + AD-01 path/schema 존재 확인 | PASS |
+| `./gradlew.bat :admin-server:test --tests "*AdminDashboard*" --tests "*AuditQueryRepositoryTest" --tests "*AdminDashboardAuditLogServiceTest" --tests "*AdminReportDashboardSummaryServiceTest"` | PASS |
+| `./gradlew.bat :admin-server:build` | PASS |
+| `git diff --check` | PASS, CRLF warnings only |
+| Python YAML parse + AD-01 path/schema check | PASS |
+| `npx.cmd @stoplight/spectral-cli lint qtai-server/apis/api-v1/openapi.yaml --ruleset .spectral.yaml` | NOT RUN TO COMPLETION: `.spectral.yaml` is absent from repository root and `qtai-server/` |
 
-## 참고
+## Spectral Follow-up
 
-- `npx.ps1`은 Windows PowerShell execution policy로 실행이 차단되어 `npx.cmd`로 재시도했다.
-- `npx.cmd` 실행은 가능했지만 `.spectral.yaml` ruleset 파일이 저장소에 없어 공식 Spectral 검증은 완료하지 못했다.
-- `admin-web` 파일은 작업 범위에서 제외했고 수정하지 않았다.
+Local Spectral lint is blocked because the ruleset file is not present in this checkout. This should be handled as an infra/ruleset follow-up: restore/provide `.spectral.yaml`, or update CI/PR guidance to the correct ruleset path. The OpenAPI YAML itself was parsed successfully and the AD-01 path/schema existence was verified.
+
+## Notes
+
+- `GetTodayQtUseCase.getToday(null)` is used intentionally for dashboard summary because the current UseCase contract allows `memberId` null when draft note lookup is not needed.
+- `STALE_FALLBACK` is returned as READY when a QT passage is actually present. The cache status remains exposed as `cacheStatus` so operators can see the fallback condition.
+- `admin-web` remains out of scope.

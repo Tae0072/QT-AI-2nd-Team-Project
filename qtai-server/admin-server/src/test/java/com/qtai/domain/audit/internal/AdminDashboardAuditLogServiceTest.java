@@ -2,6 +2,7 @@ package com.qtai.domain.audit.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.OffsetDateTime;
@@ -9,10 +10,12 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import com.qtai.domain.audit.api.dto.AdminDashboardAuditLog;
 
@@ -39,6 +42,17 @@ class AdminDashboardAuditLogServiceTest {
 
         List<AdminDashboardAuditLog> logs = service.listRecentAuditLogs(5);
 
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(repository).findRecent(pageableCaptor.capture());
+        Pageable pageable = pageableCaptor.getValue();
+        assertThat(pageable.getPageNumber()).isZero();
+        assertThat(pageable.getPageSize()).isEqualTo(5);
+        assertThat(pageable.getSort().getOrderFor("createdAt"))
+                .extracting(Sort.Order::getDirection)
+                .isEqualTo(Sort.Direction.DESC);
+        assertThat(pageable.getSort().getOrderFor("id"))
+                .extracting(Sort.Order::getDirection)
+                .isEqualTo(Sort.Direction.DESC);
         assertThat(logs).singleElement().satisfies(log -> {
             assertThat(log.id()).isEqualTo(10L);
             assertThat(log.adminUserId()).isEqualTo(1L);
