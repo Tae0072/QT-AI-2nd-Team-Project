@@ -25,7 +25,6 @@ import com.qtai.domain.note.api.GetNoteUseCase;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
 import com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase;
-import com.qtai.domain.qtvideo.api.GetQtVideoAvailabilityUseCase;
 
 /**
  * QtService 단위 테스트 — 입력 검증·공개 게이트·캐시 라벨·Note enrich 경로.
@@ -46,7 +45,6 @@ class QtServiceTest {
     @Mock private TodayQtRangeResolver rangeResolver;
     @Mock private GetNoteUseCase getNoteUseCase;
     @Mock private GetQtStudyAvailabilityUseCase getQtStudyAvailabilityUseCase;
-    @Mock private GetQtVideoAvailabilityUseCase getQtVideoAvailabilityUseCase;
 
     private QtService qtService;
 
@@ -55,7 +53,7 @@ class QtServiceTest {
         qtService = new QtService(
                 passageLookup, qtPassageRepository, qtPassageVerseRepository,
                 rangeResolver, getNoteUseCase, getQtStudyAvailabilityUseCase,
-                getQtVideoAvailabilityUseCase, FIXED_CLOCK);
+                FIXED_CLOCK);
     }
 
     private static QtPassage passageOn(LocalDate date) {

@@ -27,10 +27,11 @@ public class QtVideoService implements GetQtVideoUseCase {
             throw new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND);
         }
 
-        return qtVideoClipRepository
-                .findFirstByQtPassageIdAndStatusOrderByApprovedAtDescIdDesc(
-                        qtPassageId, QtVideoClipStatus.APPROVED)
-                .map(this::toReadyResponse)
+        var candidates = qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+                qtPassageId,
+                QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES);
+        return QtVideoUserStatusResolver.chooseUserStatusClip(candidates)
+                .map(this::toResponse)
                 .orElseGet(() -> QtVideoClipResponse.missing(qtPassageId));
     }
 
@@ -40,9 +41,17 @@ public class QtVideoService implements GetQtVideoUseCase {
         }
     }
 
-    private QtVideoClipResponse toReadyResponse(QtVideoClip clip) {
+    private QtVideoClipResponse toResponse(QtVideoClip clip) {
+        QtVideoUserStatus status = QtVideoUserStatusResolver.toUserStatus(clip.getStatus());
+        if (status != QtVideoUserStatus.READY) {
+            return QtVideoClipResponse.unavailable(
+                    clip.getQtPassageId(),
+                    status.name(),
+                    clip.getStatus().name()
+            );
+        }
         return new QtVideoClipResponse(
-                QtVideoUserStatus.READY.name(),
+                status.name(),
                 clip.getId(),
                 clip.getQtPassageId(),
                 clip.getTitle(),

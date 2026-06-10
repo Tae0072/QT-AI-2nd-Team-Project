@@ -109,7 +109,6 @@ class BibleRepository {
       title: todayQt.title,
       cacheStatus: todayQt.cacheStatus,
       simulatorStatus: todayQt.simulatorStatus,
-      videoStatus: todayQt.videoStatus,
       hasExplanation: todayQt.hasExplanation,
       draftNoteId: todayQt.draftNoteId,
       reference: todayRange.toReference(),

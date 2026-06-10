@@ -61,7 +61,8 @@ class ControllerSecurityIntegrationTest {
                 "/api/v1/qt/today",
                 "/api/v1/qt/passages/1",
                 "/api/v1/qt/1/study-content",
-                "/api/v1/qt/1/simulator"
+                "/api/v1/qt/1/simulator",
+                "/api/v1/qt/1/video"
         };
         for (String uri : protectedGets) {
             mockMvc.perform(get(uri)).andExpect(status().isUnauthorized());

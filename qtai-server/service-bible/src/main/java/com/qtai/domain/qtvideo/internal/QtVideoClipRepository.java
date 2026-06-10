@@ -2,11 +2,12 @@ package com.qtai.domain.qtvideo.internal;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 
 interface QtVideoClipRepository extends JpaRepository<QtVideoClip, Long> {
 
-    Optional<QtVideoClip> findFirstByQtPassageIdAndStatusOrderByApprovedAtDescIdDesc(
+    List<QtVideoClip> findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
             Long qtPassageId,
-            QtVideoClipStatus status);
+            Collection<QtVideoClipStatus> statuses);
 }

@@ -22,7 +22,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
 class QtVideoServiceTest {
@@ -31,25 +30,23 @@ class QtVideoServiceTest {
     @Mock private QtVideoClipRepository qtVideoClipRepository;
 
     private QtVideoService service;
-    private QtVideoAvailabilityService availabilityService;
 
     @BeforeEach
     void setUp() {
         service = new QtVideoService(getQtPassageContentContextUseCase, qtVideoClipRepository);
-        availabilityService = new QtVideoAvailabilityService(qtVideoClipRepository);
     }
 
     @Test
-    @DisplayName("approved QT video clip exists -> READY")
+    @DisplayName("승인된 QT 영상 클립이 있으면 READY를 반환한다")
     void approvedClipExists_ready() {
         when(getQtPassageContentContextUseCase.getContentContext(4L))
                 .thenReturn(context(4L, true));
         SourceVideo sourceVideo = TestEntityFactory.sourceVideo(1L, (short) 46, "https://cdn.example.com/1co.mp4");
         QtVideoClip clip = TestEntityFactory.qtVideoClip(
                 10L, 4L, sourceVideo, "https://cdn.example.com/qt-2026-06-17.mp4");
-        when(qtVideoClipRepository.findFirstByQtPassageIdAndStatusOrderByApprovedAtDescIdDesc(
-                4L, QtVideoClipStatus.APPROVED))
-                .thenReturn(Optional.of(clip));
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+                4L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
+                .thenReturn(List.of(clip));
 
         QtVideoClipResponse result = service.getVideo(4L);
 
@@ -63,13 +60,13 @@ class QtVideoServiceTest {
     }
 
     @Test
-    @DisplayName("approved QT video clip missing -> MISSING")
+    @DisplayName("사용자 노출 후보 클립이 없으면 MISSING을 반환한다")
     void approvedClipMissing_missing() {
         when(getQtPassageContentContextUseCase.getContentContext(5L))
                 .thenReturn(context(5L, true));
-        when(qtVideoClipRepository.findFirstByQtPassageIdAndStatusOrderByApprovedAtDescIdDesc(
-                5L, QtVideoClipStatus.APPROVED))
-                .thenReturn(Optional.empty());
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+                5L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
+                .thenReturn(List.of());
 
         QtVideoClipResponse result = service.getVideo(5L);
 
@@ -79,7 +76,84 @@ class QtVideoServiceTest {
     }
 
     @Test
-    @DisplayName("unpublished QT passage is blocked")
+    @DisplayName("실패 클립이 있으면 FAILED를 반환한다")
+    void failedClipExists_failed() {
+        when(getQtPassageContentContextUseCase.getContentContext(8L))
+                .thenReturn(context(8L, true));
+        SourceVideo sourceVideo = TestEntityFactory.sourceVideo(1L, (short) 46, "https://cdn.example.com/1co.mp4");
+        QtVideoClip clip = TestEntityFactory.qtVideoClip(
+                12L,
+                8L,
+                sourceVideo,
+                "https://cdn.example.com/qt-failed.mp4",
+                QtVideoClipStatus.FAILED);
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+                8L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
+                .thenReturn(List.of(clip));
+
+        QtVideoClipResponse result = service.getVideo(8L);
+
+        assertEquals("FAILED", result.status());
+        assertEquals(8L, result.qtPassageId());
+        assertNull(result.videoUrl());
+        assertEquals("FAILED", result.clipStatus());
+    }
+
+    @Test
+    @DisplayName("숨김 클립이 있으면 DISABLED를 반환한다")
+    void hiddenClipExists_disabled() {
+        when(getQtPassageContentContextUseCase.getContentContext(9L))
+                .thenReturn(context(9L, true));
+        SourceVideo sourceVideo = TestEntityFactory.sourceVideo(1L, (short) 46, "https://cdn.example.com/1co.mp4");
+        QtVideoClip clip = TestEntityFactory.qtVideoClip(
+                13L,
+                9L,
+                sourceVideo,
+                "https://cdn.example.com/qt-hidden.mp4",
+                QtVideoClipStatus.HIDDEN);
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+                9L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
+                .thenReturn(List.of(clip));
+
+        QtVideoClipResponse result = service.getVideo(9L);
+
+        assertEquals("DISABLED", result.status());
+        assertEquals(9L, result.qtPassageId());
+        assertNull(result.videoUrl());
+        assertEquals("HIDDEN", result.clipStatus());
+    }
+
+    @Test
+    @DisplayName("승인 클립은 실패 또는 숨김 클립보다 우선한다")
+    void approvedClipHasPriority() {
+        when(getQtPassageContentContextUseCase.getContentContext(10L))
+                .thenReturn(context(10L, true));
+        SourceVideo sourceVideo = TestEntityFactory.sourceVideo(1L, (short) 46, "https://cdn.example.com/1co.mp4");
+        QtVideoClip hidden = TestEntityFactory.qtVideoClip(
+                13L,
+                10L,
+                sourceVideo,
+                "https://cdn.example.com/qt-hidden.mp4",
+                QtVideoClipStatus.HIDDEN);
+        QtVideoClip approved = TestEntityFactory.qtVideoClip(
+                14L,
+                10L,
+                sourceVideo,
+                "https://cdn.example.com/qt-approved.mp4",
+                QtVideoClipStatus.APPROVED);
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+                10L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
+                .thenReturn(List.of(hidden, approved));
+
+        QtVideoClipResponse result = service.getVideo(10L);
+
+        assertEquals("READY", result.status());
+        assertEquals("https://cdn.example.com/qt-approved.mp4", result.videoUrl());
+        assertEquals("APPROVED", result.clipStatus());
+    }
+
+    @Test
+    @DisplayName("미공개 QT 본문은 차단한다")
     void unpublishedPassage_blocked() {
         when(getQtPassageContentContextUseCase.getContentContext(6L))
                 .thenReturn(context(6L, false));
@@ -89,30 +163,17 @@ class QtVideoServiceTest {
 
         assertEquals(ErrorCode.QT_PASSAGE_NOT_FOUND, exception.getErrorCode());
         verify(qtVideoClipRepository, never())
-                .findFirstByQtPassageIdAndStatusOrderByApprovedAtDescIdDesc(6L, QtVideoClipStatus.APPROVED);
+                .findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+                        6L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES);
     }
 
     @Test
-    @DisplayName("invalid QT passage id throws INVALID_INPUT")
+    @DisplayName("잘못된 QT 본문 ID는 INVALID_INPUT을 던진다")
     void invalidQtPassageId() {
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> service.getVideo(0L));
 
         assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
-    }
-
-    @Test
-    @DisplayName("availability returns READY when approved clip exists")
-    void availabilityReady() {
-        when(qtVideoClipRepository.findFirstByQtPassageIdAndStatusOrderByApprovedAtDescIdDesc(
-                7L, QtVideoClipStatus.APPROVED))
-                .thenReturn(Optional.of(TestEntityFactory.qtVideoClip(
-                        11L,
-                        7L,
-                        TestEntityFactory.sourceVideo(1L, (short) 46, "https://cdn.example.com/1co.mp4"),
-                        "https://cdn.example.com/qt-2026-06-18.mp4")));
-
-        assertEquals("READY", availabilityService.getAvailability(7L).videoStatus());
     }
 
     private static QtPassageContentContext context(Long qtPassageId, boolean published) {

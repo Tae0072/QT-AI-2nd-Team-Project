@@ -28,4 +28,22 @@ public record QtVideoClipResponse(
                 null
         );
     }
+
+    public static QtVideoClipResponse unavailable(
+            Long qtPassageId,
+            String status,
+            String clipStatus) {
+        return new QtVideoClipResponse(
+                status,
+                null,
+                qtPassageId,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                clipStatus
+        );
+    }
 }

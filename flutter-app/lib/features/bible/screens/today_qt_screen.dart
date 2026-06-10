@@ -132,7 +132,7 @@ class _TodayQtContentState extends State<_TodayQtContent> {
               verse: verse,
               showEnglish: _showEnglish,
             ),
-          if (data.qtPassageId != null && data.videoStatus == 'READY') ...[
+          if (data.qtPassageId != null) ...[
             const SizedBox(height: 12),
             QtVideoSection(qtPassageId: data.qtPassageId!),
           ],

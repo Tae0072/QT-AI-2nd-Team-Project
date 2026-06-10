@@ -143,9 +143,10 @@ paths:
       operationId: getQtVideo
       summary: QT video clip lookup
       description: >
-        Returns the approved video clip URL for a QT passage. This is separate
-        from the simulator scene API and does not trigger AI generation or video
-        cutting at request time.
+        Returns the QT video clip status and the approved video clip URL when
+        the passage is READY. FAILED and DISABLED are status-only responses
+        without a playable URL. This is separate from the simulator scene API
+        and does not trigger AI generation or video cutting at request time.
       security:
         - bearerAuth: []
       parameters:
@@ -4061,7 +4062,10 @@ components:
           type: string
           nullable: true
           enum:
+            - PENDING
             - APPROVED
+            - FAILED
+            - HIDDEN
           example: APPROVED
     QtSimulatorUserStatus:
       type: string

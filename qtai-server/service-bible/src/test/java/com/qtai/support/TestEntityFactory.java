@@ -3,6 +3,7 @@ package com.qtai.support;
 import com.qtai.domain.bible.internal.BibleBook;
 import com.qtai.domain.bible.internal.BibleVerse;
 import com.qtai.domain.qtvideo.internal.QtVideoClip;
+import com.qtai.domain.qtvideo.internal.QtVideoClipStatus;
 import com.qtai.domain.qtvideo.internal.SourceVideo;
 import com.qtai.domain.qtvideo.internal.SourceVideoStorageProvider;
 import com.qtai.domain.study.internal.GlossaryTerm;
@@ -148,6 +149,21 @@ public final class TestEntityFactory {
                 new BigDecimal("30.000"),
                 LocalDateTime.of(2026, 6, 10, 0, 5));
         set(clip, "id", id);
+        return clip;
+    }
+
+    public static QtVideoClip qtVideoClip(
+            Long id,
+            Long qtPassageId,
+            SourceVideo sourceVideo,
+            String videoUrl,
+            QtVideoClipStatus status
+    ) {
+        QtVideoClip clip = qtVideoClip(id, qtPassageId, sourceVideo, videoUrl);
+        set(clip, "status", status);
+        if (status != QtVideoClipStatus.APPROVED) {
+            set(clip, "activeUniqueKey", null);
+        }
         return clip;
     }
 
