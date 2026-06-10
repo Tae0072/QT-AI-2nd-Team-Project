@@ -72,8 +72,8 @@ class AdminDashboardService implements GetAdminDashboardUseCase {
                         admin.adminUserId(),
                         "ADMIN",
                         admin.adminRole(),
-                        today.toString(),
-                        today.toString()
+                        null,
+                        null
                 )
         );
         AdminReportDashboardSummary reportSummary = reportSummaryUseCase.getDashboardSummary();
@@ -92,7 +92,7 @@ class AdminDashboardService implements GetAdminDashboardUseCase {
 
     private AdminDashboardResponse.TodayQt toTodayQt(LocalDate today) {
         TodayQtResponse todayQt = todayQtUseCase.getToday(null);
-        if (todayQt == null || todayQt.qtPassageId() == null) {
+        if (todayQt == null || isMissingTodayQt(todayQt)) {
             return missingTodayQt(today);
         }
         return new AdminDashboardResponse.TodayQt(
@@ -104,6 +104,10 @@ class AdminDashboardService implements GetAdminDashboardUseCase {
                 todayQt.hasExplanation(),
                 todayQt.cacheStatus()
         );
+    }
+
+    private static boolean isMissingTodayQt(TodayQtResponse todayQt) {
+        return todayQt.qtPassageId() == null || "EMPTY".equals(todayQt.cacheStatus());
     }
 
     private static AdminDashboardResponse.TodayQt missingTodayQt(LocalDate today) {

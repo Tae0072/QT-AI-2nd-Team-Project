@@ -40,7 +40,7 @@ class AdminDashboardAuditLogService implements ListAdminDashboardAuditLogsUseCas
                 .toList();
     }
 
-    private static AdminDashboardAuditLog toResponse(AuditQueryRepository.AuditLogRow row) {
+    private static AdminDashboardAuditLog toResponse(AuditQueryRepository.DashboardAuditLogRow row) {
         return new AdminDashboardAuditLog(
                 row.id(),
                 row.adminUserId(),

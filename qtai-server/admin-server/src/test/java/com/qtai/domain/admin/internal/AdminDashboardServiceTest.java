@@ -3,6 +3,7 @@ package com.qtai.domain.admin.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -23,6 +25,7 @@ import com.qtai.domain.admin.api.dto.AdminDashboardResponse;
 import com.qtai.domain.admin.api.dto.AdminUserInfo;
 import com.qtai.domain.ai.api.admin.monitoring.GetAdminAiMonitoringUseCase;
 import com.qtai.domain.ai.api.admin.monitoring.dto.AdminAiMonitoringResponse;
+import com.qtai.domain.ai.api.admin.monitoring.dto.GetAdminAiMonitoringQuery;
 import com.qtai.domain.audit.api.ListAdminDashboardAuditLogsUseCase;
 import com.qtai.domain.audit.api.dto.AdminDashboardAuditLog;
 import com.qtai.domain.qt.api.GetTodayQtUseCase;
@@ -76,6 +79,12 @@ class AdminDashboardServiceTest {
         assertThat(response.reviewingReportCount()).isEqualTo(2);
         assertThat(response.todayQt().status()).isEqualTo("READY");
         assertThat(response.todayQt().qtPassageId()).isEqualTo(35L);
+
+        ArgumentCaptor<GetAdminAiMonitoringQuery> queryCaptor =
+                ArgumentCaptor.forClass(GetAdminAiMonitoringQuery.class);
+        verify(aiMonitoringUseCase).getAdminAiMonitoring(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().from()).isNull();
+        assertThat(queryCaptor.getValue().to()).isNull();
     }
 
     @Test
@@ -94,6 +103,36 @@ class AdminDashboardServiceTest {
         assertThat(response.todayQt().simulatorStatus()).isNull();
         assertThat(response.todayQt().cacheStatus()).isNull();
         assertThat(response.todayQt().hasExplanation()).isFalse();
+    }
+
+    @Test
+    @DisplayName("today QT cacheStatus가 EMPTY이면 passageId가 있어도 MISSING으로 반환한다")
+    void empty_cache_today_qt_is_missing() {
+        arrangeBase();
+        when(todayQtUseCase.getToday(null))
+                .thenReturn(new TodayQtResponse(35L, "2026-06-10", "오늘의 QT", "READY", true, null, "EMPTY"));
+
+        AdminDashboardResponse response = service.getDashboard(7L);
+
+        assertThat(response.todayQt().status()).isEqualTo("MISSING");
+        assertThat(response.todayQt().qtPassageId()).isNull();
+        assertThat(response.todayQt().title()).isNull();
+        assertThat(response.todayQt().simulatorStatus()).isNull();
+        assertThat(response.todayQt().cacheStatus()).isNull();
+        assertThat(response.todayQt().hasExplanation()).isFalse();
+    }
+
+    @Test
+    @DisplayName("today QT status는 simulatorStatus와 분리해 본문 존재 여부로 READY를 반환한다")
+    void ready_today_qt_preserves_simulator_status() {
+        arrangeBase();
+        when(todayQtUseCase.getToday(null))
+                .thenReturn(new TodayQtResponse(35L, "2026-06-10", "오늘의 QT", "FAILED", true, null, "HIT"));
+
+        AdminDashboardResponse response = service.getDashboard(7L);
+
+        assertThat(response.todayQt().status()).isEqualTo("READY");
+        assertThat(response.todayQt().simulatorStatus()).isEqualTo("FAILED");
     }
 
     @Test

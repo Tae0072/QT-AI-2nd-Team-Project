@@ -1491,6 +1491,7 @@ components:
           example: 오늘의 QT
         status:
           type: string
+          description: QT passage availability for the dashboard. READY means a public QT passage is available; MISSING means no dashboard-displayable QT exists for the date.
           enum:
             - READY
             - MISSING

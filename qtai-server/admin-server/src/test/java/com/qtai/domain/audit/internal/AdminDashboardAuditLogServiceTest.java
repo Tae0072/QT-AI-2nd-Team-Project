@@ -26,17 +26,13 @@ class AdminDashboardAuditLogServiceTest {
     @DisplayName("최근 감사 로그를 dashboard sanitized DTO로 반환한다")
     void returns_sanitized_recent_audit_logs() {
         when(repository.findRecent(any(Pageable.class)))
-                .thenReturn(List.of(new AuditQueryRepository.AuditLogRow(
+                .thenReturn(List.of(new AuditQueryRepository.DashboardAuditLogRow(
                         10L,
                         1L,
                         "ADMIN",
-                        7L,
-                        "admin",
                         "AI_ASSET_APPROVE",
                         "AI_GENERATED_ASSET",
                         500L,
-                        "{\"prompt\":\"hidden\"}",
-                        "{\"payload\":\"hidden\"}",
                         OffsetDateTime.parse("2026-06-10T10:00:00+09:00")
                 )));
         AdminDashboardAuditLogService service = new AdminDashboardAuditLogService(repository);
