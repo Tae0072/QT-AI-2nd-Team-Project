@@ -11,7 +11,8 @@ public enum ErrorCode {
     // 공통
     INTERNAL_ERROR("C0001", "서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_INPUT("C0002", "올바르지 않은 요청입니다.", HttpStatus.BAD_REQUEST),
-    INVALID_STATUS_TRANSITION("C0003", "상태 전이를 수행할 수 없습니다.", HttpStatus.CONFLICT),
+    DUPLICATE_RESOURCE("C0003", "이미 존재하는 리소스입니다.", HttpStatus.CONFLICT),
+    INVALID_STATUS_TRANSITION("C0007", "상태 전이를 수행할 수 없습니다.", HttpStatus.CONFLICT),
     RESOURCE_NOT_FOUND("C0004", "요청한 리소스를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOT_IMPLEMENTED("C0005", "아직 구현되지 않은 기능입니다.", HttpStatus.NOT_IMPLEMENTED),
     EXTERNAL_API_FAILURE("C0006", "외부 API 호출에 실패했습니다.", HttpStatus.BAD_GATEWAY),
