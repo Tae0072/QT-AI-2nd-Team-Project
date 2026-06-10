@@ -36,6 +36,8 @@
 3. **admin-web = 처음부터 8090(admin-server) 기준.**
 
 > ✅ **이전 충돌 해소**: 06-09 ③A(기존 `/auth/kakao` 재사용) ↔ 06-10 신규 `admin/auth/kakao` 충돌은 → **신규 `POST /api/v1/admin/auth/kakao` 채택**으로 확정. (카카오 응답 형태 5개도 [계약](2026-06-10_admin-kakao-auth-contract.md) §7 합의 완료)
+>
+> ⚠️ **SSoT 갱신 필요(Lead 검토) — 후속 PR 전제**: 본 트랙의 결정 중 둘은 상위 SSoT를 바꿔야 성립한다. ① 신규 `admin/auth/kakao`는 **`CLAUDE.md §5` 갱신 PR + Lead 승인** 필요(현 §5엔 `/api/v1/auth/kakao`만 명시). ② qt-passages 요청필드(`bookId+chapter+startVerse+endVerse`)는 **`04_API_명세서.md §4.7.2` 갱신 PR** 필요(현 04엔 `startVerseId/endVerseId`). 둘 다 별도 PR이며, 본 문서는 **"팀 결정 기준 확정 · SSoT 반영 대기"**다.
 
 ---
 
@@ -98,7 +100,7 @@
 
 ## 7. 확인 필요 (열린 질문)
 
-- **카카오 엔드포인트 라우팅**: admin-web base=8090(admin-server)인데 `POST /api/v1/admin/auth/kakao`의 실제 발급 주체는 service-user(이승욱). admin-server가 8090에서 이 경로를 노출(내부적으로 service-user 호출)하는지 → 이승욱·강상민과 확인.
+- **카카오 엔드포인트 라우팅 — 처리 방침(명문화)**: FE는 **base 8090 + `/api/v1/admin/auth/kakao` 경로로 고정 호출**한다. 실제 라우팅(admin-server가 직접 노출 vs 게이트웨이/service-user 경유)은 **BE(이승욱·강상민)가 확정**하며, **경로 문자열이 동일해 FE 코드는 영향 없음**(라우팅 확정 시 FE 변경 불필요). 확정 책임·기한은 이승욱·강상민 협의로 처리하고, 본 워크플로우는 경로 고정만 보장한다.
 - **카카오 콘솔 도메인 등록(나중)**: Web 플랫폼 `http://localhost:5173` 등록 후 팝업/토큰 획득 로컬 확인 가능. 로컬 `admin-web/.env`(gitignore)에 JS 키는 주입 완료.
 - qt-passages는 ✅ 확정(요청필드 `bookId+chapter+startVerse+endVerse` + 상태값 5종) — 5종 Tag/버튼·등록폼 구현 가능. (04 §4.7.2 갱신은 별도 PR)
 

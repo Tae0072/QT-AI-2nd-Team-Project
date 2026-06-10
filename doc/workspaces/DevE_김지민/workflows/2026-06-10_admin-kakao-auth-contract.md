@@ -8,7 +8,9 @@
 - **상태:** 엔드포인트 경로 **확정**(신규 `admin/auth/kakao`) + 응답 형태 **5개 합의 완료**(§7). service-user task 3에서 구현 대기.
 - **기준:** 기존 사용자 로그인(`POST /api/v1/auth/kakao`, `LoginResponse`)과 일관성 유지. 단일 DB·service-user가 유일한 JWT 발급자(RS256).
 
-> ✅ **엔드포인트 경로 확정(2026-06-10):** 06-09 결정 ③④는 "기존 `/api/v1/auth/kakao` 재사용"이었으나, 2026-06-10 팀 결정으로 **신규 `POST /api/v1/admin/auth/kakao` 채택으로 확정**(서버 `/oauth2` 미사용 — JS SDK 토큰을 서버로 전달하므로 CLAUDE.md §5와 충돌 없음). 응답 형태 5개 포인트도 §7 FE 합의 완료.
+> ✅ **엔드포인트 경로 확정(2026-06-10):** 06-09 결정 ③④는 "기존 `/api/v1/auth/kakao` 재사용"이었으나, 2026-06-10 팀 결정으로 **신규 `POST /api/v1/admin/auth/kakao` 채택으로 확정**(서버 `/oauth2` 미사용 — JS SDK 토큰을 서버로 전달하므로 §5의 `/oauth2` 금지와는 충돌 없음). 응답 형태 5개 포인트도 §7 FE 합의 완료.
+>
+> ⚠️ **SSoT 갱신 필요 — Lead 검토 (`CLAUDE.md §2` 절차):** 신규 `POST /api/v1/admin/auth/kakao`는 **`CLAUDE.md §5`**(현재 *"Kakao 인증도 `POST /api/v1/auth/kakao`를 사용"*)에 명시되지 않은 엔드포인트다. 근거는 **2026-06-10 팀 결정**이며, SSoT 반영을 위해 **CLAUDE.md §5 갱신 PR + Lead 승인**이 후속으로 필요하다. 그 전까지 본 결정은 **"팀 결정 기준 확정 · SSoT 반영 대기"** 상태로 본다(코드는 이 경로로 선구현, 경로 자체는 Lead 승인 후 고정).
 
 ---
 
