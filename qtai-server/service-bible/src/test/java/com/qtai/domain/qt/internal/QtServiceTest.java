@@ -52,7 +52,8 @@ class QtServiceTest {
     void setUp() {
         qtService = new QtService(
                 passageLookup, qtPassageRepository, qtPassageVerseRepository,
-                rangeResolver, getNoteUseCase, getQtStudyAvailabilityUseCase, FIXED_CLOCK);
+                rangeResolver, getNoteUseCase, getQtStudyAvailabilityUseCase,
+                FIXED_CLOCK);
     }
 
     private static QtPassage passageOn(LocalDate date) {
