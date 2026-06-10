@@ -37,7 +37,7 @@
 
 > ✅ **이전 충돌 해소**: 06-09 ③A(기존 `/auth/kakao` 재사용) ↔ 06-10 신규 `admin/auth/kakao` 충돌은 → **신규 `POST /api/v1/admin/auth/kakao` 채택**으로 확정. (카카오 응답 형태 5개도 [계약](2026-06-10_admin-kakao-auth-contract.md) §7 합의 완료)
 >
-> ✅ **SSoT 반영 완료(본 PR) — Lead 사후 승인 트래킹**: 본 트랙의 SSoT 의존 2건을 **본 PR에서 반영**했다. ① `CLAUDE.md §5`에 admin `/admin/auth/kakao` 추가. ② `04_API_명세서.md §4.7.2` 요청필드를 `bookId+chapter+startVerse+endVerse`로 갱신(+상태 5종 메모). 근거=2026-06-10 팀 결정. governance/SSoT 파일이라 **Lead(강태오) 사후 승인**은 PR 본문에 트래킹. (04는 별도 문서 저장소 캐논 동기화가 추가로 필요.)
+> ✅ **SSoT 반영(본 PR) — Lead 명시 승인 코멘트 필요(`CLAUDE.md §2`)**: SSoT 의존 2건을 **본 PR에서 반영**했다. ① `CLAUDE.md §5`에 admin `/admin/auth/kakao` 추가. ② `04_API_명세서.md §4.7.2` 요청필드를 `bookId+chapter+startVerse+endVerse`로 갱신(예시 status도 5종 `pending_review`로 정렬). 근거=2026-06-10 팀 결정. §2상 SSoT 변경은 Lead 사전 검토 대상 → **Lead(강태오)의 명시 승인 코멘트를 머지 전 첨부**. (04는 별도 문서 저장소 캐논 동기화가 추가로 필요.)
 
 ---
 

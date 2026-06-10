@@ -1446,7 +1446,7 @@
   "endVerse": 6,
   "title": "오늘의 QT",
   "mainVerseRef": "시편 23:1-6",
-  "status": "DRAFT"
+  "status": "pending_review"
 }
 ```
 

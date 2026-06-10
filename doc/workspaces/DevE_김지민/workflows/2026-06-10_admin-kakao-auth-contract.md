@@ -10,7 +10,7 @@
 
 > ✅ **엔드포인트 경로 확정(2026-06-10):** 06-09 결정 ③④는 "기존 `/api/v1/auth/kakao` 재사용"이었으나, 2026-06-10 팀 결정으로 **신규 `POST /api/v1/admin/auth/kakao` 채택으로 확정**(서버 `/oauth2` 미사용 — JS SDK 토큰을 서버로 전달하므로 §5의 `/oauth2` 금지와는 충돌 없음). 응답 형태 5개 포인트도 §7 FE 합의 완료.
 >
-> ✅ **SSoT 반영 완료(본 PR) — Lead 사후 승인 트래킹:** 신규 `POST /api/v1/admin/auth/kakao`를 **`CLAUDE.md §5`에 본 PR에서 반영**(2026-06-10 팀 결정 근거). 기존 `/api/v1/auth/kakao`(앱 로그인)는 그대로 유지. governance 파일이라 **Lead(강태오) 사후 승인**은 PR 본문 트래킹 라인으로 처리(`CLAUDE.md §2`).
+> ✅ **SSoT 반영(본 PR) — Lead 명시 승인 코멘트 필요(`CLAUDE.md §2`):** 신규 `POST /api/v1/admin/auth/kakao`를 **`CLAUDE.md §5`에 본 PR에서 반영**(2026-06-10 팀 결정 근거). 기존 `/api/v1/auth/kakao`(앱 로그인)는 그대로 유지. §2상 SSoT 변경은 Lead 사전 검토 대상이므로 **Lead(강태오)의 명시 승인 코멘트를 머지 전 PR에 첨부**한다.
 
 ---
 
