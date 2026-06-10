@@ -99,6 +99,7 @@
 ## 7. 확인 필요 (열린 질문)
 
 - **카카오 엔드포인트 라우팅**: admin-web base=8090(admin-server)인데 `POST /api/v1/admin/auth/kakao`의 실제 발급 주체는 service-user(이승욱). admin-server가 8090에서 이 경로를 노출(내부적으로 service-user 호출)하는지 → 이승욱·강상민과 확인.
+- **카카오 콘솔 도메인 등록(나중)**: Web 플랫폼 `http://localhost:5173` 등록 후 팝업/토큰 획득 로컬 확인 가능. 로컬 `admin-web/.env`(gitignore)에 JS 키는 주입 완료.
 - **이지윤 선결 2건** 확정 전까지 qt-passages 등록/수정 폼은 보류.
 
 ---
@@ -106,4 +107,5 @@
 ## 진행 로그
 
 - 2026-06-10: MSA 8090 전환 반영. admin-web FE 워크플로우·체크리스트 신규 작성. 카카오 경로 충돌 해소(신규 `admin/auth/kakao` 확정) 반영.
-- 2026-06-10: **F3·F1·F2 코드 구현 완료** — env 8090, 카카오 JS SDK 로그인 버튼, `admin/auth/kakao` 연동, 합의 5개 반영. typecheck·build 통과. dashboard·notices(강상민)는 협의 불요로 확정. **다음: 이지윤 선결 2건 확정 후 qt-passages 화면 연동.**
+- 2026-06-10: **F3·F1·F2 코드 구현 완료** — env 8090, 카카오 JS SDK 로그인 버튼, `admin/auth/kakao` 연동, 합의 5개 반영. typecheck·build 통과. dashboard·notices(강상민)는 협의 불요로 확정.
+- 2026-06-10: 로컬 `admin-web/.env`(gitignore)에 카카오 JS 키 주입 완료(`.env.example`은 플레이스홀더 유지). **카카오 콘솔 Web 도메인(`localhost:5173`) 등록은 나중.** **다음: 이지윤 선결 2건 확정 후 qt-passages 화면 연동.**

@@ -31,6 +31,8 @@
 - [x] Kakao JS SDK 로드(`index.html` CDN) + `src/auth/kakao.ts`의 `loginWithKakao()`에서 `Kakao.init`
 - [x] `LoginPage.tsx`: 임시 토큰 붙여넣기 → **카카오 로그인 버튼**(임시토큰은 dev 모드에서만 유지, prod 제거)
 - [x] 카카오 로그인 실행 → access token 획득 (`loginWithKakao`)
+- [x] 로컬 `admin-web/.env` 생성(gitignore) — `VITE_KAKAO_JS_KEY` 실제 키 주입 (`.env.example`은 플레이스홀더 유지)
+- [ ] **(나중)** 카카오 개발자 콘솔 Web 플랫폼 `http://localhost:5173` 등록 — 팝업 정상 동작 전제
 
 ### F2. 토큰 교환 → ADMIN 토큰 저장 ✅
 - [x] `src/api/adminAuth.ts`(신규): `POST /api/v1/admin/auth/kakao` { kakaoAccessToken } 호출
@@ -44,7 +46,7 @@
 - [x] ⑤ access 30분/refresh 14일 — 계약 주석 명시 (만료 시 401→재로그인)
 
 - [x] 검증: `npm run typecheck` + `npm run build` **통과**
-- [ ] (백엔드·키 준비 후) 카카오 로그인 → 대시보드 진입 수동 e2e 확인
+- [ ] (백엔드 `admin/auth/kakao` + 콘솔 도메인 등록 후) 카카오 로그인 → 대시보드 진입 수동 e2e 확인
 
 ---
 
