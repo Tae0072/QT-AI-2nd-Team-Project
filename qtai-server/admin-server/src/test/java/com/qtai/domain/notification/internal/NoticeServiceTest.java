@@ -3,7 +3,6 @@ package com.qtai.domain.notification.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,8 +25,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.SimpleTransactionStatus;
 
 @ExtendWith(MockitoExtension.class)
 class NoticeServiceTest {
@@ -40,13 +37,13 @@ class NoticeServiceTest {
     @Mock
     NoticeRepository noticeRepository;
     @Mock
-    NotificationRepository notificationRepository;
-    @Mock
     ListActiveMemberIdsUseCase listActiveMemberIdsUseCase;
     @Mock
     WriteAuditLogUseCase writeAuditLogUseCase;
     @Mock
-    PlatformTransactionManager transactionManager;
+    NoticePublishStateService noticePublishStateService;
+    @Mock
+    NoticeNotificationFanoutService noticeNotificationFanoutService;
 
     NoticeService noticeService;
 
@@ -54,13 +51,11 @@ class NoticeServiceTest {
     void setUp() {
         noticeService = new NoticeService(
                 noticeRepository,
-                notificationRepository,
                 listActiveMemberIdsUseCase,
                 writeAuditLogUseCase,
-                CLOCK,
-                transactionManager
+                noticePublishStateService,
+                noticeNotificationFanoutService
         );
-        lenient().when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
     }
 
     @Test
@@ -104,49 +99,19 @@ class NoticeServiceTest {
         Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
         when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
         when(listActiveMemberIdsUseCase.listActiveMemberIds()).thenReturn(List.of(10L, 11L));
-        when(notificationRepository.existsByMemberIdAndEventKey(any(), any())).thenReturn(false);
+        when(noticePublishStateService.publish(1L)).thenReturn(new PublishedNotice(
+                1L, "공지", "본문", "PUBLISHED",
+                LocalDateTime.of(2026, 6, 10, 10, 30), "{\"status\":\"DRAFT\"}"));
+        when(noticeNotificationFanoutService.fanout(any(), any())).thenReturn(
+                new NoticeNotificationFanoutResult(2, 2, 0));
 
         var response = noticeService.publishNotice(100L, 1L);
 
-        assertThat(notice.getStatus()).isEqualTo(NoticeStatus.PUBLISHED);
         assertThat(response.status()).isEqualTo("PUBLISHED");
         assertThat(response.publishedAt()).isEqualTo(LocalDateTime.of(2026, 6, 10, 10, 30));
         assertThat(response.notificationResult().requestedCount()).isEqualTo(2);
         assertThat(response.notificationResult().createdCount()).isEqualTo(2);
         assertThat(response.notificationResult().failedCount()).isZero();
-    }
-
-    @Test
-    void publish_skipsDuplicateEventKeyWithoutFailure() {
-        Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
-        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
-        when(listActiveMemberIdsUseCase.listActiveMemberIds()).thenReturn(List.of(10L, 11L));
-        when(notificationRepository.existsByMemberIdAndEventKey(10L, "NOTICE:1:10")).thenReturn(true);
-        when(notificationRepository.existsByMemberIdAndEventKey(11L, "NOTICE:1:11")).thenReturn(false);
-
-        var response = noticeService.publishNotice(100L, 1L);
-
-        assertThat(response.notificationResult().requestedCount()).isEqualTo(2);
-        assertThat(response.notificationResult().createdCount()).isEqualTo(1);
-        assertThat(response.notificationResult().failedCount()).isZero();
-    }
-
-    @Test
-    void publish_countsPartialNotificationFailureAndKeepsPublishedStatus() {
-        Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
-        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
-        when(listActiveMemberIdsUseCase.listActiveMemberIds()).thenReturn(List.of(10L, 11L));
-        when(notificationRepository.existsByMemberIdAndEventKey(any(), any())).thenReturn(false);
-        when(notificationRepository.save(any(Notification.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0))
-                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate"));
-
-        var response = noticeService.publishNotice(100L, 1L);
-
-        assertThat(notice.getStatus()).isEqualTo(NoticeStatus.PUBLISHED);
-        assertThat(response.notificationResult().requestedCount()).isEqualTo(2);
-        assertThat(response.notificationResult().createdCount()).isEqualTo(1);
-        assertThat(response.notificationResult().failedCount()).isEqualTo(1);
     }
 
     @Test
@@ -173,21 +138,18 @@ class NoticeServiceTest {
     }
 
     @Test
-    void create_escapesHtmlBeforeStoringNotice() {
-        when(noticeRepository.save(any(Notice.class))).thenAnswer(invocation -> persisted(invocation.getArgument(0), 1L));
-
-        var response = noticeService.createNotice(new AdminNoticeCommand(
-                100L, "<script>alert(1)</script>", "<img src=x onerror=alert(1)>", null));
-
-        assertThat(response.title()).isEqualTo("&lt;script&gt;alert(1)&lt;/script&gt;");
-        assertThat(response.body()).isEqualTo("&lt;img src=x onerror=alert(1)&gt;");
+    void create_rejectsHtmlTagCharacters() {
+        assertThatThrownBy(() -> noticeService.createNotice(new AdminNoticeCommand(
+                100L, "<script>alert(1)</script>", "<img src=x onerror=alert(1)>", null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT);
     }
 
     @Test
     void publish_rejectsInvalidTransition() {
-        Notice notice = persisted(Notice.draft(100L, "공지", "본문"), 1L);
-        notice.hide();
-        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
+        when(noticePublishStateService.publish(1L))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION));
 
         assertThatThrownBy(() -> noticeService.publishNotice(100L, 1L))
                 .isInstanceOf(BusinessException.class)

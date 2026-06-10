@@ -107,15 +107,9 @@ public class Notice {
         if (normalized.length() > maxLength) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, fieldName + " 길이가 너무 깁니다.");
         }
-        return escapeHtml(normalized);
-    }
-
-    private static String escapeHtml(String value) {
-        return value
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;");
+        if (normalized.indexOf('<') >= 0 || normalized.indexOf('>') >= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, fieldName + "에는 HTML 태그 문자를 사용할 수 없습니다.");
+        }
+        return normalized;
     }
 }

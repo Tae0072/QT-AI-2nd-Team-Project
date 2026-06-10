@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * 알림 영속성 포트. Spring Data JPA로 구현.
@@ -25,6 +27,9 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     /** 동일 이벤트 알림 중복 확인 (멱등성 보장). */
     boolean existsByMemberIdAndEventKey(Long memberId, String eventKey);
+
+    @Query("SELECT n.eventKey FROM Notification n WHERE n.eventKey IN :eventKeys")
+    List<String> findEventKeysIn(@Param("eventKeys") Collection<String> eventKeys);
 
     /** 전체 일괄 읽음 처리 — 영향받은 행 수 반환. */
     @Modifying(clearAutomatically = true)
