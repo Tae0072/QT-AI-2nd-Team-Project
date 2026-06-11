@@ -21,8 +21,8 @@ const _range = BibleVerseRange(
       bookCode: 'GEN',
       chapterNo: 1,
       verseNo: 1,
-      koreanText: '태초에 하나님이 천지를 창조하시니라',
-      englishText: 'In the beginning God created the heavens and the earth.',
+      koreanText: '테스트 본문 1절 내용',
+      englishText: 'Test verse body 1',
     ),
   ],
 );
@@ -48,7 +48,7 @@ void main() {
 
     expect(find.text('창세기 1장'), findsWidgets);
     expect(find.text('1:1'), findsOneWidget);
-    expect(find.text('태초에 하나님이 천지를 창조하시니라'), findsOneWidget);
+    expect(find.text('테스트 본문 1절 내용'), findsOneWidget);
   });
 
   testWidgets('해설 버튼은 가용성이 없으면 비활성', (tester) async {

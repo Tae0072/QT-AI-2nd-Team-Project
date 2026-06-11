@@ -11,6 +11,7 @@ import com.qtai.domain.qt.api.GetTodayQtUseCase;
 import com.qtai.domain.qt.api.dto.BiblePassageStudy;
 import com.qtai.domain.qt.api.dto.QtPassageContentContext;
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
+import com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase;
 import com.qtai.domain.study.api.dto.QtStudyAvailability;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,7 +51,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
     private final QtPassageVerseRepository qtPassageVerseRepository;
     private final TodayQtRangeResolver rangeResolver;
     private final GetNoteUseCase getNoteUseCase;
-    private final com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase getQtStudyAvailabilityUseCase;
+    private final GetQtStudyAvailabilityUseCase getQtStudyAvailabilityUseCase;
     private final BibleBookLookup bibleBookLookup;
     private final java.time.Clock clock;
 
