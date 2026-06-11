@@ -24,7 +24,7 @@
 - [ ] `npm run typecheck` + `npm run build` 통과
 - [ ] 워크플로우·리포트 갱신 → 커밋 → push → PR(base dev)
 
-## ⏳ P3b `feature/admin-web-qt-passages-dto` — AD-02 풀 CRUD (진행 중)
+## ✅ P3b `feature/admin-web-qt-passages-dto` — AD-02 풀 CRUD 머지 완료 (#496)
 
 - [x] `qtPassages.ts` 실타입(`QtPassage`+`QtPassageStatus` 5종)+필터 파라미터+`QtPassageRequest`+create/update API
 - [x] `QtPassagesPage.tsx` `usePagedList` 목록 + 명시 컬럼 + 상태 Tag(한글 라벨)
@@ -35,10 +35,16 @@
 - [x] `npm run typecheck` + `npm run build` 통과
 - [ ] 워크플로우·리포트 갱신 → 커밋 → push → PR(base dev)
 
-## ⏳ P3c `feature/admin-web-notices-dto` — AD-06 (예정)
+## ⏳ P3c `feature/admin-web-notices-dto` — AD-06 풀 CRUD (진행 중, 계획 확정 B)
 
-- [ ] `src/api/notices.ts` 실타입(`AdminNoticeListResponse`/`DetailResponse`/`PublishResponse`, #450)
-- [ ] `NoticesPage.tsx` 실데이터 + 빈/에러 + "준비 중" 철거
+- [ ] `notices.ts` 실타입(`Notice`·`NoticeDetail`·`NoticeStatus` 3종·`NoticeRequest`·`PublishResult`) + create(POST)/update(PATCH)/hide API (#450 계약)
+- [ ] `NoticesPage.tsx` `usePagedList` 목록 + 명시 컬럼(제목·미리보기·상태 Tag·발행시각) + 페이징
+- [ ] 등록/수정 Modal 폼(제목 Input + 본문 TextArea, **plain text 검증** `<`·`>` 금지)
+- [ ] 행 액션(상태별 수정/발행/숨김, Popconfirm) — DRAFT→수정·발행, PUBLISHED→숨김, HIDDEN→없음
+- [ ] 발행 성공 시 **알림 결과**(생성/실패 수) 메시지 + 에러 Alert+재시도 + "준비 중" 철거
+- [ ] antd 함정 보정(Modal forceRender, validateFields 분리) — P3b 패턴 재사용
+- [ ] `npm run typecheck` + `npm run build` 통과
+- [ ] 워크플로우·리포트 갱신 → 커밋 → push → PR(base dev)
 
 ## ⏳ P5c `chore/admin-web-code-split` (예정)
 
@@ -54,7 +60,18 @@
 
 ---
 
+## ⏳ P2 `feature/admin-web-token-refresh` — 진행 중 (리다이렉트 방식 B 확정)
+
+> 공용 `POST /api/v1/auth/refresh` 재사용(계약서 §6). 재발급 role=ADMIN 유지. 리다이렉트=B(AuthContext 콜백, 새로고침 없음).
+
+- [ ] `tokenStorage`: `getRefreshToken`/`setRefreshToken` 추가 + `clearTokens`(access+refresh 동시)
+- [ ] `client.ts`: 401 → `/auth/refresh`(**single-flight**, `_retry` 플래그) → 새 access로 원요청 재시도. `/auth/refresh`·`/admin/auth/kakao` 제외
+- [ ] `client.ts`: `setAuthExpiredHandler(fn)` export — refresh 실패/`M0006`/`M0007` 시 `clearTokens` + 콜백 호출
+- [ ] `AuthContext`: `login(access, refresh?)` 확장(둘 다 저장) + `useEffect`로 `setAuthExpiredHandler(clearSession)` 등록
+- [ ] `LoginPage`: 카카오 로그인 시 `login(res.accessToken, res.refreshToken)` (dev 토큰은 access만)
+- [ ] `npm run typecheck` + `npm run build` 통과 → 워크플로우·리포트 → 커밋 → push → PR(base dev)
+- [ ] 검증: access 만료 시나리오에서 화면 유지 / refresh 실패 시 로그인 이동
+
 ## ⛔ 보류 (의존 해제 시)
 
-- [ ] **P2 refresh** — 관리자 토큰 갱신을 기본 `/api/v1/auth/refresh` 재사용 vs 전용 경로: 이승욱 계약 결정 후 `client.ts` single-flight + `tokenStorage` refresh 저장
 - [ ] **P5a 찬양 숨김** — admin-server `AdminPraiseController`(PATCH/hide) 백엔드 구현 후 `hidePraiseSong` 행 액션 연결(AD-03 Popconfirm 패턴)

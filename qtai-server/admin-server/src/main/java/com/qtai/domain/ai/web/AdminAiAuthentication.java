@@ -44,6 +44,11 @@ class AdminAiAuthentication {
         return require(requestAuthentication, List.of("REVIEWER"));
     }
 
+    /** AI 평가 셋/케이스 관리 권한 — REVIEWER 또는 CONTENT_CREATOR (SUPER_ADMIN 자동 포함). */
+    AdminAiPrincipal requireEvaluationManager(Authentication requestAuthentication) {
+        return require(requestAuthentication, List.of("REVIEWER", "CONTENT_CREATOR"));
+    }
+
     /** 모니터링 조회 권한 — OPERATOR 또는 REVIEWER (SUPER_ADMIN 자동 포함). */
     AdminAiPrincipal requireMonitoring(Authentication requestAuthentication) {
         return require(requestAuthentication, List.of("OPERATOR", "REVIEWER"));

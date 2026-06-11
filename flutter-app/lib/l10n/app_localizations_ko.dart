@@ -285,6 +285,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get navMy => '마이';
 
   @override
+  String get homeBackExitGuide => '한 번 더 누르면 앱이 종료됩니다';
+
+  @override
   String get ttsRead => '본문 읽기';
 
   @override

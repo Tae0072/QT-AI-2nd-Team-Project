@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../widgets/double_back_exit_scope.dart';
 import '../../bible/screens/bible_browser_screen.dart';
 import '../../bible/screens/today_qt_screen.dart';
 import '../../music/providers/music_providers.dart';
@@ -39,7 +40,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return Scaffold(
+    // 뒤로가기 2번 종료 — 다섯 탭 어디서든 동일. 홈 위에 push된 상세 화면들(알림·설정·
+    // 노트 작성 등)은 자기 라우트가 pop을 처리해 부모로 정상 복귀한다(스코프 javadoc 참조).
+    return DoubleBackExitScope(
+      child: Scaffold(
       body: Consumer(
         builder: (context, ref, child) => Listener(
           behavior: HitTestBehavior.translucent,
@@ -91,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
             label: l.navMy,
           ),
         ],
+        ),
       ),
     );
   }
