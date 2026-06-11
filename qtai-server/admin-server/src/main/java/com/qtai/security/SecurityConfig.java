@@ -9,7 +9,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -49,6 +50,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final SecurityErrorResponseWriter securityErrorResponseWriter;
+    private final Environment environment;
 
     /** 관리자 웹(별도 오리진) 등 CORS 허용 오리진. WebConfig 대신 시큐리티 필터 레벨에서 처리. */
     @Value("${cors.allowed-origins:http://localhost:3000}")
@@ -73,22 +75,26 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, accessDeniedException) ->
                                 securityErrorResponseWriter.write(response, ErrorCode.FORBIDDEN)))
 
-                .authorizeHttpRequests(auth -> auth
-                        // 인증 없이 허용 (CLAUDE.md §5)
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/kakao").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
-                        // H2 콘솔 (local 프로파일 전용 — prod엔 엔드포인트 없음)
-                        .requestMatchers("/h2-console/**").permitAll()
+                .authorizeHttpRequests(auth -> {
+                    // 사용자 인증(/api/v1/auth/**)은 service-user 소관 — admin-server에는 해당
+                    // 컨트롤러가 없다. 모놀리식 잔재 permitAll 2줄 제거(코드리뷰 2026-06-10 TODO 5).
+                    // 관리자 로그인(/api/v1/admin/auth/kakao)도 service-user가 처리한다.
 
-                        // 시스템·배치 내부 API — 필터 레벨에서 ROLE_SYSTEM_BATCH 강제(컨트롤러 수동 검사에만 의존하지 않음)
-                        .requestMatchers("/api/v1/system/**").hasRole("SYSTEM_BATCH")
+                    // H2 콘솔 — local/dev 프로파일에서만 개방(운영 이미지는 H2 미포함이지만 방어적 가드)
+                    if (environment.acceptsProfiles(Profiles.of("local", "dev"))) {
+                        auth.requestMatchers("/h2-console/**").permitAll();
+                    }
 
-                        // 관리자 API — ADMIN role 필요 (admin_role 세부 권한은 서비스 레이어에서 추가 검증)
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                    auth
+                            // 시스템·배치 내부 API — 필터 레벨에서 ROLE_SYSTEM_BATCH 강제(컨트롤러 수동 검사에만 의존하지 않음)
+                            .requestMatchers("/api/v1/system/**").hasRole("SYSTEM_BATCH")
 
-                        // 나머지 모든 API — 인증 필요
-                        .anyRequest().authenticated()
-                )
+                            // 관리자 API — ADMIN role 필요 (admin_role 세부 권한은 서비스 레이어에서 추가 검증)
+                            .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+
+                            // 나머지 모든 API — 인증 필요
+                            .anyRequest().authenticated();
+                })
 
                 // JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 추가
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
