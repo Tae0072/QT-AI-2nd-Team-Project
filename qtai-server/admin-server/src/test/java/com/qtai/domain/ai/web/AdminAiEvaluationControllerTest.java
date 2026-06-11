@@ -40,6 +40,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -76,6 +77,7 @@ class AdminAiEvaluationControllerTest {
 
     @BeforeEach
     void setUp() {
+        SecurityContextHolder.clearContext();
         AdminAiAuthentication authentication = new AdminAiAuthentication(verifyAdminRoleUseCase);
         AdminAiEvaluationController controller = new AdminAiEvaluationController(
                 listSetsUseCase,
@@ -171,6 +173,13 @@ class AdminAiEvaluationControllerTest {
                         .principal(authentication("ROLE_USER")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("M0003"));
+    }
+
+    @Test
+    void unauthenticatedRequestCannotListEvaluationSets() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/ai/evaluation-sets"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("M0002"));
     }
 
     @Test
