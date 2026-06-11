@@ -72,6 +72,31 @@
 - [ ] `npm run typecheck` + `npm run build` 통과 → 워크플로우·리포트 → 커밋 → push → PR(base dev)
 - [ ] 검증: access 만료 시나리오에서 화면 유지 / refresh 실패 시 로그인 이동
 
-## ⛔ 보류 (의존 해제 시)
+## ✅ `feature/praise-admin-crud` — admin-server praise CRUD + admin-web edit/delete + Flutter displayTitle fix (F-06/F-09)
 
-- [ ] **P5a 찬양 숨김** — admin-server `AdminPraiseController`(PATCH/hide) 백엔드 구현 후 `hidePraiseSong` 행 액션 연결(AD-03 Popconfirm 패턴)
+> 브랜치: `feature/praise-admin-crud` (base=origin/dev). 워크플로우 의존 해제: `AdminPraiseController` 백엔드 구현 완료.
+
+- [x] **admin-server backend**
+  - [x] `DeletePraiseUseCase`, `UpdatePraiseUseCase` UseCase 인터페이스 신규
+  - [x] `PraiseUpdateRequest` DTO (title·artist·licenseNote)
+  - [x] `PraiseSong.update()` 엔티티 메서드
+  - [x] `PraiseService` — `listAdmin`, `update(@Transactional)`, `delete(@Transactional)` 구현
+  - [x] `PraiseResponse` 8-arg (licenseNote·updatedAt 추가)
+  - [x] `AdminPraiseController` — GET/POST/PATCH/{id}/DELETE/{id}. `requireOperator` 패턴(OPERATOR/SUPER_ADMIN). 숨김(hide)은 v1 범위 제외
+  - [x] `PraiseSongRepository` — 중복 `findAll(Pageable)` 선언 제거
+- [x] **admin-web FE** (`praiseSongs.ts` + `PraiseSongsPage.tsx`)
+  - [x] `UpdatePraiseSongRequest` 인터페이스 + `updatePraiseSong`/`deletePraiseSong` API 함수
+  - [x] 수정 Modal(title·artist·licenseNote 편집), 삭제 Popconfirm(danger), "작업" 컬럼
+  - [x] `hidePraiseSong` stub 제거(v1 제외)
+  - [x] `npm run typecheck` 통과
+- [x] **Flutter** — `saveMyPraiseSong(praiseSongId, displayTitle)` 계약 수정(04 §4.6.4)
+  - [x] `mypage_repository.dart`: `displayTitle` 파라미터 추가, `sourceType` 제거
+  - [x] `praise_screen.dart`: `song.title`을 `displayTitle`로 전달
+
+---
+
+## ⏸️ P5a 찬양 숨김 — v1 범위 제외 (보류)
+
+> `AdminPraiseController` GET/POST/PATCH/DELETE 구현 완료(`feature/praise-admin-crud`). hide(`POST /{id}/hide`) 는 04 §4.7.6에 명시되어 있으나 **v1 범위 제외**로 보류.
+
+- [ ] **P5a 찬양 숨김** — `PraiseSong.hide()` 엔티티 메서드는 이미 존재. v1.1 이후 admin-server `PATCH /{id}/hide` 컨트롤러 엔드포인트 + `praiseSongs.ts` `hidePraiseSong` 행 액션 연결(AD-03 Popconfirm 패턴)

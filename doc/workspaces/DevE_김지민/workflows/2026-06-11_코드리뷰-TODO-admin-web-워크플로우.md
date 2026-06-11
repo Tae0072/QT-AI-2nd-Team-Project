@@ -34,7 +34,7 @@
 | P5b SDK 안내     | ✅ 가능             | `kakao.ts` 키 미설정 throw → LoginPage Alert                                                                                                      |
 | P5c code-split | ✅ 가능             | vite manualChunks 없음(1.15MB 단일청크, 빌드 경고 확인)                                                                                                   |
 | P2 refresh     | ✅ 풀림(2026-06-11) | 공용 `POST /api/v1/auth/refresh` 재사용 합의 — 재발급 role=ADMIN 유지(서버 테스트 보증). 근거: `DevD_이승욱/contracts/2026-06-10_admin-kakao-auth-api-contract.md` §6 |
-| P5a 찬양 숨김      | ❌ 막힘             | admin-server praise web 컨트롤러 없음(PATCH/hide 미구현)                                                                                               |
+| P5a 찬양 숨김(hide) | ⏸️ v1 제외 (숨김만)  | `AdminPraiseController` GET/POST/PATCH/DELETE 구현 완료(`feature/praise-admin-crud`). hide(`POST/{id}/hide`)는 v1 범위 제외 — v1.1 이후 추가                |
 
 
 ---
@@ -52,7 +52,8 @@
 | 6   | `feature/admin-web-kakao-sdk-notice`  | P5b        | 예정                            |
 | 7   | `docs/admin-web-token-storage-review` | P4         | 예정(강태오 확인)                    |
 | 8   | `feature/admin-web-token-refresh`     | P2 refresh | 착수 가능(계약 확정)                  |
-| 보류  | —                                     | P5a 찬양 숨김  | admin-server praise 컨트롤러 구현 후 |
+| —   | `feature/praise-admin-crud`           | 찬양 CRUD    | ✅ PR 대기(CRUD 완료, hide v1 제외)  |
+| 보류  | —                                     | P5a 찬양 숨김  | CRUD 완료(`feature/praise-admin-crud`). hide는 v1 범위 제외 — v1.1 이후 |
 
 
 > P3는 화면당 3개 PR로 분리(TODO 권장, 500라인 준수). 페이징은 기존 `hooks/usePagedList.ts` 재사용.

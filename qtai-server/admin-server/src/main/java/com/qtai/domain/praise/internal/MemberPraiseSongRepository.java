@@ -25,4 +25,15 @@ public interface MemberPraiseSongRepository extends JpaRepository<MemberPraiseSo
 
     /** 특정 회원의 저장 곡 수. */
     long countByMemberId(Long memberId);
+
+    /**
+     * 큐레이션 곡을 참조하는 모든 회원 저장 행 삭제.
+     *
+     * <p>관리자가 큐레이션 곡을 삭제할 때 fk_mps_praise_song(RESTRICT) 위반을
+     * 막기 위해 참조 행을 먼저 정리하는 데 사용한다. 회원 저장 행은 곡을 가리키는
+     * 순수 참조 메타데이터(사용자 작성 콘텐츠 아님)이므로 곡 삭제 시 함께 정리한다.
+     *
+     * @return 삭제된 회원 저장 행 수
+     */
+    long deleteByPraiseSongId(Long praiseSongId);
 }
