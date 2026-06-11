@@ -1,0 +1,216 @@
+{
+  "schemaVersion": "0.1.0",
+  "decisions": {
+    "qtBibleReferenceLookup": "HTTP_CLIENT_CONTRACT_UNTIL_PROVIDER_AI_INPUT_EVENT_APPROVED",
+    "providerInputEventContext": "ALLOWED_CONTEXT_BLOCK_ONLY"
+  },
+  "commonRequiredFields": [
+    "schemaVersion",
+    "eventId",
+    "eventName",
+    "aggregateType",
+    "aggregateId",
+    "traceId",
+    "traceparent",
+    "occurredAt",
+    "payload"
+  ],
+  "forbiddenPayloadFieldNames": [
+    "prompt",
+    "promptText",
+    "rawResponse",
+    "providerRawResponse",
+    "scriptureText",
+    "bibleText",
+    "koreanText",
+    "englishText",
+    "credentialValue",
+    "dbConnectionValue",
+    "authHeaderValue"
+  ],
+  "eventPayloadRequiredFields": {
+    "AiGenerationJobRequested": [
+      "jobId",
+      "jobType",
+      "targetType",
+      "targetId",
+      "promptVersionId",
+      "requestedBy",
+      "requestSource",
+      "requestedAt"
+    ],
+    "AiGenerationJobStarted": [
+      "jobId",
+      "startedAt"
+    ],
+    "AiGenerationJobCompleted": [
+      "jobId",
+      "assetId",
+      "resultType"
+    ],
+    "AiGenerationJobFailed": [
+      "jobId",
+      "failureCode"
+    ],
+    "AiValidationCompleted": [
+      "assetId",
+      "validationResult"
+    ],
+    "AiAssetApproved": [
+      "assetId",
+      "adminUserId"
+    ],
+    "AiAssetPublishRequested": [
+      "assetId",
+      "idempotencyKey"
+    ],
+    "AiAssetPublishFailed": [
+      "assetId",
+      "failureCode"
+    ],
+    "ProviderAiInputPrepared": [
+      "sourceService",
+      "passageId",
+      "referenceId",
+      "contextBlockType"
+    ]
+  },
+  "events": {
+    "AiGenerationJobRequested": {
+      "schemaVersion": "0.1.0",
+      "eventId": "00000000-0000-0000-0000-000000000101",
+      "eventName": "AiGenerationJobRequested",
+      "aggregateType": "ai_generation_job",
+      "aggregateId": "job-1001",
+      "traceId": "trace-ai-1001",
+      "traceparent": "00-11111111111111111111111111111111-2222222222222222-01",
+      "occurredAt": "2026-06-09T00:00:00Z",
+      "payload": {
+        "jobId": 1001,
+        "jobType": "EXPLANATION",
+        "targetType": "QT_PASSAGE",
+        "targetId": 35,
+        "passageId": 35,
+        "promptVersionId": 10,
+        "requestedBy": "SYSTEM_BATCH",
+        "requestSource": "system-ai-generation",
+        "requestedAt": "2026-06-09T00:00:00Z"
+      }
+    },
+    "AiGenerationJobStarted": {
+      "schemaVersion": "0.1.0",
+      "eventId": "00000000-0000-0000-0000-000000000102",
+      "eventName": "AiGenerationJobStarted",
+      "aggregateType": "ai_generation_job",
+      "aggregateId": "job-1001",
+      "traceId": "trace-ai-1001",
+      "traceparent": "00-11111111111111111111111111111111-2222222222222222-01",
+      "occurredAt": "2026-06-09T00:01:00Z",
+      "payload": {
+        "jobId": 1001,
+        "startedAt": "2026-06-09T00:01:00Z"
+      }
+    },
+    "AiGenerationJobCompleted": {
+      "schemaVersion": "0.1.0",
+      "eventId": "00000000-0000-0000-0000-000000000103",
+      "eventName": "AiGenerationJobCompleted",
+      "aggregateType": "ai_generation_job",
+      "aggregateId": "job-1001",
+      "traceId": "trace-ai-1001",
+      "traceparent": "00-11111111111111111111111111111111-2222222222222222-01",
+      "occurredAt": "2026-06-09T00:03:00Z",
+      "payload": {
+        "jobId": 1001,
+        "assetId": 5001,
+        "resultType": "VERSE_EXPLANATION"
+      }
+    },
+    "AiGenerationJobFailed": {
+      "schemaVersion": "0.1.0",
+      "eventId": "00000000-0000-0000-0000-000000000104",
+      "eventName": "AiGenerationJobFailed",
+      "aggregateType": "ai_generation_job",
+      "aggregateId": "job-1002",
+      "traceId": "trace-ai-1002",
+      "traceparent": "00-33333333333333333333333333333333-4444444444444444-01",
+      "occurredAt": "2026-06-09T00:04:00Z",
+      "payload": {
+        "jobId": 1002,
+        "failureCode": "DOWNSTREAM_ERROR"
+      }
+    },
+    "AiValidationCompleted": {
+      "schemaVersion": "0.1.0",
+      "eventId": "00000000-0000-0000-0000-000000000105",
+      "eventName": "AiValidationCompleted",
+      "aggregateType": "ai_generated_asset",
+      "aggregateId": "asset-5001",
+      "traceId": "trace-ai-1001",
+      "traceparent": "00-11111111111111111111111111111111-2222222222222222-01",
+      "occurredAt": "2026-06-09T00:04:30Z",
+      "payload": {
+        "assetId": 5001,
+        "validationResult": "PASSED"
+      }
+    },
+    "AiAssetApproved": {
+      "schemaVersion": "0.1.0",
+      "eventId": "00000000-0000-0000-0000-000000000106",
+      "eventName": "AiAssetApproved",
+      "aggregateType": "ai_generated_asset",
+      "aggregateId": "asset-5001",
+      "traceId": "trace-ai-admin-5001",
+      "traceparent": "00-55555555555555555555555555555555-6666666666666666-01",
+      "occurredAt": "2026-06-09T00:10:00Z",
+      "payload": {
+        "assetId": 5001,
+        "adminUserId": 1
+      }
+    },
+    "AiAssetPublishRequested": {
+      "schemaVersion": "0.1.0",
+      "eventId": "00000000-0000-0000-0000-000000000107",
+      "eventName": "AiAssetPublishRequested",
+      "aggregateType": "ai_generated_asset",
+      "aggregateId": "asset-5001",
+      "traceId": "trace-ai-admin-5001",
+      "traceparent": "00-55555555555555555555555555555555-6666666666666666-01",
+      "occurredAt": "2026-06-09T00:10:30Z",
+      "payload": {
+        "assetId": 5001,
+        "idempotencyKey": "ai-event-fixture-publish-000000000107"
+      }
+    },
+    "AiAssetPublishFailed": {
+      "schemaVersion": "0.1.0",
+      "eventId": "00000000-0000-0000-0000-000000000108",
+      "eventName": "AiAssetPublishFailed",
+      "aggregateType": "ai_generated_asset",
+      "aggregateId": "asset-5002",
+      "traceId": "trace-ai-admin-5002",
+      "traceparent": "00-77777777777777777777777777777777-8888888888888888-01",
+      "occurredAt": "2026-06-09T00:11:00Z",
+      "payload": {
+        "assetId": 5002,
+        "failureCode": "DOWNSTREAM_ERROR"
+      }
+    },
+    "ProviderAiInputPrepared": {
+      "schemaVersion": "0.1.0",
+      "eventId": "00000000-0000-0000-0000-000000000109",
+      "eventName": "ProviderAiInputPrepared",
+      "aggregateType": "provider_ai_input",
+      "aggregateId": "provider-input-35",
+      "traceId": "trace-provider-35",
+      "traceparent": "00-99999999999999999999999999999999-aaaaaaaaaaaaaaaa-01",
+      "occurredAt": "2026-06-09T00:12:00Z",
+      "payload": {
+        "sourceService": "today-qt",
+        "passageId": 35,
+        "referenceId": "qt-passage-35",
+        "contextBlockType": "ALLOWED_METADATA_CONTEXT_BLOCK"
+      }
+    }
+  }
+}

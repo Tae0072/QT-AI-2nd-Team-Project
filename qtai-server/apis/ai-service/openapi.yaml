@@ -44,6 +44,171 @@ x-ai-client-failure-model:
   retryableCodes: [TIMEOUT, RATE_LIMITED, CIRCUIT_OPEN, TEMPORARY_UNAVAILABLE, DOWNSTREAM_ERROR]
   nonRetryableCodes: [UNAUTHORIZED, FORBIDDEN, NOT_FOUND, VALIDATION_FAILED, RESPONSE_MAPPING_FAILED]
   policy: HTTP client implementations must map timeout, retry, and circuit breaker outcomes to this model.
+x-ai-inbound-api-skeleton:
+  purpose: Opt-in controller skeleton inventory copied from the monolith AI system/admin boundary.
+  activation:
+    property: qtai.ai.inbound.enabled
+    default: false
+    enabledValue: true
+  implementationPolicy:
+    businessLogic: Implemented only when inbound and persistence opt-in properties are both enabled.
+    useCaseBeans: Provided by ai-service internal persistence skeleton under opt-in conditions; no production fake use cases.
+    adminAuthorization: ROLE_ADMIN authority plus AdminAuthClient.verifyAnyRole.
+    systemAuthorization: SYSTEM_BATCH or ROLE_SYSTEM_BATCH authority.
+    openApiParity: Detailed path/schema parity is deferred to a dedicated follow-up PR.
+  endpoints:
+    system:
+      - method: POST
+        path: /api/v1/system/ai/generation-jobs
+      - method: POST
+        path: /api/v1/system/ai/assets
+      - method: POST
+        path: /api/v1/system/ai/validation-logs
+      - method: POST
+        path: /api/v1/system/validation-reference-jobs
+      - method: GET
+        path: /api/v1/system/validation-reference-jobs/{jobId}
+      - method: POST
+        path: /api/v1/system/validation-reference-jobs/{jobId}/expire
+    admin:
+      - method: GET
+        path: /api/v1/admin/ai/assets
+      - method: GET
+        path: /api/v1/admin/ai/assets/{assetId}
+      - method: POST
+        path: /api/v1/admin/ai/assets/{assetId}/approve
+      - method: POST
+        path: /api/v1/admin/ai/assets/{assetId}/reject
+      - method: POST
+        path: /api/v1/admin/ai/assets/{assetId}/hide
+      - method: POST
+        path: /api/v1/admin/ai/assets/{assetId}/regenerate
+      - method: GET
+        path: /api/v1/admin/ai/monitoring
+      - method: GET
+        path: /api/v1/admin/ai/batch-run-logs
+      - method: GET
+        path: /api/v1/admin/ai/validation-checklists
+      - method: POST
+        path: /api/v1/admin/ai/validation-checklists
+      - method: POST
+        path: /api/v1/admin/ai/validation-checklists/{id}/activate
+      - method: POST
+        path: /api/v1/admin/ai/validation-checklists/{id}/retire
+x-ai-outbound-system-endpoints:
+  purpose: Contracts for provider service endpoints called by ai-service after MSA extraction.
+  pathExposurePolicy: Provider service endpoints are outbound dependencies and must not be added to ai-service paths.
+  common:
+    basePrefix: /api/v1/system/**
+    authentication:
+      header: Authorization
+      scheme: Bearer service-token
+      requiredAuthority: SYSTEM_BATCH
+    responseEnvelope: ApiResponse<T>
+    writeEndpointIdempotencyKeyRequired: true
+    trace:
+      requestHeader: traceparent
+      responseField: traceId
+    errorMapping:
+      source: ApiResponse.error(code,message)
+      targetException: AiClientException
+    bibleDataGuard: Korean Bible 88.json and KJV only; prohibited translations and copyrighted QT body text must not be included in seed, fixture, or response data.
+  endpoints:
+    qtContext:
+      provider: today-qt
+      clientInterface: QtContextClient
+      clientOperation: getQtContext
+      method: GET
+      path: /api/v1/system/qt/passages/{passageId}/context
+      responseEnvelope: ApiResponse<QtContextResult>
+      responseSchema: "#/components/schemas/QtContextResult"
+      cacheStatus: excluded
+      passageContextPolicy: Allowed AI generation and validation metadata/context block, not full raw scripture body text.
+      liveStage: 2
+    todayQtPassageStatus:
+      provider: today-qt
+      clientInterface: QtContextClient
+      clientOperation: getTodayQtPassageStatus
+      method: GET
+      path: /api/v1/system/qt/passages/today/status
+      queryParameters: [date]
+      responseEnvelope: ApiResponse<TodayQtPassageStatus>
+      responseSchema: "#/components/schemas/TodayQtPassageStatus"
+      cacheStatusEnum: [HIT, MISS, STALE_FALLBACK, EMPTY]
+      liveStage: 2
+    bible:
+      provider: bible
+      clientInterface: BibleVerseClient
+      operations:
+        getVerse:
+          method: GET
+          path: /api/v1/system/bible/verses/{verseId}
+          responseEnvelope: ApiResponse<BibleVerseResult>
+          responseSchema: "#/components/schemas/BibleVerseResult"
+        getVersesByIds:
+          method: POST
+          path: /api/v1/system/bible/verses:batch
+          requestSchema: "#/components/schemas/BibleVerseBatchRequest"
+          responseEnvelope: ApiResponse<BibleVerseBatchResult>
+          responseSchema: "#/components/schemas/BibleVerseBatchResult"
+        getVersesInRange:
+          method: GET
+          path: /api/v1/system/bible/verses
+          queryParameters: [book, chapter, startVerse, endVerse]
+          responseEnvelope: ApiResponse<BibleVerseRangeResult>
+          responseSchema: "#/components/schemas/BibleVerseRangeResult"
+      liveStage: 1
+    study:
+      provider: today-qt
+      clientInterface: StudyPublishClient
+      operations:
+        publishApprovedVerseExplanation:
+          method: POST
+          path: /api/v1/system/study/verse-explanations:publish
+          idempotencyKeyRequired: true
+          requestSchema: "#/components/schemas/PublishVerseExplanationCommand"
+          responseEnvelope: ApiResponse<Void>
+        hidePublishedVerseExplanation:
+          method: POST
+          path: /api/v1/system/study/verse-explanations:hide
+          idempotencyKeyRequired: true
+          requestSchema: "#/components/schemas/HideVerseExplanationCommand"
+          responseEnvelope: ApiResponse<Void>
+      liveStage: 2
+    audit:
+      provider: admin-service
+      clientInterface: AuditLogClient
+      operations:
+        writeAuditLog:
+          method: POST
+          path: /api/v1/system/audit/logs
+          idempotencyKeyRequired: true
+          requestSchema: "#/components/schemas/AuditLogCommand"
+          responseEnvelope: ApiResponse<Void>
+      liveStage: 5
+    adminAuth:
+      provider: admin-service
+      clientInterface: AdminAuthClient
+      operations:
+        getActiveAdmin:
+          method: GET
+          path: /api/v1/system/admin/auth/active
+          queryParameters: [memberId]
+          responseEnvelope: ApiResponse<AdminAuthResult>
+          responseSchema: "#/components/schemas/AdminAuthResult"
+        verifyRole:
+          method: GET
+          path: /api/v1/system/admin/auth/verify
+          queryParameters: [memberId, role]
+          responseEnvelope: ApiResponse<AdminAuthResult>
+          responseSchema: "#/components/schemas/AdminAuthResult"
+        verifyAnyRole:
+          method: GET
+          path: /api/v1/system/admin/auth/verify-any
+          queryParameters: [memberId, roles]
+          responseEnvelope: ApiResponse<AdminAuthResult>
+          responseSchema: "#/components/schemas/AdminAuthResult"
+      liveStage: 5
 paths:
   /api/v1/system/ai/generation-jobs:
     post:
@@ -218,6 +383,221 @@ components:
           format: date-time
         traceId:
           type: string
+    QtContextResult:
+      type: object
+      description: QT context DTO consumed by AI generation and validation. cacheStatus is intentionally excluded.
+      required:
+        - passageId
+        - bibleBook
+        - chapter
+        - startVerse
+        - endVerse
+        - passageReference
+        - title
+        - summary
+        - passageContext
+      properties:
+        passageId:
+          type: integer
+          format: int64
+        bibleBook:
+          type: string
+        chapter:
+          type: integer
+          format: int32
+        startVerse:
+          type: integer
+          format: int32
+        endVerse:
+          type: integer
+          format: int32
+        passageReference:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        passageContext:
+          type: string
+          description: Allowed metadata/context block for AI generation and validation; not full raw scripture body text.
+    TodayQtPassageStatus:
+      type: object
+      required:
+        - qtDate
+        - exists
+        - cacheStatus
+      properties:
+        qtDate:
+          type: string
+          format: date
+        exists:
+          type: boolean
+        passageId:
+          type: integer
+          format: int64
+          nullable: true
+        cacheStatus:
+          type: string
+          enum: [HIT, MISS, STALE_FALLBACK, EMPTY]
+    BibleVerseResult:
+      type: object
+      required:
+        - verseId
+        - bibleBook
+        - chapter
+        - verse
+        - reference
+        - koreanText
+        - englishText
+      properties:
+        verseId:
+          type: integer
+          format: int64
+        bibleBook:
+          type: string
+        chapter:
+          type: integer
+          format: int32
+        verse:
+          type: integer
+          format: int32
+        reference:
+          type: string
+        koreanText:
+          type: string
+          description: Korean Bible text from allowed source only.
+        englishText:
+          type: string
+          description: KJV text only.
+    BibleVerseBatchRequest:
+      type: object
+      required:
+        - verseIds
+      properties:
+        verseIds:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            format: int64
+    BibleVerseBatchResult:
+      type: object
+      required:
+        - verses
+      properties:
+        verses:
+          type: array
+          items:
+            $ref: "#/components/schemas/BibleVerseResult"
+    BibleVerseRangeResult:
+      type: object
+      required:
+        - bibleBook
+        - chapter
+        - verses
+      properties:
+        bibleBook:
+          type: string
+        chapter:
+          type: integer
+          format: int32
+        startVerse:
+          type: integer
+          format: int32
+          nullable: true
+        endVerse:
+          type: integer
+          format: int32
+          nullable: true
+        verses:
+          type: array
+          items:
+            $ref: "#/components/schemas/BibleVerseResult"
+    PublishVerseExplanationCommand:
+      type: object
+      required:
+        - bibleVerseId
+        - summary
+        - explanation
+        - sourceLabel
+        - aiAssetId
+        - approvedAt
+      properties:
+        bibleVerseId:
+          type: integer
+          format: int64
+        summary:
+          type: string
+        explanation:
+          type: string
+        sourceLabel:
+          type: string
+        aiAssetId:
+          type: integer
+          format: int64
+        approvedAt:
+          type: string
+          format: date-time
+    HideVerseExplanationCommand:
+      type: object
+      required:
+        - aiAssetId
+      properties:
+        aiAssetId:
+          type: integer
+          format: int64
+    AuditLogCommand:
+      type: object
+      required:
+        - actorType
+        - actionType
+        - targetType
+        - targetId
+      properties:
+        adminUserId:
+          type: integer
+          format: int64
+          nullable: true
+        actorType:
+          type: string
+        actorId:
+          type: integer
+          format: int64
+          nullable: true
+        actorLabel:
+          type: string
+          nullable: true
+        actionType:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: integer
+          format: int64
+        beforeJson:
+          type: string
+          nullable: true
+        afterJson:
+          type: string
+          nullable: true
+    AdminRole:
+      type: string
+      enum: [OPERATOR, REVIEWER, CONTENT_CREATOR, SUPER_ADMIN]
+    AdminAuthResult:
+      type: object
+      required:
+        - adminUserId
+        - memberId
+        - adminRole
+      properties:
+        adminUserId:
+          type: integer
+          format: int64
+        memberId:
+          type: integer
+          format: int64
+        adminRole:
+          $ref: "#/components/schemas/AdminRole"
     CreateAiGenerationJobRequest:
       type: object
       required:
@@ -365,7 +745,7 @@ components:
           enum: [AUTO, ADVISOR, ADMIN]
         result:
           type: string
-          enum: [PASSED, FAILED]
+          enum: [PASSED, REJECTED, NEEDS_REVIEW]
         checklistVersionId:
           type: integer
           format: int64

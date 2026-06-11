@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/common_widgets.dart';
+import '../../../routes/app_router.dart';
+import '../../note/providers/note_providers.dart';
 import '../models/bible_chapter_counts.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
 
 class BibleBrowserScreen extends ConsumerStatefulWidget {
-  const BibleBrowserScreen({super.key});
+  final VoidCallback? onOpenSermonNotes;
+
+  const BibleBrowserScreen({super.key, this.onOpenSermonNotes});
 
   @override
   ConsumerState<BibleBrowserScreen> createState() => _BibleBrowserScreenState();
@@ -138,6 +142,10 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
                   setState(() => _showEnglish = selected);
                   setSheetState(() {});
                 },
+                onOpenSermonNotes: () {
+                  Navigator.of(sheetContext).pop();
+                  _openSermonNotes(range);
+                },
                 onRetry: () {
                   Navigator.of(sheetContext).pop();
                   _search(_selectedBookCode ?? range.book.code);
@@ -148,6 +156,21 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
         );
       },
     );
+  }
+
+  void _openSermonNotes(BibleVerseRange range) {
+    if (range.verses.isEmpty) {
+      return;
+    }
+    ref.read(noteCategoryFilterProvider.notifier).state = 'SERMON';
+
+    final onOpenSermonNotes = widget.onOpenSermonNotes;
+    if (onOpenSermonNotes != null) {
+      onOpenSermonNotes();
+      return;
+    }
+
+    Navigator.of(context).pushNamed(AppRouter.noteList);
   }
 
   void _selectBook(BibleBook book) {
@@ -794,6 +817,7 @@ class _BibleResultPane extends StatelessWidget {
   final Object? error;
   final bool showEnglish;
   final ValueChanged<bool> onShowEnglishChanged;
+  final VoidCallback onOpenSermonNotes;
   final VoidCallback onRetry;
 
   const _BibleResultPane({
@@ -801,6 +825,7 @@ class _BibleResultPane extends StatelessWidget {
     required this.error,
     required this.showEnglish,
     required this.onShowEnglishChanged,
+    required this.onOpenSermonNotes,
     required this.onRetry,
   });
 
@@ -815,6 +840,7 @@ class _BibleResultPane extends StatelessWidget {
       );
     }
 
+    final range = this.range;
     if (range == null) {
       return const EmptyView(
         message: '조회할 성경본문을 선택해 주세요.',
@@ -826,7 +852,7 @@ class _BibleResultPane extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       children: [
         Text(
-          '${range!.book.koreanName} ${range!.book.chapter}장',
+          '${range.book.koreanName} ${range.book.chapter}장',
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -840,19 +866,26 @@ class _BibleResultPane extends StatelessWidget {
               onSelected: onShowEnglishChanged,
               label: const Text('영어'),
             ),
+            const SizedBox(width: 8),
+            TextButton.icon(
+              key: const Key('bible-browser-sermon-note-button'),
+              onPressed: range.verses.isEmpty ? null : onOpenSermonNotes,
+              icon: const Icon(Icons.edit_note_outlined),
+              label: const Text('노트'),
+            ),
           ],
         ),
         if (showEnglish) ...[
           const SizedBox(height: 6),
           Text(
-            range!.book.englishName,
+            range.book.englishName,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
         const SizedBox(height: 18),
-        for (final verse in range!.verses)
+        for (final verse in range.verses)
           _BibleVerseTile(
             verse: verse,
             showEnglish: showEnglish,

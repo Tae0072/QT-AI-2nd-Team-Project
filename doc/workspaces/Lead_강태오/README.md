@@ -10,7 +10,7 @@
 | --- | --- |
 | 담당자 | 강태오 (@Tae0072) |
 | 주 역할 | Lead / member / qt / admin / DevOps / 전체 조율 |
-| 구현 기준 | 단일 `qtai-server` Modular Monolith (`07_요구사항_정의서.md` v3.1) |
+| 구현 기준 | v1: 단일 `qtai-server` Modular Monolith · v2: MSA 분리(2026-06-08) |
 | 기준 문서 | `07_요구사항_정의서.md` v3.1, `00_개발_일정_총괄표.md` v0.1, `Lead_강태오_공식일정표.md` v3.1-align.1, `00_공통_브랜치_PR_워크플로우_규칙.md` v0.1 |
 
 ---
@@ -65,7 +65,7 @@ workspaces/Lead_강태오/
 | 구분 | 고정 기준 |
 | --- | --- |
 | 백엔드 구조 | 단일 `qtai-server` 안에 `domain.member`, `domain.bible`, `domain.qt`, `domain.study`, `domain.note`, `domain.sharing`, `domain.praise`, `domain.report`, `domain.notification`, `domain.mission`, `domain.ai`, `domain.admin`, `domain.audit` 13개 도메인 패키지를 둔다 |
-| 배포 | v1은 Docker Compose. Kubernetes·Helm은 MVP 목표에 넣지 않는다 |
+| 배포 | v1은 Docker Compose · Kubernetes·Helm은 v2 MSA 분리에서 도입(2026-06-08) |
 | 이벤트 | v1은 Spring `ApplicationEventPublisher`. Kafka는 v2 이후 검토 |
 | AI | 자유 챗봇, 다중 턴 대화, SSE, `/ai/sessions/**` 사용자 경로 생성 금지. F-15 사실 기반 Q&A는 단발 · 검증 흐름 |
 | Today QT | 공개 시각 **00:00 KST**, 수집 배치 **04:00 KST** |
@@ -109,7 +109,7 @@ workspaces/Lead_강태오/
 
 1. 브랜치 / PR / 워크플로우 기준을 구현 저장소 첫 PR에 반영
 2. Today QT 응답에 `cacheStatus`와 `simulatorStatus`가 빠지지 않는지 확인
-3. AI 자유 챗봇 · SSE · Kafka · K8s · Helm · RAG 금지 기준을 CI/리뷰 체크로 고정
+3. AI 자유 챗봇 · SSE · RAG 금지 기준을 CI/리뷰 체크로 고정 (Kafka·K8s·Helm은 v2 MSA 허용 — 2026-06-08)
 4. 팀원 PR에서 API · 화면 · ERD 충돌을 우선 확인
 
 ---

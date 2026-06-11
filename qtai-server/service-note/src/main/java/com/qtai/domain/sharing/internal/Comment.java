@@ -46,4 +46,3 @@ public class Comment extends BaseEntity {
         this.isDeleted = true;
     }
 }
-

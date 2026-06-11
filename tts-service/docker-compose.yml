@@ -1,0 +1,12 @@
+# 로컬/서버에서 단독 실행용. 클라우드 PaaS(Render/Railway 등)는 Dockerfile만으로도 됨.
+services:
+  tts:
+    build: .
+    image: qt-ai-tts:latest
+    ports:
+      - "8090:8090"
+    environment:
+      # 운영 시 반드시 강한 토큰으로 설정. 비우면 인증 없이 동작(개발 전용).
+      - API_TOKEN=${API_TOKEN:-}
+      - PORT=8090
+    restart: unless-stopped
