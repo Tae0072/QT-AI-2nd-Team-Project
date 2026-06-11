@@ -1,100 +1,70 @@
+// QT-AI 멀티모듈 루트 (aggregator)
+//
+// Strangler 전환 완료: 모놀리식 root 소스(qtai-server/src)는 제거되었다.
+// 실제 코드는 다음 모듈에 있다:
+//   - lib-common   : 공통 응답/예외, JWT 검증 필터, RestClient 설정
+//   - service-user : member, notification, mission (JWT 발급, 8081)
+//   - service-bible: bible, qt, study, music, praise (읽기 콘텐츠, 8082)
+//   - service-note : note, sharing, report(제출) (8083)
+//   - service-ai   : ai (사전생성/검증·F-15 Q&A, 8084)
+//   - admin-server : 관리자 (모놀리식 복사본, 단일 DB 공유, 8090)
+//
+// 루트는 자체 소스/애플리케이션이 없고 빌드 묶음 역할만 한다.
+// (옛 모놀리식 bootJar Dockerfile은 제거됨 — 배포는 모듈별 Dockerfile/compose/k8s 사용)
 plugins {
-    java
-    id("org.springframework.boot") version "3.3.4"
-    id("io.spring.dependency-management") version "1.1.7"
+    base
 }
 
 group = "com.qtai"
 version = "0.0.1-SNAPSHOT"
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+// =============================================================================
+// JaCoCo 커버리지 게이트 (코드리뷰 2026-06-10 TODO 3 — MSA 전환 때 빠진 게이트 복구)
+// - CLAUDE.md §11 명령(test jacocoTestReport / jacocoTestCoverageVerification) 동작 보장.
+// - 모듈별 최소 라인 커버리지는 실측값-5%p로 시작(빨간불 방지, 18_코드_품질_게이트.md 대조).
+//   상향은 팀 합의로 진행한다.
+// =============================================================================
+val coverageFloors = mapOf(
+    // 실측(2026-06-11) 라인 커버리지에서 5%p 내린 시작 기준
+    "lib-common" to "0.58",    // 실측 63.5%
+    "service-user" to "0.53",  // 실측 58.7%
+    "service-bible" to "0.50", // 실측 55.4%
+    "service-note" to "0.53",  // 실측 58.6%
+    "service-ai" to "0.14",    // 실측 19.3% — 생성 워커/아웃박스 스켈레톤 비중 큼, 상향 필요
+    "admin-server" to "0.12",  // 실측 17.6% — 모놀리식 복사본 전체 포함, 상향 필요
+)
+
+subprojects {
+    plugins.withId("java") {
+        apply(plugin = "jacoco")
+
+        configure<JacocoPluginExtension> {
+            toolVersion = "0.8.12"
+        }
+
+        tasks.named<Test>("test") {
+            finalizedBy(tasks.named("jacocoTestReport"))
+        }
+
+        tasks.named<org.gradle.testing.jacoco.tasks.JacocoReport>("jacocoTestReport") {
+            dependsOn(tasks.named("test"))
+            reports {
+                xml.required.set(true)   // CI 집계용
+                html.required.set(true)  // 로컬 확인용
+            }
+        }
+
+        tasks.named<org.gradle.testing.jacoco.tasks.JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+            dependsOn(tasks.named("jacocoTestReport"))
+            violationRules {
+                rule {
+                    limit {
+                        counter = "LINE"
+                        value = "COVEREDRATIO"
+                        minimum = (coverageFloors[project.name] ?: "0.50").toBigDecimal()
+                    }
+                }
+            }
+        }
     }
-}
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    // MSA 공통 모듈 의존 — lib-common-web(servlet/JPA)이 코어 lib-common을 전이 노출
-    // (GlobalExceptionHandler·BaseEntity + ApiResponse/ErrorCode/BusinessException/JwtTokenVerifier 등)
-    implementation(project(":lib-common-web"))
-
-    // .env 파일 자동 로딩 — 로컬 개발 전용, 운영 런타임에는 포함되지 않음
-    developmentOnly("me.paulschwarz:spring-dotenv:4.0.0")
-
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.springframework.boot:spring-boot-starter-data-redis")
-    implementation("org.springframework.boot:spring-boot-starter-cache")
-
-    // Caffeine — 로컬 캐시 (bible_books 등 불변 데이터)
-    implementation("com.github.ben-manes.caffeine:caffeine")
-    implementation("org.apache.pdfbox:pdfbox:3.0.3")
-
-    // Flyway — DB 마이그레이션
-    implementation("org.flywaydb:flyway-core")
-    implementation("org.flywaydb:flyway-mysql")
-
-    // Resilience4j Circuit Breaker — external/bible HTTP 호출 장애 격리(게이트웨이 Resilience4j와 정합, 2.x)
-    implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.2.0")
-
-    compileOnly("org.projectlombok:lombok")
-    annotationProcessor("org.projectlombok:lombok")
-
-    runtimeOnly("com.h2database:h2")
-    runtimeOnly("com.mysql:mysql-connector-j")
-
-    testCompileOnly("org.projectlombok:lombok")
-    testAnnotationProcessor("org.projectlombok:lombok")
-
-    // JWT — RS256 (access 30분 / refresh 14일, 키는 환경변수로 주입)
-    implementation("io.jsonwebtoken:jjwt-api:0.13.0")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
-
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.security:spring-security-test")
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-
-    // ArchUnit — 도메인 경계 자동 검증 (CLAUDE.md §3, §4)
-    testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
-
-    // Testcontainers — 실 MySQL 기반 Flyway migrate + Hibernate validate 가드 (버전은 Spring Boot BOM 관리)
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:mysql")
-}
-
-tasks.withType<JavaCompile> {
-    options.compilerArgs.add("-parameters")
-}
-
-tasks.withType<Test> {
-    useJUnitPlatform()
-}
-
-tasks.register<JavaExec>("aiReviewReferencePdfIndexDiagnostics") {
-    group = "ai"
-    description = "Generate AI review reference PDF index candidates and quality diagnostics."
-    classpath = sourceSets.main.get().runtimeClasspath
-    mainClass.set("com.qtai.domain.ai.internal.AiReviewReferencePdfIndexDiagnosticsTool")
-}
-
-tasks.register<JavaExec>("aiReviewReferencePromoteCandidateIndex") {
-    group = "ai"
-    description = "Promote AI review reference candidate index into production reference index."
-    classpath = sourceSets.main.get().runtimeClasspath
-    mainClass.set("com.qtai.domain.ai.internal.AiReviewReferenceCandidatePromotionTool")
-}
-
-tasks.register<JavaExec>("aiReviewReferenceBookSectionMapCandidate") {
-    group = "ai"
-    description = "Generate AI review reference book section map candidates from a PDF."
-    classpath = sourceSets.main.get().runtimeClasspath
-    mainClass.set("com.qtai.domain.ai.internal.AiReviewReferenceBookSectionMapCandidateTool")
 }

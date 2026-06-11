@@ -15,7 +15,8 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import {
   getAiMonitoring,
   type AiMonitoringSummary,
@@ -28,9 +29,11 @@ import {
 import { formatDateTime } from '../utils/datetime';
 
 // ===== AD-08 AI 운영 모니터링 (읽기 전용) =====
-// GET /api/v1/admin/ai/monitoring — 생성/검증/배치/Q&A 집계 대시보드. 권한: OPERATOR.
+// GET /api/v1/admin/ai/monitoring — 생성/검증/배치/Q&A 집계 대시보드.
+// 권한: OPERATOR/REVIEWER/SUPER_ADMIN.
 
 export default function AiMonitoringPage() {
+  const navigate = useNavigate();
   const [data, setData] = useState<AiMonitoringSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [from, setFrom] = useState('');
@@ -124,7 +127,7 @@ export default function AiMonitoringPage() {
         </Space>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
           AI 생성 작업·검증·배치·Q&amp;A 집계를 조회합니다(읽기 전용, 원문 미포함).
-          권한: OPERATOR.
+          권한: OPERATOR / REVIEWER / SUPER_ADMIN.
         </Typography.Paragraph>
 
         <Space wrap>
@@ -280,6 +283,15 @@ export default function AiMonitoringPage() {
               <Card
                 size="small"
                 title={`배치 실행 (성공 ${data.batchRuns.succeeded} · 부분실패 ${data.batchRuns.partialFailed} · 실패 ${data.batchRuns.failed})`}
+                extra={
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={() => navigate('/ai-batch-logs')}
+                  >
+                    전체 로그 보기 <ArrowRightOutlined />
+                  </Button>
+                }
               >
                 <Table
                   rowKey="id"
@@ -292,7 +304,19 @@ export default function AiMonitoringPage() {
                 />
               </Card>
 
-              <Card size="small" title="체크리스트 통과율">
+              <Card
+                size="small"
+                title="체크리스트 통과율"
+                extra={
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={() => navigate('/ai-checklists')}
+                  >
+                    체크리스트 관리 <ArrowRightOutlined />
+                  </Button>
+                }
+              >
                 <Table
                   rowKey="checklistType"
                   size="small"

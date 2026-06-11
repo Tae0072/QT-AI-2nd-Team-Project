@@ -3,7 +3,7 @@ name: Claude PR Auto Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [dev]
+    branches: [dev, dev-msa, dev-admin-web]
 
 # =============================================================================
 # 환경변수 — 변경 가능 (한 곳만 수정하면 전체 반영)
@@ -15,9 +15,9 @@ on:
 #   - 코드 파일 자체는 절단하지 않는다. 파일 기반 stdin 파이프로 ARG_MAX 우회.
 #   - Claude CLI 실패(컨텍스트 초과, API 장애 등)는 PR 코멘트로 안내하며 step은 exit 0.
 env:
-  # Claude 모델 — 코드 리뷰는 Opus(추론력 우선) 권장.
-  # 변경 시 이 env 변수만 수정 (예: claude-sonnet-4-6 로 다운그레이드 가능).
-  ANTHROPIC_MODEL_NAME: claude-opus-4-7
+  # Claude 모델 — 코드 리뷰는 Fable(최상위 추론력) 사용 (2026-06-11 Lead 결정).
+  # 변경 시 이 env 변수만 수정 (예: claude-opus-4-8 / claude-sonnet-4-6 로 다운그레이드 가능).
+  ANTHROPIC_MODEL_NAME: claude-fable-5
 
 jobs:
   claude-review:

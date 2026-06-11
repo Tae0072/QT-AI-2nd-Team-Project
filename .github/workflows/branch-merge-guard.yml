@@ -1,0 +1,25 @@
+name: Branch Merge Guard
+
+# 보호 브랜치(dev, dev-msa, dev-admin-web)끼리는 서로 PR/머지를 금지한다.
+# base 와 head 가 둘 다 보호 브랜치이면 이 체크를 실패시켜 머지를 차단한다.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+jobs:
+  no-cross-merge:
+    name: no-cross-merge
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block merges between protected branches
+        run: |
+          BASE="${{ github.base_ref }}"
+          HEAD="${{ github.head_ref }}"
+          echo "base=$BASE  head=$HEAD"
+          PROTECTED="dev dev-msa dev-admin-web"
+          in_protected() { for b in $PROTECTED; do [ "$1" = "$b" ] && return 0; done; return 1; }
+          if in_protected "$BASE" && in_protected "$HEAD"; then
+            echo "::error::보호 브랜치끼리는 PR/머지가 금지됩니다: $HEAD -> $BASE (dev / dev-msa / dev-admin-web)"
+            exit 1
+          fi
+          echo "OK: 교차 머지 아님 ($HEAD -> $BASE)"

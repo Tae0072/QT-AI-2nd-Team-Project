@@ -1,0 +1,62 @@
+# service-ai (8084) — AI 사전생성/검증 + F-15 Q&A. 공개키로 검증만(개인키 미주입).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-ai
+  namespace: qtai
+  labels:
+    app: service-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-ai
+  template:
+    metadata:
+      labels:
+        app: service-ai
+    spec:
+      containers:
+        - name: service-ai
+          image: qtai/service-ai:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8084
+          envFrom:
+            - configMapRef: { name: qtai-config }
+          env:
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: qtai-secret, key: DB_PASSWORD } }
+            - name: SECURITY_JWT_PUBLIC_KEY
+              valueFrom: { secretKeyRef: { name: qtai-secret, key: JWT_PUBLIC_KEY } }
+            - name: SECURITY_JWT_SYSTEM_SECRET
+              valueFrom: { secretKeyRef: { name: qtai-secret, key: SECURITY_JWT_SYSTEM_SECRET } }
+            # DeepSeek API key (선택) — 미설정 시 빈 값. 로그에 남기지 않는다(CLAUDE.md §7).
+            - name: DEEPSEEK_API_KEY
+              valueFrom: { secretKeyRef: { name: qtai-secret, key: DEEPSEEK_API_KEY } }
+          readinessProbe:
+            tcpSocket: { port: 8084 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket: { port: 8084 }
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources:
+            requests: { cpu: "150m", memory: "384Mi" }
+            limits: { memory: "768Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-ai
+  namespace: qtai
+spec:
+  type: NodePort
+  selector:
+    app: service-ai
+  ports:
+    - port: 8084
+      targetPort: 8084
+      nodePort: 30084       # http://localhost:30084

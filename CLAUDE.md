@@ -5,13 +5,14 @@
 ## 1. 프로젝트 기준
 
 - 서비스: QT-AI, 큐티 AI 앱
-- 서버 형태: 단일 `qtai-server` Modular Monolith(v1) → MSA 서비스 분리(v2, 2026-06-08 Lead 결정으로 착수). v2 분리는 이승욱·강상민 공동 담당이며, 이후 전 팀원이 분리된 서비스 기준으로 작업한다. 상세: 거버넌스 결정 기록 `doc/workspaces/Lead_강태오/workflows/2026-06-08_msa-governance-decision.md`
+- 서버 형태: 단일 `qtai-server` Modular Monolith
+- admin-server 복사본 동기화: ① 도메인 로직은 항상 도메인 서비스(service-*)가 원본이고 admin-server는 따라간다 ② admin 고유 기능(admin 컨트롤러·관리자 배치)만 admin-server에서 직접 수정한다 ③ 스키마(Flyway)는 admin-server가 단독 소유하며 다른 모듈에 마이그레이션 파일을 두지 않는다. 상세: `doc/admin-server-sync-rules.md` (2026-06-11 Lead 결정, 코드리뷰 TODO 4)
 - Backend: Java 21, Spring Boot 3.3, Gradle, Spring Modulith, ArchUnit
 - DB/cache: MySQL 8.0, 테스트 H2, Caffeine app cache
 - Redis: token/rate/idempotency 등 필요 범위 검토 후 사용
 - AI: DeepSeek OpenAI-compatible client
 - 외부 API: 사용자 Flutter 앱(`/api/v1/**`)과 별도 관리자 웹 프런트엔드(`/api/v1/admin/**`)가 같은 `qtai-server`를 호출. 관리자 UI는 Flutter 앱이 아니라 별도 웹(2026-05-19 강사님 직강 결정, `03_아키텍처_정의서.md` v1.2 §4.9 / §13.6)
-- OAuth 경로: Flutter SDK가 카카오 토큰을 직접 받아 `POST /api/v1/auth/kakao`로 서버에 전달한다. 서버사이드 `/oauth2/**` 경로는 사용하지 않는다.
+- OAuth 경로: Flutter SDK가 카카오 토큰을 직접 받아 `POST /api/v1/auth/kakao`로 서버에 전달한다. 관리자 웹은 카카오 JS SDK 토큰을 `POST /api/v1/admin/auth/kakao`로 전달한다(2026-06-10 팀 결정). 서버사이드 `/oauth2/**` 경로는 어느 쪽도 사용하지 않는다.
 - 기본 응답·주석·PR 설명 언어: 한국어 우선
 - 백엔드 코드 컨벤션: `CODE_CONVENTION.md`를 우선 확인
 
@@ -59,9 +60,10 @@
 
 ## 5. API 규칙
 
-- 사용자·관리자 HTTP API는 `/api/v1/**` 아래에 둔다. Kakao 인증도 `POST /api/v1/auth/kakao`를 사용하며, `/oauth2/**` 예외 경로는 사용하지 않는다.
+- 사용자·관리자 HTTP API는 `/api/v1/**` 아래에 둔다. Kakao 인증은 사용자 앱 `POST /api/v1/auth/kakao`, 관리자 웹 `POST /api/v1/admin/auth/kakao`를 사용하며(2026-06-10 팀 결정), `/oauth2/**` 예외 경로는 사용하지 않는다.
 - 관리자 API는 일반 회원 토큰의 `members.role=ADMIN`과 `admin_users.admin_role`을 모두 확인한 뒤, `OPERATOR`, `REVIEWER`, `CONTENT_CREATOR`, `SUPER_ADMIN` 중 API 명세에 맞는 세부 권한을 요구한다.
 - 시스템 API와 배치/AI 내부 작업은 사용자 계정이 아니라 `SYSTEM_BATCH` 주체로 기록한다.
+- 서비스 간 시스템(배치·스케줄러) 호출 인증은 사용자 토큰과 **분리**한다. 사용자 토큰은 service-user가 발급하는 **RS256**(비대칭, 공개키 검증)이고, 서비스 간 시스템 호출은 전달할 사용자 JWT가 없으므로 **공유 시크릿 기반 HS256 단명 `SYSTEM_BATCH` 토큰**을 사용한다(`security.jwt.system-secret`, 발급=`SystemTokenProvider`, 검증=`SystemTokenValidator`, `sub=0`·`role=SYSTEM_BATCH`·단명 만료). 공통 `JwtAuthenticationFilter`는 RS256 사용자 검증 실패 시 시스템 토큰으로 폴백 검증한다. 시스템 시크릿은 env로만 주입하고 로그·커밋에 남기지 않는다. 근거: `doc/workspaces/Lead_강태오/workflows/2026-06-10_service-to-service-system-auth.md`
 - 인증되지 않은 사용자는 Kakao login 시작만 가능하다.
 - 앱 콘텐츠 API는 인증된 역할 기준으로 보호한다.
 - 내부 Java Interface는 OpenAPI에 노출하지 않는다.
@@ -98,7 +100,8 @@
 
 - AI 자유 챗봇, 다중 턴 대화, SSE, `/ai/sessions/**`
 - RAG, ChromaDB, vector DB, Elasticsearch
-- ~~Kafka, Kubernetes, Helm v1 도입~~ → v2 MSA 분리 트랙에서 허용(2026-06-08 Lead 결정). v1 단일배포에는 계속 도입하지 않는다.
+- Kafka, Kubernetes, Helm v1 도입
+  - 예외(2026-06-10 Lead 승인): MSA 전환 마무리를 위해 **로컬 배포 한정 Kubernetes/Helm 매니페스트**를 허용한다(회의록 2026-06-09 §9 "로컬은 쿠버네티스 배포 형태로 마무리"). 운영(프로덕션) K8s/Helm 도입은 별도 결정이 필요하며, Kafka 확장 금지는 그대로 유지(Kafka는 AI 영역만). 이에 맞춰 CI Requirements Guard의 K8s/Helm 차단을 비차단으로 완화. 근거: `doc/workspaces/Lead_강태오/workflows/2026-06-10_local-k8s-deploy.md`
 - 교회 인증 화면, 버튼, API, DB 필드
 - AI 찬양 추천
 - 찬양 가사, 음원 파일, 직접 YouTube URL 입력·저장

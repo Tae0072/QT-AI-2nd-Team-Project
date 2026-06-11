@@ -260,6 +260,38 @@ export default function AiAssetsPage() {
           columns={columns}
           dataSource={rows}
           scroll={{ x: 'max-content' }}
+          expandable={{
+            expandedRowRender: (r) => (
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <Typography.Text type="secondary">
+                  메타데이터만 표시합니다. 산출물 원문·검증 참조 자료는 정책상
+                  노출하지 않습니다(CLAUDE.md §7).
+                </Typography.Text>
+                <Typography.Text>
+                  <Typography.Text strong>프롬프트 버전: </Typography.Text>
+                  {r.promptVersion
+                    ? `${r.promptVersion.promptType ?? '-'} / ${r.promptVersion.version ?? '-'} (${r.promptVersion.status ?? '-'}, id ${r.promptVersion.id ?? '-'})`
+                    : '-'}
+                </Typography.Text>
+                <Typography.Text>
+                  <Typography.Text strong>검증 체크리스트 버전 ID: </Typography.Text>
+                  {r.checklistVersionId != null ? `#${r.checklistVersionId}` : '-'}
+                  <Typography.Text type="secondary">
+                    {' '}
+                    (AD-09 검증 체크리스트 관리에서 버전을 확인할 수 있습니다)
+                  </Typography.Text>
+                </Typography.Text>
+                <Typography.Text>
+                  <Typography.Text strong>최신 검증 결과: </Typography.Text>
+                  {r.latestValidationResult ?? '-'}
+                </Typography.Text>
+                <Typography.Text>
+                  <Typography.Text strong>원문 라벨 존재: </Typography.Text>
+                  {r.sourceLabelPresent ? '있음' : '없음'}
+                </Typography.Text>
+              </Space>
+            ),
+          }}
           pagination={{
             current: page + 1,
             pageSize: size,
