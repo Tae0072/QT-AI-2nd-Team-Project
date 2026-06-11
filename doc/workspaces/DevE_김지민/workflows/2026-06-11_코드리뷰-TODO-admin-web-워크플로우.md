@@ -9,7 +9,7 @@
 | 기준 문서 | `04_API_명세서.md`, 백엔드 계약서(아래 의존성 표) |
 | 담당 경로 | `admin-web/` (React + TS + Vite + AntD) |
 | 검증 게이트 | `npm run typecheck`(strict) + `npm run build` (테스트 프레임워크 없음) |
-| 상태 | P1(#482)·P3a(#490) 머지 완료 · P3b QT관리 진행 중(`feature/admin-web-qt-passages-dto`, 풀 CRUD) |
+| 상태 | P1(#482)·P3a(#490)·P3b(#496) 머지 완료 · P3c 공지 진행 중(`feature/admin-web-notices-dto`, 풀 CRUD) |
 
 ---
 
@@ -30,7 +30,7 @@
 | P4 토큰 보관 | ✅ 가능 (주석/결정) | localStorage `qtai_admin_token`, HttpOnly 전환 시점 강태오 결정 |
 | P5b SDK 안내 | ✅ 가능 | `kakao.ts` 키 미설정 throw → LoginPage Alert |
 | P5c code-split | ✅ 가능 | vite manualChunks 없음(1.15MB 단일청크, 빌드 경고 확인) |
-| P2 refresh | ⚠️ 부분 막힘 | service-user `/api/v1/auth/refresh` 있으나 관리자 전용 경로 미분리 → 이승욱 계약 결정 |
+| P2 refresh | ✅ 풀림(2026-06-11) | 공용 `POST /api/v1/auth/refresh` 재사용 합의 — 재발급 role=ADMIN 유지(서버 테스트 보증). 근거: `DevD_이승욱/contracts/2026-06-10_admin-kakao-auth-api-contract.md` §6 |
 | P5a 찬양 숨김 | ❌ 막힘 | admin-server praise web 컨트롤러 없음(PATCH/hide 미구현) |
 
 ---
@@ -41,12 +41,12 @@
 | --- | --- | --- | --- |
 | 1 | `bugfix/admin-web-auth-proxy` | P1 로그인 라우팅 | ✅ 머지(#482) |
 | 2 | `feature/admin-web-dashboard-dto` | P3 AD-01 | ✅ 머지(#490) |
-| 3 | `feature/admin-web-qt-passages-dto` | P3 AD-02 | 진행 중(풀 CRUD) |
-| 4 | `feature/admin-web-notices-dto` | P3 AD-06 | 예정 |
+| 3 | `feature/admin-web-qt-passages-dto` | P3 AD-02 | ✅ 머지(#496) |
+| 4 | `feature/admin-web-notices-dto` | P3 AD-06 | 진행 중(풀 CRUD) |
 | 5 | `chore/admin-web-code-split` | P5c | 예정 |
 | 6 | `feature/admin-web-kakao-sdk-notice` | P5b | 예정 |
 | 7 | `docs/admin-web-token-storage-review` | P4 | 예정(강태오 확인) |
-| 보류 | — | P2 refresh | 이승욱 계약 결정 후 |
+| 8 | `feature/admin-web-token-refresh` | P2 refresh | 착수 가능(계약 확정) |
 | 보류 | — | P5a 찬양 숨김 | admin-server praise 컨트롤러 구현 후 |
 
 > P3는 화면당 3개 PR로 분리(TODO 권장, 500라인 준수). 페이징은 기존 `hooks/usePagedList.ts` 재사용.
@@ -78,6 +78,21 @@ vite 주석 결정③(admin-web=8090 단일, 게이트웨이 라우팅)과 P1(au
    - "백엔드 준비 중" Alert 철거 → 실패 시 **에러 Alert + 재시도 버튼**.
 3. `npm run typecheck` + `npm run build` 통과 → 커밋.
 
+## P3c 공지 작업 순서 (계획, 풀 CRUD)
+
+기준: 백엔드 `AdminNotice*Response`(admin-server) + 계약서 `DevC_강상민/reports/2026-06-10_admin-notices-api_report.md`.
+
+- DTO: 목록 Item(`id`·`title`·`bodyPreview`·`status`·`publishedAt`·`createdAt`·`updatedAt`) / 상세(create·update 응답: `id`·`title`·`body`·`status`·...) / 발행 응답(`id`·`status`·`publishedAt`·`notificationResult`{requestedCount·createdCount·failedCount}).
+- 상태 3종: `DRAFT`/`PUBLISHED`/`HIDDEN`. 버튼: DRAFT→수정·발행, PUBLISHED→숨김, HIDDEN→(없음).
+- 공지 특성(강상민 리포트): **본문 plain text만**(`<`,`>` 거부) · **PATCH는 DRAFT만**(status 필드 보내면 400) · 발행 시 알림 fan-out.
+1. `src/api/notices.ts`: 실타입(`Notice`·`NoticeDetail`·`NoticeStatus`·`NoticeRequest`·`PublishResult`) + create(POST)/update(PATCH) API. 기존 list/publish + hide 추가.
+2. `src/pages/NoticesPage.tsx` 풀 CRUD:
+   - `usePagedList` 목록 + 명시 컬럼(제목·미리보기·상태 Tag·발행시각) + 페이징.
+   - 등록/수정 Modal 폼(제목 Input + 본문 TextArea, plain text 검증: `<`,`>` 금지).
+   - 행 액션(상태별 수정/발행/숨김, Popconfirm). 발행 성공 시 **알림 결과**(생성/실패 수) 메시지.
+   - "준비 중" Alert 철거 → 에러 Alert + 재시도.
+3. `npm run typecheck` + `npm run build` 통과 → 커밋.
+
 ## 검증 계획
 
 - 각 브랜치: `cd admin-web && npm run typecheck && npm run build` 통과.
@@ -89,7 +104,7 @@ vite 주석 결정③(admin-web=8090 단일, 게이트웨이 라우팅)과 P1(au
 | --- | --- |
 | 결정③ vs P1 라우팅 방식 | 이승욱/강태오 한 줄 확인, PR 본문 명시 |
 | P3 백엔드 DTO 변경 가능성 | 계약서 기준 타입 작성, 변경 시 04 갱신 후 반영 |
-| P2/P5a 보류 장기화 | 의존(계약/백엔드) 해제 시 재개, 로드맵에 명시 |
+| P5a 보류 장기화 | admin-server praise 컨트롤러 구현 시 재개 (P2는 2026-06-11 계약 확정으로 해제) |
 
 ## 참고
 
