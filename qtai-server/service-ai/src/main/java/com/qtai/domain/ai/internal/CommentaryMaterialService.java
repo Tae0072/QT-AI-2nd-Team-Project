@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class CommentaryMaterialService {
 
-    private static final int MAX_MATERIALS = 1;
     private static final int MAX_EXCERPT_LENGTH = 1_200;
 
     private final CommentaryMaterialVerseRepository repository;
@@ -40,7 +39,7 @@ public class CommentaryMaterialService {
                 selectedMaterialId = material.getId();
             }
             if (!selectedMaterialId.equals(material.getId())) {
-                break;
+                continue;
             }
             materialsById.computeIfAbsent(material.getId(), id -> new MaterialAccumulator(material))
                     .addVerseId(mapping.getBibleVerseId());

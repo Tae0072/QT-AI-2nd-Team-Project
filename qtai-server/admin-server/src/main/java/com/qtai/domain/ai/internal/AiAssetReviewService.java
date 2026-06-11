@@ -1,7 +1,9 @@
 package com.qtai.domain.ai.internal;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -106,26 +108,40 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
                 "AI asset latest advisor validation log must be PASSED"
         );
 
-        PublishApprovedVerseExplanationCommand publishCommand = publishCommandForTarget(command, asset);
-        PublishApprovedGlossaryTermsCommand glossaryCommand = glossaryCommand(command, asset);
+        PublishCommands publishCommands = publishCommandsForTarget(command, asset);
         asset.approve(command.reviewedAt());
-        if (publishCommand != null) {
-            publishApprovedVerseExplanationUseCase.publishApprovedVerseExplanation(publishCommand);
+        // study publish commands replace by aiAssetId/verse; a failed later call rolls back locally and retry replays both.
+        if (publishCommands.verseExplanationCommand() != null) {
+            publishApprovedVerseExplanationUseCase.publishApprovedVerseExplanation(
+                    publishCommands.verseExplanationCommand()
+            );
         }
-        if (glossaryCommand != null) {
-            publishApprovedGlossaryTermsUseCase.publishApprovedGlossaryTerms(glossaryCommand);
+        if (publishCommands.glossaryTermsCommand() != null) {
+            publishApprovedGlossaryTermsUseCase.publishApprovedGlossaryTerms(publishCommands.glossaryTermsCommand());
         }
     }
 
-    private PublishApprovedVerseExplanationCommand publishCommandForTarget(
+    private PublishCommands publishCommandsForTarget(
             ReviewAiAssetCommand command,
             AiGeneratedAsset asset
     ) {
         if (!command.activateForTarget() || !isVerseExplanationBibleVerseAsset(asset)) {
-            return null;
+            return new PublishCommands(null, null);
         }
 
-        ExplanationItem explanationItem = explanationItemForTarget(asset);
+        JsonNode root = payloadRoot(asset);
+        return new PublishCommands(
+                publishCommandForTarget(command, asset, root),
+                glossaryCommand(command, asset, root)
+        );
+    }
+
+    private PublishApprovedVerseExplanationCommand publishCommandForTarget(
+            ReviewAiAssetCommand command,
+            AiGeneratedAsset asset,
+            JsonNode root
+    ) {
+        ExplanationItem explanationItem = explanationItemForTarget(asset, root);
         return new PublishApprovedVerseExplanationCommand(
                 asset.getTargetId(),
                 explanationItem.summary(),
@@ -192,16 +208,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
                 && asset.getTargetType() == AiTargetType.BIBLE_VERSE;
     }
 
-    private ExplanationItem explanationItemForTarget(AiGeneratedAsset asset) {
-        JsonNode root;
-        try {
-            root = objectMapper.readTree(asset.getPayloadJson());
-        } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson is not valid JSON");
-        }
-        if (root == null || !root.isObject()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson must be a JSON object");
-        }
+    private ExplanationItem explanationItemForTarget(AiGeneratedAsset asset, JsonNode root) {
         JsonNode explanations = root.get("explanations");
         if (explanations == null || !explanations.isArray()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson explanations is required");
@@ -220,18 +227,17 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson target verse explanation is missing");
     }
 
-    private PublishApprovedGlossaryTermsCommand glossaryCommand(ReviewAiAssetCommand command, AiGeneratedAsset asset) {
-        if (!command.activateForTarget() || !isVerseExplanationBibleVerseAsset(asset)) {
-            return null;
-        }
-
-        JsonNode root = payloadRoot(asset);
+    private PublishApprovedGlossaryTermsCommand glossaryCommand(
+            ReviewAiAssetCommand command,
+            AiGeneratedAsset asset,
+            JsonNode root
+    ) {
         JsonNode glossaryTerms = root.get("glossaryTerms");
         if (glossaryTerms == null || !glossaryTerms.isArray() || glossaryTerms.isEmpty()) {
             return null;
         }
 
-        java.util.List<PublishApprovedGlossaryTermsCommand.Term> terms = glossaryTermItems(asset, glossaryTerms);
+        List<PublishApprovedGlossaryTermsCommand.Term> terms = glossaryTermItems(asset, glossaryTerms);
         if (terms.isEmpty()) {
             return null;
         }
@@ -243,11 +249,11 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         );
     }
 
-    private java.util.List<PublishApprovedGlossaryTermsCommand.Term> glossaryTermItems(
+    private List<PublishApprovedGlossaryTermsCommand.Term> glossaryTermItems(
             AiGeneratedAsset asset,
             JsonNode glossaryTerms
     ) {
-        java.util.List<PublishApprovedGlossaryTermsCommand.Term> terms = new java.util.ArrayList<>();
+        List<PublishApprovedGlossaryTermsCommand.Term> terms = new ArrayList<>();
         for (JsonNode term : glossaryTerms) {
             JsonNode verseIdNode = term.get("verseId");
             if (verseIdNode == null || !verseIdNode.canConvertToLong()) {
@@ -395,6 +401,12 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     private record ExplanationItem(
             String summary,
             String explanation
+    ) {
+    }
+
+    private record PublishCommands(
+            PublishApprovedVerseExplanationCommand verseExplanationCommand,
+            PublishApprovedGlossaryTermsCommand glossaryTermsCommand
     ) {
     }
 }

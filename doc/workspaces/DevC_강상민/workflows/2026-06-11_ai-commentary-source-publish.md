@@ -18,7 +18,8 @@ AI 해설 생성 시 `service-ai`의 AI 도메인이 소유한 내부 주석 자
 
 ## 범위
 
-- `service-ai`와 `admin-server` migration에 commentary source/material/verse mapping 테이블을 추가한다.
+- `admin-server` migration에 commentary source/material/verse mapping 테이블을 추가한다.
+  - `commentary_*` 데이터의 도메인 소유권은 `service-ai` AI 도메인으로 보되, Flyway schema 파일은 `doc/admin-server-sync-rules.md` 기준에 따라 `admin-server` 단독 소유로 둔다.
 - `service-ai.domain.ai.internal`에 commentary Entity, Repository, 조회 Service를 추가한다.
 - `ExplanationGenerationJobHandler`에 내부 commentary 조회를 연결하고 prompt와 `sourceMetadata`를 확장한다.
 - `AiAssetReviewService`가 `payloadJson.glossaryTerms[]`를 승인 publish하고 hide 시 해설과 용어를 모두 숨기도록 service-ai/admin-server 양쪽을 맞춘다.
@@ -39,21 +40,22 @@ AI 해설 생성 시 `service-ai`의 AI 도메인이 소유한 내부 주석 자
 | 구분 | 경로 | 책임 |
 | --- | --- | --- |
 | Create | `qtai-server/service-ai/src/main/java/com/qtai/domain/ai/internal/Commentary*.java` | AI 내부 주석 출처/자료/매핑 Entity, Repository, 조회 Service |
-| Create | `qtai-server/service-ai/src/main/resources/db/migration/V*.sql` | service-ai commentary 테이블 생성 및 승인된 경우 seed |
-| Create | `qtai-server/admin-server/src/main/resources/db/migration/V*.sql` | admin-server 복사본 commentary 테이블 생성 및 승인된 경우 seed |
+| Create | `qtai-server/admin-server/src/main/resources/db/migration/V*.sql` | commentary 테이블 생성 및 승인된 경우 seed |
 | Modify | `qtai-server/service-ai/src/main/java/com/qtai/domain/ai/internal/ExplanationGenerationJobHandler.java` | commentary 조회, prompt 포함, sourceMetadata 확장 |
 | Modify | `qtai-server/service-ai/src/main/java/com/qtai/domain/ai/internal/AiAssetReviewService.java` | glossary publish/hide 연결 |
 | Modify | `qtai-server/service-ai/src/main/java/com/qtai/domain/ai/client/study/VerseExplanationRestClientAdapter.java` | glossary publish/hide SYSTEM_BATCH 호출 추가 |
 | Create | `qtai-server/service-bible/src/main/java/com/qtai/domain/study/web/GlossaryTermInternalController.java` | 승인 glossary publish/hide SYSTEM_BATCH 수신 endpoint |
 | Modify | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/internal/AiAssetReviewService.java` | admin-server 승인 런타임 동일 보강 |
 | Test | `qtai-server/service-ai/src/test/java/com/qtai/domain/ai/internal/**` | 생성, commentary 조회, 승인 publish/hide 검증 |
+| Test | `qtai-server/service-ai/src/test/java/com/qtai/domain/ai/client/study/VerseExplanationRestClientAdapterTest.java` | glossary publish/hide HTTP 매핑 검증 |
+| Test | `qtai-server/service-bible/src/test/java/com/qtai/bible/GlossaryTermInternalApiTest.java` | glossary 내부 endpoint SYSTEM_BATCH 보안 경계 검증 |
 | Test | `qtai-server/admin-server/src/test/java/com/qtai/domain/ai/internal/AiAssetReviewServiceTest.java` | admin-server 승인 publish/hide 회귀 |
 | Create | `doc/workspaces/DevC_강상민/reports/2026-06-11_ai-commentary-source-publish_report.md` | 구현/검증/후속 TODO 보고 |
 
 ## 구현 순서
 
 1. 현재 브랜치와 git 상태를 확인하고, `feature/ai-commentary-source-publish`에서 작업한다.
-2. migration 번호를 확인한 뒤 service-ai와 admin-server에 commentary 3개 테이블을 추가한다.
+2. migration 번호를 확인한 뒤 admin-server Flyway migration에 commentary 3개 테이블을 추가한다.
 3. 저장소에 승인된 `refer.jsonl`과 확정 license/attribution/copyright 문구가 있는지 확인한다. 없으면 운영 seed는 넣지 않는다.
 4. `service-ai.domain.ai.internal`에 commentary source/material/material-verse Entity와 Repository를 추가한다.
 5. verseIds 기준 활성 source/material 조회 Service를 구현한다. source/license/copyright는 source 단위로 중복 제거하고 material은 prompt용 DTO로 정리한다.
@@ -73,8 +75,10 @@ AI 해설 생성 시 `service-ai`의 AI 도메인이 소유한 내부 주석 자
 | `service-ai/.../ExplanationGenerationJobHandlerTest.java` | commentary material 내부 조회, prompt 포함, `sourceMetadata` 확장 |
 | `service-ai/.../CommentaryMaterialServiceTest.java` | verseIds 기준 조회, source/license 중복 제거, 비활성 source/material 제외 |
 | `service-ai/.../AiAssetReviewServiceTest.java` | approve 시 해설과 glossary publish, hide 시 둘 다 hide |
+| `service-ai/.../VerseExplanationRestClientAdapterTest.java` | glossary publish/hide HTTP 매핑과 외부 오류 변환 |
 | `admin-server/.../AiAssetReviewServiceTest.java` | admin-server 복사본 approve/hide 동일 회귀 |
 | `service-bible/.../GlossaryTermServiceTest.java` | 기존 glossary publish/hide 회귀 유지 |
+| `service-bible/.../GlossaryTermInternalApiTest.java` | SYSTEM_BATCH 전용 glossary 내부 endpoint 보안 경계 |
 
 ## 수용 기준
 
@@ -110,8 +114,8 @@ Subagent 사용은 권장하지 않는다.
 ## 검증 계획
 
 ```powershell
-.\qtai-server\gradlew.bat -p qtai-server :service-ai:test --tests "*AiAssetReviewServiceTest"
-.\qtai-server\gradlew.bat -p qtai-server :service-bible:test --tests "*GlossaryTermServiceTest"
+.\qtai-server\gradlew.bat -p qtai-server :service-ai:test --tests "*AiAssetReviewServiceTest" --tests "*ExplanationGenerationJobHandlerTest" --tests "*VerseExplanationRestClientAdapterTest" --tests "*CommentaryMaterialServiceTest"
+.\qtai-server\gradlew.bat -p qtai-server :service-bible:test --tests "*GlossaryTermServiceTest" --tests "*GlossaryTermInternalApiTest"
 .\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AiAssetReviewServiceTest"
 .\qtai-server\gradlew.bat -p qtai-server :service-ai:build
 .\qtai-server\gradlew.bat -p qtai-server :admin-server:build

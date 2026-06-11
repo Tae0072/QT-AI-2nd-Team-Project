@@ -40,6 +40,24 @@ class CommentaryMaterialServiceTest {
     }
 
     @Test
+    void findPromptContextByVerseIdsKeepsSelectedMaterialMappingsWhenRowsAreInterleaved() {
+        CommentarySource source = source(10L);
+        CommentaryMaterial first = material(100L, source, "Gen.1.1", "first excerpt");
+        CommentaryMaterial second = material(101L, source, "Gen.1.2", "second excerpt");
+        when(repository.findActiveGenerationMappingsByVerseIds(List.of(1001L, 1002L, 1003L))).thenReturn(List.of(
+                mapping(first, 1001L, 1),
+                mapping(second, 1002L, 2),
+                mapping(first, 1003L, 3)
+        ));
+
+        CommentaryMaterialContext context = service.findPromptContextByVerseIds(List.of(1001L, 1002L, 1003L));
+
+        assertThat(context.commentaryMaterialIds()).containsExactly(100L);
+        assertThat(context.materials()).hasSize(1);
+        assertThat(context.materials().get(0).verseIds()).containsExactly(1001L, 1003L);
+    }
+
+    @Test
     void findPromptContextByVerseIdsReturnsEmptyWhenNoMappings() {
         when(repository.findActiveGenerationMappingsByVerseIds(List.of(1001L))).thenReturn(List.of());
 
