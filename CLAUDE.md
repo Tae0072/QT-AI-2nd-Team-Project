@@ -6,6 +6,7 @@
 
 - 서비스: QT-AI, 큐티 AI 앱
 - 서버 형태: 단일 `qtai-server` Modular Monolith
+- admin-server 복사본 동기화: ① 도메인 로직은 항상 도메인 서비스(service-*)가 원본이고 admin-server는 따라간다 ② admin 고유 기능(admin 컨트롤러·관리자 배치)만 admin-server에서 직접 수정한다 ③ 스키마(Flyway)는 admin-server가 단독 소유하며 다른 모듈에 마이그레이션 파일을 두지 않는다. 상세: `doc/admin-server-sync-rules.md` (2026-06-11 Lead 결정, 코드리뷰 TODO 4)
 - Backend: Java 21, Spring Boot 3.3, Gradle, Spring Modulith, ArchUnit
 - DB/cache: MySQL 8.0, 테스트 H2, Caffeine app cache
 - Redis: token/rate/idempotency 등 필요 범위 검토 후 사용
