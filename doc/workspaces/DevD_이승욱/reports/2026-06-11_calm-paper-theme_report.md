@@ -15,8 +15,11 @@
 - `flutter analyze` 무이슈 / `flutter test` 162건 통과
 - 시각 확인: 에뮬레이터 5탭+하위 화면 T 컨펌 예정
 
+## 추가: 다크 모드 (2차 커밋)
+- "잉크 위의 종이" 다크 토큰 + `AppColors` ThemeExtension(`context.appColors`, 라이트 fallback 내장) + 공용 빌더로 라이트/다크 ThemeData 생성 + `themeMode: system`. 정적 참조 화면 3곳 전환.
+
 ## 미해결 / 후속
-- `bible_browser_screen.dart` 하드코딩 색 토큰 치환 — 담당(이지윤)과 협의 후 별도 PR
-- 다크 모드는 미정(현 라이트 전용 유지)
+- `bible_browser_screen.dart` 하드코딩 색 토큰 치환 — 담당(이지윤)과 협의 후 별도 PR (다크에서 해당 화면 라이트 색 잔존)
+- 다크 모드 수동 토글(설정 화면)은 미구현 — 현재 시스템 설정 추종만
 
 담당: DevD 이승욱 (Lead 강태오 계정으로 작업)

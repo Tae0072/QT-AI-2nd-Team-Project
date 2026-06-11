@@ -23,10 +23,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
-  /// 활성 탭 표시 — 라인 아이콘 그대로 두고 위에 빨간 도트(AppTheme.accentDot)만 켠다.
+  /// 활성 탭 표시 — 라인 아이콘 그대로 두고 위에 빨간 도트(AppColors.accentDot)만 켠다.
   /// (Calm Paper §3: filled 아이콘 전환 금지, 유채색 포인트는 이 도트 하나뿐)
   Widget _navIcon(IconData icon, int index) {
     final active = _currentIndex == index;
+    final colors = context.appColors;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -35,7 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 4,
           margin: const EdgeInsets.only(bottom: 3),
           decoration: BoxDecoration(
-            color: active ? AppTheme.accentDot : Colors.transparent,
+            color: active ? colors.accentDot : Colors.transparent,
             shape: BoxShape.circle,
           ),
         ),
@@ -80,10 +81,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       // Calm Paper(§3): 활성 탭은 filled 아이콘 전환 금지 — 라인 아이콘 유지 + 빨간 도트.
-      // 상단 헤어라인 1px은 Container border로 표현(테마 elevation 0).
+      // 상단 헤어라인 1px은 Container border로 표현(테마 elevation 0, 다크 모드 자동 대응).
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppTheme.hairline)),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: context.appColors.hairline)),
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,

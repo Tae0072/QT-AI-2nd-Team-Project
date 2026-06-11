@@ -50,39 +50,49 @@ class QTAIApp extends ConsumerWidget {
         title: 'QT AI',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('ko'),
-        home: Scaffold(
-          backgroundColor: AppTheme.bgSunken,
-          body: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text.rich(
-                  TextSpan(children: [
-                    const TextSpan(text: 'QT'),
-                    TextSpan(text: '·', style: TextStyle(color: AppTheme.accent)),
-                    const TextSpan(text: 'AI'),
-                  ]),
-                  style: const TextStyle(
-                    fontFamily: 'GowunDodum',
-                    fontSize: 60,
-                    fontWeight: FontWeight.w400,
-                    color: AppTheme.text,
-                    letterSpacing: -1.4,
-                  ),
+        // 스플래시도 다크 모드 대응 — Builder로 테마 컨텍스트의 AppColors를 받는다.
+        home: Builder(
+          builder: (context) {
+            final colors = context.appColors;
+            return Scaffold(
+              backgroundColor: colors.bgSunken,
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text.rich(
+                      TextSpan(children: [
+                        const TextSpan(text: 'QT'),
+                        // 로고 가운뎃점 — 유일한 유채색 포인트(탭 도트와 동일 토큰).
+                        TextSpan(
+                            text: '·',
+                            style: TextStyle(color: colors.accentDot)),
+                        const TextSpan(text: 'AI'),
+                      ]),
+                      style: TextStyle(
+                        fontFamily: 'GowunDodum',
+                        fontSize: 60,
+                        fontWeight: FontWeight.w400,
+                        color: colors.text,
+                        letterSpacing: -1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      AppLocalizations.of(context).splashSubtitle,
+                      style:
+                          TextStyle(fontSize: 17, color: colors.textMuted),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 14),
-                Builder(
-                  builder: (context) => Text(
-                    AppLocalizations.of(context).splashSubtitle,
-                    style: const TextStyle(fontSize: 17, color: AppTheme.textMuted),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       );
     }
@@ -101,6 +111,9 @@ class QTAIApp extends ConsumerWidget {
       title: 'QT AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
+      // 다크 모드 — Calm Paper 다크 토큰("잉크 위의 종이"), 시스템 설정을 따른다.
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('ko'),
