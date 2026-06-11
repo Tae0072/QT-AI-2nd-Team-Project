@@ -12,6 +12,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,13 +20,20 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.ai.api.admin.evaluation.dto.ChangeAiEvaluationCaseStatusCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.ChangeAiEvaluationSetStatusCommand;
+import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationCaseCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationSetCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationAssetCandidateCommand;
+import com.qtai.domain.ai.api.admin.evaluation.dto.GetAiEvaluationCaseQuery;
+import com.qtai.domain.ai.api.admin.evaluation.dto.GetAiEvaluationSetQuery;
+import com.qtai.domain.ai.api.admin.evaluation.dto.ListAiEvaluationCasesQuery;
+import com.qtai.domain.ai.api.admin.evaluation.dto.ListAiEvaluationSetsQuery;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 class AiEvaluationServiceTest {
 
@@ -65,6 +73,59 @@ class AiEvaluationServiceTest {
     }
 
     @Test
+    void listEvaluationSetsReturnsFilteredPage() {
+        when(setRepository.findByEvalTypeAndTargetTypeAndStatus(
+                any(), any(), any(), any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(evaluationSet())));
+
+        var response = service.listEvaluationSets(new ListAiEvaluationSetsQuery(
+                7L,
+                "ADMIN",
+                "CONTENT_CREATOR",
+                "QA",
+                "QA_REQUEST",
+                "DRAFT",
+                0,
+                20
+        ));
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).id()).isEqualTo(20L);
+    }
+
+    @Test
+    void listEvaluationSetsRejectsUnsupportedEnum() {
+        assertThatThrownBy(() -> service.listEvaluationSets(new ListAiEvaluationSetsQuery(
+                7L,
+                "ADMIN",
+                "REVIEWER",
+                "UNSUPPORTED",
+                null,
+                null,
+                0,
+                20
+        )))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+    }
+
+    @Test
+    void getEvaluationSetReturnsDetail() {
+        when(setRepository.findById(20L)).thenReturn(Optional.of(evaluationSet()));
+
+        var response = service.getEvaluationSet(new GetAiEvaluationSetQuery(
+                7L,
+                "ADMIN",
+                "CONTENT_CREATOR",
+                20L
+        ));
+
+        assertThat(response.id()).isEqualTo(20L);
+        assertThat(response.evalType()).isEqualTo("QA");
+    }
+
+    @Test
     void activateSetRequiresAtLeastTenApprovedCases() {
         AiEvaluationSet set = AiEvaluationSet.create(
                 "절별 해설 평가",
@@ -87,6 +148,75 @@ class AiEvaluationServiceTest {
     }
 
     @Test
+    void activateAndRetireSetChangeStatus() {
+        AiEvaluationSet set = evaluationSet();
+        when(setRepository.findById(20L)).thenReturn(Optional.of(set));
+        when(caseRepository.countByEvaluationSetIdAndStatus(20L, AiEvaluationCaseStatus.APPROVED))
+                .thenReturn(10L);
+
+        var activated = service.activateEvaluationSet(statusCommand(20L));
+        var retired = service.retireEvaluationSet(statusCommand(20L));
+
+        assertThat(activated.status()).isEqualTo("ACTIVE");
+        assertThat(retired.status()).isEqualTo("RETIRED");
+    }
+
+    @Test
+    void createEvaluationCaseSavesCandidate() {
+        when(setRepository.findById(20L)).thenReturn(Optional.of(evaluationSet()));
+        when(caseRepository.save(any())).thenAnswer(invocation -> {
+            AiEvaluationCase saved = invocation.getArgument(0);
+            setId(saved, 303L);
+            return saved;
+        });
+
+        var response = service.createEvaluationCase(new CreateAiEvaluationCaseCommand(
+                7L,
+                "ADMIN",
+                "CONTENT_CREATOR",
+                20L,
+                "QA_REQUEST",
+                1001L,
+                "ADMIN_CREATED",
+                null,
+                "{\"question\":\"test\"}",
+                "{\"answer\":\"blocked\"}",
+                "{\"expectedResult\":\"REJECTED\"}",
+                "CANDIDATE"
+        ));
+
+        assertThat(response.id()).isEqualTo(303L);
+        assertThat(response.status()).isEqualTo("CANDIDATE");
+    }
+
+    @Test
+    void listAndGetEvaluationCasesReturnResponses() {
+        AiEvaluationCase evaluationCase = evaluationCase();
+        when(caseRepository.findByEvaluationSetId(any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(evaluationCase)));
+        when(caseRepository.findById(301L)).thenReturn(Optional.of(evaluationCase));
+
+        var list = service.listEvaluationCases(new ListAiEvaluationCasesQuery(
+                7L,
+                "ADMIN",
+                "CONTENT_CREATOR",
+                20L,
+                null,
+                0,
+                20
+        ));
+        var detail = service.getEvaluationCase(new GetAiEvaluationCaseQuery(
+                7L,
+                "ADMIN",
+                "REVIEWER",
+                301L
+        ));
+
+        assertThat(list.content()).hasSize(1);
+        assertThat(detail.id()).isEqualTo(301L);
+    }
+
+    @Test
     void approveCaseChangesStatusAndWritesAudit() {
         AiEvaluationCase evaluationCase = evaluationCase();
         when(caseRepository.findById(301L)).thenReturn(Optional.of(evaluationCase));
@@ -100,6 +230,22 @@ class AiEvaluationServiceTest {
         assertThat(captor.getValue().actionType()).isEqualTo("EVAL_CASE_APPROVE");
         assertThat(captor.getValue().targetType()).isEqualTo("AI_EVALUATION_CASE");
         assertThat(captor.getValue().targetId()).isEqualTo(301L);
+        assertThat(captor.getValue().afterJson()).contains("\"reviewReason\":\"review reason\"");
+    }
+
+    @Test
+    void contentCreatorCannotApproveCaseInService() {
+        assertThatThrownBy(() -> service.approveEvaluationCase(new ChangeAiEvaluationCaseStatusCommand(
+                7L,
+                "ADMIN",
+                "CONTENT_CREATOR",
+                301L,
+                "review reason",
+                NOW
+        )))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.FORBIDDEN);
     }
 
     @Test

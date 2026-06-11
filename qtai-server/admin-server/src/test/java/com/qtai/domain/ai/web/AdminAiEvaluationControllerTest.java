@@ -12,6 +12,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.common.exception.GlobalExceptionHandler;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
 import com.qtai.domain.admin.api.dto.AdminUserInfo;
@@ -128,7 +130,7 @@ class AdminAiEvaluationControllerTest {
 
     @Test
     void reviewerCanApproveAndRejectEvaluationCases() throws Exception {
-        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("REVIEWER", "CONTENT_CREATOR"))))
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("REVIEWER"))))
                 .thenReturn(new AdminUserInfo(100L, 7L, "REVIEWER"));
         when(approveCaseUseCase.approveEvaluationCase(any()))
                 .thenReturn(new AiEvaluationCaseStatusResponse(301L, "APPROVED"));
@@ -148,6 +150,27 @@ class AdminAiEvaluationControllerTest {
                         .content("{\"reviewReason\":\"중복\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("REJECTED"));
+    }
+
+    @Test
+    void contentCreatorCannotApproveEvaluationCase() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("REVIEWER"))))
+                .thenThrow(new BusinessException(ErrorCode.ADMIN_ROLE_INSUFFICIENT));
+
+        mockMvc.perform(post("/api/v1/admin/ai/evaluation-cases/301/approve")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reviewReason\":\"not allowed\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("AD0003"));
+    }
+
+    @Test
+    void userRoleCannotListEvaluationSets() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/ai/evaluation-sets")
+                        .principal(authentication("ROLE_USER")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("M0003"));
     }
 
     @Test

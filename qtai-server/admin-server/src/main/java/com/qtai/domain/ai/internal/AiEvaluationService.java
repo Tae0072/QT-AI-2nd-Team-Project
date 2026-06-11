@@ -8,6 +8,7 @@ import java.util.Map;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -130,15 +131,20 @@ public class AiEvaluationService implements
         if (setRepository.existsByEvalTypeAndVersion(evalType, command.version())) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
-        AiEvaluationSet set = setRepository.save(AiEvaluationSet.create(
-                command.name(),
-                evalType,
-                command.version(),
-                targetType,
-                expectedPolicyJson,
-                command.description(),
-                OffsetDateTime.now(clock)
-        ));
+        AiEvaluationSet set;
+        try {
+            set = setRepository.save(AiEvaluationSet.create(
+                    command.name(),
+                    evalType,
+                    command.version(),
+                    targetType,
+                    expectedPolicyJson,
+                    command.description(),
+                    OffsetDateTime.now(clock)
+            ));
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
         return toSetResponse(set);
     }
 
@@ -257,7 +263,7 @@ public class AiEvaluationService implements
     private AiEvaluationCaseStatusResponse reviewCase(ChangeAiEvaluationCaseStatusCommand command, boolean approve) {
         requireValidCaseStatusCommand(command);
         AiEvaluationCase evaluationCase = findCase(command.caseId());
-        String beforeJson = caseAuditSnapshot(evaluationCase);
+        String beforeJson = caseAuditSnapshot(evaluationCase, null);
         if (approve) {
             evaluationCase.approve(command.adminId(), command.reviewedAt());
         } else {
@@ -268,7 +274,7 @@ public class AiEvaluationService implements
                 approve ? "EVAL_CASE_APPROVE" : "EVAL_CASE_REJECT",
                 evaluationCase.getId(),
                 beforeJson,
-                caseAuditSnapshot(evaluationCase)
+                caseAuditSnapshot(evaluationCase, command.reviewReason())
         );
         return new AiEvaluationCaseStatusResponse(evaluationCase.getId(), evaluationCase.getStatus().name());
     }
@@ -358,7 +364,7 @@ public class AiEvaluationService implements
         return payload;
     }
 
-    private String caseAuditSnapshot(AiEvaluationCase evaluationCase) {
+    private String caseAuditSnapshot(AiEvaluationCase evaluationCase, String reviewReason) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("id", evaluationCase.getId());
         payload.put("evaluationSetId", evaluationCase.getEvaluationSetId());
@@ -367,6 +373,9 @@ public class AiEvaluationService implements
         payload.put("sourceType", evaluationCase.getSourceType().name());
         payload.put("status", evaluationCase.getStatus().name());
         payload.put("reviewedAt", evaluationCase.getReviewedAt());
+        if (reviewReason != null && !reviewReason.isBlank()) {
+            payload.put("reviewReason", reviewReason);
+        }
         return toJson(payload);
     }
 
@@ -496,7 +505,7 @@ public class AiEvaluationService implements
         if (command == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
-        requireValidActor(command.adminId(), command.memberRole(), command.adminRole());
+        requireValidReviewerActor(command.adminId(), command.memberRole(), command.adminRole());
         requirePositive(command.caseId(), "caseId");
         requireText(command.reviewReason(), "reviewReason");
         if (command.reviewedAt() == null) {
@@ -512,6 +521,15 @@ public class AiEvaluationService implements
                 || !("REVIEWER".equals(adminRole)
                 || "CONTENT_CREATOR".equals(adminRole)
                 || "SUPER_ADMIN".equals(adminRole))) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    private static void requireValidReviewerActor(Long adminId, String memberRole, String adminRole) {
+        requirePositive(adminId, "adminId");
+        requireText(memberRole, "memberRole");
+        requireText(adminRole, "adminRole");
+        if (!"ADMIN".equals(memberRole) || !("REVIEWER".equals(adminRole) || "SUPER_ADMIN".equals(adminRole))) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

@@ -241,7 +241,7 @@ public class AdminAiEvaluationController {
             @PathVariable Long caseId,
             @Valid @RequestBody ReviewRequest request
     ) {
-        AdminAiAuthentication.AdminAiPrincipal principal = adminAiAuthentication.requireEvaluationManager(authentication);
+        AdminAiAuthentication.AdminAiPrincipal principal = adminAiAuthentication.requireReviewer(authentication);
         return ResponseEntity.ok(ApiResponse.success(approveCaseUseCase.approveEvaluationCase(reviewCommand(principal, caseId, request))));
     }
 
@@ -251,7 +251,7 @@ public class AdminAiEvaluationController {
             @PathVariable Long caseId,
             @Valid @RequestBody ReviewRequest request
     ) {
-        AdminAiAuthentication.AdminAiPrincipal principal = adminAiAuthentication.requireEvaluationManager(authentication);
+        AdminAiAuthentication.AdminAiPrincipal principal = adminAiAuthentication.requireReviewer(authentication);
         return ResponseEntity.ok(ApiResponse.success(rejectCaseUseCase.rejectEvaluationCase(reviewCommand(principal, caseId, request))));
     }
 
