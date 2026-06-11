@@ -70,6 +70,24 @@ class AiForbiddenFeatureTest {
     }
 
     @Test
+    @DisplayName("service-ai 웹 컨트롤러는 관리자 API 경로를 노출하지 않는다")
+    void no_admin_endpoint_paths() {
+        List<String> violations = new ArrayList<>();
+
+        for (Class<?> controller : findControllers()) {
+            for (String path : collectMappedPaths(controller)) {
+                if (path.toLowerCase(Locale.ROOT).startsWith("/api/v1/admin/")) {
+                    violations.add(controller.getSimpleName() + " -> '" + path + "'");
+                }
+            }
+        }
+
+        assertThat(violations)
+                .as("관리자 API는 admin-server 소관이며 service-ai에서 노출하면 안 됩니다")
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("AI 웹 컨트롤러 핸들러는 스트리밍·리액티브 반환 타입을 사용하지 않는다")
     void no_streaming_or_reactive_return_types() {
         List<String> violations = new ArrayList<>();
