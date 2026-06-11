@@ -5,6 +5,7 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.notification.api.SendNotificationUseCase;
 import com.qtai.domain.notification.api.dto.NotificationSendRequest;
+import com.qtai.domain.sharing.api.CheckCommentExistsUseCase;
 import com.qtai.domain.sharing.api.CommentUseCase;
 import com.qtai.domain.sharing.api.dto.CommentCreateRequest;
 import com.qtai.domain.sharing.api.dto.CommentListResponse;
@@ -28,7 +29,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class CommentService implements CommentUseCase {
+public class CommentService implements CommentUseCase, CheckCommentExistsUseCase {
 
     private final CommentRepository commentRepository;
     private final SharingPostRepository sharingPostRepository;
@@ -105,6 +106,11 @@ public class CommentService implements CommentUseCase {
                 page.getTotalPages(),
                 page.isFirst(),
                 page.isLast());
+    }
+
+    @Override
+    public boolean existsReportableComment(Long commentId) {
+        return commentRepository.existsByIdAndIsDeletedFalse(commentId);
     }
 
     @Override

@@ -11,4 +11,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     /** 글의 살아있는 댓글 수. commentCount COUNT 재계산용. */
     long countBySharingPostIdAndIsDeletedFalse(Long sharingPostId);
+
+    boolean existsByIdAndIsDeletedFalse(Long id);
 }
