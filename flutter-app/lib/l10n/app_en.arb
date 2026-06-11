@@ -104,7 +104,7 @@
   "noteShareAsImage": "Share as image",
   "noteShareImageFailed": "Failed to share image",
 
-  "navToday": "Today",
+  "navToday": "QT",
   "navBible": "Bible",
   "navShare": "Sharing",
   "navNote": "Notes",
@@ -128,7 +128,7 @@
   "bibleTodayLoading": "Loading today's passage...",
   "bibleTodayLoadError": "Couldn't load today's passage.",
   "bibleExplanation": "Commentary",
-  "bibleSimulator": "Simulator",
+  "bibleSimulator": "Animation",
   "qtVideoTitle": "QT Video",
   "qtVideoRetry": "Reload",
   "videoBack": "Back",

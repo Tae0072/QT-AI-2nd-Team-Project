@@ -9,7 +9,6 @@ public record QtResponse(
         // TODO: String content
         // TODO: Long bibleVerseId           — null 가능
         // TODO: String bibleVerseRef        — "요한복음 3:16" 형태 표시용
-        // TODO: QtVisibility visibility
         // TODO: LocalDateTime createdAt
         // TODO: LocalDateTime updatedAt
 ) {}

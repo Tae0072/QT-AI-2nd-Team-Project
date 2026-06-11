@@ -89,7 +89,7 @@
   "noteShareAsImage": "이미지로 공유",
   "noteShareImageFailed": "이미지 공유에 실패했습니다",
 
-  "navToday": "오늘",
+  "navToday": "QT",
   "navBible": "성경",
   "navShare": "나눔",
   "navNote": "노트",
@@ -113,7 +113,7 @@
   "bibleTodayLoading": "오늘 본문을 불러오는 중입니다.",
   "bibleTodayLoadError": "오늘 본문을 불러오지 못했습니다.",
   "bibleExplanation": "해설",
-  "bibleSimulator": "시뮬레이터",
+  "bibleSimulator": "애니메이션",
   "qtVideoTitle": "QT 영상",
   "qtVideoRetry": "다시 불러오기",
   "videoBack": "뒤로",

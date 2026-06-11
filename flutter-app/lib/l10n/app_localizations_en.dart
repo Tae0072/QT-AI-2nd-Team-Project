@@ -271,7 +271,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteShareImageFailed => 'Failed to share image';
 
   @override
-  String get navToday => 'Today';
+  String get navToday => 'QT';
 
   @override
   String get navBible => 'Bible';
@@ -343,7 +343,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bibleExplanation => 'Commentary';
 
   @override
-  String get bibleSimulator => 'Simulator';
+  String get bibleSimulator => 'Animation';
 
   @override
   String get qtVideoTitle => 'QT Video';
