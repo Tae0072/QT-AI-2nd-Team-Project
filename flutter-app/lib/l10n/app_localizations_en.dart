@@ -55,6 +55,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginFailed => 'Login failed. Please try again.';
 
   @override
+  String get loginWebNotSupported =>
+      'Kakao login is not supported on the web. Please use the mobile app.';
+
+  @override
   String get loginLegalPrefix => 'By continuing, you agree to the ';
 
   @override

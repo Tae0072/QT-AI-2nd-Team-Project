@@ -22,6 +22,7 @@
   "loginSubtitle": "Read today's QT passage and verified commentary, and leave your own meditation notes.",
   "loginKakaoButton": "Start with Kakao",
   "loginFailed": "Login failed. Please try again.",
+  "loginWebNotSupported": "Kakao login is not supported on the web. Please use the mobile app.",
   "loginLegalPrefix": "By continuing, you agree to the ",
   "loginTermsOfService": "Terms of Service",
   "loginLegalAnd": " and ",
