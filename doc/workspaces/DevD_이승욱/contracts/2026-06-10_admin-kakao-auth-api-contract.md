@@ -70,3 +70,14 @@ POST /api/v1/admin/auth/kakao        (permitAll — 인증 전 진입)
 - 카카오 검증·JWT 발급은 service-user의 `KakaoOAuthClient`/`AuthService`/`JwtProvider` 재사용(신규 외부 연동 없음).
 - 관리자 자격 검증은 task 1(VerifyAdminRole RestClient → admin-server)에 의존. task 1·dev 시드(task 4) 완료 후 task 3에서 본 계약대로 구현.
 - 콘텐츠/AI 서비스는 `/api/v1/admin/**` 차단(transition-status §1). admin 인증 엔드포인트는 JWT 발급 권한이 있는 service-user에만 둔다.
+
+---
+
+## 개정 추가 (2026-06-11) — 갱신(refresh) 엔드포인트 확정 [§5에 6번 항목 추가]
+
+> 원본 보존 원칙에 따라 §5 본문을 수정하지 않고 추가 개정으로 기록한다.
+
+6. **갱신 엔드포인트**: admin 토큰 갱신은 **공용 `POST /api/v1/auth/refresh`를 재사용**한다(전용 엔드포인트 신설 없음). 일반 사용자와 동일 계약(2026-06-11 합의). ✅
+   - 재발급 access token의 role은 서버가 DB(`members.role`)를 다시 읽어 결정하므로 **ADMIN이 유지**된다 — `AuthService.refresh()` 4단계. 보증 테스트: `AuthServiceTest.refresh_ADMIN_회원은_ADMIN_role로_재발급한다`.
+   - refresh token rotation·Redis 단일 세션 검증·만료(§5-5: access 30분/refresh 14일)는 사용자와 동일하게 적용된다.
+   - admin-web 적용: axios 인터셉터의 갱신 URL만 `/api/v1/auth/refresh`로 지정(401 시 재발급 후 원요청 재시도). 탈퇴/정지 회원은 refresh가 차단되므로(M0006/M0007) 해당 코드 수신 시 로그인 화면으로 보낸다.

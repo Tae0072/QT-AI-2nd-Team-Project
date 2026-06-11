@@ -46,7 +46,8 @@ class GetMeditationCalendarRestClientAdapterTest {
         server = MockRestServiceServer.bindTo(builder).build();
         ServiceEndpointsProperties endpoints = new ServiceEndpointsProperties();
         endpoints.setNoteBaseUrl(NOTE_BASE);
-        adapter = new GetMeditationCalendarRestClientAdapter(builder, endpoints);
+        // applyTimeouts=false: 타임아웃 requestFactory가 MockRestServiceServer의 mock 팩토리를 덮어쓰지 않게 한다.
+        adapter = new GetMeditationCalendarRestClientAdapter(builder, endpoints, false);
     }
 
     @Test

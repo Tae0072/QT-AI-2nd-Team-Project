@@ -7,12 +7,17 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.common.security.ServiceCallAuthForwarder;
 import com.qtai.domain.note.api.GetMeditationCalendarUseCase;
 import com.qtai.domain.note.api.dto.MeditationCalendarResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.client.ClientHttpRequestFactories;
+import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.time.Duration;
 import java.time.YearMonth;
 
 /**
@@ -33,6 +38,7 @@ import java.time.YearMonth;
  * ({@link ErrorCode#EXTERNAL_API_FAILURE})로 감싼다(§9). 대시보드는 위젯별 부분 실패 정책이라
  * 호출측에서 widgetErrors로 격리한다. 토큰은 로그/예외 메시지에 남기지 않는다(§9).
  */
+@Slf4j
 @Component
 public class GetMeditationCalendarRestClientAdapter implements GetMeditationCalendarUseCase {
 
@@ -40,11 +46,34 @@ public class GetMeditationCalendarRestClientAdapter implements GetMeditationCale
             new ParameterizedTypeReference<>() {
             };
 
+    /** 대시보드 위젯 경로 — 부분 실패가 허용되므로 짧은 타임아웃으로 빠르게 실패시킨다. */
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(3);
+
     private final RestClient restClient;
 
+    @Autowired
     public GetMeditationCalendarRestClientAdapter(RestClient.Builder restClientBuilder,
                                                   ServiceEndpointsProperties endpoints) {
-        this.restClient = restClientBuilder.baseUrl(endpoints.getNoteBaseUrl()).build();
+        this(restClientBuilder, endpoints, true);
+    }
+
+    /**
+     * @param applyTimeouts 운영 경로는 true(타임아웃 팩토리 적용). 테스트는 false —
+     *                      MockRestServiceServer가 빌더에 심는 mock 팩토리를 덮어쓰지 않기 위함.
+     */
+    GetMeditationCalendarRestClientAdapter(RestClient.Builder restClientBuilder,
+                                           ServiceEndpointsProperties endpoints,
+                                           boolean applyTimeouts) {
+        RestClient.Builder builder = restClientBuilder.baseUrl(endpoints.getNoteBaseUrl());
+        if (applyTimeouts) {
+            // 공용 restClientBuilder에는 타임아웃이 없어(무한 대기) 어댑터 단위로 명시한다.
+            ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.DEFAULTS
+                    .withConnectTimeout(CONNECT_TIMEOUT)
+                    .withReadTimeout(READ_TIMEOUT);
+            builder = builder.requestFactory(ClientHttpRequestFactories.get(settings));
+        }
+        this.restClient = builder.build();
     }
 
     @Override
@@ -60,14 +89,19 @@ public class GetMeditationCalendarRestClientAdapter implements GetMeditationCale
                         throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
                     })
                     .body(CALENDAR_TYPE);
-            return unwrap(body);
+            return unwrap(body, month);
         } catch (RestClientException e) {
+            // BusinessException이 cause 체인을 받지 않아 원인은 여기서 로그로 보존한다
+            // (§9 — 토큰·Authorization 헤더는 예외 메시지에 포함되지 않는 일반 HTTP 오류만 기록).
+            log.warn("묵상 달력 호출 실패: month={}, cause={}", month, e.toString());
             throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
         }
     }
 
-    private MeditationCalendarResponse unwrap(ApiResponse<MeditationCalendarResponse> body) {
+    private MeditationCalendarResponse unwrap(ApiResponse<MeditationCalendarResponse> body, YearMonth month) {
         if (body == null || !body.success() || body.data() == null) {
+            log.warn("묵상 달력 응답 봉투 비정상: month={}, success={}", month,
+                    body == null ? null : body.success());
             throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
         }
         return body.data();
