@@ -279,6 +279,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get navNote => '노트';
 
   @override
+  String get navRecord => '기록';
+
+  @override
   String get navMy => '마이';
 
   @override
@@ -688,7 +691,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get ttsVoicesError => '목소리 목록을 불러올 수 없습니다';
 
   @override
-  String get catMeditation => '묵상';
+  String get catMeditation => 'QT';
 
   @override
   String get catSermon => '설교';

@@ -77,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: const Icon(Icons.edit_note_outlined),
             activeIcon: const Icon(Icons.edit_note),
-            label: l.navNote,
+            label: l.navRecord,
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.person_outline),

@@ -108,6 +108,7 @@
   "navBible": "Bible",
   "navShare": "Sharing",
   "navNote": "Notes",
+  "navRecord": "Records",
   "navMy": "My",
   "ttsRead": "Read passage",
   "ttsStop": "Stop reading",
@@ -253,7 +254,7 @@
   "ttsVoicesLoading": "Loading the voice list",
   "ttsVoicesError": "Couldn't load the voice list",
 
-  "catMeditation": "Meditation",
+  "catMeditation": "QT",
   "catSermon": "Sermon",
   "catPrayer": "Prayer",
   "catGratitude": "Gratitude",

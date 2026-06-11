@@ -6,7 +6,7 @@
 
 /// 카테고리 코드 → 한글 라벨. (여러 화면에서 재사용)
 const Map<String, String> noteCategoryLabels = {
-  'MEDITATION': '묵상',
+  'MEDITATION': 'QT',
   'SERMON': '설교',
   'PRAYER': '기도',
   'REPENTANCE': '회개',

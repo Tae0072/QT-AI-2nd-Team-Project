@@ -6,7 +6,7 @@
 String postCategoryLabel(String code) {
   switch (code) {
     case 'MEDITATION':
-      return '묵상';
+      return 'QT';
     case 'SERMON':
       return '설교';
     case 'PRAYER':
