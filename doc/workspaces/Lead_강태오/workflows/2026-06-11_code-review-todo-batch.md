@@ -38,7 +38,7 @@
 
 ## 4. 후속/공유 필요
 
-- [ ] TTS 포트: `app_config.dart` ttsBaseUrl(8090)이 admin-server와 충돌 — 이승욱과 8091 등 재지정 합의 (PR #470 본문 명시)
+- [x] TTS 포트: `app_config.dart` ttsBaseUrl(8090)이 admin-server와 충돌 → **8091로 변경 완료(PR #475)**. TTS(tts-service·보이스 클로닝)는 Lead(강태오) 본인 소관이라 별도 합의 불필요 — 로컬 TTS 서버를 8091로 실행(오버라이드: `--dart-define=TTS_BASE_URL`)
 - [ ] service-ai(0.14)·admin-server(0.12) 커버리지 floor 단계적 상향 — 팀 합의
 - [ ] 로컬 잔존물 삭제 공지(빈 폴더 5종·빌드 산출물 2종) — PR #473 본문 참고
 - [ ] 로컬 dev 브랜치가 origin/dev와 분기(53/61) — 각자 로컬 dev 재설정 권장(`git fetch && git checkout -B dev origin/dev`)
