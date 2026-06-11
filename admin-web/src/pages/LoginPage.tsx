@@ -14,6 +14,7 @@ import { useAuth } from '../auth/useAuth';
 import { loginWithKakao } from '../auth/kakao';
 import { loginAdminWithKakao } from '../api/adminAuth';
 import { ApiClientError } from '../api/client';
+import { KAKAO_JS_KEY } from '../config/env';
 
 // ===== 관리자 로그인 (카카오 JS SDK) =====
 // 흐름: 카카오 로그인 → 카카오 access token → POST /api/v1/admin/auth/kakao → ADMIN 토큰 저장.
@@ -28,6 +29,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devToken, setDevToken] = useState('');
+  // 카카오 JS 키 미설정이면 로그인 버튼을 눌러도 kakao.ts에서 에러만 난다.
+  // → 미리 안내 Alert 표시 + 버튼 비활성화로 헛클릭을 막는다.
+  const kakaoKeyMissing = !KAKAO_JS_KEY;
 
   // 로그인 후 되돌아갈 주소 (보호 화면에서 튕겨 왔다면 그 주소, 없으면 대시보드)
   const from =
@@ -86,15 +90,32 @@ export default function LoginPage() {
             <Alert type="error" showIcon message="로그인 실패" description={error} />
           )}
 
+          {kakaoKeyMissing && (
+            <Alert
+              type="warning"
+              showIcon
+              message="카카오 로그인 키가 설정되지 않았습니다"
+              description={
+                <>
+                  <Typography.Text code>VITE_KAKAO_JS_KEY</Typography.Text>를{' '}
+                  <Typography.Text code>admin-web/.env</Typography.Text>에 설정하면 카카오 로그인이 활성화됩니다.
+                  {import.meta.env.DEV &&
+                    ' (dev에서는 아래 개발용 토큰으로 우회할 수 있어요.)'}
+                </>
+              }
+            />
+          )}
+
           <Button
             type="primary"
             block
             size="large"
             loading={loading}
+            disabled={kakaoKeyMissing}
             onClick={handleKakaoLogin}
             style={{
-              background: '#FEE500',
-              color: '#191600',
+              background: kakaoKeyMissing ? undefined : '#FEE500',
+              color: kakaoKeyMissing ? undefined : '#191600',
               border: 'none',
               fontWeight: 600,
             }}
