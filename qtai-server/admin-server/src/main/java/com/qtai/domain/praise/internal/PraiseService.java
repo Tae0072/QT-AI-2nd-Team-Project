@@ -3,13 +3,16 @@ package com.qtai.domain.praise.internal;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.praise.api.CreatePraiseUseCase;
+import com.qtai.domain.praise.api.DeletePraiseUseCase;
 import com.qtai.domain.praise.api.ListMemberPraiseSongUseCase;
 import com.qtai.domain.praise.api.ListPraiseUseCase;
 import com.qtai.domain.praise.api.SaveMemberPraiseSongUseCase;
+import com.qtai.domain.praise.api.UpdatePraiseUseCase;
 import com.qtai.domain.praise.api.dto.MemberPraiseSongCreateRequest;
 import com.qtai.domain.praise.api.dto.MemberPraiseSongResponse;
 import com.qtai.domain.praise.api.dto.PraiseCreateRequest;
 import com.qtai.domain.praise.api.dto.PraiseResponse;
+import com.qtai.domain.praise.api.dto.PraiseUpdateRequest;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class PraiseService implements
         CreatePraiseUseCase, ListPraiseUseCase,
+        UpdatePraiseUseCase, DeletePraiseUseCase,
         SaveMemberPraiseSongUseCase, ListMemberPraiseSongUseCase {
 
     private final PraiseSongRepository praiseSongRepository;
@@ -69,6 +73,38 @@ public class PraiseService implements
     public Page<PraiseResponse> listActive(Pageable pageable) {
         return praiseSongRepository.findByStatus(PraiseSongStatus.ACTIVE, pageable)
                 .map(this::toResponse);
+    }
+
+    @Override
+    public Page<PraiseResponse> listAdmin(String status, Pageable pageable) {
+        if (status != null) {
+            PraiseSongStatus statusEnum = PraiseSongStatus.valueOf(status);
+            return praiseSongRepository.findByStatus(statusEnum, pageable).map(this::toResponse);
+        }
+        return praiseSongRepository.findAll(pageable).map(this::toResponse);
+    }
+
+    // ── UpdatePraiseUseCase (ADMIN) ──
+
+    @Override
+    @Transactional
+    public PraiseResponse update(Long adminId, Long praiseSongId, PraiseUpdateRequest request) {
+        PraiseSong song = praiseSongRepository.findById(praiseSongId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRAISE_SONG_NOT_FOUND));
+        song.update(request.title(), request.artist(), request.licenseNote());
+        log.info("큐레이션 곡 수정: adminId={}, songId={}, title={}", adminId, song.getId(), song.getTitle());
+        return toResponse(song);
+    }
+
+    // ── DeletePraiseUseCase (ADMIN) ──
+
+    @Override
+    @Transactional
+    public void delete(Long adminId, Long praiseSongId) {
+        PraiseSong song = praiseSongRepository.findById(praiseSongId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRAISE_SONG_NOT_FOUND));
+        praiseSongRepository.delete(song);
+        log.info("큐레이션 곡 삭제: adminId={}, songId={}", adminId, praiseSongId);
     }
 
     // ── SaveMemberPraiseSongUseCase ──
@@ -185,8 +221,10 @@ public class PraiseService implements
                 song.getTitle(),
                 song.getArtist(),
                 song.getSourceType().name(),
+                song.getLicenseNote(),
                 song.getStatus().name(),
-                song.getCreatedAt()
+                song.getCreatedAt(),
+                song.getUpdatedAt()
         );
     }
 

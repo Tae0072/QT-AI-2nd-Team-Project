@@ -9,5 +9,9 @@ import org.springframework.data.domain.Pageable;
  */
 public interface ListPraiseUseCase {
 
+    /** 사용자용: ACTIVE 곡만 반환. */
     Page<PraiseResponse> listActive(Pageable pageable);
+
+    /** 관리자용: 상태 필터 포함 전체 조회. status null 이면 전체. */
+    Page<PraiseResponse> listAdmin(String status, Pageable pageable);
 }
