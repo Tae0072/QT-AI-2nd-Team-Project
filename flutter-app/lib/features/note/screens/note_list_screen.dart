@@ -127,7 +127,7 @@ class _NoteListBody extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Text(l.noteDraft,
                           style: theme.textTheme.bodySmall
-                              ?.copyWith(color: Colors.orange)),
+                              ?.copyWith(color: theme.colorScheme.outline)),
                     ],
                     const Spacer(),
                     if (item.updatedAt != null)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
 import 'note_day_checklist_sheet.dart';
@@ -45,6 +46,7 @@ class _MeditationCalendarViewState
       orElse: () => <DateTime, CalendarDay>{},
     );
 
+    final c = context.appColors;
     return TableCalendar<CalendarDay>(
       firstDay: DateTime.utc(2020, 1, 1),
       lastDay: DateTime.utc(2035, 12, 31),
@@ -61,6 +63,25 @@ class _MeditationCalendarViewState
       onPageChanged: (focusedDay) => setState(() => _focusedDay = focusedDay),
       calendarFormat: CalendarFormat.month,
       availableGestures: AvailableGestures.horizontalSwipe,
+      // Calm Paper: 달력도 무채색만. 저장일 점(marker)만 유일한 유채색(accentDot).
+      calendarStyle: CalendarStyle(
+        todayDecoration: BoxDecoration(color: c.accentSoft, shape: BoxShape.circle),
+        todayTextStyle: TextStyle(color: c.text, fontWeight: FontWeight.w600),
+        selectedDecoration: BoxDecoration(color: c.accent, shape: BoxShape.circle),
+        selectedTextStyle:
+            TextStyle(color: c.onAccent, fontWeight: FontWeight.w600),
+        markerDecoration:
+            BoxDecoration(color: c.accentDot, shape: BoxShape.circle),
+        markersMaxCount: 1,
+        defaultTextStyle: TextStyle(color: c.text),
+        weekendTextStyle: TextStyle(color: c.text),
+        outsideTextStyle: TextStyle(color: c.textMuted),
+        disabledTextStyle: TextStyle(color: c.textMuted),
+      ),
+      daysOfWeekStyle: DaysOfWeekStyle(
+        weekdayStyle: TextStyle(color: c.text2),
+        weekendStyle: TextStyle(color: c.text2),
+      ),
     );
   }
 
