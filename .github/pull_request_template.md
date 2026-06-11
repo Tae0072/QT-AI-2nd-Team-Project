@@ -30,8 +30,8 @@
 ### C. 금지 기술/기능 (Requirements Guard 자동 차단 대상)
 - [ ] AI 자유 챗봇 / 다중 턴 / SSE / `SseEmitter` / `text/event-stream` / `/ai/sessions/**` 없음
 - [ ] 해설·시뮬레이터 사용자 요청 즉시 생성 없음 — 04:00 KST 배치 또는 관리자 트리거만
-- [ ] Spring `ApplicationEventPublisher` 사용 — Kafka / `KafkaTemplate` / `spring-kafka` 없음
-- [ ] Docker Compose만 — Kubernetes / Helm 디렉터리 없음
+- [ ] (v1) Spring `ApplicationEventPublisher` 사용 — v2 MSA 분리 트랙은 Kafka 허용(2026-06-08)
+- [ ] (v1) Docker Compose — v2 MSA 분리 트랙은 Kubernetes/Helm 허용(2026-06-08)
 - [ ] MySQL 인덱스만 — RAG / ChromaDB / Vector DB / Elasticsearch / EmbeddingStore 없음
 - [ ] 교회 인증 F-11 화면 / 버튼 / API / DB 필드 없음
 - [ ] AI 찬양 추천 / 가사·음원 서버 저장 / 직접 YouTube URL 입력 없음

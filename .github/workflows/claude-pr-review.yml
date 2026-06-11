@@ -79,7 +79,7 @@ jobs:
 
           ## QT-AI 프로젝트 컨텍스트
           - 거버닝 SSoT: 07_요구사항_정의서.md v3.1 (충돌 우선순위: 07 > 03 > 04 > 18 > 23 > 09)
-          - 백엔드: 단일 qtai-server Spring Boot 3.3 Modular Monolith (Java 21 + MySQL 8.0 + Redis 7.x + Caffeine)
+          - 백엔드: 단일 qtai-server Modular Monolith(v1) → v2 MSA 분리(2026-06-08) (Java 21 + MySQL 8.0 + Redis 7.x + Caffeine)
           - 13 도메인 패키지: com.qtai.domain.{member, bible, qt, study, note, sharing, report, notification, praise, mission, ai, admin, audit}
           - 인증: Kakao OAuth + JWT RS256 (Access 30분/Refresh 14일)
           - AI: DeepSeek API, 04:00 KST 배치/관리자 트리거 전용, F-15 단발 Q&A만 인라인(202 + polling)
@@ -130,7 +130,7 @@ jobs:
           7. **금지 기술/데이터/기능 패턴** (자동 차단 대상):
              - SSE: /ai/sessions/, SseEmitter, text/event-stream, Flux<ServerSentEvent
              - 검색·임베딩: RAG, ChromaDB, Weaviate, Elasticsearch, VectorStore, EmbeddingStore, LangChain4j
-             - 인프라: Kafka, KafkaTemplate, spring-kafka, Kubernetes, Helm
+             - 인프라: Kafka·Kubernetes·Helm은 v2 MSA 분리 트랙(브랜치 msa/* 또는 v2-msa 라벨)에서만 허용. v1 단일배포 PR이 추가하면 차단 대상으로 지적.
              - 성경 번역본: 개역개정, ESV, NIV
              - 본문 텍스트: 성서 유니온/두란노 원문 저장 (범위 정보만)
              - 교회 인증 F-11: 화면/버튼/API/DB 필드 추가

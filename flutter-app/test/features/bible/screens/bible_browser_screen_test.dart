@@ -1,12 +1,17 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/screens/bible_browser_screen.dart';
 import 'package:qtai_app/features/bible/services/bible_repository.dart';
+import 'package:qtai_app/features/note/models/note_models.dart';
+import 'package:qtai_app/features/note/providers/note_providers.dart';
+import 'package:qtai_app/features/note/screens/note_list_screen.dart';
+import 'package:qtai_app/features/note/services/note_repository.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
+import 'package:qtai_app/routes/app_router.dart';
 
 void main() {
   testWidgets(
@@ -87,6 +92,75 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('boom'), findsNothing);
+  });
+
+  testWidgets('sermon note button opens the note sermon entry point',
+      (tester) async {
+    final bibleRepository = _FakeBibleRepository();
+    final noteRepository = _FakeNoteRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          bibleRepositoryProvider.overrideWithValue(bibleRepository),
+          noteRepositoryProvider.overrideWithValue(noteRepository),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const BibleBrowserScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bible-selection-bar')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bible-browser-sermon-note-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NoteListScreen), findsOneWidget);
+    expect(noteRepository.requestedCategory, 'SERMON');
+  });
+
+  testWidgets('sermon note button delegates to the home note tab callback',
+      (tester) async {
+    final bibleRepository = _FakeBibleRepository();
+    final container = ProviderContainer(
+      overrides: [
+        bibleRepositoryProvider.overrideWithValue(bibleRepository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    var openedNoteTab = false;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: BibleBrowserScreen(
+            onOpenSermonNotes: () => openedNoteTab = true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bible-selection-bar')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bible-browser-sermon-note-button')));
+    await tester.pumpAndSettle();
+
+    expect(openedNoteTab, isTrue);
+    expect(container.read(noteCategoryFilterProvider), 'SERMON');
   });
 }
 
@@ -178,5 +252,20 @@ class _FakeBibleRepository extends BibleRepository {
         ),
       ],
     );
+  }
+}
+
+class _FakeNoteRepository extends NoteRepository {
+  String? requestedCategory;
+
+  _FakeNoteRepository() : super(Dio());
+
+  @override
+  Future<NoteListResponse> getNotes({
+    String? category,
+    int page = 0,
+  }) async {
+    requestedCategory = category;
+    return NoteListResponse(items: const [], hasNext: false);
   }
 }

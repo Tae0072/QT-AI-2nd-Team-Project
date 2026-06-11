@@ -228,8 +228,8 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
     return IconButton(
       tooltip: playing ? l.ttsStop : l.ttsRead,
       onPressed: _onTap,
-      icon: ImageIcon(
-        const AssetImage('assets/icons/tts_voice.png'),
+      icon: Icon(
+        Icons.record_voice_over,
         color: playing ? theme.colorScheme.error : null,
       ),
       iconSize: 26,
