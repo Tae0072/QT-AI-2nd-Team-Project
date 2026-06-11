@@ -1,4 +1,4 @@
-# 2026-06-10 QT 영상 클립 MSA 적용 리포트
+# Report — 2026-06-10 qt-video-clips-msa
 
 ## 요약
 

@@ -130,7 +130,7 @@
   "bibleTodayLoading": "Loading today's passage...",
   "bibleTodayLoadError": "Couldn't load today's passage.",
   "bibleExplanation": "Commentary",
-  "bibleSimulator": "Animation",
+  "bibleSimulator": "QT Video",
   "qtVideoTitle": "QT Video",
   "qtVideoRetry": "Reload",
   "videoBack": "Back",

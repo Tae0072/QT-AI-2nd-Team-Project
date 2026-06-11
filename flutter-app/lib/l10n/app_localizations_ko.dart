@@ -342,7 +342,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get bibleExplanation => '해설';
 
   @override
-  String get bibleSimulator => '애니메이션';
+  String get bibleSimulator => 'QT 영상';
 
   @override
   String get qtVideoTitle => 'QT 영상';

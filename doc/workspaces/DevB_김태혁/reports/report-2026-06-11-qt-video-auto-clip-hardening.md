@@ -1,4 +1,4 @@
-# 2026-06-11 QT 영상 자동 클립 준비 후속 보강 리포트
+# Report — 2026-06-11 qt-video-auto-clip-hardening
 
 ## 요약
 
