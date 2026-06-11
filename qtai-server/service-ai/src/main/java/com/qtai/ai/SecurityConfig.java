@@ -22,8 +22,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * <ul>
  *   <li>{@code /actuator/health}, {@code /actuator/info} — permitAll</li>
  *   <li>{@code /api/v1/admin/**} — denyAll. 관리자 AI 화면(asset 검수·체크리스트 등)은
- *       admin_role 이중검증을 포함해 admin-server가 제공한다. AI 서비스에서 ROLE_ADMIN 단독
- *       허용 시 admin_users.admin_role 검증 없이 열리는 우회를 막기 위해 차단한다.</li>
+ *       admin_role 이중검증을 포함해 admin-server가 제공하므로 service-ai에서는 열지 않는다.</li>
  *   <li>{@code /api/v1/system/**} — 인증 필요. 시스템/배치 작업은 SYSTEM_BATCH 주체로 기록되며
  *       호출자 인증을 요구한다(상세 주체 검증은 컨트롤러 레이어 책임).</li>
  *   <li>{@code /api/v1/ai/**}(F-15 단발 Q&A 등) 및 그 외 — 인증 필요(authenticated)</li>
