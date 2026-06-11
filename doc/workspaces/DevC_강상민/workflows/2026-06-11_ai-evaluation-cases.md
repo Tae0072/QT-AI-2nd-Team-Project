@@ -69,7 +69,7 @@
 | Create | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/internal/AiEvaluationCaseRepository.java` | 평가 케이스 JPA 조회 |
 | Create | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/internal/AiEvaluationService.java` | 평가 셋/케이스 생성, 조회, 전이, asset candidate 생성, audit 기록 |
 | Modify | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/web/AdminAiAuthentication.java` | 평가 관리/검토 권한 helper 추가, 기존 한국어 Javadoc과 Lead 결정 기록 보존 |
-| Create | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/web/AdminAiEvaluationController.java` | 관리자 평가 API endpoint 추가 |
+| Create | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/web/AdminAiEvaluationController.java` | 관리자 평가 API endpoint 추가, 테스트 편의 ObjectMapper 생성자 제거 |
 | Test | `qtai-server/admin-server/src/test/java/com/qtai/domain/ai/internal/AiEvaluationServiceTest.java` | 도메인 단위 테스트 |
 | Test | `qtai-server/admin-server/src/test/java/com/qtai/domain/ai/web/AdminAiEvaluationControllerTest.java` | 관리자 API controller 테스트 |
 
@@ -92,6 +92,8 @@
 9. 지정 테스트와 전체 `admin-server:test`를 실행한다.
 10. 구현 커밋과 리뷰 대응 커밋을 작성한다.
 11. 2차 리뷰 대응으로 인증 문서 복원과 미인증 MockMvc 테스트 보강을 확인하고 지정 테스트를 재실행한다.
+12. 3차 리뷰 대응으로 `origin/dev...origin/feature/ai-evaluation-cases` diff에 `V35__create_ai_evaluation_tables.sql`이 포함됨을 확인한다.
+13. `AdminAiEvaluationController`의 테스트 편의 ObjectMapper 생성자를 제거하고 테스트에서 명시적으로 ObjectMapper와 Clock을 주입한다.
 
 ## 테스트 보강
 
@@ -105,6 +107,7 @@
 | `AdminAiEvaluationControllerTest` | 명세 endpoint의 status code와 envelope |
 | `AdminAiEvaluationControllerTest` | CONTENT_CREATOR 조회/생성 가능, REVIEWER approve/reject 가능 |
 | `AdminAiEvaluationControllerTest` | 일반 USER, principal 없는 미인증 요청(401/M0002), CONTENT_CREATOR approve/reject 거부 |
+| `AdminAiEvaluationControllerTest` | 테스트와 운영 ObjectMapper 설정이 갈라지지 않도록 컨트롤러 생성자 주입 경로 검증 |
 
 ## 수용 기준
 
@@ -133,9 +136,10 @@
 
 | 명령 | 결과 |
 | --- | --- |
-| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AiEvaluation*"` | 성공, `0f074ec` 리뷰 대응 후 재실행 |
-| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AdminAi*ControllerTest"` | 성공, `0f074ec` 리뷰 대응 후 재실행 |
+| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AiEvaluation*"` | 성공, `14cfc24` 리뷰 대응 후 재실행 |
+| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AdminAi*ControllerTest"` | 성공, `14cfc24` 리뷰 대응 후 재실행 |
 | `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test` | 성공 |
+| `git diff --name-status origin/dev...origin/feature/ai-evaluation-cases -- "qtai-server/admin-server/src/main/resources/db/migration/V35__create_ai_evaluation_tables.sql"` | `A`로 포함 확인 |
 
 ## 후속 작업
 
