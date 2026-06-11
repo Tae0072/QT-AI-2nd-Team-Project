@@ -104,6 +104,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorApiResponse"
+  /api/v1/qt/passage-study:
+    get:
+      tags:
+        - QT Study
+      operationId: getBiblePassageStudy
+      summary: 성경 본문 해설 진입점 가용성 조회
+      description: >-
+        인증된 사용자가 성경 목차에서 선택한 본문 범위에 대해 해설 진입점 가용성을 조회한다.
+        선택 범위를 포함하는 QT 본문이 있고 승인된 해설이 있으면 qtPassageId와 hasExplanation=true를
+        반환한다. 매핑/해설이 없으면 qtPassageId=null, hasExplanation=false를 반환한다(차단 아님).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookCode
+          in: query
+          required: true
+          schema:
+            type: string
+            example: GEN
+        - name: chapter
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+        - name: verseFrom
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+        - name: verseTo
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            example: 3
+      responses:
+        "200":
+          description: 해설 진입점 가용성 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BiblePassageStudyApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/qt/{qtPassageId}/study-content:
     get:
       tags:
@@ -2306,6 +2359,46 @@ components:
           format: date-time
         traceId:
           type: string
+    BiblePassageStudyApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/BiblePassageStudy"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    BiblePassageStudy:
+      type: object
+      required:
+        - qtPassageId
+        - hasExplanation
+      properties:
+        qtPassageId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 해설 콘텐츠 조회용 QT 본문 ID. 해설이 없으면 null.
+          example: 42
+        hasExplanation:
+          type: boolean
+          description: 승인된 해설 존재 여부 — 해설 진입점 활성 기준.
+          example: true
     BibleBookResponse:
       type: object
       required:

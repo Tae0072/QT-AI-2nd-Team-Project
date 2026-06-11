@@ -7,6 +7,7 @@ import '../../../core/widgets/common_widgets.dart';
 import '../models/bible_chapter_counts.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
+import 'bible_passage_screen.dart';
 
 /// 성경 본문 찾기 — 권/장/절 3단 선택 화면.
 ///
@@ -34,7 +35,6 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
   bool _isSearching = false;
   bool _isLoadingChapter = false;
   bool _chapterLoadFailed = false;
-  bool _showEnglish = false;
 
   @override
   void initState() {
@@ -107,7 +107,12 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
       if (!mounted) {
         return;
       }
-      _showResultSheet(range);
+      // 작은 바텀시트 대신 전체 페이지로 본문을 보여준다(해설 진입점 포함).
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => BiblePassageScreen(range: range),
+        ),
+      );
     } catch (error) {
       if (!mounted) {
         return;
@@ -123,42 +128,6 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
         setState(() => _isSearching = false);
       }
     }
-  }
-
-  void _showResultSheet(BibleVerseRange range) {
-    final colors = context.appColors;
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: colors.bgElevated,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.sheet)),
-      ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return SizedBox(
-              height: MediaQuery.sizeOf(context).height * 0.72,
-              child: _BibleResultPane(
-                range: range,
-                error: null,
-                showEnglish: _showEnglish,
-                onShowEnglishChanged: (selected) {
-                  setState(() => _showEnglish = selected);
-                  setSheetState(() {});
-                },
-                onRetry: () {
-                  Navigator.of(sheetContext).pop();
-                  _search(_selectedBookCode ?? range.book.code);
-                },
-              ),
-            );
-          },
-        );
-      },
-    );
   }
 
   void _selectBook(BibleBook book) {
@@ -850,128 +819,6 @@ class _TocDivider extends StatelessWidget {
     return SizedBox(
       width: 1,
       child: ColoredBox(color: context.appColors.hairline),
-    );
-  }
-}
-
-class _BibleResultPane extends StatelessWidget {
-  final BibleVerseRange? range;
-  final Object? error;
-  final bool showEnglish;
-  final ValueChanged<bool> onShowEnglishChanged;
-  final VoidCallback onRetry;
-
-  const _BibleResultPane({
-    required this.range,
-    required this.error,
-    required this.showEnglish,
-    required this.onShowEnglishChanged,
-    required this.onRetry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = context.appColors;
-
-    if (error != null) {
-      return ErrorView(
-        message: '성경본문을 불러오지 못했습니다. 다시 시도해 주세요.',
-        onRetry: onRetry,
-      );
-    }
-
-    if (range == null) {
-      return const EmptyView(
-        message: '조회할 성경본문을 선택해 주세요.',
-        icon: Icons.menu_book_outlined,
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(AppGap.xl, AppGap.sm, AppGap.xl, AppGap.xxl),
-      children: [
-        Text(
-          '${range!.book.koreanName} ${range!.book.chapter}장',
-          style: theme.textTheme.headlineMedium,
-        ),
-        const SizedBox(height: AppGap.md),
-        Row(
-          children: [
-            FilterChip(
-              key: const Key('bible-browser-english-toggle'),
-              selected: showEnglish,
-              onSelected: onShowEnglishChanged,
-              label: const Text('영어'),
-            ),
-          ],
-        ),
-        if (showEnglish) ...[
-          const SizedBox(height: AppGap.sm),
-          Text(
-            range!.book.englishName,
-            style: theme.textTheme.bodyMedium?.copyWith(color: colors.textMuted),
-          ),
-        ],
-        const SizedBox(height: AppGap.lg),
-        Divider(color: colors.hairline, height: 1),
-        const SizedBox(height: AppGap.lg),
-        for (final verse in range!.verses)
-          _BibleVerseTile(
-            verse: verse,
-            showEnglish: showEnglish,
-          ),
-      ],
-    );
-  }
-}
-
-class _BibleVerseTile extends StatelessWidget {
-  final BibleVerse verse;
-  final bool showEnglish;
-
-  const _BibleVerseTile({
-    required this.verse,
-    required this.showEnglish,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = context.appColors;
-    final koreanText = verse.koreanText?.trim();
-    final englishText = verse.englishText?.trim();
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppGap.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${verse.chapterNo}:${verse.verseNo}',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colors.text2,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
-            ),
-          ),
-          const SizedBox(height: AppGap.xs),
-          if (koreanText != null && koreanText.isNotEmpty)
-            Text(
-              koreanText,
-              style: theme.textTheme.bodyLarge,
-            ),
-          if (showEnglish && englishText != null && englishText.isNotEmpty) ...[
-            const SizedBox(height: AppGap.sm),
-            Text(
-              englishText,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.textMuted,
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

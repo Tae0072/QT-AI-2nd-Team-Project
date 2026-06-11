@@ -45,6 +45,18 @@ class BibleBookLookup {
                 .findFirst();
     }
 
+    /** 권 코드(예: GEN)로 book id 조회. 미존재 시 empty. */
+    Optional<Short> findBookIdByCode(String code) {
+        if (code == null || code.isBlank()) {
+            return Optional.empty();
+        }
+        return listBibleBooksUseCase.listBibleBooks().stream()
+                .filter(book -> code.equals(book.code()))
+                .map(BibleBookLookup::toShortId)
+                .filter(id -> id != null)
+                .findFirst();
+    }
+
     private static Short toShortId(BibleBookResponse book) {
         return book.id() == null ? null : book.id().shortValue();
     }

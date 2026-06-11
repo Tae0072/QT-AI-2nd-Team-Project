@@ -64,6 +64,26 @@ class BibleRepository {
     return BibleVerseRange.fromJson(data);
   }
 
+  /// 선택 본문 범위의 해설 진입점 가용성(qtPassageId·hasExplanation) 조회.
+  ///
+  /// QT 도메인이 bible·study를 조합해 노출하는 엔드포인트라 `/qt/...` 아래에 있다.
+  /// (`/bible/verses`는 모듈 순환 방지로 qt·study에 의존할 수 없다.)
+  Future<BiblePassageStudy> getBiblePassageStudy({
+    required String bookCode,
+    required int chapter,
+    required int verseFrom,
+    required int verseTo,
+  }) async {
+    final response = await _dio.get('/qt/passage-study', queryParameters: {
+      'bookCode': bookCode,
+      'chapter': chapter,
+      'verseFrom': verseFrom,
+      'verseTo': verseTo,
+    });
+    final data = response.data['data'] as Map<String, dynamic>;
+    return BiblePassageStudy.fromJson(data);
+  }
+
   Future<TodayQtPassage> getPassageFromReferenceText(
     String referenceText,
   ) async {
