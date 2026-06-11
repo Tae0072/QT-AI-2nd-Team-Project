@@ -21,9 +21,15 @@
 - Flutter: `flutter analyze`(bible/note) 무이슈, `flutter test` bible+note 39 + 신규 3 통과
 - 서버: `./gradlew :service-bible:test` 전체 통과, OpenAPI 파싱·$ref OK
 
+## 리뷰 보완 (2026-06-11)
+- ① 부정 분기·통합 테스트: `QtServiceTest`에 권 미존재·해설 없음 케이스 추가(총 5 getPassageStudy 케이스), 사용자 `QtController` MockMvc 통합 테스트 `QtPassageStudyApiTest` 신규(해설 있음/매핑 없음/권 미존재/미인증 401).
+- ② 저장소: `findContainingRange`에 `@Param` 부여 + `QtPassageRepositoryTest`(@DataJpaTest) 슬라이스 테스트(포함/범위초과/다른장) 신규.
+- 검증: 3개 테스트 클래스 통과(QtServiceTest 12, QtPassageStudyApiTest 4, QtPassageRepositoryTest 3 — 0 fail/error).
+- ③ §8 위반(개역·KJV seed) 에스컬레이션: `reports/2026-06-11_ESCALATION_bible-seed-forbidden-data.md` 작성(별건, 머지 전 Lead 확인 필요).
+
 ## 미해결 / 후속
 - qt/study 백엔드는 타 담당 도메인 — 머지 전 도메인 오너(DevA·AI) 리뷰 권장
-- untracked `data/bible-json/{KorRV,KJV}.json`(§8 금지 데이터) 별도 정리
+- ③ `generate_seed_sql.py`(개역·KJV) §8 위반은 #231로 dev에 이미 존재 — 별도 에스컬레이션 처리
 - 실기기 수동 확인 스크린샷 보강
 
 담당: DevD 이승욱
