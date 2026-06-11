@@ -7,6 +7,7 @@ import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../../sharing/providers/sharing_providers.dart';
 import '../models/note_models.dart';
+import '../models/qt_note_rich_text.dart';
 import '../providers/note_providers.dart';
 import '../widgets/note_publish_sheet.dart';
 import '../widgets/note_share_sheet.dart';
@@ -256,10 +257,9 @@ class _DetailBody extends StatelessWidget {
 
         //   카테고리 분기: 묵상은 4섹션, 그 외(자유노트)는 body 한 덩이.
         if (detail.isFreeNote)
-          Text(
-            (detail.body?.isNotEmpty ?? false) ? detail.body! : l.noteNoContent,
-            style: theme.textTheme.bodyLarge,
-          )
+          (detail.body?.isNotEmpty ?? false)
+              ? _RichNoteText(text: detail.body!, style: theme.textTheme.bodyLarge)
+              : Text(l.noteNoContent, style: theme.textTheme.bodyLarge)
         else ...[
           _Section(label: l.noteSectionFelt, text: detail.rememberSection),
           _Section(label: l.noteSectionVerse, text: detail.interpretSection),
@@ -300,9 +300,31 @@ class _Section extends StatelessWidget {
         children: [
           Text(label, style: theme.textTheme.titleSmall),
           const SizedBox(height: 4),
-          Text(text!, style: theme.textTheme.bodyLarge),
+          _RichNoteText(text: text!, style: theme.textTheme.bodyLarge),
         ],
       ),
+    );
+  }
+}
+
+/// 저장된 노트 본문을 편집기와 동일한 마크업(굵게 `**`, 하이라이트 `==`,
+/// 글자색·배경·크기 `[fg|bg|fs=..]`)으로 렌더한다.
+///
+/// 편집기는 [QtNoteRichTextParser]로 라이브 렌더하지만 상세 보기는 평문 [Text]라
+/// `**굵게**` 마커가 그대로 노출되던 버그를 수정한다(편집기와 동일 파서 사용).
+class _RichNoteText extends StatelessWidget {
+  final String text;
+  final TextStyle? style;
+
+  /// 이모지 클러스터 크기 — 편집기 `_defaultEmojiFontSize`와 동일.
+  static const double _emojiFontSize = 16;
+
+  const _RichNoteText({required this.text, required this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      QtNoteRichTextParser.parse(text, style, emojiFontSize: _emojiFontSize),
     );
   }
 }
