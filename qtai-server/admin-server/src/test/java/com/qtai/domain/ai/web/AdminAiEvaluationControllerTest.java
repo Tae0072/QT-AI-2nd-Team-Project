@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -78,6 +79,7 @@ class AdminAiEvaluationControllerTest {
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
+        objectMapper = new ObjectMapper().findAndRegisterModules();
         AdminAiAuthentication authentication = new AdminAiAuthentication(verifyAdminRoleUseCase);
         AdminAiEvaluationController controller = new AdminAiEvaluationController(
                 listSetsUseCase,
@@ -91,12 +93,13 @@ class AdminAiEvaluationControllerTest {
                 approveCaseUseCase,
                 rejectCaseUseCase,
                 assetCandidateUseCase,
-                authentication
+                authentication,
+                objectMapper,
+                Clock.systemDefaultZone()
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
-        objectMapper = new ObjectMapper().findAndRegisterModules();
     }
 
     @Test

@@ -103,26 +103,6 @@ public class AdminAiEvaluationController {
             ApproveAiEvaluationCaseUseCase approveCaseUseCase,
             RejectAiEvaluationCaseUseCase rejectCaseUseCase,
             CreateAiEvaluationAssetCandidateUseCase assetCandidateUseCase,
-            AdminAiAuthentication adminAiAuthentication
-    ) {
-        this(listSetsUseCase, createSetUseCase, getSetUseCase, activateSetUseCase, retireSetUseCase,
-                listCasesUseCase, createCaseUseCase, getCaseUseCase, approveCaseUseCase, rejectCaseUseCase,
-                assetCandidateUseCase, adminAiAuthentication, new ObjectMapper().findAndRegisterModules(),
-                Clock.systemDefaultZone());
-    }
-
-    AdminAiEvaluationController(
-            ListAiEvaluationSetsUseCase listSetsUseCase,
-            CreateAiEvaluationSetUseCase createSetUseCase,
-            GetAiEvaluationSetUseCase getSetUseCase,
-            ActivateAiEvaluationSetUseCase activateSetUseCase,
-            RetireAiEvaluationSetUseCase retireSetUseCase,
-            ListAiEvaluationCasesUseCase listCasesUseCase,
-            CreateAiEvaluationCaseUseCase createCaseUseCase,
-            GetAiEvaluationCaseUseCase getCaseUseCase,
-            ApproveAiEvaluationCaseUseCase approveCaseUseCase,
-            RejectAiEvaluationCaseUseCase rejectCaseUseCase,
-            CreateAiEvaluationAssetCandidateUseCase assetCandidateUseCase,
             AdminAiAuthentication adminAiAuthentication,
             ObjectMapper objectMapper,
             Clock clock
