@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/config/app_config.dart';
 import 'core/dev/web_dev_access.dart'; // [WEB_DEV_ACCESS] 개발 종료 시 삭제
 import 'core/theme/app_theme.dart';
-import 'core/theme/theme_providers.dart';
 import 'features/auth/providers/auth_providers.dart';
 import 'features/onboarding/providers/onboarding_providers.dart';
 import 'routes/app_router.dart';
@@ -41,8 +40,6 @@ class QTAIApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final onboardingComplete = ref.watch(onboardingCompleteProvider);
     final authStatus = ref.watch(authStatusProvider);
-    // 다크 모드 — 마이페이지 설정 토글만 따른다(시스템 설정 비추종, theme_providers.dart).
-    final themeMode = ref.watch(themeModeProvider);
     // [WEB_DEV_ACCESS] 웹 개발용 로그인 우회 (개발 종료 시 이 두 줄과 web_dev_access.dart 삭제)
     final webBypass = webDevNoLogin;
     final forceHome = (AppConfig.instance.isDev && _devForceHome) || webBypass;
@@ -53,49 +50,39 @@ class QTAIApp extends ConsumerWidget {
         title: 'QT AI',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: themeMode,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('ko'),
-        // 스플래시도 다크 모드 대응 — Builder로 테마 컨텍스트의 AppColors를 받는다.
-        home: Builder(
-          builder: (context) {
-            final colors = context.appColors;
-            return Scaffold(
-              backgroundColor: colors.bgSunken,
-              body: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text.rich(
-                      TextSpan(children: [
-                        const TextSpan(text: 'QT'),
-                        // 로고 가운뎃점 — 유일한 유채색 포인트(탭 도트와 동일 토큰).
-                        TextSpan(
-                            text: '·',
-                            style: TextStyle(color: colors.accentDot)),
-                        const TextSpan(text: 'AI'),
-                      ]),
-                      style: TextStyle(
-                        fontFamily: 'GowunDodum',
-                        fontSize: 60,
-                        fontWeight: FontWeight.w400,
-                        color: colors.text,
-                        letterSpacing: -1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      AppLocalizations.of(context).splashSubtitle,
-                      style:
-                          TextStyle(fontSize: 17, color: colors.textMuted),
-                    ),
-                  ],
+        home: Scaffold(
+          backgroundColor: AppTheme.bgSunken,
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text.rich(
+                  TextSpan(children: [
+                    const TextSpan(text: 'QT'),
+                    TextSpan(text: '·', style: TextStyle(color: AppTheme.accent)),
+                    const TextSpan(text: 'AI'),
+                  ]),
+                  style: const TextStyle(
+                    fontFamily: 'GowunDodum',
+                    fontSize: 60,
+                    fontWeight: FontWeight.w400,
+                    color: AppTheme.text,
+                    letterSpacing: -1.4,
+                  ),
                 ),
-              ),
-            );
-          },
+                const SizedBox(height: 14),
+                Builder(
+                  builder: (context) => Text(
+                    AppLocalizations.of(context).splashSubtitle,
+                    style: const TextStyle(fontSize: 17, color: AppTheme.textMuted),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -114,9 +101,6 @@ class QTAIApp extends ConsumerWidget {
       title: 'QT AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
-      // 다크 모드 — Calm Paper 다크 토큰("잉크 위의 종이"), 설정 화면 토글만 따른다.
-      darkTheme: AppTheme.darkTheme,
-      themeMode: themeMode,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('ko'),

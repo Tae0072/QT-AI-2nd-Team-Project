@@ -14,7 +14,7 @@ import com.qtai.domain.ai.client.AiClientException.FailureCode;
 
 @Component("aiBibleVerseClientMock")
 @Profile({"local", "test"})
-@ConditionalOnProperty(name = "qtai.ai.client.mode", havingValue = "mock", matchIfMissing = true)
+@ConditionalOnProperty(name = "qtai.ai.client.mock.enabled", havingValue = "true")
 @ConditionalOnMissingBean(BibleVerseClient.class)
 public class BibleVerseClientMock implements BibleVerseClient {
 

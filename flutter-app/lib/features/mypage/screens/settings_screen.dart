@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
-import '../../../core/theme/theme_providers.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../providers/mypage_providers.dart';
@@ -40,17 +39,6 @@ class SettingsScreen extends ConsumerWidget {
                   await repository.updateSettings(notificationEnabled: value);
                   ref.invalidate(settingsProvider);
                 },
-              ),
-
-              const Divider(),
-
-              // 다크 모드 — 이 토글이 단일 진실(시스템 설정 비추종), 기기 로컬 저장.
-              SwitchListTile(
-                title: Text(l.settingsDarkMode),
-                subtitle: Text(l.settingsDarkModeDesc),
-                value: ref.watch(themeModeProvider) == ThemeMode.dark,
-                onChanged: (value) =>
-                    ref.read(themeModeProvider.notifier).setDark(value),
               ),
 
               const Divider(),

@@ -41,17 +41,5 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    // 단일 번들(1.15MB)을 라이브러리 단위로 쪼개 첫 로딩·캐싱을 개선한다.
-    // antd(가장 큼)와 핵심 vendor를 별도 청크로 분리 → index 청크가 가벼워짐.
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            antd: ['antd', '@ant-design/icons'],
-            vendor: ['react', 'react-dom', 'react-router-dom', 'axios'],
-          },
-        },
-      },
-    },
   };
 });
