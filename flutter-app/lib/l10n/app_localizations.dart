@@ -773,7 +773,7 @@ abstract class AppLocalizations {
   /// No description provided for @bibleSimulator.
   ///
   /// In en, this message translates to:
-  /// **'Simulator'**
+  /// **'Animation'**
   String get bibleSimulator;
 
   /// No description provided for @bibleMeditationNote.

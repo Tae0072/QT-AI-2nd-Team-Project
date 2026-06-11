@@ -351,7 +351,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get bibleExplanation => '해설';
 
   @override
-  String get bibleSimulator => '시뮬레이터';
+  String get bibleSimulator => '애니메이션';
 
   @override
   String get bibleMeditationNote => '묵상 노트 작성';

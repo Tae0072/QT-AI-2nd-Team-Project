@@ -358,7 +358,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bibleExplanation => 'Commentary';
 
   @override
-  String get bibleSimulator => 'Simulator';
+  String get bibleSimulator => 'Animation';
 
   @override
   String get bibleMeditationNote => 'Write meditation note';

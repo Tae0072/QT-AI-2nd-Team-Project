@@ -118,7 +118,7 @@
   "bibleTodayLoading": "오늘 본문을 불러오는 중입니다.",
   "bibleTodayLoadError": "오늘 본문을 불러오지 못했습니다.",
   "bibleExplanation": "해설",
-  "bibleSimulator": "시뮬레이터",
+  "bibleSimulator": "애니메이션",
   "bibleMeditationNote": "묵상 노트 작성",
   "bibleComingSoon": "{feature} 화면은 곧 제공됩니다.",
   "bibleBrowserTitle": "성경본문",

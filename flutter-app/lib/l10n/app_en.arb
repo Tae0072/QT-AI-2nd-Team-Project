@@ -133,7 +133,7 @@
   "bibleTodayLoading": "Loading today's passage...",
   "bibleTodayLoadError": "Couldn't load today's passage.",
   "bibleExplanation": "Commentary",
-  "bibleSimulator": "Simulator",
+  "bibleSimulator": "Animation",
   "bibleMeditationNote": "Write meditation note",
   "bibleComingSoon": "The {feature} screen is coming soon.",
   "@bibleComingSoon": {

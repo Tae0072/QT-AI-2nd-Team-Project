@@ -194,6 +194,80 @@ void main() {
     expect(find.text('해설'), findsOneWidget);
     expect(find.text('아직 준비된 해설이 없습니다.'), findsOneWidget);
   });
+
+  testWidgets('애니메이션 버튼을 누르면 영상 섹션으로 스크롤한다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    final passage = TodayQtPassage(
+      qtPassageId: 7,
+      passageDate: '2026-06-11',
+      simulatorStatus: 'READY',
+      reference: const BibleReference(
+        koreanBookName: '창세기',
+        englishBookName: 'Genesis',
+        chapter: 1,
+        verseFrom: 1,
+        verseTo: 20,
+      ),
+      book: const BibleVerseBook(
+        code: 'GEN',
+        koreanName: '창세기',
+        englishName: 'Genesis',
+        chapter: 1,
+      ),
+      verses: [
+        for (var i = 1; i <= 20; i++)
+          BibleVerse(
+            id: 3000 + i,
+            bookCode: 'GEN',
+            chapterNo: 1,
+            verseNo: i,
+            koreanText: '테스트 본문 $i',
+            englishText: 'Test English verse $i',
+          ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          todayQtPassageProvider.overrideWith((ref) async => passage),
+          qtVideoClipProvider(7).overrideWith((ref) async {
+            return const QtVideoClip(
+              clipId: null,
+              qtPassageId: 7,
+              status: 'DISABLED',
+              title: null,
+              videoUrl: null,
+              sourceVideoId: null,
+              startTimeSec: null,
+              endTimeSec: null,
+              compositionType: null,
+              clipStatus: null,
+            );
+          }),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: const TodayQtScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('애니메이션'), findsOneWidget);
+    final videoFinder = find.byKey(const Key('today-qt-video-section'));
+    expect(videoFinder, findsNothing);
+
+    await tester.tap(find.text('애니메이션'));
+    await tester.pumpAndSettle();
+
+    expect(videoFinder, findsOneWidget);
+  });
 }
 
 class _FakeBibleRepository extends BibleRepository {
