@@ -84,6 +84,14 @@ class MyPageControllerTest {
     }
 
     @Test
+    @DisplayName("인증 주체가 없으면(UNAUTHORIZED) 위젯 조회 없이 즉시 거절한다")
+    void dashboard_비인증_거절() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.dashboard(null))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+    }
+
+    @Test
     @DisplayName("전체 성공 — 통계가 달력 summary로 채워지고 widgetErrors는 비어 있다")
     void dashboard_전체성공() {
         stubAllSuccess();
