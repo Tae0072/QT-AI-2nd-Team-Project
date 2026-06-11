@@ -33,7 +33,13 @@ abstract final class AppRadius {
 
   static const double sm = 8;
   static const double md = 12;
+
+  /// Calm Paper 보조 콘텐츠 박스 반경 (DESIGN_PROMPT §2 — 번역·해설·미리보기 박스).
+  static const double box = 14;
   static const double lg = 16;
+
+  /// Calm Paper 플로팅 시트 상단 반경 (DESIGN_PROMPT §3).
+  static const double sheet = 24;
   static const double pill = 26;
 }
 

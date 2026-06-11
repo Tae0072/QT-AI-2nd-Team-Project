@@ -83,7 +83,45 @@ class _TodayQtContent extends StatefulWidget {
 }
 
 class _TodayQtContentState extends State<_TodayQtContent> {
+  final _scrollController = ScrollController();
+  final _videoSectionKey = GlobalKey();
   bool _showEnglish = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _scrollToVideo() async {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+
+      final targetContext = _videoSectionKey.currentContext;
+      if (targetContext == null || !targetContext.mounted) {
+        await _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: attempt == 0 ? 420 : 220),
+          curve: Curves.easeOutCubic,
+        );
+      } else {
+        await Scrollable.ensureVisible(
+          targetContext,
+          duration: Duration(milliseconds: attempt == 0 ? 320 : 180),
+          curve: Curves.easeOutCubic,
+          alignment: 0.04,
+        );
+      }
+
+      await WidgetsBinding.instance.endOfFrame;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +131,7 @@ class _TodayQtContentState extends State<_TodayQtContent> {
     return RefreshIndicator(
       onRefresh: widget.onRefresh,
       child: ListView(
+        controller: _scrollController,
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         children: [
           Text(
@@ -125,6 +164,7 @@ class _TodayQtContentState extends State<_TodayQtContent> {
             onShowEnglishChanged: (selected) {
               setState(() => _showEnglish = selected);
             },
+            onVideoRequested: _scrollToVideo,
           ),
           const SizedBox(height: 20),
           for (final verse in data.verses)
@@ -134,7 +174,13 @@ class _TodayQtContentState extends State<_TodayQtContent> {
             ),
           if (data.qtPassageId != null) ...[
             const SizedBox(height: 12),
-            QtVideoSection(qtPassageId: data.qtPassageId!),
+            KeyedSubtree(
+              key: _videoSectionKey,
+              child: QtVideoSection(
+                key: const Key('today-qt-video-section'),
+                qtPassageId: data.qtPassageId!,
+              ),
+            ),
           ],
         ],
       ),
@@ -146,20 +192,14 @@ class _ActionRow extends StatelessWidget {
   final TodayQtPassage data;
   final bool showEnglish;
   final ValueChanged<bool> onShowEnglishChanged;
+  final VoidCallback onVideoRequested;
 
   const _ActionRow({
     required this.data,
     required this.showEnglish,
     required this.onShowEnglishChanged,
+    required this.onVideoRequested,
   });
-
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).bibleComingSoon(feature)),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -191,9 +231,7 @@ class _ActionRow extends StatelessWidget {
           label: Text(l.bibleExplanation),
         ),
         OutlinedButton.icon(
-          onPressed: simulatorReady
-              ? () => _showComingSoon(context, l.bibleSimulator)
-              : null,
+          onPressed: simulatorReady ? onVideoRequested : null,
           icon: const Icon(Icons.movie_outlined),
           label: Text(l.bibleSimulator),
         ),

@@ -54,6 +54,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get loginFailed => '로그인에 실패했습니다. 다시 시도해주세요.';
 
   @override
+  String get loginWebNotSupported => '웹에서는 카카오 로그인을 지원하지 않습니다. 모바일 앱을 이용해 주세요.';
+
+  @override
   String get loginLegalPrefix => '계속 진행하면 ';
 
   @override
@@ -267,7 +270,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteShareImageFailed => '이미지 공유에 실패했습니다';
 
   @override
-  String get navToday => '오늘';
+  String get navToday => 'QT';
 
   @override
   String get navBible => '성경';
@@ -283,6 +286,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get navMy => '마이';
+
+  @override
+  String get homeBackExitGuide => '한 번 더 누르면 앱이 종료됩니다';
 
   @override
   String get ttsRead => '본문 읽기';
@@ -339,7 +345,28 @@ class AppLocalizationsKo extends AppLocalizations {
   String get bibleExplanation => '해설';
 
   @override
-  String get bibleSimulator => '시뮬레이터';
+  String get bibleSimulator => 'QT 영상';
+
+  @override
+  String get qtVideoTitle => 'QT 영상';
+
+  @override
+  String get qtVideoRetry => '다시 불러오기';
+
+  @override
+  String get videoBack => '뒤로';
+
+  @override
+  String get videoPlay => '재생';
+
+  @override
+  String get videoPause => '일시정지';
+
+  @override
+  String get videoSpeed => '배속';
+
+  @override
+  String get videoFullscreen => '전체화면';
 
   @override
   String get bibleMeditationNote => '묵상 노트 작성';
@@ -535,7 +562,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notifMarkAllRead => '모두 읽음';
 
   @override
-  String get notifUnreadOnly => '미읽음만';
+  String get notifUnreadOnly => '안 읽은 알림만';
 
   @override
   String get notifEmpty => '알림이 없습니다';
@@ -563,6 +590,12 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get settingsNotificationDesc => '푸시 알림을 받습니다';
+
+  @override
+  String get settingsDarkMode => '다크 모드';
+
+  @override
+  String get settingsDarkModeDesc => '어두운 테마를 사용합니다';
 
   @override
   String get settingsFontSize => '폰트 크기';

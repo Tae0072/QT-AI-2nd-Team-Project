@@ -55,6 +55,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginFailed => 'Login failed. Please try again.';
 
   @override
+  String get loginWebNotSupported =>
+      'Kakao login is not supported on the web. Please use the mobile app.';
+
+  @override
   String get loginLegalPrefix => 'By continuing, you agree to the ';
 
   @override
@@ -271,7 +275,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteShareImageFailed => 'Failed to share image';
 
   @override
-  String get navToday => 'Today';
+  String get navToday => 'QT';
 
   @override
   String get navBible => 'Bible';
@@ -287,6 +291,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get navMy => 'My';
+
+  @override
+  String get homeBackExitGuide => 'Press back again to exit';
 
   @override
   String get ttsRead => 'Read passage';
@@ -346,7 +353,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bibleExplanation => 'Commentary';
 
   @override
-  String get bibleSimulator => 'Simulator';
+  String get bibleSimulator => 'QT Video';
+
+  @override
+  String get qtVideoTitle => 'QT Video';
+
+  @override
+  String get qtVideoRetry => 'Reload';
+
+  @override
+  String get videoBack => 'Back';
+
+  @override
+  String get videoPlay => 'Play';
+
+  @override
+  String get videoPause => 'Pause';
+
+  @override
+  String get videoSpeed => 'Speed';
+
+  @override
+  String get videoFullscreen => 'Fullscreen';
 
   @override
   String get bibleMeditationNote => 'Write meditation note';
@@ -571,6 +599,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsNotificationDesc => 'Receive push notifications';
+
+  @override
+  String get settingsDarkMode => 'Dark mode';
+
+  @override
+  String get settingsDarkModeDesc => 'Use the dark theme';
 
   @override
   String get settingsFontSize => 'Font size';

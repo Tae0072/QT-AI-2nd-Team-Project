@@ -14,12 +14,14 @@ import { useAuth } from '../auth/useAuth';
 import { loginWithKakao } from '../auth/kakao';
 import { loginAdminWithKakao } from '../api/adminAuth';
 import { ApiClientError } from '../api/client';
+import { KAKAO_JS_KEY } from '../config/env';
 
 // ===== 관리자 로그인 (카카오 JS SDK) =====
 // 흐름: 카카오 로그인 → 카카오 access token → POST /api/v1/admin/auth/kakao → ADMIN 토큰 저장.
 // 서버 /oauth2 미사용(2026-06-10 결정 ①). 응답 계약: 2026-06-10 admin-kakao-auth-contract.
-// ⚠️ 백엔드(admin/auth/kakao)·카카오 JS 키 준비 전엔 실제 로그인 실행은 불가하다.
-//    그동안 로컬 작업을 막지 않도록 '개발용 토큰' 입력을 dev 모드에서만 임시 유지한다(prod 빌드에서 제거).
+// 백엔드(#452)·라우팅(dev vite가 /api/v1/admin/auth → service-user 8081로 분리) 연결 완료.
+// 카카오 JS 키(VITE_KAKAO_JS_KEY)만 주입하면 실로그인이 동작한다.
+// 키 주입 전 로컬 작업을 막지 않도록 '개발용 토큰' 입력을 dev 모드에서만 임시 유지한다(prod 빌드에서 제거).
 export default function LoginPage() {
   const { login, isLoggedIn } = useAuth();
   const navigate = useNavigate();
@@ -27,6 +29,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devToken, setDevToken] = useState('');
+  // 카카오 JS 키 미설정이면 로그인 버튼을 눌러도 kakao.ts에서 에러만 난다.
+  // → 미리 안내 Alert 표시 + 버튼 비활성화로 헛클릭을 막는다.
+  const kakaoKeyMissing = !KAKAO_JS_KEY;
 
   // 로그인 후 되돌아갈 주소 (보호 화면에서 튕겨 왔다면 그 주소, 없으면 대시보드)
   const from =
@@ -44,7 +49,7 @@ export default function LoginPage() {
     try {
       const kakaoToken = await loginWithKakao(); // 카카오 access token
       const res = await loginAdminWithKakao(kakaoToken); // ADMIN 토큰 발급
-      login(res.accessToken); // accessToken 저장 = 로그인
+      login(res.accessToken, res.refreshToken); // access + refresh 저장 = 로그인(자동 갱신 가능)
       navigate(from, { replace: true });
     } catch (e) {
       // 합의 ④: 권한 부족(403 ADMIN_USER_NOT_FOUND) 등은 별도 화면 없이 ErrorCode 그대로 표시.
@@ -85,15 +90,32 @@ export default function LoginPage() {
             <Alert type="error" showIcon message="로그인 실패" description={error} />
           )}
 
+          {kakaoKeyMissing && (
+            <Alert
+              type="warning"
+              showIcon
+              message="카카오 로그인 키가 설정되지 않았습니다"
+              description={
+                <>
+                  <Typography.Text code>VITE_KAKAO_JS_KEY</Typography.Text>를{' '}
+                  <Typography.Text code>admin-web/.env</Typography.Text>에 설정하면 카카오 로그인이 활성화됩니다.
+                  {import.meta.env.DEV &&
+                    ' (dev에서는 아래 개발용 토큰으로 우회할 수 있어요.)'}
+                </>
+              }
+            />
+          )}
+
           <Button
             type="primary"
             block
             size="large"
             loading={loading}
+            disabled={kakaoKeyMissing}
             onClick={handleKakaoLogin}
             style={{
-              background: '#FEE500',
-              color: '#191600',
+              background: kakaoKeyMissing ? undefined : '#FEE500',
+              color: kakaoKeyMissing ? undefined : '#191600',
               border: 'none',
               fontWeight: 600,
             }}

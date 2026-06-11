@@ -2,6 +2,7 @@ package com.qtai.support;
 
 import com.qtai.domain.bible.internal.BibleBook;
 import com.qtai.domain.bible.internal.BibleVerse;
+import com.qtai.domain.qtvideo.internal.BibleVerseVideoSegment;
 import com.qtai.domain.qtvideo.internal.QtVideoClip;
 import com.qtai.domain.qtvideo.internal.QtVideoClipStatus;
 import com.qtai.domain.qtvideo.internal.SourceVideo;
@@ -137,6 +138,20 @@ public final class TestEntityFactory {
                 new BigDecimal("600.000"));
         set(sourceVideo, "id", id);
         return sourceVideo;
+    }
+
+    public static BibleVerseVideoSegment bibleVerseVideoSegment(
+            Long bibleVerseId,
+            SourceVideo sourceVideo,
+            String startTimeSec,
+            String endTimeSec
+    ) {
+        BibleVerseVideoSegment segment = newInstance(BibleVerseVideoSegment.class);
+        set(segment, "bibleVerseId", bibleVerseId);
+        set(segment, "sourceVideo", sourceVideo);
+        set(segment, "startTimeSec", new BigDecimal(startTimeSec));
+        set(segment, "endTimeSec", new BigDecimal(endTimeSec));
+        return segment;
     }
 
     public static QtVideoClip qtVideoClip(Long id, Long qtPassageId, SourceVideo sourceVideo, String videoUrl) {

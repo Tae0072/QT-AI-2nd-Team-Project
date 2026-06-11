@@ -84,7 +84,7 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    // ── 닉네임 변경 (7일 잠금) ──
+    // ── 닉네임 변경 (즉시 변경 가능 — 2026-06-11 잠금 폐지) ──
 
     /** PATCH /api/v1/me/nickname — 닉네임 변경. */
     @PatchMapping("/api/v1/me/nickname")

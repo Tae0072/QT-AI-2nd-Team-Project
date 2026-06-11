@@ -15,6 +15,7 @@ public enum ErrorCode {
     RESOURCE_NOT_FOUND("C0004", "요청한 리소스를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOT_IMPLEMENTED("C0005", "아직 구현되지 않은 기능입니다.", HttpStatus.NOT_IMPLEMENTED),
     EXTERNAL_API_FAILURE("C0006", "외부 API 호출에 실패했습니다.", HttpStatus.BAD_GATEWAY),
+    RATE_LIMIT_EXCEEDED("C0007", "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.", HttpStatus.TOO_MANY_REQUESTS),
 
     // 회원
     MEMBER_NOT_FOUND("M0001", "회원을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

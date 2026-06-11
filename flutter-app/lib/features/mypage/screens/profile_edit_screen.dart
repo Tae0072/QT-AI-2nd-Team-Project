@@ -13,7 +13,8 @@ import '../widgets/withdraw_dialog.dart';
 /// 프로필 상세 + 닉네임 변경 화면.
 ///
 /// - 프로필 이미지, 닉네임, 이메일, 가입일 표시
-/// - 닉네임 변경: 디바운스 300ms 중복검사, 7일 잠금 비활성화+안내문
+/// - 닉네임 변경: 디바운스 300ms 중복검사 (즉시 변경 가능 — 서버 잠금 폐지로
+///   nicknameUnlockAt이 항상 null, 아래 잠금 안내 분기는 정책 부활 대비 잔존)
 /// - 하단에 탈퇴 버튼
 class ProfileEditScreen extends ConsumerStatefulWidget {
   const ProfileEditScreen({super.key});
@@ -87,8 +88,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       ref.read(authStatusProvider.notifier).setUnauthenticated();
 
       if (mounted) {
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil('/login', (route) => false);
+        unawaited(Navigator.of(context)
+            .pushNamedAndRemoveUntil('/login', (route) => false));
       }
     } catch (e) {
       if (mounted) {
@@ -121,8 +122,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       ref.read(authStatusProvider.notifier).setUnauthenticated();
 
       if (mounted) {
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil('/login', (route) => false);
+        unawaited(Navigator.of(context)
+            .pushNamedAndRemoveUntil('/login', (route) => false));
       }
     } catch (e) {
       if (mounted) {

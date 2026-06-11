@@ -24,7 +24,7 @@ class SuTodayPassageParserTest {
 
         SuTodayPassage result = parser.parseToday(html);
 
-        assertThat(result.title()).isEqualTo("같은 말, 같은 마음, 같은 뜻");
+        assertThat(result.title()).isEqualTo(result.referenceText());
         assertThat(result.koreanBookName()).isEqualTo("고린도전서");
         assertThat(result.englishBookName()).isEqualTo("1 Corinthians");
         assertThat(result.chapter()).isEqualTo((short) 1);

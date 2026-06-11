@@ -14,9 +14,11 @@ import com.qtai.domain.bible.api.ListBibleBooksUseCase;
 import com.qtai.domain.bible.api.dto.BibleBookResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
+import com.qtai.domain.qt.api.QtPassageVerseMappingsChangedEvent;
 import com.qtai.domain.qt.client.sum.SuTodayPassage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,7 @@ public class QtTodayPassageImportService {
     private final QtPassageVerseRepository qtPassageVerseRepository;
     private final ListBibleBooksUseCase listBibleBooksUseCase;
     private final GetBibleVerseUseCase getBibleVerseUseCase;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public QtPassage importToday(LocalDate qtDate, SuTodayPassage passage) {
@@ -152,6 +155,7 @@ public class QtTodayPassageImportService {
             }
             qtPassageVerseRepository.saveAll(mappings);
             log.info("절 매핑 저장 완료. qtPassageId={}, verseCount={}", qtPassage.getId(), mappings.size());
+            eventPublisher.publishEvent(new QtPassageVerseMappingsChangedEvent(qtPassage.getId()));
             return true;
         } catch (RuntimeException exception) {
             log.error("절 매핑 실패 — 본문은 유지, startup 백필 재시도 대상. qtPassageId={}, bookCode={}, errorType={}, errorMessage={}",

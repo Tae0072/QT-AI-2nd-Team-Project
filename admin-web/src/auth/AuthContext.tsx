@@ -5,9 +5,14 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { getToken, setToken as saveToken, clearToken } from './tokenStorage';
+import {
+  getToken,
+  setToken as saveToken,
+  setRefreshToken as saveRefreshToken,
+  clearToken,
+} from './tokenStorage';
 import { getAdminMe, type AdminMe } from '../api/adminMe';
-import { ApiClientError } from '../api/client';
+import { ApiClientError, setAuthExpiredHandler } from '../api/client';
 
 // ===== 로그인 상태(토큰)를 앱 전체에서 공유하는 Context =====
 // React 의 Context 는 "여러 화면이 함께 쓰는 값"을 전달하는 통로다.
@@ -21,7 +26,7 @@ export interface AuthContextValue {
   adminLoading: boolean;
   adminError: string | null;
   isLoggedIn: boolean;
-  login: (token: string) => void;
+  login: (accessToken: string, refreshToken?: string) => void;
   logout: () => void;
   refreshAdminInfo: () => Promise<void>;
 }
@@ -113,10 +118,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [handleAdminInfoError, token]);
 
-  const login = useCallback((newToken: string) => {
-    saveToken(newToken);
-    setTokenState(newToken);
+  const login = useCallback((accessToken: string, refreshToken?: string) => {
+    saveToken(accessToken);
+    if (refreshToken) saveRefreshToken(refreshToken); // 카카오 로그인은 refresh 동반, dev 토큰은 없음
+    setTokenState(accessToken);
   }, []);
+
+  // 세션 만료(refresh 최종 실패) 시 client.ts가 호출할 콜백 등록.
+  // client는 React를 모르므로, 여기서 정리 함수를 꽂아 토큰 비움 → ProtectedRoute가 /login으로.
+  useEffect(() => {
+    setAuthExpiredHandler(() => clearSession());
+    return () => setAuthExpiredHandler(null);
+  }, [clearSession]);
 
   const logout = useCallback(() => {
     clearSession();

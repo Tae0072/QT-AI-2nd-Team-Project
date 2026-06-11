@@ -3,10 +3,11 @@ import type { ApiResponse, Page, PageParams } from './types';
 
 // ===== AD-05 찬양 큐레이션 =====
 // 연결 API (권한: OPERATOR, 04 §4.7.6)
-//   GET   /api/v1/admin/praise-songs           목록   ✅ 구현됨
-//   POST  /api/v1/admin/praise-songs           등록   ✅ 구현됨
-//   PATCH /api/v1/admin/praise-songs/{id}      수정   ❌ 백엔드 미구현(대기)
-//   POST  /api/v1/admin/praise-songs/{id}/hide 숨김   ❌ 백엔드 미구현(대기)
+//   GET    /api/v1/admin/praise-songs        목록   ✅
+//   POST   /api/v1/admin/praise-songs        등록   ✅
+//   PATCH  /api/v1/admin/praise-songs/{id}   수정   ✅
+//   DELETE /api/v1/admin/praise-songs/{id}   삭제   ✅
+//   숨김(POST /{id}/hide)은 v1 범위 제외.
 //
 // 🚫 금지(CLAUDE.md §8 / 07 F-09 / 04 §4.7.6):
 //   가사·음원 파일·직접 YouTube URL 은 저장하지 않는다. 곡 메타데이터만 다룬다.
@@ -19,17 +20,17 @@ export type PraiseSongStatus = 'ACTIVE' | 'HIDDEN';
 // 백엔드 찬양 곡 응답에 대응(04 §4.7.6). 가사·음원·URL 필드는 존재하지 않는다.
 export interface PraiseSong {
   id: number;
-  title: string; // 곡명
-  artist: string; // 아티스트명
+  title: string;
+  artist: string;
   sourceType: PraiseSongSourceType;
-  licenseNote: string | null; // 운영자가 남긴 저작권 확인 메모
+  licenseNote: string | null;
   status: PraiseSongStatus;
   createdAt: string;
   updatedAt: string | null;
 }
 
 export interface PraiseSongListParams extends PageParams {
-  status?: PraiseSongStatus; // 예: ACTIVE, HIDDEN
+  status?: PraiseSongStatus;
 }
 
 // 등록 요청 바디(04 §4.7.6). 메타데이터만 전송한다.
@@ -39,6 +40,13 @@ export interface CreatePraiseSongRequest {
   sourceType: PraiseSongSourceType;
   licenseNote?: string;
   status: PraiseSongStatus;
+}
+
+// 수정 요청 바디(04 §4.7.6). title·artist·licenseNote 만 허용한다.
+export interface UpdatePraiseSongRequest {
+  title: string;
+  artist: string;
+  licenseNote?: string;
 }
 
 export function listPraiseSongs(params: PraiseSongListParams = {}) {
@@ -55,9 +63,12 @@ export function createPraiseSong(payload: CreatePraiseSongRequest) {
   );
 }
 
-// 숨김 — 백엔드 미구현. hide 엔드포인트가 나오면 화면에 연결한다.
-export function hidePraiseSong(id: number) {
+export function updatePraiseSong(id: number, payload: UpdatePraiseSongRequest) {
   return unwrap<PraiseSong>(
-    apiClient.post<ApiResponse<PraiseSong>>(`/admin/praise-songs/${id}/hide`),
+    apiClient.patch<ApiResponse<PraiseSong>>(`/admin/praise-songs/${id}`, payload),
   );
+}
+
+export function deletePraiseSong(id: number) {
+  return apiClient.delete(`/admin/praise-songs/${id}`);
 }
