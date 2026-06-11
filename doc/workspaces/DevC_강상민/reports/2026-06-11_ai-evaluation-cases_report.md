@@ -20,7 +20,7 @@
 3. `domain.ai.api.admin.evaluation`에 평가 관리 UseCase와 command/query/response DTO를 추가했다.
 4. `AiEvaluationSet`, `AiEvaluationCase`, enum, repository, `AiEvaluationService`를 추가했다.
 5. `AdminAiEvaluationController`를 추가해 관리자 API를 노출했다.
-6. `AdminAiAuthentication`에 평가 관리 권한 helper를 추가했다.
+6. `AdminAiAuthentication`에 평가 관리 권한 helper를 추가하고 기존 한국어 Javadoc과 Lead 결정 기록을 보존했다.
 7. `EVAL_CASE_APPROVE`, `EVAL_CASE_REJECT` audit action 기록을 연결했다.
 8. asset 기반 evaluation candidate 생성 API를 추가했다.
 9. 서비스와 컨트롤러 테스트를 추가/보강했다.
@@ -43,11 +43,11 @@
 
 | 리뷰 항목 | 반영 |
 | --- | --- |
-| Javadoc 위치 오류 | `AdminAiAuthentication`의 평가 관리/모니터링 Javadoc 위치를 분리했다. |
+| Javadoc 위치 오류와 기존 문서 삭제 | `AdminAiAuthentication`의 기존 한국어 Javadoc, `2026-06-05 Lead 결정` 기록, `AdminAiPrincipal` 파라미터 문서를 복원하고 평가 관리 메서드 설명만 추가했다. |
 | Flyway 마이그레이션 누락 지적 | `V35__create_ai_evaluation_tables.sql`이 포함되어 있음을 확인했다. |
 | `reviewReason` 유실 | approve/reject audit after snapshot에 `reviewReason`을 포함했다. |
 | 중복 검사 TOCTOU | DB unique 제약을 두고 `DataIntegrityViolationException`을 `DUPLICATE_RESOURCE`로 매핑했다. |
-| 권한 부정 경로 테스트 누락 | USER/미인증/CONTENT_CREATOR approve-reject 거부 테스트를 추가했다. |
+| 권한 부정 경로 테스트 누락 | USER, principal 없는 미인증 요청(401/M0002), CONTENT_CREATOR approve-reject 거부 테스트를 추가했다. |
 | approve/reject에 CONTENT_CREATOR 허용 | controller와 service 모두 `REVIEWER/SUPER_ADMIN`으로 축소했다. |
 | public method 테스트 누락 | set/case 목록/상세/생성/retire/enum 실패 경로 테스트를 보강했다. |
 
@@ -72,8 +72,8 @@
 
 | 명령 | 결과 |
 | --- | --- |
-| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AiEvaluation*"` | 성공 |
-| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AdminAi*ControllerTest"` | 성공 |
+| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AiEvaluation*"` | 성공, `0f074ec` 리뷰 대응 후 재실행 |
+| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AdminAi*ControllerTest"` | 성공, `0f074ec` 리뷰 대응 후 재실행 |
 | `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test` | 성공 |
 
 ## 커밋
@@ -82,6 +82,8 @@
 | --- | --- |
 | `9e12833` | `feat(ai): AI 평가 셋과 평가 케이스 관리 기능 추가` |
 | `326aebc` | `fix(ai): 평가 케이스 검토 권한과 감사 로그 보강` |
+| `5cd1666` | `docs(ai): AI 평가 셋 구현 기록 추가` |
+| `0f074ec` | `fix(ai): 평가 API 인증 문서와 미인증 테스트 보강` |
 
 ## 남은 후속 작업
 

@@ -68,7 +68,7 @@
 | Create | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/internal/AiEvaluationSetRepository.java` | 평가 셋 JPA 조회 |
 | Create | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/internal/AiEvaluationCaseRepository.java` | 평가 케이스 JPA 조회 |
 | Create | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/internal/AiEvaluationService.java` | 평가 셋/케이스 생성, 조회, 전이, asset candidate 생성, audit 기록 |
-| Modify | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/web/AdminAiAuthentication.java` | 평가 관리/검토 권한 helper 추가 |
+| Modify | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/web/AdminAiAuthentication.java` | 평가 관리/검토 권한 helper 추가, 기존 한국어 Javadoc과 Lead 결정 기록 보존 |
 | Create | `qtai-server/admin-server/src/main/java/com/qtai/domain/ai/web/AdminAiEvaluationController.java` | 관리자 평가 API endpoint 추가 |
 | Test | `qtai-server/admin-server/src/test/java/com/qtai/domain/ai/internal/AiEvaluationServiceTest.java` | 도메인 단위 테스트 |
 | Test | `qtai-server/admin-server/src/test/java/com/qtai/domain/ai/web/AdminAiEvaluationControllerTest.java` | 관리자 API controller 테스트 |
@@ -83,13 +83,15 @@
 6. 관리자 web controller와 인증 helper를 추가한다.
 7. asset 기반 candidate 생성 API를 마지막에 연결한다.
 8. Claude 리뷰 기준 차단 항목을 반영한다.
-   - Javadoc 위치 복원
+   - 기존 한국어 Javadoc과 `2026-06-05 Lead 결정` 기록 복원
    - `reviewReason` audit snapshot 포함
    - approve/reject 권한을 `REVIEWER/SUPER_ADMIN`으로 축소
    - unique race 방어용 `DataIntegrityViolationException` 매핑
    - 권한 부정 경로와 public method 테스트 보강
+   - 미인증 `Authentication` null 경로 컨트롤러 테스트 추가
 9. 지정 테스트와 전체 `admin-server:test`를 실행한다.
 10. 구현 커밋과 리뷰 대응 커밋을 작성한다.
+11. 2차 리뷰 대응으로 인증 문서 복원과 미인증 MockMvc 테스트 보강을 확인하고 지정 테스트를 재실행한다.
 
 ## 테스트 보강
 
@@ -102,7 +104,7 @@
 | `AiEvaluationServiceTest` | asset candidate 생성 시 원문/민감 payload 미복사 |
 | `AdminAiEvaluationControllerTest` | 명세 endpoint의 status code와 envelope |
 | `AdminAiEvaluationControllerTest` | CONTENT_CREATOR 조회/생성 가능, REVIEWER approve/reject 가능 |
-| `AdminAiEvaluationControllerTest` | 일반 USER, 미인증, CONTENT_CREATOR approve/reject 거부 |
+| `AdminAiEvaluationControllerTest` | 일반 USER, principal 없는 미인증 요청(401/M0002), CONTENT_CREATOR approve/reject 거부 |
 
 ## 수용 기준
 
@@ -113,7 +115,7 @@
 - [x] approve/reject audit snapshot에 검토 사유가 남는다.
 - [x] asset payload 기반 candidate 생성이 가능하다.
 - [x] asset candidate 생성 시 prompt 원문, provider raw response, secret, 검증 주석 원문을 저장하지 않는다.
-- [x] 권한 부정 경로가 controller/service 테스트로 검증된다.
+- [x] 일반 USER, 미인증, CONTENT_CREATOR approve/reject 권한 부정 경로가 controller/service 테스트로 검증된다.
 
 ## Subagent Decision
 
@@ -131,8 +133,8 @@
 
 | 명령 | 결과 |
 | --- | --- |
-| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AiEvaluation*"` | 성공 |
-| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AdminAi*ControllerTest"` | 성공 |
+| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AiEvaluation*"` | 성공, `0f074ec` 리뷰 대응 후 재실행 |
+| `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test --tests "*AdminAi*ControllerTest"` | 성공, `0f074ec` 리뷰 대응 후 재실행 |
 | `.\qtai-server\gradlew.bat -p qtai-server :admin-server:test` | 성공 |
 
 ## 후속 작업
