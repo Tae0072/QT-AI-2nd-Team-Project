@@ -14,8 +14,12 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.common.security.SystemTokenProvider;
 import com.qtai.domain.study.api.dto.ApprovedVerseExplanationResponse;
+import com.qtai.domain.study.api.dto.HidePublishedGlossaryTermsCommand;
+import com.qtai.domain.study.api.dto.HidePublishedGlossaryTermsResult;
 import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
 import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationResult;
+import com.qtai.domain.study.api.dto.PublishApprovedGlossaryTermsCommand;
+import com.qtai.domain.study.api.dto.PublishApprovedGlossaryTermsResult;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationResult;
 import java.time.OffsetDateTime;
@@ -39,6 +43,7 @@ class VerseExplanationRestClientAdapterTest {
 
     private static final String BIBLE_BASE_URL = "http://bible.test";
     private static final String BASE = BIBLE_BASE_URL + "/api/v1/study/verse-explanations";
+    private static final String GLOSSARY_BASE = BIBLE_BASE_URL + "/api/v1/study/glossary-terms";
     // HS256 시크릿은 256비트(32바이트) 이상이어야 한다. 테스트 전용 더미 값(실제 시크릿 아님).
     private static final String TEST_SYSTEM_SECRET = "test-system-secret-0123456789-abcdefghij";
 
@@ -61,6 +66,19 @@ class VerseExplanationRestClientAdapterTest {
         return new PublishApprovedVerseExplanationCommand(
                 1001L, "요약", "해설 본문", "QT-AI DeepSeek", 5001L,
                 OffsetDateTime.parse("2026-06-10T00:00:00Z"));
+    }
+
+    private static PublishApprovedGlossaryTermsCommand glossaryPublishCommand() {
+        return new PublishApprovedGlossaryTermsCommand(
+                5001L,
+                "QT-AI DeepSeek",
+                OffsetDateTime.parse("2026-06-10T00:00:00Z"),
+                List.of(new PublishApprovedGlossaryTermsCommand.Term(
+                        1001L,
+                        "faith",
+                        "trust in God"
+                ))
+        );
     }
 
     @Test
@@ -100,6 +118,42 @@ class VerseExplanationRestClientAdapterTest {
     }
 
     @Test
+    @DisplayName("glossary 게시는 POST로 명령을 보내고 결과를 매핑한다")
+    void glossaryPublishSuccess() {
+        server.expect(requestTo(GLOSSARY_BASE))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("Authorization", startsWith("Bearer ")))
+                .andRespond(withSuccess(
+                        "{\"success\":true,\"data\":{\"aiAssetId\":5001,\"publishedCount\":1,\"hiddenCount\":0}}",
+                        MediaType.APPLICATION_JSON));
+
+        PublishApprovedGlossaryTermsResult result = adapter.publishApprovedGlossaryTerms(glossaryPublishCommand());
+
+        assertThat(result.aiAssetId()).isEqualTo(5001L);
+        assertThat(result.publishedCount()).isEqualTo(1);
+        assertThat(result.hiddenCount()).isZero();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("glossary 숨김은 POST /hide로 명령을 보내고 결과를 매핑한다")
+    void glossaryHideSuccess() {
+        server.expect(requestTo(GLOSSARY_BASE + "/hide"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("Authorization", startsWith("Bearer ")))
+                .andRespond(withSuccess(
+                        "{\"success\":true,\"data\":{\"aiAssetId\":5001,\"hiddenCount\":2}}",
+                        MediaType.APPLICATION_JSON));
+
+        HidePublishedGlossaryTermsResult result =
+                adapter.hidePublishedGlossaryTerms(new HidePublishedGlossaryTermsCommand(5001L));
+
+        assertThat(result.aiAssetId()).isEqualTo(5001L);
+        assertThat(result.hiddenCount()).isEqualTo(2);
+        server.verify();
+    }
+
+    @Test
     @DisplayName("조회 — GET으로 verseIds를 보내고 승인 해설 목록을 매핑한다")
     void 조회_정상() {
         server.expect(requestTo(startsWith(BASE + "?verseIds=")))
@@ -132,6 +186,30 @@ class VerseExplanationRestClientAdapterTest {
                 .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
 
         assertThatThrownBy(() -> adapter.publishApprovedVerseExplanation(publishCommand()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.EXTERNAL_API_FAILURE);
+    }
+
+    @Test
+    @DisplayName("glossary 게시 5xx는 EXTERNAL_API_FAILURE로 변환한다")
+    void glossaryPublish5xx() {
+        server.expect(requestTo(GLOSSARY_BASE))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        assertThatThrownBy(() -> adapter.publishApprovedGlossaryTerms(glossaryPublishCommand()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.EXTERNAL_API_FAILURE);
+    }
+
+    @Test
+    @DisplayName("glossary 숨김 5xx는 EXTERNAL_API_FAILURE로 변환한다")
+    void glossaryHide5xx() {
+        server.expect(requestTo(GLOSSARY_BASE + "/hide"))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        assertThatThrownBy(() -> adapter.hidePublishedGlossaryTerms(new HidePublishedGlossaryTermsCommand(5001L)))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.EXTERNAL_API_FAILURE);

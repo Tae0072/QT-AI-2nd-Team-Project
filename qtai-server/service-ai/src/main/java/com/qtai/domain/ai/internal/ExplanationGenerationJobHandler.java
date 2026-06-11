@@ -34,6 +34,7 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
 
     private final GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
     private final GetBibleVerseUseCase getBibleVerseUseCase;
+    private final CommentaryMaterialService commentaryMaterialService;
     private final AiPromptVersionRepository promptVersionRepository;
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper;
@@ -41,12 +42,14 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
     ExplanationGenerationJobHandler(
             GetQtPassageContentContextUseCase getQtPassageContentContextUseCase,
             GetBibleVerseUseCase getBibleVerseUseCase,
+            CommentaryMaterialService commentaryMaterialService,
             AiPromptVersionRepository promptVersionRepository,
             LlmClient llmClient,
             ObjectMapper objectMapper
     ) {
         this.getQtPassageContentContextUseCase = getQtPassageContentContextUseCase;
         this.getBibleVerseUseCase = getBibleVerseUseCase;
+        this.commentaryMaterialService = commentaryMaterialService;
         this.promptVersionRepository = promptVersionRepository;
         this.llmClient = llmClient;
         this.objectMapper = objectMapper;
@@ -100,7 +103,8 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
                     job.getTargetType(),
                     job.getTargetId(),
                     verseIds,
-                    bibleVerses(verseIds)
+                    bibleVerses(verseIds),
+                    commentaryMaterialService.findPromptContextByVerseIds(verseIds)
             );
         }
         if (job.getTargetType() == AiTargetType.BIBLE_VERSE) {
@@ -112,7 +116,8 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
                     job.getTargetType(),
                     job.getTargetId(),
                     verseIds,
-                    bibleVerses(verseIds)
+                    bibleVerses(verseIds),
+                    commentaryMaterialService.findPromptContextByVerseIds(verseIds)
             );
         }
         throw new BusinessException(ErrorCode.INVALID_INPUT, "EXPLANATION_TARGET_TYPE_UNSUPPORTED");
@@ -267,7 +272,29 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         }
         sourceMetadata.set("verseIds", verseIds);
         sourceMetadata.set("verses", verses);
+        putCommentaryMetadata(sourceMetadata, input.commentary());
         return sourceMetadata;
+    }
+
+    private void putCommentaryMetadata(ObjectNode sourceMetadata, CommentaryMaterialContext commentary) {
+        if (commentary == null || !commentary.hasMaterials()) {
+            sourceMetadata.putNull("commentarySource");
+            sourceMetadata.putNull("sourceName");
+            sourceMetadata.putNull("licenseLabel");
+            sourceMetadata.putNull("copyrightNotice");
+            sourceMetadata.set("commentaryMaterialIds", objectMapper.createArrayNode());
+            sourceMetadata.putNull("commentaryVerseRange");
+            return;
+        }
+
+        putNullable(sourceMetadata, "commentarySource", commentary.commentarySource());
+        putNullable(sourceMetadata, "sourceName", commentary.sourceName());
+        putNullable(sourceMetadata, "licenseLabel", commentary.licenseLabel());
+        putNullable(sourceMetadata, "copyrightNotice", commentary.copyrightNotice());
+        putNullable(sourceMetadata, "commentaryVerseRange", commentary.verseRange());
+        ArrayNode materialIds = objectMapper.createArrayNode();
+        commentary.commentaryMaterialIds().forEach(materialIds::add);
+        sourceMetadata.set("commentaryMaterialIds", materialIds);
     }
 
     private String userPrompt(ExplanationInput input) {
@@ -290,6 +317,19 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
                     .append(", englishText=").append(nullToEmpty(verse.englishText()))
                     .append('\n');
         }
+        if (input.commentary() != null && input.commentary().hasMaterials()) {
+            builder.append("Commentary materials:\n");
+            builder.append("Source: ").append(nullToEmpty(input.commentary().sourceName()))
+                    .append(" (").append(nullToEmpty(input.commentary().licenseLabel())).append(")\n");
+            for (CommentaryMaterialContext.MaterialExcerpt material : input.commentary().materials()) {
+                builder.append("- materialId=").append(material.materialId())
+                        .append(", refs=").append(material.refs())
+                        .append(", title=").append(nullToEmpty(material.title()))
+                        .append(", verseIds=").append(material.verseIds())
+                        .append(", excerpt=").append(nullToEmpty(material.excerpt()))
+                        .append('\n');
+            }
+        }
         return builder.toString();
     }
 
@@ -305,6 +345,14 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
 
     private static void putNullable(ObjectNode node, String fieldName, Integer value) {
         if (value == null) {
+            node.putNull(fieldName);
+            return;
+        }
+        node.put(fieldName, value);
+    }
+
+    private static void putNullable(ObjectNode node, String fieldName, String value) {
+        if (value == null || value.isBlank()) {
             node.putNull(fieldName);
             return;
         }
@@ -357,7 +405,8 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
             AiTargetType targetType,
             Long targetId,
             List<Long> verseIds,
-            List<BibleVerseResponse> verses
+            List<BibleVerseResponse> verses,
+            CommentaryMaterialContext commentary
     ) {
     }
 }
