@@ -532,7 +532,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notifMarkAllRead => '모두 읽음';
 
   @override
-  String get notifUnreadOnly => '미읽음만';
+  String get notifUnreadOnly => '안 읽은 알림만';
 
   @override
   String get notifEmpty => '알림이 없습니다';
