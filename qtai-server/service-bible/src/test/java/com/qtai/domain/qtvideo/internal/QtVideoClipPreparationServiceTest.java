@@ -182,6 +182,41 @@ class QtVideoClipPreparationServiceTest {
     }
 
     @Test
+    @DisplayName("Skips clip creation when QT passage is not published")
+    void prepare_skipsWhenPassageIsUnpublished() {
+        when(getQtPassageContentContextUseCase.getContentContext(6L))
+                .thenReturn(context(6L, List.of(100L), false));
+
+        assertFalse(service.prepare(6L));
+
+        verify(qtVideoClipRepository, never()).findByQtPassageIdAndActiveUniqueKey(any(), any());
+        verify(bibleVerseVideoSegmentRepository, never())
+                .findActiveSourceSegmentsByVerseIds(any(), eq(SourceVideoStatus.ACTIVE), eq(SourceVideo.ACTIVE_UNIQUE_KEY));
+        verify(qtVideoClipRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Skips clip creation when calculated timecode range is reversed")
+    void prepare_skipsWhenTimecodeRangeIsInvalid() {
+        when(getQtPassageContentContextUseCase.getContentContext(6L))
+                .thenReturn(context(6L, List.of(100L), true));
+        SourceVideo sourceVideo = TestEntityFactory.sourceVideo(1L, (short) 46, "https://cdn.example.com/1co.mp4");
+        when(qtVideoClipRepository.findByQtPassageIdAndActiveUniqueKey(6L, QtVideoClip.ACTIVE_UNIQUE_KEY))
+                .thenReturn(Optional.empty());
+        when(qtVideoClipRepository.existsByQtPassageIdAndStatus(6L, QtVideoClipStatus.HIDDEN))
+                .thenReturn(false);
+        when(bibleVerseVideoSegmentRepository.findActiveSourceSegmentsByVerseIds(
+                List.of(100L), SourceVideoStatus.ACTIVE, SourceVideo.ACTIVE_UNIQUE_KEY))
+                .thenReturn(List.of(
+                        TestEntityFactory.bibleVerseVideoSegment(100L, sourceVideo, "40.000", "30.000")
+                ));
+
+        assertFalse(service.prepare(6L));
+
+        verify(qtVideoClipRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Does not auto-approve a QT clip when it was manually hidden")
     void prepare_respectsHiddenClip() {
         when(getQtPassageContentContextUseCase.getContentContext(6L))
