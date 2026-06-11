@@ -9,7 +9,7 @@
 | 기준 문서 | `04_API_명세서.md`, 백엔드 계약서(아래 의존성 표) |
 | 담당 경로 | `admin-web/` (React + TS + Vite + AntD) |
 | 검증 게이트 | `npm run typecheck`(strict) + `npm run build` (테스트 프레임워크 없음) |
-| 상태 | P1 구현·커밋 완료(`fix/admin-web-auth-proxy`), 다음 P3 |
+| 상태 | P1 머지 완료(#482) · P3a 대시보드 진행 중(`feature/admin-web-dashboard-dto`, 렌더 A) |
 
 ---
 
@@ -39,12 +39,12 @@
 
 | 순서 | 브랜치 | 항목 | 상태 |
 | --- | --- | --- | --- |
-| 1 | `fix/admin-web-auth-proxy` | P1 로그인 라우팅 | ✅ 구현·커밋(`5ecf935`) |
-| 2 | `feat/admin-web-dashboard-dto` | P3 AD-01 | 예정 |
-| 3 | `feat/admin-web-qt-passages-dto` | P3 AD-02 | 예정 |
-| 4 | `feat/admin-web-notices-dto` | P3 AD-06 | 예정 |
+| 1 | `bugfix/admin-web-auth-proxy` | P1 로그인 라우팅 | ✅ 머지(#482) |
+| 2 | `feature/admin-web-dashboard-dto` | P3 AD-01 | 진행 중(렌더 A) |
+| 3 | `feature/admin-web-qt-passages-dto` | P3 AD-02 | 예정 |
+| 4 | `feature/admin-web-notices-dto` | P3 AD-06 | 예정 |
 | 5 | `chore/admin-web-code-split` | P5c | 예정 |
-| 6 | `feat/admin-web-kakao-sdk-notice` | P5b | 예정 |
+| 6 | `feature/admin-web-kakao-sdk-notice` | P5b | 예정 |
 | 7 | `docs/admin-web-token-storage-review` | P4 | 예정(강태오 확인) |
 | 보류 | — | P2 refresh | 이승욱 계약 결정 후 |
 | 보류 | — | P5a 찬양 숨김 | admin-server praise 컨트롤러 구현 후 |
@@ -64,6 +64,19 @@
 ### ⚠️ 조율 (이승욱/강태오)
 
 vite 주석 결정③(admin-web=8090 단일, 게이트웨이 라우팅)과 P1(auth만 8081 분리)이 겹침. dev용 분리는 가역적·게이트웨이 뜨면 `.env`로 통합 → "dev vite에 `/api/v1/admin/auth`→8081 분리룰 추가" 공유 후 PR. admin-server가 인증을 8081로 포워딩하는 방향이면 P1 불필요.
+
+## P3a 대시보드 DTO 작업 순서 (진행 중, 렌더 A)
+
+기준: 백엔드 `AdminDashboardResponse`(admin-server) + 계약서 `DevC_강상민/reports/2026-06-10_admin-dashboard-api_report.md`.
+
+- DTO: `pendingAiValidationCount`·`receivedReportCount`·`reviewingReportCount`(number) + `todayQt`(**항상 non-null**, status `READY`/`MISSING`, 없으면 nullable 필드 null) + `recentAuditLogs[]`(sanitized: id·adminUserId·actorType·actionType·targetType·targetId·createdAt).
+1. `src/api/dashboard.ts`: `[key:string]:unknown` → 백엔드 DTO 1:1 미러 타입(`DashboardSummary`, `TodayQt`, `TodayQtStatus`, `RecentAuditLog`).
+2. `src/pages/DashboardPage.tsx` 렌더 A:
+   - 상단 카운트 3개 = AntD `Statistic` 카드(AI 검증 대기·신고 접수·신고 검토).
+   - Today QT = `Descriptions`(날짜·제목·상태 `Tag`·시뮬레이터 상태·해설 유무·캐시 상태). `MISSING` 시 빈값/안내.
+   - 최근 감사로그 = `Table`(시각·작업유형·대상·작업자). 빈 배열이면 빈 상태.
+   - "백엔드 준비 중" Alert 철거 → 실패 시 **에러 Alert + 재시도 버튼**.
+3. `npm run typecheck` + `npm run build` 통과 → 커밋.
 
 ## 검증 계획
 
