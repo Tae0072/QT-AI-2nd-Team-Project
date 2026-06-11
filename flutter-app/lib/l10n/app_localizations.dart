@@ -188,6 +188,12 @@ abstract class AppLocalizations {
   /// **'Login failed. Please try again.'**
   String get loginFailed;
 
+  /// No description provided for @loginWebNotSupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Kakao login is not supported on the web. Please use the mobile app.'**
+  String get loginWebNotSupported;
+
   /// No description provided for @loginLegalPrefix.
   ///
   /// In en, this message translates to:

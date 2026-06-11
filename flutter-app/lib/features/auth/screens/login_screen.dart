@@ -1,12 +1,15 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 
+import '../../../core/dev/web_dev_access.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../routes/app_router.dart';
 import '../providers/auth_providers.dart';
+import '../services/kakao_login_guard.dart';
 
 /// 카카오 로그인 화면 (A-02) — 웜 파스텔 디자인.
 class LoginScreen extends ConsumerStatefulWidget {
@@ -54,6 +57,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    // 웹에서는 카카오 dart SDK가 동작하지 않아 버튼을 비활성화하고 안내한다(TODO 2).
+    // dev 웹 우회(webDevNoLogin, 삼중 게이트)가 켜진 경우는 기존 동작 유지.
+    final webLoginUnsupported =
+        isKakaoLoginUnsupported(isWeb: kIsWeb, webDevBypassEnabled: webDevNoLogin);
     return Scaffold(
       backgroundColor: AppTheme.bg,
       body: SafeArea(
@@ -128,7 +135,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _handleKakaoLogin,
+                  onPressed: (_isLoading || webLoginUnsupported)
+                      ? null
+                      : _handleKakaoLogin,
                   icon: _isLoading
                       ? const SizedBox(
                           width: 20, height: 20,
@@ -148,6 +157,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
               ),
+
+              // 웹 미지원 안내 (버튼 비활성 사유)
+              if (webLoginUnsupported) ...[
+                const SizedBox(height: 12),
+                Text(
+                  l.loginWebNotSupported,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                ),
+              ],
 
               const SizedBox(height: 18),
 
