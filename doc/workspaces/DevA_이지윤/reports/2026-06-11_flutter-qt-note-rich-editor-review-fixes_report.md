@@ -40,8 +40,21 @@
 - `flutter test test/features/note/qt_note_rich_text_test.dart test/features/note/screens/qt_note_editor_screen_test.dart test/features/bible/screens/today_qt_screen_test.dart`: 통과, 15 tests
 - `flutter analyze`: 통과, No issues found
 - `qtai-server/gradlew.bat :service-bible:test --tests com.qtai.domain.qt.client.sum.SuTodayPassageParserTest`: 통과
+- `qtai-server/gradlew.bat :service-bible:test`: 통과
 - `qtai-server/gradlew.bat :admin-server:compileJava :service-bible:compileJava :service-ai:compileJava`: 통과
+- `admin-web/npm.cmd ci`: 통과
+- `admin-web/npm.cmd run build`: 통과
 - `git diff --check`: 통과
+
+## 추가 PR 방어 점검
+
+- 관리자웹 P1 라우팅 문제를 함께 보강했다.
+  - `admin-web/vite.config.ts`에서 `/api/v1/admin/auth/**` 요청을 generic `/api` proxy보다 먼저 `service-user:8081`로 전달하도록 분리했다.
+  - `admin-web/.env.example`에 `VITE_ADMIN_AUTH_PROXY_TARGET` 예시를 추가했다.
+- 서버 리뷰 P2의 죽은 migration을 함께 정리했다.
+  - `service-bible/src/main/resources/db/migration/V30__create_qt_video_clips.sql`을 삭제했다.
+  - 실제 DDL 소유본은 `admin-server/src/main/resources/db/migration/V32__create_qt_video_clips.sql`에 유지된다.
+- 전체 검색으로 `QtVisibility`, `TITLE_PATTERN`, `extractTitle`, `V30__create_qt_video_clips` 잔여 참조가 없음을 확인했다.
 
 ## 참고
 

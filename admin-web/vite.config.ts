@@ -12,12 +12,18 @@ export default defineConfig(({ mode }) => {
   // envDir '.' = vite 실행 위치(admin-web). @types/node 없이 process 미사용.
   const env = loadEnv(mode, '.', 'VITE_');
   const proxyTarget = env.VITE_API_PROXY_TARGET ?? 'http://localhost:8090';
+  const adminAuthProxyTarget =
+    env.VITE_ADMIN_AUTH_PROXY_TARGET ?? 'http://localhost:8081';
 
   return {
     plugins: [react()],
     server: {
       port: 5173,
       proxy: {
+        '/api/v1/admin/auth': {
+          target: adminAuthProxyTarget,
+          changeOrigin: true,
+        },
         '/api': {
           target: proxyTarget,
           changeOrigin: true,
