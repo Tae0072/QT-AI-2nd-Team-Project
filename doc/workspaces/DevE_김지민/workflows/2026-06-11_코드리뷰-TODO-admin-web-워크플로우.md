@@ -10,7 +10,7 @@
 | 기준 문서  | `04_API_명세서.md`, 백엔드 계약서(아래 의존성 표)                                                              |
 | 담당 경로  | `admin-web/` (React + TS + Vite + AntD)                                                         |
 | 검증 게이트 | `npm run typecheck`(strict) + `npm run build` (테스트 프레임워크 없음)                                    |
-| 상태     | P1(#482)·P3a(#490)·P3b(#496)·P3c(#501) 머지 완료 · P2 토큰 갱신 진행 중(`feature/admin-web-token-refresh`) |
+| 상태     | P1(#482)·P3a(#490)·P3b(#496)·P3c(#501)·P2(#504) 머지 완료 · P5c code-split 진행 중(`chore/admin-web-code-split`) |
 
 
 ---
@@ -48,10 +48,10 @@
 | 2   | `feature/admin-web-dashboard-dto`     | P3 AD-01   | ✅ 머지(#490)                    |
 | 3   | `feature/admin-web-qt-passages-dto`   | P3 AD-02   | ✅ 머지(#496)                    |
 | 4   | `feature/admin-web-notices-dto`       | P3 AD-06   | 진행 중(풀 CRUD)                  |
-| 5   | `chore/admin-web-code-split`          | P5c        | 예정                            |
+| 5   | `chore/admin-web-code-split`          | P5c        | 진행 중                         |
 | 6   | `feature/admin-web-kakao-sdk-notice`  | P5b        | 예정                            |
 | 7   | `docs/admin-web-token-storage-review` | P4         | 예정(강태오 확인)                    |
-| 8   | `feature/admin-web-token-refresh`     | P2 refresh | 착수 가능(계약 확정)                  |
+| 8   | `feature/admin-web-token-refresh`     | P2 refresh | ✅ 머지(#504)                   |
 | 보류  | —                                     | P5a 찬양 숨김  | admin-server praise 컨트롤러 구현 후 |
 
 
