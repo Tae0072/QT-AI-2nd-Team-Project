@@ -5,12 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.qtai.common.config.ServiceEndpointsProperties;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import java.net.SocketTimeoutException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,6 +74,17 @@ class CheckAiQaRequestExistsRestClientAdapterTest {
     }
 
     @Test
+    void maps_unauthorized_to_unauthorized() {
+        server.expect(requestTo(AI_BASE_URL + "/api/v1/ai/qa-requests/9"))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+
+        assertThatThrownBy(() -> adapter.exists(1L, 9L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+    }
+
+    @Test
     void maps_5xx_to_external_api_failure() {
         server.expect(requestTo(AI_BASE_URL + "/api/v1/ai/qa-requests/9"))
                 .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
@@ -80,6 +93,20 @@ class CheckAiQaRequestExistsRestClientAdapterTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.EXTERNAL_API_FAILURE);
+    }
+
+    @Test
+    void maps_rest_client_exception_to_external_api_failure_with_cause() {
+        server.expect(requestTo(AI_BASE_URL + "/api/v1/ai/qa-requests/9"))
+                .andRespond(withException(new SocketTimeoutException("read timed out")));
+
+        assertThatThrownBy(() -> adapter.exists(1L, 9L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> {
+                    BusinessException businessException = (BusinessException) e;
+                    assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_API_FAILURE);
+                    assertThat(businessException).hasRootCauseInstanceOf(SocketTimeoutException.class);
+                });
     }
 
     @Test

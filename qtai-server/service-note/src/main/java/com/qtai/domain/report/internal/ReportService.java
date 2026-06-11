@@ -83,6 +83,8 @@ public class ReportService implements CreateReportUseCase {
             case AI_ASSET -> {
                 // 사용자용 AI_ASSET 존재 확인 포트는 정책 확정 후 후속 작업에서 연결한다.
             }
+            default -> throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "지원하지 않는 신고 대상 타입입니다: " + targetType);
         }
     }
 
@@ -98,6 +100,7 @@ public class ReportService implements CreateReportUseCase {
     }
 
     private void validateCommentTarget(Long targetId) {
+        // F-10에서 PUBLISHED 나눔 글의 댓글은 전체 공개이므로 신고자별 가시성 검증은 필요하지 않다.
         if (!checkCommentExistsUseCase.existsReportableComment(targetId)) {
             throw new BusinessException(ErrorCode.REPORT_TARGET_NOT_FOUND);
         }

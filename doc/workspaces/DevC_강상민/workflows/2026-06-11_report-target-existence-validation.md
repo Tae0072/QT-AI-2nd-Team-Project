@@ -44,6 +44,7 @@
 | Modify | `qtai-server/lib-common/src/main/java/com/qtai/common/exception/BusinessException.java` | 외부 호출 실패 cause 보존 생성자 |
 | Test | `qtai-server/service-note/src/test/java/com/qtai/domain/report/internal/ReportServiceTest.java` | 대상별 존재 확인, AI Q&A 검증 on/off, 중복 신고 검증 |
 | Test | `qtai-server/service-note/src/test/java/com/qtai/domain/report/client/ai/CheckAiQaRequestExistsRestClientAdapterTest.java` | AI Q&A client 오류 매핑과 Authorization 전달 검증 |
+| Test | `qtai-server/service-note/src/test/java/com/qtai/domain/sharing/internal/CommentRepositoryTest.java` | 댓글 신고 가능 JPQL 쿼리 슬라이스 검증 |
 
 ## 구현 순서
 
@@ -65,6 +66,8 @@
 | `ReportServiceTest` | 정상 `COMMENT`, `AI_QA_REQUEST` 신고는 `RECEIVED`로 저장 |
 | `CheckAiQaRequestExistsRestClientAdapterTest` | service-ai 404/403 응답은 `false` 반환 |
 | `CheckAiQaRequestExistsRestClientAdapterTest` | service-ai 5xx/RestClient 오류는 `EXTERNAL_API_FAILURE` |
+| `CheckAiQaRequestExistsRestClientAdapterTest` | service-ai 401 응답은 `UNAUTHORIZED`로 전파 |
+| `CommentRepositoryTest` | 정상 댓글, 삭제 댓글, 부모 `HIDDEN`/`DELETED` 댓글 신고 가능 여부 |
 
 ## 수용 기준
 
@@ -73,6 +76,13 @@
 - [ ] `AI_QA_REQUEST` 검증은 설정으로 켤 수 있지만 기본값은 비활성이다.
 - [ ] `AI_ASSET`은 enum/API 계약을 유지하되 이번 구현에서 추가 검증하지 않는다.
 - [ ] 관련 단위 테스트가 추가되고 실행 결과가 report 문서에 기록된다.
+
+## 리뷰 보강 항목
+
+- `CommentRepository.existsReportableComment` JPQL 쿼리를 `@DataJpaTest` 슬라이스로 직접 실행 검증한다.
+- `CheckAiQaRequestExistsRestClientAdapter`의 `RestClientException` 분기와 401 응답 분기를 테스트한다.
+- `ReportService.validateTargetExists`에 default 방어를 추가해 새 `ReportTargetType` 추가 시 조용히 통과하지 않게 한다.
+- `COMMENT` 신고 검증은 F-10의 PUBLISHED 나눔 댓글 전체 공개 전제를 코드 주석으로 명시한다.
 
 ## Subagent Decision
 

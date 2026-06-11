@@ -52,6 +52,9 @@ public class CheckAiQaRequestExistsRestClientAdapter implements CheckAiQaRequest
                     .uri("/api/v1/ai/qa-requests/{requestId}", requestId)
                     .headers(ServiceCallAuthForwarder::forward)
                     .retrieve()
+                    .onStatus(status -> status.value() == 401, (request, response) -> {
+                        throw new BusinessException(ErrorCode.UNAUTHORIZED);
+                    })
                     .onStatus(status -> status.value() == 403 || status.value() == 404, (request, response) -> {
                         throw new BusinessException(ErrorCode.REPORT_TARGET_NOT_FOUND);
                     })
