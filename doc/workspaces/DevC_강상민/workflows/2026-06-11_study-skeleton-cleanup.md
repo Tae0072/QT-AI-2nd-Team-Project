@@ -3,7 +3,7 @@
 | 항목 | 내용 |
 | --- | --- |
 | 담당자 | 강상민 |
-| 브랜치 | `refactor/study-skeleton-cleanup` |
+| 브랜치 | `chore/study-skeleton-cleanup` |
 | PR 대상 | `dev` |
 | 관련 F-ID | 해당 없음 |
 | 트리거 | Study 도메인에 기준 문서 밖 독립 목록/상세 TODO 스켈레톤이 남아 있어 정리 |
@@ -43,7 +43,7 @@
 
 ## 구현 순서
 
-1. `refactor/study-skeleton-cleanup` 브랜치를 만든다.
+1. `chore/study-skeleton-cleanup` 브랜치를 만든다.
 2. 이 workflow 문서를 저장한다.
 3. 삭제 대상 파일만 제거한다.
 4. `rg`로 삭제된 타입 이름의 잔여 참조를 확인한다.
