@@ -290,6 +290,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navMy => 'My';
 
   @override
+  String get homeBackExitGuide => 'Press back again to exit';
+
+  @override
   String get ttsRead => 'Read passage';
 
   @override

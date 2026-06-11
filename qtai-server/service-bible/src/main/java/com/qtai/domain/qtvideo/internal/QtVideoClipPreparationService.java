@@ -5,8 +5,11 @@ import com.qtai.domain.qt.api.dto.QtPassageContentContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -19,6 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -32,8 +38,9 @@ public class QtVideoClipPreparationService {
     private final BibleVerseVideoSegmentRepository bibleVerseVideoSegmentRepository;
     private final QtVideoClipRepository qtVideoClipRepository;
     private final Clock clock;
+    private final ConcurrentMap<Long, ReentrantLock> preparationLocks = new ConcurrentHashMap<>();
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_COMMITTED)
     public boolean prepareToday() {
         LocalDate today = LocalDate.now(clock.withZone(KST));
         return getQtPassageContentContextUseCase.findContentContextByDate(today)
@@ -44,7 +51,7 @@ public class QtVideoClipPreparationService {
                 });
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_COMMITTED)
     public boolean prepare(Long qtPassageId) {
         if (qtPassageId == null || qtPassageId < 1) {
             log.warn("Skip QT video clip preparation - invalid qtPassageId={}", qtPassageId);
@@ -68,6 +75,19 @@ public class QtVideoClipPreparationService {
             return false;
         }
 
+        ReentrantLock lock = preparationLocks.computeIfAbsent(context.qtPassageId(), ignored -> new ReentrantLock());
+        lock.lock();
+        boolean releaseAfterTransaction = registerLockRelease(context.qtPassageId(), lock);
+        try {
+            return prepareLocked(context, verseIds);
+        } finally {
+            if (!releaseAfterTransaction) {
+                releasePreparationLock(context.qtPassageId(), lock);
+            }
+        }
+    }
+
+    private boolean prepareLocked(QtPassageContentContext context, List<Long> verseIds) {
         Optional<QtVideoClip> activeClip = qtVideoClipRepository.findByQtPassageIdAndActiveUniqueKey(
                 context.qtPassageId(), QtVideoClip.ACTIVE_UNIQUE_KEY);
         if (activeClip.isEmpty()
@@ -127,6 +147,26 @@ public class QtVideoClipPreparationService {
                 group.endTimeSec()
         );
         return true;
+    }
+
+    private boolean registerLockRelease(Long qtPassageId, ReentrantLock lock) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return false;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                releasePreparationLock(qtPassageId, lock);
+            }
+        });
+        return true;
+    }
+
+    private void releasePreparationLock(Long qtPassageId, ReentrantLock lock) {
+        lock.unlock();
+        if (!lock.isLocked() && !lock.hasQueuedThreads()) {
+            preparationLocks.remove(qtPassageId, lock);
+        }
     }
 
     private Optional<SegmentGroup> findCompleteSegmentGroup(List<Long> verseIds) {
