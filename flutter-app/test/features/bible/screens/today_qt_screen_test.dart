@@ -202,7 +202,7 @@ void main() {
     final passage = TodayQtPassage(
       qtPassageId: 7,
       passageDate: '2026-06-11',
-      simulatorStatus: 'MISSING',
+      simulatorStatus: 'READY',
       reference: const BibleReference(
         koreanBookName: '창세기',
         englishBookName: 'Genesis',
@@ -260,19 +260,77 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('QT 영상'), findsOneWidget);
-    final animationButtonFinder =
+    final qtVideoButtonFinder =
         find.widgetWithIcon(OutlinedButton, Icons.movie_outlined);
-    final animationButton =
-        tester.widget<OutlinedButton>(animationButtonFinder);
-    expect(animationButton.onPressed, isNotNull);
+    final qtVideoButton = tester.widget<OutlinedButton>(qtVideoButtonFinder);
+    expect(qtVideoButton.onPressed, isNotNull);
 
     final videoFinder = find.byKey(const Key('today-qt-video-section'));
     expect(videoFinder, findsNothing);
 
-    await tester.tap(animationButtonFinder);
+    await tester.tap(qtVideoButtonFinder);
     await tester.pumpAndSettle();
 
     expect(videoFinder, findsOneWidget);
+  });
+
+  testWidgets('QT 영상 버튼은 준비되지 않은 상태에서는 비활성화된다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    final passage = TodayQtPassage(
+      qtPassageId: 7,
+      passageDate: '2026-06-11',
+      simulatorStatus: 'MISSING',
+      reference: const BibleReference(
+        koreanBookName: '창세기',
+        englishBookName: 'Genesis',
+        chapter: 1,
+        verseFrom: 1,
+        verseTo: 20,
+      ),
+      book: const BibleVerseBook(
+        code: 'GEN',
+        koreanName: '창세기',
+        englishName: 'Genesis',
+        chapter: 1,
+      ),
+      verses: [
+        for (var i = 1; i <= 20; i++)
+          BibleVerse(
+            id: 3000 + i,
+            bookCode: 'GEN',
+            chapterNo: 1,
+            verseNo: i,
+            koreanText: '테스트 본문 $i',
+            englishText: 'Test English verse $i',
+          ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          todayQtPassageProvider.overrideWith((ref) async => passage),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: const TodayQtScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final qtVideoButtonFinder =
+        find.widgetWithIcon(OutlinedButton, Icons.movie_outlined);
+    final qtVideoButton = tester.widget<OutlinedButton>(qtVideoButtonFinder);
+
+    expect(find.text('QT 영상'), findsOneWidget);
+    expect(qtVideoButton.onPressed, isNull);
+    expect(find.byKey(const Key('today-qt-video-section')), findsNothing);
   });
 }
 

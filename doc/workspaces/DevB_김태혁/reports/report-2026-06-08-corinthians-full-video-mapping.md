@@ -63,9 +63,8 @@ Note: the same URL without `?raw=1` intermittently returned `504 Gateway Timeout
 - Existing Windows `MySQL80` service owns `localhost:3306`; it was not modified.
 - Started project MySQL container `qtai-mysql-video` on `localhost:3307`.
 - Connection:
-  - database: `qtai`
-  - username: `qtai`
-  - password: `qtai`
+  - local development database on `localhost:3307`
+  - credentials were provided through the local environment and are not recorded in this document
 - Started `qtai-server` with `SPRING_PROFILES_ACTIVE=dev` and `DB_URL=jdbc:mysql://localhost:3307/qtai?...`.
 - Flyway applied and validated through V25:
   - V24 `create qt video assets`

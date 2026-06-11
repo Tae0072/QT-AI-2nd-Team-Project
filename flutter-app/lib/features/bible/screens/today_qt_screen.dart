@@ -204,7 +204,8 @@ class _ActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final qtPassageId = data.qtPassageId;
-    final hasQtVideoTarget = qtPassageId != null;
+    final simulatorReady =
+        qtPassageId != null && data.simulatorStatus == 'READY';
     final explanationReady = qtPassageId != null && data.hasExplanation;
     final l = AppLocalizations.of(context);
 
@@ -230,7 +231,7 @@ class _ActionRow extends StatelessWidget {
           label: Text(l.bibleExplanation),
         ),
         OutlinedButton.icon(
-          onPressed: hasQtVideoTarget ? onVideoRequested : null,
+          onPressed: simulatorReady ? onVideoRequested : null,
           icon: const Icon(Icons.movie_outlined),
           label: Text(l.bibleSimulator),
         ),
