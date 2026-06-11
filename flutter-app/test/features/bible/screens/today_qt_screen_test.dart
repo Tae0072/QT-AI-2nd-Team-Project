@@ -131,7 +131,8 @@ void main() {
     expect(find.text('고린도전서 2:1-16'), findsOneWidget);
     expect(find.text('더미 한글 본문 1'), findsOneWidget);
     expect(find.byTooltip('굵게'), findsOneWidget);
-    expect(find.byTooltip('하이라이트'), findsOneWidget);
+    expect(find.byTooltip('텍스트 색상'), findsOneWidget);
+    expect(find.byTooltip('배경 색상'), findsOneWidget);
     expect(find.byTooltip('구절 삽입'), findsOneWidget);
   });
 

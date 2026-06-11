@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
 
 import '../../bible/models/bible_models.dart';
 import '../../bible/providers/bible_providers.dart';
+import '../models/qt_note_rich_text.dart';
 import '../providers/note_providers.dart';
 import '../widgets/qt_note_format_toolbar.dart';
 
@@ -26,6 +26,8 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
   static const double _defaultEmojiFontSize = 16;
   static const double _minFontSize = 10;
   static const double _maxFontSize = 32;
+  static const Color _defaultTextColor = Color(0xFF111827);
+  static const Color _defaultBackgroundColor = Colors.transparent;
 
   final _titleController = TextEditingController();
   final _bodyController = _NoteBodyTextEditingController(
@@ -35,10 +37,19 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
   final _editorScrollController = ScrollController();
   Future<List<BibleBook>>? _booksFuture;
   String? _mentionQuery;
+  TextSelection? _lastSelectedBodyRange;
   String _lastBody = '';
   bool _applyingAutoPrefix = false;
   bool _saving = false;
   double _fontSize = 16;
+  Color _textColor = _defaultTextColor;
+  Color _backgroundColor = _defaultBackgroundColor;
+  final List<Color> _recentColors = <Color>[
+    Color(0xFFDC2626),
+    Color(0xFF15803D),
+    Color(0xFF7C3AED),
+    Color(0xFF2563EB),
+  ];
 
   TodayQtPassage get _passage => widget.args.passage;
 
@@ -67,7 +78,14 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
 
     final text = _bodyController.text;
     final selection = _bodyController.selection;
+    if (selection.isValid && !selection.isCollapsed) {
+      _lastSelectedBodyRange = selection;
+    }
     _updateMentionQuery(text, selection.start);
+
+    if (_removeUnusedNumberPrefixOnSpace(text, selection.start)) {
+      return;
+    }
 
     if (text.length == _lastBody.length + 1 &&
         selection.start > 0 &&
@@ -118,10 +136,46 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
     return '$indent• ';
   }
 
-  Future<void> _openFontSizeDialog() async {
-    final result = await showDialog<double>(
+  bool _removeUnusedNumberPrefixOnSpace(String text, int cursor) {
+    if (text.length != _lastBody.length + 1 ||
+        cursor < 1 ||
+        text[cursor - 1] != ' ') {
+      return false;
+    }
+    final lineStart = text.lastIndexOf('\n', cursor - 1) + 1;
+    final line = text.substring(lineStart, cursor);
+    final match = RegExp(r'^(\s*)((\(\d+\)|\d+\))\s{2})$').firstMatch(line);
+    if (match == null) {
+      return false;
+    }
+    final indent = match.group(1) ?? '';
+    final newText = text.replaceRange(lineStart, cursor, indent);
+    _applyText(newText, lineStart + indent.length);
+    return true;
+  }
+
+  TextSelection _styleTargetSelection() {
+    final current = _bodyController.selection;
+    if (current.isValid && !current.isCollapsed) {
+      return current;
+    }
+    final last = _lastSelectedBodyRange;
+    if (last != null &&
+        last.isValid &&
+        !last.isCollapsed &&
+        last.start >= 0 &&
+        last.end <= _bodyController.text.length) {
+      return last;
+    }
+    return current;
+  }
+
+  Future<void> _openFontSizeSheet() async {
+    final targetSelection = _styleTargetSelection();
+    final result = await showModalBottomSheet<double>(
       context: context,
-      builder: (context) => _FontSizeDialog(
+      showDragHandle: true,
+      builder: (context) => _FontSizeSheet(
         currentFontSize: _fontSize,
         minFontSize: _minFontSize,
         maxFontSize: _maxFontSize,
@@ -130,7 +184,50 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
     if (result == null) {
       return;
     }
-    setState(() => _fontSize = result);
+    _applyFontSize(result, targetSelection: targetSelection);
+  }
+
+  Future<void> _openTextColorSheet() async {
+    final targetSelection = _styleTargetSelection();
+    final color = await _openColorSheet(
+      title: '텍스트 색상',
+      selectedColor: _textColor,
+      colors: _textColors,
+    );
+    if (color == null) {
+      return;
+    }
+    _applyColor(color, isBackground: false, targetSelection: targetSelection);
+  }
+
+  Future<void> _openBackgroundColorSheet() async {
+    final targetSelection = _styleTargetSelection();
+    final color = await _openColorSheet(
+      title: '배경 색상',
+      selectedColor: _backgroundColor,
+      colors: _backgroundColors,
+    );
+    if (color == null) {
+      return;
+    }
+    _applyColor(color, isBackground: true, targetSelection: targetSelection);
+  }
+
+  Future<Color?> _openColorSheet({
+    required String title,
+    required Color selectedColor,
+    required List<Color> colors,
+  }) {
+    return showModalBottomSheet<Color>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => _ColorPaletteSheet(
+        title: title,
+        selectedColor: selectedColor,
+        recentColors: _recentColors,
+        colors: colors,
+      ),
+    );
   }
 
   void _wrapSelection(String marker) {
@@ -143,6 +240,67 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
     final cursor =
         selected.isEmpty ? start + marker.length : end + marker.length * 2;
     _applyText(newText, cursor);
+  }
+
+  void _applyFontSize(double fontSize, {TextSelection? targetSelection}) {
+    final size = fontSize.round().clamp(
+          _minFontSize.round(),
+          _maxFontSize.round(),
+        );
+    setState(() => _fontSize = size.toDouble());
+    _applyScopedMarker('[fs=$size]', '[fs=]', targetSelection: targetSelection);
+  }
+
+  void _applyColor(
+    Color color, {
+    required bool isBackground,
+    TextSelection? targetSelection,
+  }) {
+    setState(() {
+      if (isBackground) {
+        _backgroundColor = color;
+      } else {
+        _textColor = color;
+      }
+      if (color != Colors.transparent) {
+        _recentColors.remove(color);
+        _recentColors.insert(0, color);
+        if (_recentColors.length > 5) {
+          _recentColors.removeRange(5, _recentColors.length);
+        }
+      }
+    });
+    final markerType = isBackground ? 'bg' : 'fg';
+    final value = color == Colors.transparent ? '' : _hexColor(color);
+    _applyScopedMarker(
+      '[$markerType=$value]',
+      '[$markerType=]',
+      targetSelection: targetSelection,
+    );
+  }
+
+  void _applyScopedMarker(
+    String openMarker,
+    String closeMarker, {
+    TextSelection? targetSelection,
+  }) {
+    final text = _bodyController.text;
+    final selection = targetSelection ?? _bodyController.selection;
+    final start = selection.start < 0 ? text.length : selection.start;
+    final end = selection.end < 0 ? start : selection.end;
+    final edit = QtNoteRichTextMarkup.applyScopedMarker(
+      text: text,
+      start: start,
+      end: end,
+      openMarker: openMarker,
+      closeMarker: closeMarker,
+    );
+    _applyText(edit.text, edit.cursor);
+  }
+
+  String _hexColor(Color color) {
+    final value = color.toARGB32() & 0xFFFFFF;
+    return '#${value.toRadixString(16).padLeft(6, '0').toUpperCase()}';
   }
 
   void _prefixCurrentLine(String prefix) {
@@ -162,13 +320,15 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
   }
 
   void _applyText(String text, int cursor) {
+    final nextCursor = cursor.clamp(0, text.length);
     _applyingAutoPrefix = true;
     _bodyController.value = TextEditingValue(
       text: text,
-      selection: TextSelection.collapsed(offset: cursor.clamp(0, text.length)),
+      selection: TextSelection.collapsed(offset: nextCursor),
     );
     _lastBody = text;
     _applyingAutoPrefix = false;
+    _updateMentionQuery(text, nextCursor);
   }
 
   Future<void> _save(String status) async {
@@ -195,10 +355,6 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
       setState(() => _saving = false);
       _showMessage('저장에 실패했습니다. 다시 시도해 주세요');
     }
-  }
-
-  void _completeMentionBook(BibleBook book) {
-    _replaceMentionWith('@${book.koreanName} ');
   }
 
   Future<void> _insertMentionVerse(
@@ -337,9 +493,12 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
                       ),
                       QtNoteFormatToolbar(
                         fontSize: _fontSize,
-                        onFontSize: _openFontSizeDialog,
+                        textColor: _textColor,
+                        backgroundColor: _backgroundColor,
+                        onFontSize: _openFontSizeSheet,
                         onBold: () => _wrapSelection('**'),
-                        onHighlight: () => _wrapSelection('=='),
+                        onTextColor: _openTextColorSheet,
+                        onBackgroundColor: _openBackgroundColorSheet,
                         onIndent: () => _prefixCurrentLine('    '),
                         onBullet: () => _prefixCurrentLine('• '),
                         onParenNumber: () => _prefixCurrentLine('(1) '),
@@ -350,7 +509,6 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
                         _MentionSuggestions(
                           query: _mentionQuery!,
                           booksFuture: _booksFuture!,
-                          onSelectBook: _completeMentionBook,
                           onInsertVerse: _insertMentionVerse,
                         ),
                       Expanded(
@@ -373,7 +531,10 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
                               alignLabelWithHint: true,
                               border: OutlineInputBorder(),
                             ),
-                            style: TextStyle(fontSize: _fontSize, height: 1.55),
+                            style: const TextStyle(
+                              fontSize: _defaultEmojiFontSize,
+                              height: 1.55,
+                            ),
                             maxLines: null,
                             expands: true,
                             textAlignVertical: TextAlignVertical.top,
@@ -420,8 +581,6 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
 }
 
 class _NoteBodyTextEditingController extends TextEditingController {
-  static const _highlightColor = Color(0xFFFFF2A8);
-
   final double emojiFontSize;
 
   _NoteBodyTextEditingController({required this.emojiFontSize});
@@ -432,183 +591,303 @@ class _NoteBodyTextEditingController extends TextEditingController {
     TextStyle? style,
     required bool withComposing,
   }) {
-    if (text.isEmpty) {
-      return TextSpan(style: style, text: '');
-    }
-
-    final children = <TextSpan>[];
-    var index = 0;
-    while (index < text.length) {
-      if (text.startsWith('==', index)) {
-        final end = text.indexOf('==', index + 2);
-        if (end > index + 2) {
-          _addHiddenMarker(children, style, '==');
-          _addStyledClusters(
-            children,
-            text.substring(index + 2, end),
-            style?.copyWith(backgroundColor: _highlightColor),
-          );
-          _addHiddenMarker(children, style, '==');
-          index = end + 2;
-          continue;
-        }
-      }
-
-      if (text.startsWith('**', index)) {
-        final end = text.indexOf('**', index + 2);
-        if (end > index + 2) {
-          _addHiddenMarker(children, style, '**');
-          _addStyledClusters(
-            children,
-            text.substring(index + 2, end),
-            style?.copyWith(fontWeight: FontWeight.w700),
-          );
-          _addHiddenMarker(children, style, '**');
-          index = end + 2;
-          continue;
-        }
-      }
-
-      final cluster = text.substring(index).characters.first;
-      _addStyledClusters(children, cluster, style);
-      index += cluster.length;
-    }
-
-    return TextSpan(style: style, children: children);
-  }
-
-  void _addHiddenMarker(
-    List<TextSpan> children,
-    TextStyle? baseStyle,
-    String marker,
-  ) {
-    children.add(TextSpan(
-      text: marker,
-      style: baseStyle?.copyWith(
-        color: Colors.transparent,
-        fontSize: 0.1,
-      ),
-    ));
-  }
-
-  void _addStyledClusters(
-    List<TextSpan> children,
-    String value,
-    TextStyle? baseStyle,
-  ) {
-    for (final cluster in value.characters) {
-      children.add(TextSpan(
-        text: cluster,
-        style: _isEmojiCluster(cluster)
-            ? baseStyle?.copyWith(fontSize: emojiFontSize)
-            : baseStyle,
-      ));
-    }
-  }
-
-  bool _isEmojiCluster(String cluster) {
-    return cluster.runes.any((rune) =>
-        (rune >= 0x1F300 && rune <= 0x1FAFF) ||
-        (rune >= 0x2600 && rune <= 0x27BF));
+    return QtNoteRichTextParser.parse(
+      text,
+      style,
+      emojiFontSize: emojiFontSize,
+    );
   }
 }
 
-class _FontSizeDialog extends StatefulWidget {
+class _FontSizeSheet extends StatefulWidget {
   final double currentFontSize;
   final double minFontSize;
   final double maxFontSize;
 
-  const _FontSizeDialog({
+  const _FontSizeSheet({
     required this.currentFontSize,
     required this.minFontSize,
     required this.maxFontSize,
   });
 
   @override
-  State<_FontSizeDialog> createState() => _FontSizeDialogState();
+  State<_FontSizeSheet> createState() => _FontSizeSheetState();
 }
 
-class _FontSizeDialogState extends State<_FontSizeDialog> {
-  late final TextEditingController _controller;
+class _FontSizeSheetState extends State<_FontSizeSheet> {
+  late double _value;
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(
-      text: widget.currentFontSize.round().toString(),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+    _value = widget.currentFontSize;
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('글씨 크기'),
-      content: TextField(
-        key: const ValueKey('note-font-size-input'),
-        controller: _controller,
-        autofocus: true,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: InputDecoration(
-          labelText: '크기',
-          helperText:
-              '${widget.minFontSize.round()}~${widget.maxFontSize.round()} 사이 숫자',
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('글씨 크기', style: theme.textTheme.titleMedium),
+                const Spacer(),
+                Text('${_value.round()}'),
+              ],
+            ),
+            Slider(
+              key: const ValueKey('note-font-size-slider'),
+              min: widget.minFontSize,
+              max: widget.maxFontSize,
+              divisions: (widget.maxFontSize - widget.minFontSize).round(),
+              value: _value.clamp(widget.minFontSize, widget.maxFontSize),
+              label: '${_value.round()}',
+              onChanged: (value) => setState(() => _value = value),
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(_value),
+                child: const Text('적용'),
+              ),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final parsed = double.tryParse(_controller.text);
-            if (parsed == null) {
-              return;
-            }
-            final clamped = parsed.clamp(
-              widget.minFontSize,
-              widget.maxFontSize,
-            );
-            Navigator.of(context).pop(clamped.toDouble());
-          },
-          child: const Text('적용'),
-        ),
-      ],
     );
   }
 }
 
-class _MentionSuggestions extends StatelessWidget {
-  final String query;
-  final Future<List<BibleBook>> booksFuture;
-  final ValueChanged<BibleBook> onSelectBook;
-  final void Function(BibleBook book, _MentionVerseRange range) onInsertVerse;
+class _ColorPaletteSheet extends StatelessWidget {
+  final String title;
+  final Color selectedColor;
+  final List<Color> recentColors;
+  final List<Color> colors;
 
-  const _MentionSuggestions({
-    required this.query,
-    required this.booksFuture,
-    required this.onSelectBook,
-    required this.onInsertVerse,
+  const _ColorPaletteSheet({
+    required this.title,
+    required this.selectedColor,
+    required this.recentColors,
+    required this.colors,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 14),
+            if (recentColors.isNotEmpty) ...[
+              Text('최근 사용', style: theme.textTheme.labelMedium),
+              const SizedBox(height: 8),
+              _ColorGrid(
+                colors: recentColors,
+                selectedColor: selectedColor,
+                onSelected: (color) => Navigator.of(context).pop(color),
+              ),
+              const SizedBox(height: 14),
+            ],
+            Text(title, style: theme.textTheme.labelMedium),
+            const SizedBox(height: 8),
+            _ColorGrid(
+              colors: colors,
+              selectedColor: selectedColor,
+              onSelected: (color) => Navigator.of(context).pop(color),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(Colors.transparent),
+              icon: const Icon(Icons.format_color_reset),
+              label: const Text('색상 해제'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ColorGrid extends StatelessWidget {
+  final List<Color> colors;
+  final Color selectedColor;
+  final ValueChanged<Color> onSelected;
+
+  const _ColorGrid({
+    required this.colors,
+    required this.selectedColor,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (final color in colors)
+          InkWell(
+            key: ValueKey('note-color-swatch-${color.toARGB32()}'),
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => onSelected(color),
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: selectedColor == color
+                      ? Theme.of(context).colorScheme.primary
+                      : const Color(0xFFCBD5E1),
+                  width: selectedColor == color ? 2 : 1,
+                ),
+              ),
+              child: selectedColor == color
+                  ? const Icon(Icons.check, size: 18)
+                  : null,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _MentionSuggestions extends ConsumerStatefulWidget {
+  final String query;
+  final Future<List<BibleBook>> booksFuture;
+  final void Function(BibleBook book, _MentionVerseRange range) onInsertVerse;
+
+  const _MentionSuggestions({
+    required this.query,
+    required this.booksFuture,
+    required this.onInsertVerse,
+  });
+
+  @override
+  ConsumerState<_MentionSuggestions> createState() =>
+      _MentionSuggestionsState();
+}
+
+class _MentionSuggestionsState extends ConsumerState<_MentionSuggestions> {
+  static const _defaultVerseCount = 1;
+
+  BibleBook? _selectedBook;
+  int _selectedChapter = 1;
+  int _verseFrom = 1;
+  int _verseTo = 1;
+  int _verseCount = _defaultVerseCount;
+  int _chapterRequestId = 0;
+  bool _isLoadingChapter = false;
+  bool _chapterLoadFailed = false;
+
+  @override
+  void didUpdateWidget(covariant _MentionSuggestions oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.query != widget.query) {
+      _selectedBook = null;
+      _selectedChapter = 1;
+      _verseFrom = 1;
+      _verseTo = 1;
+      _verseCount = _defaultVerseCount;
+      _chapterLoadFailed = false;
+    }
+  }
+
+  Future<void> _selectBook(BibleBook book) async {
+    final chapterCount = _chapterCountFor(book);
+    setState(() {
+      _selectedBook = book;
+      _selectedChapter = _selectedChapter.clamp(1, chapterCount);
+      _verseFrom = 1;
+      _verseTo = 1;
+      _verseCount = _defaultVerseCount;
+      _chapterLoadFailed = false;
+    });
+    await _loadChapterVerseCount(book.code, _selectedChapter);
+  }
+
+  Future<void> _selectChapter(int chapter) async {
+    final book = _selectedBook;
+    if (book == null) {
+      return;
+    }
+    setState(() {
+      _selectedChapter = chapter;
+      _verseFrom = 1;
+      _verseTo = 1;
+      _verseCount = _defaultVerseCount;
+      _chapterLoadFailed = false;
+    });
+    await _loadChapterVerseCount(book.code, chapter);
+  }
+
+  Future<void> _loadChapterVerseCount(String bookCode, int chapter) async {
+    final requestId = ++_chapterRequestId;
+    setState(() {
+      _isLoadingChapter = true;
+      _chapterLoadFailed = false;
+    });
+    try {
+      final chapterRange =
+          await ref.read(bibleRepositoryProvider).getChapterVerses(
+                bookCode: bookCode,
+                chapter: chapter,
+              );
+      if (!mounted || requestId != _chapterRequestId) {
+        return;
+      }
+      final count = chapterRange.verses.length;
+      setState(() {
+        _verseCount = count < 1 ? _defaultVerseCount : count;
+        _verseFrom = _verseFrom.clamp(1, _verseCount);
+        _verseTo = _verseTo.clamp(_verseFrom, _verseCount);
+        _isLoadingChapter = false;
+        _chapterLoadFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || requestId != _chapterRequestId) {
+        return;
+      }
+      setState(() {
+        _verseCount = _defaultVerseCount;
+        _verseFrom = 1;
+        _verseTo = 1;
+        _isLoadingChapter = false;
+        _chapterLoadFailed = true;
+      });
+    }
+  }
+
+  int _chapterCountFor(BibleBook book) {
+    final index = book.displayOrder - 1;
+    if (index < 0 || index >= _chapterCounts.length) {
+      return 150;
+    }
+    return _chapterCounts[index];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return FutureBuilder<List<BibleBook>>(
-      future: booksFuture,
+      future: widget.booksFuture,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const LinearProgressIndicator();
         }
-        final parsedRange = _MentionVerseRange.tryParse(query);
-        final bookQuery = parsedRange?.bookQuery ?? query.trim();
+        final parsedRange = _MentionVerseRange.tryParse(widget.query);
+        final bookQuery = parsedRange?.bookQuery ?? widget.query.trim();
         final normalized = bookQuery.toLowerCase();
         final books = snapshot.data!
             .where((book) => _matchesBook(book, bookQuery, normalized))
@@ -619,7 +898,7 @@ class _MentionSuggestions extends StatelessWidget {
         return Container(
           key: const ValueKey('qt-note-mention-suggestions'),
           margin: const EdgeInsets.only(bottom: 8),
-          constraints: const BoxConstraints(maxHeight: 188),
+          constraints: const BoxConstraints(maxHeight: 112),
           decoration: BoxDecoration(
             border: Border.all(color: theme.colorScheme.outlineVariant),
             borderRadius: BorderRadius.circular(8),
@@ -628,31 +907,63 @@ class _MentionSuggestions extends StatelessWidget {
           child: Material(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: books.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final book = books[index];
-                if (parsedRange != null) {
-                  return ListTile(
-                    dense: true,
-                    leading: const Icon(Icons.menu_book_outlined),
-                    title: Text(
-                      '${book.koreanName} ${parsedRange.displayText} 삽입',
+            child: _selectedBook == null || parsedRange != null
+                ? ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: books.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final book = books[index];
+                      if (parsedRange != null) {
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.menu_book_outlined),
+                          title: Text(
+                            '${book.koreanName} ${parsedRange.displayText} 삽입',
+                          ),
+                          onTap: () => widget.onInsertVerse(book, parsedRange),
+                        );
+                      }
+                      return ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.menu_book_outlined),
+                        title: Text(book.koreanName),
+                        subtitle: Text(book.englishName),
+                        onTap: () => _selectBook(book),
+                      );
+                    },
+                  )
+                : _MentionRangePicker(
+                    book: _selectedBook!,
+                    selectedChapter: _selectedChapter,
+                    chapterCount: _chapterCountFor(_selectedBook!),
+                    verseFrom: _verseFrom,
+                    verseTo: _verseTo,
+                    verseCount: _verseCount,
+                    isLoadingChapter: _isLoadingChapter,
+                    isChapterLoadFailed: _chapterLoadFailed,
+                    onChapterChanged: _selectChapter,
+                    onVerseFromChanged: (verse) {
+                      setState(() {
+                        _verseFrom = verse;
+                        if (_verseTo < verse) {
+                          _verseTo = verse;
+                        }
+                      });
+                    },
+                    onVerseToChanged: (verse) {
+                      setState(() => _verseTo = verse);
+                    },
+                    onInsert: () => widget.onInsertVerse(
+                      _selectedBook!,
+                      _MentionVerseRange(
+                        bookQuery: _selectedBook!.koreanName,
+                        chapter: _selectedChapter,
+                        verseFrom: _verseFrom,
+                        verseTo: _verseTo,
+                      ),
                     ),
-                    onTap: () => onInsertVerse(book, parsedRange),
-                  );
-                }
-                return ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.menu_book_outlined),
-                  title: Text(book.koreanName),
-                  subtitle: Text(book.englishName),
-                  onTap: () => onSelectBook(book),
-                );
-              },
-            ),
+                  ),
           ),
         );
       },
@@ -666,6 +977,214 @@ class _MentionSuggestions extends StatelessWidget {
     return book.koreanName.contains(bookQuery) ||
         book.englishName.toLowerCase().contains(normalized) ||
         book.code.toLowerCase().contains(normalized);
+  }
+}
+
+class _MentionRangePicker extends StatelessWidget {
+  final BibleBook book;
+  final int selectedChapter;
+  final int chapterCount;
+  final int verseFrom;
+  final int verseTo;
+  final int verseCount;
+  final bool isLoadingChapter;
+  final bool isChapterLoadFailed;
+  final ValueChanged<int> onChapterChanged;
+  final ValueChanged<int> onVerseFromChanged;
+  final ValueChanged<int> onVerseToChanged;
+  final VoidCallback onInsert;
+
+  const _MentionRangePicker({
+    required this.book,
+    required this.selectedChapter,
+    required this.chapterCount,
+    required this.verseFrom,
+    required this.verseTo,
+    required this.verseCount,
+    required this.isLoadingChapter,
+    required this.isChapterLoadFailed,
+    required this.onChapterChanged,
+    required this.onVerseFromChanged,
+    required this.onVerseToChanged,
+    required this.onInsert,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final safeChapterCount = chapterCount < 1 ? 1 : chapterCount;
+    final safeVerseCount = verseCount < 1 ? 1 : verseCount;
+    final endVerseItems = [
+      for (var verse = verseFrom; verse <= safeVerseCount; verse++) verse,
+    ];
+    final displayText = verseFrom == verseTo
+        ? '${book.koreanName} $selectedChapter:$verseFrom'
+        : '${book.koreanName} $selectedChapter:$verseFrom-$verseTo';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 50,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _MentionPickerColumn(
+                    key: const Key('qt-note-mention-chapter-picker'),
+                    label: '장',
+                    selectedIndex: selectedChapter - 1,
+                    items: [
+                      for (var chapter = 1;
+                          chapter <= safeChapterCount;
+                          chapter++)
+                        '$chapter'
+                    ],
+                    onSelectedIndexChanged: (index) =>
+                        onChapterChanged(index + 1),
+                  ),
+                ),
+                Expanded(
+                  child: _MentionPickerColumn(
+                    key: const Key('qt-note-mention-verse-from-picker'),
+                    label: '시작절',
+                    selectedIndex: verseFrom - 1,
+                    items: [
+                      for (var verse = 1; verse <= safeVerseCount; verse++)
+                        '$verse'
+                    ],
+                    onSelectedIndexChanged: (index) =>
+                        onVerseFromChanged(index + 1),
+                  ),
+                ),
+                Expanded(
+                  child: _MentionPickerColumn(
+                    key: const Key('qt-note-mention-verse-to-picker'),
+                    label: '끝절',
+                    selectedIndex: endVerseItems.indexOf(verseTo).clamp(
+                          0,
+                          endVerseItems.length - 1,
+                        ),
+                    items: [for (final verse in endVerseItems) '$verse'],
+                    onSelectedIndexChanged: (index) =>
+                        onVerseToChanged(endVerseItems[index]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isLoadingChapter
+                      ? '절 목록을 맞추는 중입니다.'
+                      : isChapterLoadFailed
+                          ? '절 목록을 불러오지 못했습니다.'
+                          : displayText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(width: 10),
+              FilledButton.icon(
+                onPressed:
+                    (isLoadingChapter || isChapterLoadFailed) ? null : onInsert,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.add),
+                label: Text(
+                  '$displayText 삽입',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MentionPickerColumn extends StatelessWidget {
+  final String label;
+  final List<String> items;
+  final int selectedIndex;
+  final ValueChanged<int> onSelectedIndexChanged;
+
+  const _MentionPickerColumn({
+    super.key,
+    required this.label,
+    required this.items,
+    required this.selectedIndex,
+    required this.onSelectedIndexChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontSize: 10,
+          ),
+        ),
+        const SizedBox(height: 1),
+        Expanded(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                height: 24,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: 0.45,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              ListWheelScrollView.useDelegate(
+                controller: FixedExtentScrollController(
+                  initialItem: selectedIndex.clamp(0, items.length - 1),
+                ),
+                itemExtent: 24,
+                diameterRatio: 1.35,
+                physics: const FixedExtentScrollPhysics(),
+                overAndUnderCenterOpacity: 0.38,
+                onSelectedItemChanged: onSelectedIndexChanged,
+                childDelegate: ListWheelChildBuilderDelegate(
+                  childCount: items.length,
+                  builder: (context, index) {
+                    return Center(
+                      child: Text(
+                        items[index],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: index == selectedIndex
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -716,3 +1235,100 @@ class _MentionVerseRange {
     );
   }
 }
+
+const _chapterCounts = [
+  50,
+  40,
+  27,
+  36,
+  34,
+  24,
+  21,
+  4,
+  31,
+  24,
+  22,
+  25,
+  29,
+  36,
+  10,
+  13,
+  10,
+  42,
+  150,
+  31,
+  12,
+  8,
+  66,
+  52,
+  5,
+  48,
+  12,
+  14,
+  3,
+  9,
+  1,
+  4,
+  7,
+  3,
+  3,
+  3,
+  2,
+  14,
+  4,
+  28,
+  16,
+  24,
+  21,
+  28,
+  16,
+  16,
+  13,
+  6,
+  6,
+  4,
+  4,
+  5,
+  3,
+  6,
+  4,
+  3,
+  1,
+  13,
+  5,
+  5,
+  3,
+  5,
+  1,
+  1,
+  1,
+  22,
+];
+
+const _textColors = [
+  Color(0xFF111827),
+  Color(0xFF15803D),
+  Color(0xFF7C3AED),
+  Color(0xFF2563EB),
+  Color(0xFF92400E),
+  Color(0xFFEA580C),
+  Color(0xFFD97706),
+  Color(0xFF16A34A),
+  Color(0xFF0EA5E9),
+  Color(0xFF9333EA),
+  Color(0xFFDB2777),
+  Color(0xFFDC2626),
+];
+
+const _backgroundColors = [
+  Colors.transparent,
+  Color(0xFFF1F5F9),
+  Color(0xFFE0F2FE),
+  Color(0xFFFFEDD5),
+  Color(0xFFFEF3C7),
+  Color(0xFFDCFCE7),
+  Color(0xFFDBEAFE),
+  Color(0xFFEDE9FE),
+  Color(0xFFFCE7F3),
+  Color(0xFFFEE2E2),
+];

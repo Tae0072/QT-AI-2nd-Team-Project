@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:video_player/video_player.dart';
 
 import '../models/bible_models.dart';
@@ -545,6 +546,8 @@ class _QtVideoFullscreenState extends State<_QtVideoFullscreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: ColoredBox(
@@ -570,7 +573,7 @@ class _QtVideoFullscreenState extends State<_QtVideoFullscreen> {
                 bottom: false,
                 right: false,
                 child: IconButton(
-                  tooltip: '뒤로',
+                  tooltip: l.videoTooltipBack,
                   onPressed: _close,
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                 ),
@@ -738,6 +741,7 @@ class _VideoControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final value = controller.value;
     final duration = value.duration;
     final effectiveEnd = segmentEnd ?? duration;
@@ -799,7 +803,9 @@ class _VideoControls extends StatelessWidget {
             Row(
               children: [
                 IconButton(
-                  tooltip: value.isPlaying ? '일시정지' : '재생',
+                  tooltip: value.isPlaying
+                      ? l.videoTooltipPause
+                      : l.videoTooltipPlay,
                   onPressed: onTogglePlay,
                   iconSize: iconSize,
                   visualDensity: VisualDensity.compact,
@@ -819,7 +825,7 @@ class _VideoControls extends StatelessWidget {
                 ),
                 const Spacer(),
                 PopupMenuButton<double>(
-                  tooltip: '배속',
+                  tooltip: l.videoTooltipSpeed,
                   initialValue: speed,
                   padding: EdgeInsets.zero,
                   onSelected: onSpeedSelected,
@@ -842,7 +848,7 @@ class _VideoControls extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: '전체화면',
+                  tooltip: l.videoTooltipFullscreen,
                   onPressed: onFullscreen,
                   iconSize: iconSize,
                   visualDensity: VisualDensity.compact,

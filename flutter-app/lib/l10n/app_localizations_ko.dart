@@ -42,6 +42,21 @@ class AppLocalizationsKo extends AppLocalizations {
   String get commonBack => '뒤로';
 
   @override
+  String get videoTooltipBack => '뒤로';
+
+  @override
+  String get videoTooltipPlay => '재생';
+
+  @override
+  String get videoTooltipPause => '일시정지';
+
+  @override
+  String get videoTooltipSpeed => '배속';
+
+  @override
+  String get videoTooltipFullscreen => '전체화면';
+
+  @override
   String get loginHeadline => '매일의 묵상을\n가장 단순하게.';
 
   @override
@@ -267,7 +282,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteShareImageFailed => '이미지 공유에 실패했습니다';
 
   @override
-  String get navToday => '오늘';
+  String get navToday => 'QT';
 
   @override
   String get navBible => '성경';

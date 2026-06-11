@@ -42,6 +42,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonBack => 'Back';
 
   @override
+  String get videoTooltipBack => 'Back';
+
+  @override
+  String get videoTooltipPlay => 'Play';
+
+  @override
+  String get videoTooltipPause => 'Pause';
+
+  @override
+  String get videoTooltipSpeed => 'Speed';
+
+  @override
+  String get videoTooltipFullscreen => 'Fullscreen';
+
+  @override
   String get loginHeadline => 'Daily meditation, made simplest.';
 
   @override
@@ -271,7 +286,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteShareImageFailed => 'Failed to share image';
 
   @override
-  String get navToday => 'Today';
+  String get navToday => 'QT';
 
   @override
   String get navBible => 'Bible';

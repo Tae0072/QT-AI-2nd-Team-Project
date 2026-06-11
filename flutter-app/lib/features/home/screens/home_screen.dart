@@ -10,7 +10,7 @@ import '../../mypage/screens/mypage_screen.dart';
 import '../../note/screens/note_list_screen.dart';
 import '../../sharing/screens/sharing_feed_screen.dart';
 
-/// 홈 화면 — 하단 탭바 5탭 (오늘 / 성경 / 나눔 / 노트 / 마이).
+/// 홈 화면 — 하단 탭바 5탭 (QT / 성경 / 나눔 / 노트 / 마이).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 

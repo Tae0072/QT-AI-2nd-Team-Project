@@ -11,6 +11,11 @@
   "commonRetry": "다시 시도",
   "commonLoading": "불러오는 중...",
   "commonBack": "뒤로",
+  "videoTooltipBack": "\uB4A4\uB85C",
+  "videoTooltipPlay": "\uC7AC\uC0DD",
+  "videoTooltipPause": "\uC77C\uC2DC\uC815\uC9C0",
+  "videoTooltipSpeed": "\uBC30\uC18D",
+  "videoTooltipFullscreen": "\uC804\uCCB4\uD654\uBA74",
 
   "loginHeadline": "매일의 묵상을\n가장 단순하게.",
   "loginSubtitle": "오늘의 QT 본문과 검증된 해설을 읽고,\n나만의 묵상 노트를 남겨보세요.",
@@ -89,7 +94,7 @@
   "noteShareAsImage": "이미지로 공유",
   "noteShareImageFailed": "이미지 공유에 실패했습니다",
 
-  "navToday": "오늘",
+  "navToday": "QT",
   "navBible": "성경",
   "navShare": "나눔",
   "navNote": "노트",

@@ -17,6 +17,11 @@
   "commonRetry": "Retry",
   "commonLoading": "Loading...",
   "commonBack": "Back",
+  "videoTooltipBack": "Back",
+  "videoTooltipPlay": "Play",
+  "videoTooltipPause": "Pause",
+  "videoTooltipSpeed": "Speed",
+  "videoTooltipFullscreen": "Fullscreen",
 
   "loginHeadline": "Daily meditation, made simplest.",
   "loginSubtitle": "Read today's QT passage and verified commentary, and leave your own meditation notes.",
@@ -104,7 +109,7 @@
   "noteShareAsImage": "Share as image",
   "noteShareImageFailed": "Failed to share image",
 
-  "navToday": "Today",
+  "navToday": "QT",
   "navBible": "Bible",
   "navShare": "Sharing",
   "navNote": "Notes",

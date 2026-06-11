@@ -164,6 +164,36 @@ abstract class AppLocalizations {
   /// **'Back'**
   String get commonBack;
 
+  /// No description provided for @videoTooltipBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get videoTooltipBack;
+
+  /// No description provided for @videoTooltipPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get videoTooltipPlay;
+
+  /// No description provided for @videoTooltipPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get videoTooltipPause;
+
+  /// No description provided for @videoTooltipSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Speed'**
+  String get videoTooltipSpeed;
+
+  /// No description provided for @videoTooltipFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Fullscreen'**
+  String get videoTooltipFullscreen;
+
   /// No description provided for @loginHeadline.
   ///
   /// In en, this message translates to:
@@ -605,7 +635,7 @@ abstract class AppLocalizations {
   /// No description provided for @navToday.
   ///
   /// In en, this message translates to:
-  /// **'Today'**
+  /// **'QT'**
   String get navToday;
 
   /// No description provided for @navBible.
