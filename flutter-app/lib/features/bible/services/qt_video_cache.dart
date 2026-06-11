@@ -150,5 +150,21 @@ String qtVideoCacheKey(int qtPassageId, String videoUrl) {
       ? 'video.mp4'
       : uri.pathSegments.last;
   final safeFileName = fileName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-  return 'qt-video-$qtPassageId-$safeFileName';
+  final extensionIndex = safeFileName.toLowerCase().lastIndexOf('.mp4');
+  final baseName = extensionIndex > 0
+      ? safeFileName.substring(0, extensionIndex)
+      : safeFileName;
+  final extension =
+      extensionIndex > 0 ? safeFileName.substring(extensionIndex) : '';
+  final urlHash = _stableUrlHash(uri?.toString() ?? videoUrl);
+  return 'qt-video-$qtPassageId-$baseName-$urlHash$extension';
+}
+
+String _stableUrlHash(String value) {
+  var hash = 0x811c9dc5;
+  for (final codeUnit in value.codeUnits) {
+    hash ^= codeUnit;
+    hash = (hash * 0x01000193) & 0xffffffff;
+  }
+  return hash.toRadixString(16).padLeft(8, '0');
 }

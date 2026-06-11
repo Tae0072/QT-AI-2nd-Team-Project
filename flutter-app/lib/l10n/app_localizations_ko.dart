@@ -339,6 +339,27 @@ class AppLocalizationsKo extends AppLocalizations {
   String get bibleSimulator => '시뮬레이터';
 
   @override
+  String get qtVideoTitle => 'QT 영상';
+
+  @override
+  String get qtVideoRetry => '다시 불러오기';
+
+  @override
+  String get videoBack => '뒤로';
+
+  @override
+  String get videoPlay => '재생';
+
+  @override
+  String get videoPause => '일시정지';
+
+  @override
+  String get videoSpeed => '배속';
+
+  @override
+  String get videoFullscreen => '전체화면';
+
+  @override
   String get bibleMeditationNote => '묵상 노트 작성';
 
   @override

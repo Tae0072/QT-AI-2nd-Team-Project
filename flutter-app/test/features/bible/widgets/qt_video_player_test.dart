@@ -5,6 +5,7 @@ import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/services/qt_video_cache.dart';
 import 'package:qtai_app/features/bible/widgets/qt_video_player.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 
 void main() {
   test('qtVideoCacheKey sanitizes unsafe filename characters', () {
@@ -13,7 +14,27 @@ void main() {
       'https://cdn.example.com/videos/video@bad.mp4',
     );
 
-    expect(key, 'qt-video-7-video_bad.mp4');
+    expect(key, startsWith('qt-video-7-video_bad-'));
+    expect(key, endsWith('.mp4'));
+    expect(key, isNot(contains('@')));
+  });
+
+  test('qtVideoCacheKey changes when URL query version changes', () {
+    final first = qtVideoCacheKey(
+      7,
+      'https://cdn.example.com/videos/qt.mp4?v=1',
+    );
+    final same = qtVideoCacheKey(
+      7,
+      'https://cdn.example.com/videos/qt.mp4?v=1',
+    );
+    final changed = qtVideoCacheKey(
+      7,
+      'https://cdn.example.com/videos/qt.mp4?v=2',
+    );
+
+    expect(first, same);
+    expect(first, isNot(changed));
   });
 
   testWidgets(
@@ -35,9 +56,7 @@ void main() {
                 clipStatus: null,
               )),
         ],
-        child: const MaterialApp(
-          home: Scaffold(body: QtVideoSection(qtPassageId: 7)),
-        ),
+        child: _testApp(const QtVideoSection(qtPassageId: 7)),
       ),
     );
     await tester.pump();
@@ -64,13 +83,19 @@ void main() {
                 clipStatus: 'APPROVED',
               )),
         ],
-        child: const MaterialApp(
-          home: Scaffold(body: QtVideoSection(qtPassageId: 7)),
-        ),
+        child: _testApp(const QtVideoSection(qtPassageId: 7)),
       ),
     );
     await tester.pump();
 
     expect(find.byType(QtVideoPlayer), findsOneWidget);
   });
+}
+
+Widget _testApp(Widget child) {
+  return MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Scaffold(body: child),
+  );
 }

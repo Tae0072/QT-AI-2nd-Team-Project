@@ -346,6 +346,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bibleSimulator => 'Simulator';
 
   @override
+  String get qtVideoTitle => 'QT Video';
+
+  @override
+  String get qtVideoRetry => 'Reload';
+
+  @override
+  String get videoBack => 'Back';
+
+  @override
+  String get videoPlay => 'Play';
+
+  @override
+  String get videoPause => 'Pause';
+
+  @override
+  String get videoSpeed => 'Speed';
+
+  @override
+  String get videoFullscreen => 'Fullscreen';
+
+  @override
   String get bibleMeditationNote => 'Write meditation note';
 
   @override

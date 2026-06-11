@@ -129,6 +129,13 @@
   "bibleTodayLoadError": "Couldn't load today's passage.",
   "bibleExplanation": "Commentary",
   "bibleSimulator": "Simulator",
+  "qtVideoTitle": "QT Video",
+  "qtVideoRetry": "Reload",
+  "videoBack": "Back",
+  "videoPlay": "Play",
+  "videoPause": "Pause",
+  "videoSpeed": "Speed",
+  "videoFullscreen": "Fullscreen",
   "bibleMeditationNote": "Write meditation note",
   "bibleComingSoon": "The {feature} screen is coming soon.",
   "@bibleComingSoon": {
