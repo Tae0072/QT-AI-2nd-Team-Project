@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../bible/models/bible_chapter_counts.dart';
 import '../../bible/models/bible_models.dart';
 import '../../bible/providers/bible_providers.dart';
 import '../models/qt_note_rich_text.dart';
@@ -38,6 +39,7 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
   Future<List<BibleBook>>? _booksFuture;
   String? _mentionQuery;
   TextSelection? _lastSelectedBodyRange;
+  String? _lastSelectedBodySnapshot;
   String _lastBody = '';
   bool _applyingAutoPrefix = false;
   bool _saving = false;
@@ -80,6 +82,11 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
     final selection = _bodyController.selection;
     if (selection.isValid && !selection.isCollapsed) {
       _lastSelectedBodyRange = selection;
+      _lastSelectedBodySnapshot = text;
+    } else if (_lastSelectedBodySnapshot != null &&
+        _lastSelectedBodySnapshot != text) {
+      _lastSelectedBodyRange = null;
+      _lastSelectedBodySnapshot = null;
     }
     _updateMentionQuery(text, selection.start);
 
@@ -163,6 +170,7 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
     if (last != null &&
         last.isValid &&
         !last.isCollapsed &&
+        _lastSelectedBodySnapshot == _bodyController.text &&
         last.start >= 0 &&
         last.end <= _bodyController.text.length) {
       return last;
@@ -327,6 +335,8 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
       selection: TextSelection.collapsed(offset: nextCursor),
     );
     _lastBody = text;
+    _lastSelectedBodyRange = null;
+    _lastSelectedBodySnapshot = null;
     _applyingAutoPrefix = false;
     _updateMentionQuery(text, nextCursor);
   }
@@ -870,11 +880,7 @@ class _MentionSuggestionsState extends ConsumerState<_MentionSuggestions> {
   }
 
   int _chapterCountFor(BibleBook book) {
-    final index = book.displayOrder - 1;
-    if (index < 0 || index >= _chapterCounts.length) {
-      return 150;
-    }
-    return _chapterCounts[index];
+    return bibleChapterCountForDisplayOrder(book.displayOrder);
   }
 
   @override
@@ -1235,75 +1241,6 @@ class _MentionVerseRange {
     );
   }
 }
-
-const _chapterCounts = [
-  50,
-  40,
-  27,
-  36,
-  34,
-  24,
-  21,
-  4,
-  31,
-  24,
-  22,
-  25,
-  29,
-  36,
-  10,
-  13,
-  10,
-  42,
-  150,
-  31,
-  12,
-  8,
-  66,
-  52,
-  5,
-  48,
-  12,
-  14,
-  3,
-  9,
-  1,
-  4,
-  7,
-  3,
-  3,
-  3,
-  2,
-  14,
-  4,
-  28,
-  16,
-  24,
-  21,
-  28,
-  16,
-  16,
-  13,
-  6,
-  6,
-  4,
-  4,
-  5,
-  3,
-  6,
-  4,
-  3,
-  1,
-  13,
-  5,
-  5,
-  3,
-  5,
-  1,
-  1,
-  1,
-  22,
-];
 
 const _textColors = [
   Color(0xFF111827),

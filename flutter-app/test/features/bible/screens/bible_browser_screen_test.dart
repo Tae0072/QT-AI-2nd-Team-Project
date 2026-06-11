@@ -59,6 +59,35 @@ void main() {
     expect(find.text('Genesis'), findsWidgets);
     expect(find.text('Test English body 2'), findsOneWidget);
   });
+
+  testWidgets('BibleBrowserScreen shows safe message when search fails',
+      (tester) async {
+    final repository = _FakeBibleRepository(failSearch: true);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          bibleRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: const BibleBrowserScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bible-selection-bar')));
+    await tester.pump();
+
+    expect(
+      find.text('성경본문을 불러오지 못했습니다. 다시 시도해 주세요.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('boom'), findsNothing);
+  });
 }
 
 class _FakeBibleRepository extends BibleRepository {
@@ -66,8 +95,9 @@ class _FakeBibleRepository extends BibleRepository {
   int? requestedChapter;
   int? requestedVerseFrom;
   int? requestedVerseTo;
+  final bool failSearch;
 
-  _FakeBibleRepository() : super(Dio());
+  _FakeBibleRepository({this.failSearch = false}) : super(Dio());
 
   @override
   Future<List<BibleBook>> getBooks() async {
@@ -123,6 +153,9 @@ class _FakeBibleRepository extends BibleRepository {
     required int verseFrom,
     required int verseTo,
   }) async {
+    if (failSearch) {
+      throw StateError('boom');
+    }
     requestedBookCode = bookCode;
     requestedChapter = chapter;
     requestedVerseFrom = verseFrom;

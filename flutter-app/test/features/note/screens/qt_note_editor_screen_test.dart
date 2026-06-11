@@ -543,10 +543,132 @@ void main() {
     expect(textField.enableSuggestions, isFalse);
     expect(textField.autocorrect, isFalse);
   });
+  testWidgets('empty numbered list prefix is removed on trailing space',
+      (tester) async {
+    const args = QtNoteEditorArgs(
+      passage: TodayQtPassage(
+        qtPassageId: 3,
+        passageDate: '2026-06-05',
+        title: 'title',
+        reference: BibleReference(
+          koreanBookName: 'Genesis',
+          englishBookName: 'Genesis',
+          chapter: 1,
+          verseFrom: 1,
+          verseTo: 1,
+        ),
+        book: BibleVerseBook(
+          code: 'GEN',
+          koreanName: 'Genesis',
+          englishName: 'Genesis',
+          chapter: 1,
+        ),
+        verses: [
+          BibleVerse(
+            id: 1,
+            bookCode: 'GEN',
+            chapterNo: 1,
+            verseNo: 1,
+            koreanText: 'body',
+            englishText: 'body',
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(home: QtNoteEditorScreen(args: args)),
+      ),
+    );
+
+    final body = find.byKey(const ValueKey('qt-note-body-input'));
+    await tester.enterText(body, '(1) ');
+    await tester.enterText(body, '(1)  ');
+
+    var textField = tester.widget<TextField>(body);
+    expect(textField.controller!.text, isEmpty);
+
+    await tester.enterText(body, '  1) ');
+    await tester.enterText(body, '  1)  ');
+
+    textField = tester.widget<TextField>(body);
+    expect(textField.controller!.text, '  ');
+
+    await tester.enterText(body, '(1) body ');
+
+    textField = tester.widget<TextField>(body);
+    expect(textField.controller!.text, '(1) body ');
+  });
+
+  testWidgets('mention picker disables insert when chapter verses fail',
+      (tester) async {
+    const args = QtNoteEditorArgs(
+      passage: TodayQtPassage(
+        qtPassageId: 3,
+        passageDate: '2026-06-05',
+        title: 'title',
+        reference: BibleReference(
+          koreanBookName: 'Genesis',
+          englishBookName: 'Genesis',
+          chapter: 1,
+          verseFrom: 1,
+          verseTo: 1,
+        ),
+        book: BibleVerseBook(
+          code: 'GEN',
+          koreanName: 'Genesis',
+          englishName: 'Genesis',
+          chapter: 1,
+        ),
+        verses: [
+          BibleVerse(
+            id: 1,
+            bookCode: 'GEN',
+            chapterNo: 1,
+            verseNo: 1,
+            koreanText: 'body',
+            englishText: 'body',
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          bibleRepositoryProvider.overrideWithValue(
+            _FakeBibleRepository(failChapterVerses: true),
+          ),
+        ],
+        child: const MaterialApp(home: QtNoteEditorScreen(args: args)),
+      ),
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('qt-note-body-input')),
+      '@Ge',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Genesis').first);
+    await tester.pumpAndSettle();
+
+    final insertButtonFinder = find.ancestor(
+      of: find.textContaining('1:1'),
+      matching: find.byType(FilledButton),
+    );
+    final insertButton = tester.widget<FilledButton>(insertButtonFinder);
+
+    expect(find.byKey(const Key('qt-note-mention-chapter-picker')),
+        findsOneWidget);
+    expect(insertButton.onPressed, isNull);
+  });
 }
 
 class _FakeBibleRepository extends BibleRepository {
-  _FakeBibleRepository() : super(Dio());
+  final bool failChapterVerses;
+
+  _FakeBibleRepository({this.failChapterVerses = false}) : super(Dio());
 
   @override
   Future<List<BibleBook>> getBooks() async {
@@ -575,6 +697,9 @@ class _FakeBibleRepository extends BibleRepository {
     required String bookCode,
     required int chapter,
   }) async {
+    if (failChapterVerses) {
+      throw StateError('chapter boom');
+    }
     return const BibleVerseRange(
       book: BibleVerseBook(
         code: 'GEN',

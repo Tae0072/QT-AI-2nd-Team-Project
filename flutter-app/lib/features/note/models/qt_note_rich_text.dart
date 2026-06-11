@@ -40,7 +40,7 @@ final class QtNoteRichTextMarkup {
 
 final class QtNoteRichTextParser {
   static final RegExp _styleMarkerPattern =
-      RegExp(r'^\[(fs|fg|bg)=([#A-Fa-f0-9]*)\]');
+      RegExp(r'\[(fs|fg|bg)=([#A-Fa-f0-9]*)\]');
 
   const QtNoteRichTextParser._();
 
@@ -77,7 +77,7 @@ final class QtNoteRichTextParser {
         continue;
       }
 
-      final markerMatch = _styleMarkerPattern.firstMatch(text.substring(index));
+      final markerMatch = _styleMarkerPattern.matchAsPrefix(text, index);
       if (markerMatch != null) {
         final marker = markerMatch.group(0)!;
         final key = markerMatch.group(1)!;

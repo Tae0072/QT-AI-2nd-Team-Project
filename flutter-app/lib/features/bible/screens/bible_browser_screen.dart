@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/common_widgets.dart';
+import '../models/bible_chapter_counts.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
 
@@ -77,7 +78,7 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
         _verseTo = _verseTo.clamp(_verseFrom, _verseCount);
         _isLoadingChapter = false;
         _chapterLoadFailed = true;
-        _error = StateError('절 목록을 불러오지 못했습니다. 다시 시도해 주세요. ($error)');
+        _error = error;
       });
     }
   }
@@ -109,7 +110,7 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
         _error = error;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('성경본문을 불러오지 못했습니다.\n$error')),
+        const SnackBar(content: Text('성경본문을 불러오지 못했습니다. 다시 시도해 주세요.')),
       );
     } finally {
       if (mounted) {
@@ -191,11 +192,7 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
   }
 
   int _chapterCountFor(BibleBook book) {
-    final index = book.displayOrder - 1;
-    if (index < 0 || index >= _chapterCounts.length) {
-      return 150;
-    }
-    return _chapterCounts[index];
+    return bibleChapterCountForDisplayOrder(book.displayOrder);
   }
 
   @override
@@ -343,9 +340,7 @@ class _BibleBrowserContent extends StatelessWidget {
           ),
         ),
         if (error != null || isChapterLoadFailed)
-          _BibleStatusStrip(
-            message: error == null ? '절 목록을 불러오지 못했습니다.' : '절 목록을 불러오지 못했습니다.',
-          ),
+          const _BibleStatusStrip(message: '절 목록을 불러오지 못했습니다.'),
         _BibleSelectionBar(
           selectedBook: selectedBook,
           selectedChapter: selectedChapter,
@@ -815,7 +810,7 @@ class _BibleResultPane extends StatelessWidget {
 
     if (error != null) {
       return ErrorView(
-        message: '성경본문을 불러오지 못했습니다.\n$error',
+        message: '성경본문을 불러오지 못했습니다. 다시 시도해 주세요.',
         onRetry: onRetry,
       );
     }
@@ -971,72 +966,3 @@ String _bookShortcut(BibleBook book) {
   }
   return book.koreanName.characters.first;
 }
-
-const _chapterCounts = [
-  50,
-  40,
-  27,
-  36,
-  34,
-  24,
-  21,
-  4,
-  31,
-  24,
-  22,
-  25,
-  29,
-  36,
-  10,
-  13,
-  10,
-  42,
-  150,
-  31,
-  12,
-  8,
-  66,
-  52,
-  5,
-  48,
-  12,
-  14,
-  3,
-  9,
-  1,
-  4,
-  7,
-  3,
-  3,
-  3,
-  2,
-  14,
-  4,
-  28,
-  16,
-  24,
-  21,
-  28,
-  16,
-  16,
-  13,
-  6,
-  6,
-  4,
-  4,
-  5,
-  3,
-  6,
-  4,
-  3,
-  1,
-  13,
-  5,
-  5,
-  3,
-  5,
-  1,
-  1,
-  1,
-  22,
-];

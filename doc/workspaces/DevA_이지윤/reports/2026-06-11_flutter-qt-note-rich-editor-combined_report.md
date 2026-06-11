@@ -152,3 +152,22 @@ admin-web/npm.cmd run build
 
 - 현재 요청에 따라 push는 하지 않았다.
 - 사용자가 push를 요청하면 현재 브랜치 `feature/flutter-qt-note-rich-editor`에 남은 변경을 커밋 후 push하면 된다.
+
+## 2026-06-11 PR #492 리뷰 대응 추가
+
+### 반영 내용
+
+- PR 필수 산출물 누락 방지를 위해 workflow 문서를 추가했다.
+  - `doc/workspaces/DevA_이지윤/workflows/2026-06-11_flutter-qt-note-rich-editor.md`
+- 성경 장 수 계약을 `bible_chapter_counts.dart`로 분리해 성경 탭과 QT 노트 멘션 picker가 같은 기준을 쓰도록 정리했다.
+- 성경 탭 검색 실패 SnackBar와 결과 pane에서 raw exception이 사용자에게 노출되지 않도록 고정 안내 문구로 변경했다.
+- QT 노트 선택 영역 캐시는 본문 스냅샷과 함께 보관하고, 본문이 바뀌면 무효화하도록 보강했다.
+- rich text marker parser는 스타일 마커 인식 시 `matchAsPrefix`를 사용하도록 수정했다.
+- `(1)`, `1)` 자동 목록 제거 테스트를 추가했다.
+- 성경 탭 검색 실패 SnackBar 테스트를 추가했다.
+- QT 노트 `@` 멘션 picker의 장/절 로드 실패 시 삽입 버튼 disabled 테스트를 추가했다.
+
+### workflow / report
+
+- workflow: `doc/workspaces/DevA_이지윤/workflows/2026-06-11_flutter-qt-note-rich-editor.md`
+- report: `doc/workspaces/DevA_이지윤/reports/2026-06-11_flutter-qt-note-rich-editor-combined_report.md`
