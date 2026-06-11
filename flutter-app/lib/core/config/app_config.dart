@@ -37,9 +37,11 @@ class AppConfig {
     }
 
     const envName = String.fromEnvironment('ENV', defaultValue: 'dev');
-    // dev 기본값: 네이티브 앱 키는 APK에 포함되는 공개 키로 보안 리스크 없음
-    const kakaoKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY',
-        defaultValue: '53e5afb2d90048af9e71332e47f387fa');
+    // 키 기본값 없음(CLAUDE.md §8 — plain 키 커밋 금지, 코드리뷰 TODO 4).
+    // 실행 시 --dart-define=KAKAO_NATIVE_APP_KEY=... 로 주입한다(README 참고).
+    // dev에서 빈 키면 아래에서 경고 후 카카오 로그인만 비활성 — 나머지 개발은 가능.
+    const kakaoKey =
+        String.fromEnvironment('KAKAO_NATIVE_APP_KEY', defaultValue: '');
 
     final env = Environment.values.firstWhere(
       (e) => e.name == envName,
