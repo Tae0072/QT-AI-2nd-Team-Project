@@ -28,12 +28,15 @@ import java.util.stream.Collectors;
  *
  * <p>동작:
  * <ul>
- *   <li>키: {@code rl:{path}:{clientIp}:{epochMinute}} — INCR 후 첫 증가면 60초 EXPIRE.</li>
+ *   <li>키: {@code rl:{path}:{clientIp}:{epochMinute}} — INCR과 EXPIRE(60초)를 Lua 스크립트로
+ *       원자 실행한다(PR #486 리뷰 후속 ③).</li>
  *   <li>한도 초과 시 공통 에러 봉투({@link ErrorCode#RATE_LIMIT_EXCEEDED}, 429)로 즉시 응답.</li>
  *   <li><b>fail-open:</b> Redis 장애 시 카운트를 포기하고 통과시킨다 — 로그인 가용성이 한도 정확성보다
  *       우선이다. 원인은 예외 클래스명만 warn 로그로 남긴다(IP·토큰·개인정보 로그 금지, CLAUDE.md §9).</li>
  *   <li>클라이언트 IP: 기본은 {@code remoteAddr}. nginx gateway(Lead 작업) 뒤에 설 때만
- *       {@code security.rate-limit.trust-forwarded-for=true}로 {@code X-Forwarded-For} 첫 IP를 신뢰한다.</li>
+ *       {@code security.rate-limit.trust-forwarded-for=true}로 {@code X-Forwarded-For}의
+ *       <b>마지막 IP</b>(직전 신뢰 프록시가 기록한 실제 peer)를 신뢰한다 — append/덮어쓰기 구성
+ *       무관, 선두 위조 값 우회 불가(PR #486 리뷰 후속 ①, 상세는 {@code clientIp()} javadoc).</li>
  * </ul>
  *
  * <p>등록: 시큐리티 체인에서만 실행한다 — 서블릿 컨테이너 자동 등록은 SecurityConfig의

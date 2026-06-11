@@ -5,9 +5,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.qtai.common.exception.ErrorCode;
@@ -88,7 +88,7 @@ class RateLimitFilterTest {
         assertThat(chain.getRequest()).isNotNull(); // 체인 진행됨
         verify(redisTemplate)
                 .execute(ArgumentMatchers.<RedisScript<Long>>any(), anyList(), eq("60"));
-        verify(writer, never()).write(any(), any());
+        verifyNoInteractions(writer); // 한도 내에서는 에러 응답 자체가 없다
     }
 
     @Test
@@ -126,7 +126,7 @@ class RateLimitFilterTest {
         filter(false, BASE).doFilter(request(KAKAO_PATH), new MockHttpServletResponse(), chain);
 
         assertThat(chain.getRequest()).isNotNull();
-        verify(writer, never()).write(any(), any());
+        verifyNoInteractions(writer); // fail-open은 에러 응답 없이 조용히 통과한다
     }
 
     @Test
@@ -137,8 +137,8 @@ class RateLimitFilterTest {
         filter(false, BASE).doFilter(request("/api/v1/me/dashboard"), new MockHttpServletResponse(), chain);
 
         assertThat(chain.getRequest()).isNotNull();
-        verify(redisTemplate, never())
-                .execute(ArgumentMatchers.<RedisScript<Long>>any(), anyList(), any());
+        // 비대상 경로는 Redis·에러 응답 어느 쪽도 건드리지 않아야 한다(완전 무간섭)
+        verifyNoInteractions(redisTemplate, writer);
     }
 
     @Test
