@@ -21,8 +21,13 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # ── 예방 규칙 강화 (2026-06-10 코드리뷰 TODO 3) ──
+    # 로그는 debugPrint/Logger를 쓴다 — print는 release에서도 남고 수집이 안 된다.
+    avoid_print: true
+    # await 뒤 BuildContext 사용은 dispose 후 접근 크래시의 단골 원인.
+    use_build_context_synchronously: true
+    # 떠다니는 Future는 에러가 조용히 사라진다 — 의도적 fire-and-forget은 unawaited()로 명시.
+    unawaited_futures: true
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

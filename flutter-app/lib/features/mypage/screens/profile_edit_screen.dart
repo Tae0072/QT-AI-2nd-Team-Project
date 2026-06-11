@@ -88,8 +88,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       ref.read(authStatusProvider.notifier).setUnauthenticated();
 
       if (mounted) {
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil('/login', (route) => false);
+        unawaited(Navigator.of(context)
+            .pushNamedAndRemoveUntil('/login', (route) => false));
       }
     } catch (e) {
       if (mounted) {
@@ -122,8 +122,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       ref.read(authStatusProvider.notifier).setUnauthenticated();
 
       if (mounted) {
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil('/login', (route) => false);
+        unawaited(Navigator.of(context)
+            .pushNamedAndRemoveUntil('/login', (route) => false));
       }
     } catch (e) {
       if (mounted) {
