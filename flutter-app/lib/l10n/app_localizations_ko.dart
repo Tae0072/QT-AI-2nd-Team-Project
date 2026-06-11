@@ -54,6 +54,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get loginFailed => '로그인에 실패했습니다. 다시 시도해주세요.';
 
   @override
+  String get loginWebNotSupported => '웹에서는 카카오 로그인을 지원하지 않습니다. 모바일 앱을 이용해 주세요.';
+
+  @override
   String get loginLegalPrefix => '계속 진행하면 ';
 
   @override
@@ -267,7 +270,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteShareImageFailed => '이미지 공유에 실패했습니다';
 
   @override
-  String get navToday => '오늘';
+  String get navToday => 'QT';
 
   @override
   String get navBible => '성경';
@@ -336,7 +339,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get bibleExplanation => '해설';
 
   @override
-  String get bibleSimulator => '시뮬레이터';
+  String get bibleSimulator => '애니메이션';
 
   @override
   String get qtVideoTitle => 'QT 영상';
