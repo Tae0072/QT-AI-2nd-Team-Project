@@ -179,4 +179,34 @@ class QtServiceTest {
         assertNull(result.qtPassageId());
         assertFalse(result.hasExplanation());
     }
+
+    @Test
+    @DisplayName("getPassageStudy — 권 코드가 없으면(미존재) NONE")
+    void getPassageStudy_권_미존재() {
+        when(bibleBookLookup.findBookIdByCode("ZZZ")).thenReturn(Optional.empty());
+
+        BiblePassageStudy result = qtService.getPassageStudy("ZZZ", 1, 1, 1);
+
+        assertNull(result.qtPassageId());
+        assertFalse(result.hasExplanation());
+    }
+
+    @Test
+    @DisplayName("getPassageStudy — 매핑된 본문이 있어도 승인 해설이 없으면 NONE(qtPassageId 미노출)")
+    void getPassageStudy_해설_없음() {
+        QtPassage passage = mock(QtPassage.class);
+        when(passage.getId()).thenReturn(7L);
+        when(bibleBookLookup.findBookIdByCode("GEN")).thenReturn(Optional.of((short) 1));
+        when(qtPassageRepository.findContainingRange((short) 1, (short) 1, (short) 1, (short) 3))
+                .thenReturn(List.of(passage));
+        when(qtPassageVerseRepository.findByQtPassageIdOrderByDisplayOrderAsc(7L))
+                .thenReturn(List.of());
+        when(getQtStudyAvailabilityUseCase.getAvailability(any(), any()))
+                .thenReturn(new QtStudyAvailability("MISSING", false));
+
+        BiblePassageStudy result = qtService.getPassageStudy("GEN", 1, 1, 3);
+
+        assertNull(result.qtPassageId());
+        assertFalse(result.hasExplanation());
+    }
 }

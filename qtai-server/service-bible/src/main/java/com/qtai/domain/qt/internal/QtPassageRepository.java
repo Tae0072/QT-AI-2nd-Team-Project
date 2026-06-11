@@ -2,6 +2,7 @@ package com.qtai.domain.qt.internal;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -50,5 +51,9 @@ public interface QtPassageRepository extends JpaRepository<QtPassage, Long> {
                and p.endVerse >= :verseTo
              order by p.startVerse asc
             """)
-    List<QtPassage> findContainingRange(Short bookId, Short chapter, Short verseFrom, Short verseTo);
+    List<QtPassage> findContainingRange(
+            @Param("bookId") Short bookId,
+            @Param("chapter") Short chapter,
+            @Param("verseFrom") Short verseFrom,
+            @Param("verseTo") Short verseTo);
 }
