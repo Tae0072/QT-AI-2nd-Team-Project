@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../../core/dev/web_dev_access.dart';
+import '../../../core/theme/app_theme.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
 import 'note_day_checklist_sheet.dart';
@@ -28,6 +29,7 @@ const int _kMaxDots = 3;
 /// - 저장된 날에 카테고리별 색점(최대 3개) 표시. 날짜 탭 시 그날 기록 체크리스트 바텀시트.
 /// - 이전/다음 달로 넘기면 그 달을 다시 조회.
 /// - 월/일주일 보기 토글 제공(⑦). 요일행 높이 확보로 잘림 방지(⑥).
+/// - Calm Paper: 날짜/오늘/선택 스타일은 무채색, 저장일 점만 카테고리 색(④).
 /// - 달력은 항상 그리고(고정 높이) 점 데이터만 응답이 오면 채운다 → 아래에 노트 목록을
 ///   Expanded로 붙일 수 있다. 요약(저장일·연속일)은 마이페이지에 있으므로 여기선 제거.
 class MeditationCalendarView extends ConsumerStatefulWidget {
@@ -54,6 +56,7 @@ class _MeditationCalendarViewState
   @override
   Widget build(BuildContext context) {
     final calendarAsync = ref.watch(meditationCalendarProvider(_monthKey));
+    final c = context.appColors;
     // ✏️ 달력은 로딩/에러와 무관하게 항상 그린다(고정 높이). 점 데이터만 응답이 오면
     //   채우고, 로딩/에러 중엔 빈 점으로 둔다 → 아래 목록과 Column으로 붙기 좋다.
     var dayMap = calendarAsync.maybeWhen(
@@ -95,7 +98,26 @@ class _MeditationCalendarViewState
       // ⑥ 요일행(일~토)이 잘리지 않도록 높이 확보.
       daysOfWeekHeight: 28,
       availableGestures: AvailableGestures.horizontalSwipe,
-      // ④ 카테고리별 색점(최대 3개).
+      // Calm Paper: 날짜/오늘/선택은 무채색. 저장일 점(marker)은 ④ markerBuilder가
+      // 카테고리 색으로 그리므로 calendarStyle.markerDecoration은 적용되지 않는다.
+      calendarStyle: CalendarStyle(
+        todayDecoration:
+            BoxDecoration(color: c.accentSoft, shape: BoxShape.circle),
+        todayTextStyle: TextStyle(color: c.text, fontWeight: FontWeight.w600),
+        selectedDecoration:
+            BoxDecoration(color: c.accent, shape: BoxShape.circle),
+        selectedTextStyle:
+            TextStyle(color: c.onAccent, fontWeight: FontWeight.w600),
+        defaultTextStyle: TextStyle(color: c.text),
+        weekendTextStyle: TextStyle(color: c.text),
+        outsideTextStyle: TextStyle(color: c.textMuted),
+        disabledTextStyle: TextStyle(color: c.textMuted),
+      ),
+      daysOfWeekStyle: DaysOfWeekStyle(
+        weekdayStyle: TextStyle(color: c.text2),
+        weekendStyle: TextStyle(color: c.text2),
+      ),
+      // ④ 카테고리별 색점(최대 3개) — calendarStyle.markerDecoration을 대체한다.
       calendarBuilders: CalendarBuilders<CalendarDay>(
         markerBuilder: (context, day, events) => _buildMarkers(events),
       ),

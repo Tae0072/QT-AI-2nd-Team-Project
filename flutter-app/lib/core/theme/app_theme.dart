@@ -71,7 +71,26 @@ class AppTheme {
     useMaterial3: true,
     fontFamily: 'GowunDodum',
     scaffoldBackgroundColor: c.bg,
-    colorSchemeSeed: c.accent,
+    // Calm Paper: M3가 near-neutral 시드(#1F1F1F)에서 primary를 청록빛으로 파생시키는
+    // 문제를 막기 위해 primary·secondary를 잉크 토큰으로 고정한다. 이렇게 하면 화면들이
+    // 쓰는 colorScheme.primary(절번호·통계 아이콘·달력 헤더 등)가 모두 무채색 잉크로 나온다.
+    colorScheme: ColorScheme.fromSeed(seedColor: c.accent, brightness: brightness)
+        .copyWith(
+      primary: c.accent,
+      onPrimary: c.onAccent,
+      primaryContainer: c.accentSoft,
+      onPrimaryContainer: c.text,
+      secondary: c.accent,
+      onSecondary: c.onAccent,
+      secondaryContainer: c.accentSoft,
+      onSecondaryContainer: c.text,
+      tertiary: c.accent,
+      onTertiary: c.onAccent,
+      tertiaryContainer: c.accentSoft,
+      onTertiaryContainer: c.text,
+      surface: c.bgElevated,
+      onSurface: c.text,
+    ),
     brightness: brightness,
     extensions: [c],
     // 앱바: 투명 배경, elevation 0, 17 w600 중앙(§3 titleBar).
