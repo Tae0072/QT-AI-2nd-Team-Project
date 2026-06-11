@@ -204,6 +204,18 @@ class VerseExplanationRestClientAdapterTest {
     }
 
     @Test
+    @DisplayName("glossary 숨김 5xx는 EXTERNAL_API_FAILURE로 변환한다")
+    void glossaryHide5xx() {
+        server.expect(requestTo(GLOSSARY_BASE + "/hide"))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        assertThatThrownBy(() -> adapter.hidePublishedGlossaryTerms(new HidePublishedGlossaryTermsCommand(5001L)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.EXTERNAL_API_FAILURE);
+    }
+
+    @Test
     @DisplayName("시스템 토큰 발급기가 없으면(시크릿 미설정) EXTERNAL_API_FAILURE로 실패한다")
     void 시스템토큰_미설정_실패() {
         VerseExplanationRestClientAdapter noTokenAdapter =

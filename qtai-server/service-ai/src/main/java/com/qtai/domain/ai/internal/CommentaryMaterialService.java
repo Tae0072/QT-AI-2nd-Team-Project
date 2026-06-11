@@ -1,10 +1,7 @@
 package com.qtai.domain.ai.internal;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,31 +28,32 @@ public class CommentaryMaterialService {
             return CommentaryMaterialContext.empty();
         }
 
-        Map<Long, MaterialAccumulator> materialsById = new LinkedHashMap<>();
         Long selectedMaterialId = null;
+        MaterialAccumulator selected = null;
+        // Prompt policy: use one active material by repository order, while collecting all mappings for that material.
         for (CommentaryMaterialVerse mapping : mappings) {
             CommentaryMaterial material = mapping.getMaterial();
             if (selectedMaterialId == null) {
                 selectedMaterialId = material.getId();
+                selected = new MaterialAccumulator(material);
             }
             if (!selectedMaterialId.equals(material.getId())) {
                 continue;
             }
-            materialsById.computeIfAbsent(material.getId(), id -> new MaterialAccumulator(material))
-                    .addVerseId(mapping.getBibleVerseId());
+            selected.addVerseId(mapping.getBibleVerseId());
         }
 
-        List<MaterialAccumulator> selected = new ArrayList<>(materialsById.values());
-        CommentaryMaterial firstMaterial = selected.get(0).material();
+        List<MaterialAccumulator> selectedMaterials = List.of(selected);
+        CommentaryMaterial firstMaterial = selected.material();
         CommentarySource source = firstMaterial.getSource();
         return new CommentaryMaterialContext(
                 source.getSourceKey(),
                 source.getName(),
                 source.getLicenseLabel(),
                 firstNonBlank(source.getCopyrightNotice(), source.getAttribution()),
-                selected.stream().map(accumulator -> accumulator.material().getId()).toList(),
+                selectedMaterials.stream().map(accumulator -> accumulator.material().getId()).toList(),
                 verseRange(firstMaterial),
-                selected.stream().map(MaterialAccumulator::toExcerpt).toList()
+                selectedMaterials.stream().map(MaterialAccumulator::toExcerpt).toList()
         );
     }
 

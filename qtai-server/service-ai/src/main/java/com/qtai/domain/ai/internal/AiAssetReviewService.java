@@ -9,6 +9,7 @@ import java.util.Map;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedGlossaryTermsCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 
+@Slf4j
 @Service
 class AiAssetReviewService implements ReviewAiAssetUseCase {
 
@@ -112,12 +114,32 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         asset.approve(command.reviewedAt());
         // study publish commands replace by aiAssetId/verse; a failed later call rolls back locally and retry replays both.
         if (publishCommands.verseExplanationCommand() != null) {
-            publishApprovedVerseExplanationUseCase.publishApprovedVerseExplanation(
-                    publishCommands.verseExplanationCommand()
-            );
+            publishVerseExplanation(publishCommands.verseExplanationCommand());
         }
         if (publishCommands.glossaryTermsCommand() != null) {
-            publishApprovedGlossaryTermsUseCase.publishApprovedGlossaryTerms(publishCommands.glossaryTermsCommand());
+            publishGlossaryTerms(publishCommands.glossaryTermsCommand());
+        }
+    }
+
+    private void publishVerseExplanation(PublishApprovedVerseExplanationCommand command) {
+        try {
+            publishApprovedVerseExplanationUseCase.publishApprovedVerseExplanation(command);
+        } catch (RuntimeException exception) {
+            log.warn("AI asset verse explanation publish failed. aiAssetId={}, bibleVerseId={}, errorType={}, errorMessage={}",
+                    command.aiAssetId(), command.bibleVerseId(), exception.getClass().getSimpleName(),
+                    exception.getMessage());
+            throw exception;
+        }
+    }
+
+    private void publishGlossaryTerms(PublishApprovedGlossaryTermsCommand command) {
+        try {
+            publishApprovedGlossaryTermsUseCase.publishApprovedGlossaryTerms(command);
+        } catch (RuntimeException exception) {
+            log.warn("AI asset glossary publish failed. aiAssetId={}, termCount={}, errorType={}, errorMessage={}",
+                    command.aiAssetId(), command.terms().size(), exception.getClass().getSimpleName(),
+                    exception.getMessage());
+            throw exception;
         }
     }
 
