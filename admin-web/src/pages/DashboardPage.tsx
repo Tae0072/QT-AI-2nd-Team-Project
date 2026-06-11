@@ -134,12 +134,12 @@ export default function DashboardPage() {
                       <Statistic title="AI 검증 대기" value={data.pendingAiValidationCount} />
                     </Card>
                   </Col>
-                  <Col xs={12} sm={8}>
+                  <Col xs={24} sm={8}>
                     <Card size="small">
                       <Statistic title="신고 접수" value={data.receivedReportCount} />
                     </Card>
                   </Col>
-                  <Col xs={12} sm={8}>
+                  <Col xs={24} sm={8}>
                     <Card size="small">
                       <Statistic title="신고 검토 중" value={data.reviewingReportCount} />
                     </Card>
