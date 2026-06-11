@@ -115,7 +115,7 @@
   "bibleTodayLoading": "오늘 본문을 불러오는 중입니다.",
   "bibleTodayLoadError": "오늘 본문을 불러오지 못했습니다.",
   "bibleExplanation": "해설",
-  "bibleSimulator": "애니메이션",
+  "bibleSimulator": "QT 영상",
   "qtVideoTitle": "QT 영상",
   "qtVideoRetry": "다시 불러오기",
   "videoBack": "뒤로",

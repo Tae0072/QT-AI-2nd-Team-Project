@@ -755,7 +755,7 @@ abstract class AppLocalizations {
   /// No description provided for @bibleSimulator.
   ///
   /// In en, this message translates to:
-  /// **'Animation'**
+  /// **'QT Video'**
   String get bibleSimulator;
 
   /// No description provided for @qtVideoTitle.

@@ -98,23 +98,29 @@ class _TodayQtContentState extends State<_TodayQtContent> {
       return;
     }
 
-    await _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOutCubic,
-    );
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
 
-    final targetContext = _videoSectionKey.currentContext;
-    if (targetContext == null || !targetContext.mounted) {
-      return;
+      final targetContext = _videoSectionKey.currentContext;
+      if (targetContext == null || !targetContext.mounted) {
+        await _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: attempt == 0 ? 420 : 220),
+          curve: Curves.easeOutCubic,
+        );
+      } else {
+        await Scrollable.ensureVisible(
+          targetContext,
+          duration: Duration(milliseconds: attempt == 0 ? 320 : 180),
+          curve: Curves.easeOutCubic,
+          alignment: 0.04,
+        );
+      }
+
+      await WidgetsBinding.instance.endOfFrame;
     }
-
-    await Scrollable.ensureVisible(
-      targetContext,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      alignment: 0.08,
-    );
   }
 
   @override
