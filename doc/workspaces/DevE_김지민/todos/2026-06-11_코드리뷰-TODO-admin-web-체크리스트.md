@@ -60,13 +60,16 @@
 
 ---
 
-## ⏳ P2 `feature/admin-web-token-refresh` — 착수 가능 (계약 확정 2026-06-11)
+## ⏳ P2 `feature/admin-web-token-refresh` — 진행 중 (리다이렉트 방식 B 확정)
 
-> 공용 `POST /api/v1/auth/refresh` 재사용 합의(계약서 §6). 재발급 role=ADMIN 유지(서버 테스트 보증). P3 완료 후 착수.
+> 공용 `POST /api/v1/auth/refresh` 재사용(계약서 §6). 재발급 role=ADMIN 유지. 리다이렉트=B(AuthContext 콜백, 새로고침 없음).
 
-- [ ] `tokenStorage`에 refreshToken 저장/삭제 추가(로그인 시 응답 `refreshToken` 보관, 로그아웃 시 제거)
-- [ ] `client.ts` 인터셉터: 401 → `POST /api/v1/auth/refresh`(single-flight) → 새 access로 원요청 1회 재시도
-- [ ] `/auth/refresh` 자체 401·`M0006`(탈퇴)·`M0007`(정지) → 토큰 정리 + 로그인 화면
+- [ ] `tokenStorage`: `getRefreshToken`/`setRefreshToken` 추가 + `clearTokens`(access+refresh 동시)
+- [ ] `client.ts`: 401 → `/auth/refresh`(**single-flight**, `_retry` 플래그) → 새 access로 원요청 재시도. `/auth/refresh`·`/admin/auth/kakao` 제외
+- [ ] `client.ts`: `setAuthExpiredHandler(fn)` export — refresh 실패/`M0006`/`M0007` 시 `clearTokens` + 콜백 호출
+- [ ] `AuthContext`: `login(access, refresh?)` 확장(둘 다 저장) + `useEffect`로 `setAuthExpiredHandler(clearSession)` 등록
+- [ ] `LoginPage`: 카카오 로그인 시 `login(res.accessToken, res.refreshToken)` (dev 토큰은 access만)
+- [ ] `npm run typecheck` + `npm run build` 통과 → 워크플로우·리포트 → 커밋 → push → PR(base dev)
 - [ ] 검증: access 만료 시나리오에서 화면 유지 / refresh 실패 시 로그인 이동
 
 ## ⛔ 보류 (의존 해제 시)
