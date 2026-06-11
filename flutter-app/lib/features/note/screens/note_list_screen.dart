@@ -25,7 +25,7 @@ class NoteListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l.noteListTitle),
+        title: Text(l.navRecord),
         centerTitle: true,
         // ✏️ 목록↔달력 전환 토글. 상태는 noteCalendarViewProvider에 둬 화면 전체가 따라 바뀜.
         actions: [

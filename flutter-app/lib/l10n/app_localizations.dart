@@ -632,6 +632,12 @@ abstract class AppLocalizations {
   /// **'Notes'**
   String get navNote;
 
+  /// No description provided for @navRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Records'**
+  String get navRecord;
+
   /// No description provided for @navMy.
   ///
   /// In en, this message translates to:
@@ -1487,7 +1493,7 @@ abstract class AppLocalizations {
   /// No description provided for @catMeditation.
   ///
   /// In en, this message translates to:
-  /// **'Meditation'**
+  /// **'QT'**
   String get catMeditation;
 
   /// No description provided for @catSermon.

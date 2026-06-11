@@ -287,6 +287,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navNote => 'Notes';
 
   @override
+  String get navRecord => 'Records';
+
+  @override
   String get navMy => 'My';
 
   @override
@@ -733,7 +736,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ttsVoicesError => 'Couldn\'t load the voice list';
 
   @override
-  String get catMeditation => 'Meditation';
+  String get catMeditation => 'QT';
 
   @override
   String get catSermon => 'Sermon';

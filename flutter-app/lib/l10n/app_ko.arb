@@ -94,6 +94,7 @@
   "navBible": "성경",
   "navShare": "나눔",
   "navNote": "노트",
+  "navRecord": "기록",
   "navMy": "마이",
   "homeBackExitGuide": "한 번 더 누르면 앱이 종료됩니다",
   "ttsRead": "본문 읽기",
@@ -241,7 +242,7 @@
   "ttsVoicesLoading": "목소리 목록을 불러오는 중입니다",
   "ttsVoicesError": "목소리 목록을 불러올 수 없습니다",
 
-  "catMeditation": "묵상",
+  "catMeditation": "QT",
   "catSermon": "설교",
   "catPrayer": "기도",
   "catGratitude": "감사",

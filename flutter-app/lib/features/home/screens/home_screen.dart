@@ -106,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             BottomNavigationBarItem(
               icon: _navIcon(Icons.edit_note_outlined, 3),
-              label: l.navNote,
+              label: l.navRecord,
             ),
             BottomNavigationBarItem(
               icon: _navIcon(Icons.person_outline, 4),
