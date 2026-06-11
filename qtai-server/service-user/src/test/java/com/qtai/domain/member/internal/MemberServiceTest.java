@@ -88,4 +88,19 @@ class MemberServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.MEMBER_ALREADY_WITHDRAWN));
     }
+
+    @Test
+    void changeNickname_잠금없이_연속_변경_가능하다() {
+        // 2026-06-11 잠금 폐지: 방금 변경한 회원도 즉시 다시 변경할 수 있다(NICKNAME_LOCKED 미발생).
+        Member member = activeMember();
+        member.changeNickname("first", clock); // nicknameChangedAt = 지금
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+        when(memberRepository.existsByNickname("second")).thenReturn(false);
+
+        MemberResponse response =
+                memberService.changeNickname(1L, new NicknameChangeRequest("second"));
+
+        assertThat(response.nickname()).isEqualTo("second");
+        assertThat(response.nicknameUnlockAt()).isNull(); // 잠금 해제 시각 노출 안 함
+    }
 }

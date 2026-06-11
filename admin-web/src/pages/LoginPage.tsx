@@ -18,8 +18,9 @@ import { ApiClientError } from '../api/client';
 // ===== 관리자 로그인 (카카오 JS SDK) =====
 // 흐름: 카카오 로그인 → 카카오 access token → POST /api/v1/admin/auth/kakao → ADMIN 토큰 저장.
 // 서버 /oauth2 미사용(2026-06-10 결정 ①). 응답 계약: 2026-06-10 admin-kakao-auth-contract.
-// ⚠️ 백엔드(admin/auth/kakao)·카카오 JS 키 준비 전엔 실제 로그인 실행은 불가하다.
-//    그동안 로컬 작업을 막지 않도록 '개발용 토큰' 입력을 dev 모드에서만 임시 유지한다(prod 빌드에서 제거).
+// 백엔드(#452)·라우팅(dev vite가 /api/v1/admin/auth → service-user 8081로 분리) 연결 완료.
+// 카카오 JS 키(VITE_KAKAO_JS_KEY)만 주입하면 실로그인이 동작한다.
+// 키 주입 전 로컬 작업을 막지 않도록 '개발용 토큰' 입력을 dev 모드에서만 임시 유지한다(prod 빌드에서 제거).
 export default function LoginPage() {
   const { login, isLoggedIn } = useAuth();
   const navigate = useNavigate();

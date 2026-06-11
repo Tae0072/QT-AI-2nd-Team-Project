@@ -10,7 +10,6 @@ security:
   - serviceToken: []
 tags:
   - name: AI System
-  - name: AI Admin
   - name: AI QA
 x-ai-service-dependencies:
   qt:
@@ -40,13 +39,6 @@ x-ai-service-dependencies:
     clientInterface: AuditLogClient
     operations:
       - writeAuditLog
-  adminAuth:
-    currentTarget: qtai-server
-    clientInterface: AdminAuthClient
-    operations:
-      - getActiveAdmin
-      - verifyRole
-      - verifyAnyRole
 x-ai-client-failure-model:
   exception: AiClientException
   retryableCodes: [TIMEOUT, RATE_LIMITED, CIRCUIT_OPEN, TEMPORARY_UNAVAILABLE, DOWNSTREAM_ERROR]
@@ -318,101 +310,6 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/v1/admin/ai/assets/{assetId}/approve:
-    post:
-      tags:
-        - AI Admin
-      operationId: approveAiAsset
-      summary: Approve an AI asset.
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - name: assetId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReviewAiAssetRequest"
-      responses:
-        "200":
-          description: AI asset approval completed.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReviewAiAssetApiResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-  /api/v1/admin/ai/assets/{assetId}/reject:
-    post:
-      tags:
-        - AI Admin
-      operationId: rejectAiAsset
-      summary: Reject an AI asset.
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - name: assetId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReviewAiAssetRequest"
-      responses:
-        "200":
-          description: AI asset rejection completed.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReviewAiAssetApiResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-  /api/v1/admin/ai/assets/{assetId}/hide:
-    post:
-      tags:
-        - AI Admin
-      operationId: hideAiAsset
-      summary: Hide an AI asset.
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - name: assetId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReviewAiAssetRequest"
-      responses:
-        "200":
-          description: AI asset hide completed.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReviewAiAssetApiResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
 components:
   securitySchemes:
     serviceToken:
@@ -969,48 +866,6 @@ components:
           enum: [true]
         data:
           $ref: "#/components/schemas/RequestAiQaResponse"
-        error:
-          allOf:
-            - $ref: "#/components/schemas/ErrorBody"
-          nullable: true
-        timestamp:
-          type: string
-          format: date-time
-        traceId:
-          type: string
-    ReviewAiAssetRequest:
-      type: object
-      properties:
-        reason:
-          type: string
-        activateForTarget:
-          type: boolean
-          default: false
-    ReviewAiAssetResponse:
-      type: object
-      required:
-        - assetId
-        - status
-      properties:
-        assetId:
-          type: integer
-          format: int64
-        status:
-          type: string
-    ReviewAiAssetApiResponse:
-      type: object
-      required:
-        - success
-        - data
-        - error
-        - timestamp
-        - traceId
-      properties:
-        success:
-          type: boolean
-          enum: [true]
-        data:
-          $ref: "#/components/schemas/ReviewAiAssetResponse"
         error:
           allOf:
             - $ref: "#/components/schemas/ErrorBody"

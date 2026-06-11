@@ -188,6 +188,12 @@ abstract class AppLocalizations {
   /// **'Login failed. Please try again.'**
   String get loginFailed;
 
+  /// No description provided for @loginWebNotSupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Kakao login is not supported on the web. Please use the mobile app.'**
+  String get loginWebNotSupported;
+
   /// No description provided for @loginLegalPrefix.
   ///
   /// In en, this message translates to:
@@ -605,7 +611,7 @@ abstract class AppLocalizations {
   /// No description provided for @navToday.
   ///
   /// In en, this message translates to:
-  /// **'Today'**
+  /// **'QT'**
   String get navToday;
 
   /// No description provided for @navBible.
@@ -743,8 +749,50 @@ abstract class AppLocalizations {
   /// No description provided for @bibleSimulator.
   ///
   /// In en, this message translates to:
-  /// **'Simulator'**
+  /// **'Animation'**
   String get bibleSimulator;
+
+  /// No description provided for @qtVideoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'QT Video'**
+  String get qtVideoTitle;
+
+  /// No description provided for @qtVideoRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload'**
+  String get qtVideoRetry;
+
+  /// No description provided for @videoBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get videoBack;
+
+  /// No description provided for @videoPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get videoPlay;
+
+  /// No description provided for @videoPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get videoPause;
+
+  /// No description provided for @videoSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Speed'**
+  String get videoSpeed;
+
+  /// No description provided for @videoFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Fullscreen'**
+  String get videoFullscreen;
 
   /// No description provided for @bibleMeditationNote.
   ///

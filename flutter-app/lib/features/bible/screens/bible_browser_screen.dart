@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../../note/providers/note_providers.dart';
+import '../models/bible_chapter_counts.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
 
@@ -27,7 +28,6 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
   int _verseCount = _defaultVerseCount;
   int _chapterRequestId = 0;
 
-  BibleVerseRange? _range;
   Object? _error;
   bool _isSearching = false;
   bool _isLoadingChapter = false;
@@ -82,8 +82,7 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
         _verseTo = _verseTo.clamp(_verseFrom, _verseCount);
         _isLoadingChapter = false;
         _chapterLoadFailed = true;
-        _range = null;
-        _error = StateError('절 목록을 불러오지 못했습니다. 다시 시도해 주세요. ($error)');
+        _error = error;
       });
     }
   }
@@ -106,20 +105,57 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
       if (!mounted) {
         return;
       }
-      setState(() => _range = range);
+      _showResultSheet(range);
     } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() {
         _error = error;
-        _range = null;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('성경본문을 불러오지 못했습니다. 다시 시도해 주세요.')),
+      );
     } finally {
       if (mounted) {
         setState(() => _isSearching = false);
       }
     }
+  }
+
+  void _showResultSheet(BibleVerseRange range) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SizedBox(
+              height: MediaQuery.sizeOf(context).height * 0.72,
+              child: _BibleResultPane(
+                range: range,
+                error: null,
+                showEnglish: _showEnglish,
+                onShowEnglishChanged: (selected) {
+                  setState(() => _showEnglish = selected);
+                  setSheetState(() {});
+                },
+                onOpenSermonNotes: () {
+                  Navigator.of(sheetContext).pop();
+                  _openSermonNotes(range);
+                },
+                onRetry: () {
+                  Navigator.of(sheetContext).pop();
+                  _search(_selectedBookCode ?? range.book.code);
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _openSermonNotes(BibleVerseRange range) {
@@ -138,15 +174,13 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
   }
 
   void _selectBook(BibleBook book) {
-    final chapterCount = _chapterCountFor(book);
     setState(() {
       _selectedBookCode = book.code;
-      _selectedChapter = _selectedChapter.clamp(1, chapterCount);
+      _selectedChapter = 1;
       _verseFrom = 1;
       _verseTo = 1;
       _verseCount = _defaultVerseCount;
       _chapterLoadFailed = false;
-      _range = null;
       _error = null;
     });
     _loadChapterVerseCount(book.code, _selectedChapter);
@@ -159,47 +193,66 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
       _verseTo = 1;
       _verseCount = _defaultVerseCount;
       _chapterLoadFailed = false;
-      _range = null;
       _error = null;
     });
     _loadChapterVerseCount(bookCode, chapter);
   }
 
+  void _selectVerse(int verse) {
+    setState(() {
+      _verseFrom = verse;
+      _verseTo = verse;
+      _error = null;
+    });
+  }
+
+  void _clearVerseSelection() {
+    setState(() {
+      _verseFrom = 1;
+      _verseTo = 1;
+      _error = null;
+    });
+  }
+
   int _chapterCountFor(BibleBook book) {
-    final index = book.displayOrder - 1;
-    if (index < 0 || index >= _chapterCounts.length) {
-      return 150;
-    }
-    return _chapterCounts[index];
+    return bibleChapterCountForDisplayOrder(book.displayOrder);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('성경본문')),
+      backgroundColor: const Color(0xFFE9EBEF),
       body: FutureBuilder<List<BibleBook>>(
         future: _booksFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingView(message: '성경 권 목록을 불러오는 중입니다.');
+            return _BibleTocShell(
+              onClose: () => Navigator.of(context).maybePop(),
+              child: const LoadingView(message: '성경 권 목록을 불러오는 중입니다.'),
+            );
           }
 
           if (snapshot.hasError) {
-            return ErrorView(
-              message: '성경 권 목록을 불러오지 못했습니다.\n${snapshot.error}',
-              onRetry: () {
-                setState(() {
-                  _booksFuture = ref.read(bibleRepositoryProvider).getBooks();
-                  _error = null;
-                  _range = null;
-                });
-              },
+            return _BibleTocShell(
+              onClose: () => Navigator.of(context).maybePop(),
+              child: ErrorView(
+                message: '성경 권 목록을 불러오지 못했습니다.\n${snapshot.error}',
+                onRetry: () {
+                  setState(() {
+                    _booksFuture = ref.read(bibleRepositoryProvider).getBooks();
+                    _error = null;
+                  });
+                },
+              ),
             );
           }
 
           final books = snapshot.data ?? const <BibleBook>[];
           if (books.isEmpty) {
-            return const EmptyView(message: '성경 권 목록이 없습니다.');
+            return _BibleTocShell(
+              onClose: () => Navigator.of(context).maybePop(),
+              child: const EmptyView(message: '성경 권 목록이 없습니다.'),
+            );
           }
 
           final selectedBookCode = _selectedBookCode ?? books.first.code;
@@ -213,35 +266,42 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
             selectedBook: selectedBook,
             selectedChapter: _selectedChapter,
             chapterCount: _chapterCountFor(selectedBook),
-            verseFrom: _verseFrom,
-            verseTo: _verseTo,
+            selectedVerse: _verseFrom,
             verseCount: _verseCount,
-            range: _range,
             error: _error,
             isSearching: _isSearching,
             isLoadingChapter: _isLoadingChapter,
             isChapterLoadFailed: _chapterLoadFailed,
-            showEnglish: _showEnglish,
             onBookChanged: _selectBook,
             onChapterChanged: (chapter) =>
                 _selectChapter(selectedBook.code, chapter),
-            onVerseFromChanged: (verse) {
-              setState(() {
-                _verseFrom = verse;
-                if (_verseTo < verse) {
-                  _verseTo = verse;
-                }
-              });
-            },
-            onVerseToChanged: (verse) => setState(() => _verseTo = verse),
-            onShowEnglishChanged: (selected) {
-              setState(() => _showEnglish = selected);
-            },
+            onVerseChanged: _selectVerse,
+            onClearSelection: _clearVerseSelection,
+            onClose: () => Navigator.of(context).maybePop(),
             onSearch: () => _search(selectedBook.code),
-            onOpenSermonNotes: _openSermonNotes,
           );
         },
       ),
+    );
+  }
+}
+
+class _BibleTocShell extends StatelessWidget {
+  final VoidCallback onClose;
+  final Widget child;
+
+  const _BibleTocShell({
+    required this.onClose,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _BibleTocHeader(onClose: onClose),
+        Expanded(child: child),
+      ],
     );
   }
 }
@@ -251,87 +311,189 @@ class _BibleBrowserContent extends StatelessWidget {
   final BibleBook selectedBook;
   final int selectedChapter;
   final int chapterCount;
-  final int verseFrom;
-  final int verseTo;
+  final int selectedVerse;
   final int verseCount;
-  final BibleVerseRange? range;
   final Object? error;
   final bool isSearching;
   final bool isLoadingChapter;
   final bool isChapterLoadFailed;
-  final bool showEnglish;
   final ValueChanged<BibleBook> onBookChanged;
   final ValueChanged<int> onChapterChanged;
-  final ValueChanged<int> onVerseFromChanged;
-  final ValueChanged<int> onVerseToChanged;
-  final ValueChanged<bool> onShowEnglishChanged;
+  final ValueChanged<int> onVerseChanged;
+  final VoidCallback onClearSelection;
+  final VoidCallback onClose;
   final VoidCallback onSearch;
-  final ValueChanged<BibleVerseRange> onOpenSermonNotes;
 
   const _BibleBrowserContent({
     required this.books,
     required this.selectedBook,
     required this.selectedChapter,
     required this.chapterCount,
-    required this.verseFrom,
-    required this.verseTo,
+    required this.selectedVerse,
     required this.verseCount,
-    required this.range,
     required this.error,
     required this.isSearching,
     required this.isLoadingChapter,
     required this.isChapterLoadFailed,
-    required this.showEnglish,
     required this.onBookChanged,
     required this.onChapterChanged,
-    required this.onVerseFromChanged,
-    required this.onVerseToChanged,
-    required this.onShowEnglishChanged,
+    required this.onVerseChanged,
+    required this.onClearSelection,
+    required this.onClose,
     required this.onSearch,
-    required this.onOpenSermonNotes,
   });
 
   @override
   Widget build(BuildContext context) {
-    final selectorFlex = range == null ? 6 : 4;
-    final resultFlex = range == null ? 4 : 6;
+    return Column(
+      children: [
+        _BibleTocHeader(onClose: onClose),
+        Expanded(
+          child: _BibleTocPicker(
+            books: books,
+            selectedBook: selectedBook,
+            selectedChapter: selectedChapter,
+            chapterCount: chapterCount,
+            selectedVerse: selectedVerse,
+            verseCount: verseCount,
+            isLoadingChapter: isLoadingChapter,
+            onBookChanged: onBookChanged,
+            onChapterChanged: onChapterChanged,
+            onVerseChanged: onVerseChanged,
+          ),
+        ),
+        if (error != null || isChapterLoadFailed)
+          const _BibleStatusStrip(message: '절 목록을 불러오지 못했습니다.'),
+        _BibleSelectionBar(
+          selectedBook: selectedBook,
+          selectedChapter: selectedChapter,
+          isBusy: isSearching || isLoadingChapter,
+          isDisabled: isChapterLoadFailed,
+          onClear: onClearSelection,
+          onSearch: onSearch,
+        ),
+      ],
+    );
+  }
+}
 
-    return SafeArea(
-      child: Column(
+class _BibleTocHeader extends StatelessWidget {
+  final VoidCallback onClose;
+
+  const _BibleTocHeader({required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFF506984),
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              const SizedBox(width: 16),
+              const Text(
+                '목차검색 :: 성경본문',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.info_outline,
+                color: Colors.white70,
+                size: 14,
+              ),
+              const Spacer(),
+              IconButton(
+                tooltip: '닫기',
+                onPressed: onClose,
+                icon: const Icon(Icons.close, color: Colors.white),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BibleTocPicker extends StatelessWidget {
+  final List<BibleBook> books;
+  final BibleBook selectedBook;
+  final int selectedChapter;
+  final int chapterCount;
+  final int selectedVerse;
+  final int verseCount;
+  final bool isLoadingChapter;
+  final ValueChanged<BibleBook> onBookChanged;
+  final ValueChanged<int> onChapterChanged;
+  final ValueChanged<int> onVerseChanged;
+
+  const _BibleTocPicker({
+    required this.books,
+    required this.selectedBook,
+    required this.selectedChapter,
+    required this.chapterCount,
+    required this.selectedVerse,
+    required this.verseCount,
+    required this.isLoadingChapter,
+    required this.onBookChanged,
+    required this.onChapterChanged,
+    required this.onVerseChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final safeChapterCount = chapterCount < 1 ? 1 : chapterCount;
+    final safeVerseCount = verseCount < 1 ? 1 : verseCount;
+
+    return ColoredBox(
+      color: const Color(0xFFF5F6F7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            flex: selectorFlex,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-              child: _BibleRangePicker(
-                books: books,
-                selectedBook: selectedBook,
-                selectedChapter: selectedChapter,
-                chapterCount: chapterCount,
-                verseFrom: verseFrom,
-                verseTo: verseTo,
-                verseCount: verseCount,
-                isLoadingChapter: isLoadingChapter,
-                isChapterLoadFailed: isChapterLoadFailed,
-                onBookChanged: onBookChanged,
-                onChapterChanged: onChapterChanged,
-                onVerseFromChanged: onVerseFromChanged,
-                onVerseToChanged: onVerseToChanged,
-                onSearch: onSearch,
-                isSearching: isSearching,
-              ),
+            flex: 5,
+            child: _BibleBookColumn(
+              books: books,
+              selectedBook: selectedBook,
+              onBookChanged: onBookChanged,
             ),
           ),
-          const Divider(height: 1),
+          const _TocDivider(),
           Expanded(
-            flex: resultFlex,
-            child: _BibleResultPane(
-              range: range,
-              error: error,
-              showEnglish: showEnglish,
-              onShowEnglishChanged: onShowEnglishChanged,
-              onOpenSermonNotes: onOpenSermonNotes,
-              onRetry: onSearch,
+            flex: 3,
+            child: _BibleNumberColumn(
+              key: const Key('bible-chapter-list'),
+              itemCount: safeChapterCount,
+              selectedValue: selectedChapter,
+              suffix: '장',
+              onSelected: onChapterChanged,
+            ),
+          ),
+          const _TocDivider(),
+          Expanded(
+            flex: 3,
+            child: Stack(
+              children: [
+                _BibleNumberColumn(
+                  key: const Key('bible-verse-list'),
+                  itemCount: safeVerseCount,
+                  selectedValue: selectedVerse,
+                  suffix: '절',
+                  onSelected: onVerseChanged,
+                ),
+                if (isLoadingChapter)
+                  const Align(
+                    alignment: Alignment.topCenter,
+                    child: LinearProgressIndicator(minHeight: 2),
+                  ),
+              ],
             ),
           ),
         ],
@@ -340,224 +502,312 @@ class _BibleBrowserContent extends StatelessWidget {
   }
 }
 
-class _BibleRangePicker extends StatelessWidget {
+class _BibleBookColumn extends StatelessWidget {
   final List<BibleBook> books;
   final BibleBook selectedBook;
-  final int selectedChapter;
-  final int chapterCount;
-  final int verseFrom;
-  final int verseTo;
-  final int verseCount;
-  final bool isLoadingChapter;
-  final bool isChapterLoadFailed;
   final ValueChanged<BibleBook> onBookChanged;
-  final ValueChanged<int> onChapterChanged;
-  final ValueChanged<int> onVerseFromChanged;
-  final ValueChanged<int> onVerseToChanged;
-  final VoidCallback onSearch;
-  final bool isSearching;
 
-  const _BibleRangePicker({
+  const _BibleBookColumn({
     required this.books,
     required this.selectedBook,
-    required this.selectedChapter,
-    required this.chapterCount,
-    required this.verseFrom,
-    required this.verseTo,
-    required this.verseCount,
-    required this.isLoadingChapter,
-    required this.isChapterLoadFailed,
     required this.onBookChanged,
-    required this.onChapterChanged,
-    required this.onVerseFromChanged,
-    required this.onVerseToChanged,
-    required this.onSearch,
-    required this.isSearching,
   });
 
   @override
   Widget build(BuildContext context) {
-    final selectedBookIndex = books.indexWhere(
-      (book) => book.code == selectedBook.code,
-    );
-    final safeChapterCount = chapterCount < 1 ? 1 : chapterCount;
-    final safeVerseCount = verseCount < 1 ? 1 : verseCount;
-    final endVerseItems = [
-      for (var verse = verseFrom; verse <= safeVerseCount; verse++) verse,
-    ];
+    final entries = _bookEntries(books);
 
-    return Column(
-      children: [
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: _PickerColumn(
-                  key: const Key('bible-book-picker'),
-                  label: '성경',
-                  selectedIndex: selectedBookIndex < 0 ? 0 : selectedBookIndex,
-                  items: [for (final book in books) book.koreanName],
-                  onSelectedIndexChanged: (index) =>
-                      onBookChanged(books[index]),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: _PickerColumn(
-                  key: const Key('bible-chapter-picker'),
-                  label: '장',
-                  selectedIndex: selectedChapter - 1,
-                  items: [
-                    for (var chapter = 1;
-                        chapter <= safeChapterCount;
-                        chapter++)
-                      '$chapter'
-                  ],
-                  onSelectedIndexChanged: (index) =>
-                      onChapterChanged(index + 1),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: _PickerColumn(
-                  key: const Key('bible-verse-from-picker'),
-                  label: '시작절',
-                  selectedIndex: verseFrom - 1,
-                  items: [
-                    for (var verse = 1; verse <= safeVerseCount; verse++)
-                      '$verse'
-                  ],
-                  onSelectedIndexChanged: (index) =>
-                      onVerseFromChanged(index + 1),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: _PickerColumn(
-                  key: const Key('bible-verse-to-picker'),
-                  label: '끝절',
-                  selectedIndex: endVerseItems.indexOf(verseTo).clamp(
-                        0,
-                        endVerseItems.length - 1,
-                      ),
-                  items: [for (final verse in endVerseItems) '$verse'],
-                  onSelectedIndexChanged: (index) =>
-                      onVerseToChanged(endVerseItems[index]),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                isLoadingChapter
-                    ? '절 목록을 맞추는 중입니다.'
-                    : isChapterLoadFailed
-                        ? '절 목록을 불러오지 못했습니다.'
-                        : '${selectedBook.koreanName} $selectedChapter:$verseFrom-$verseTo',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-            ),
-            const SizedBox(width: 10),
-            FilledButton.icon(
-              onPressed:
-                  (isSearching || isLoadingChapter || isChapterLoadFailed)
-                      ? null
-                      : onSearch,
-              icon: isSearching
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.search),
-              label: const Text('조회'),
-            ),
-          ],
-        ),
-      ],
+    return ListView.builder(
+      key: const Key('bible-book-list'),
+      padding: EdgeInsets.zero,
+      itemCount: entries.length,
+      itemBuilder: (context, index) {
+        final entry = entries[index];
+        if (entry.section != null) {
+          return _BibleBookSectionLabel(label: entry.section!);
+        }
+
+        final book = entry.book!;
+        final isSelected = book.code == selectedBook.code;
+
+        return _BibleBookRow(
+          book: book,
+          isSelected: isSelected,
+          onTap: () => onBookChanged(book),
+        );
+      },
     );
   }
 }
 
-class _PickerColumn extends StatelessWidget {
+class _BibleBookSectionLabel extends StatelessWidget {
   final String label;
-  final List<String> items;
-  final int selectedIndex;
-  final ValueChanged<int> onSelectedIndexChanged;
 
-  const _PickerColumn({
-    super.key,
-    required this.label,
-    required this.items,
-    required this.selectedIndex,
-    required this.onSelectedIndexChanged,
+  const _BibleBookSectionLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 18,
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      color: const Color(0xFFE2E5EA),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF667085),
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _BibleBookRow extends StatelessWidget {
+  final BibleBook book;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _BibleBookRow({
+    required this.book,
+    required this.isSelected,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+    return Material(
+      color: isSelected ? const Color(0xFFB9BAA6) : Colors.white,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          height: 45,
+          padding: const EdgeInsets.only(left: 12, right: 8),
+          decoration: const BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Color(0xFFE1E4EA), width: 1),
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Expanded(
-          child: Stack(
-            alignment: Alignment.center,
+          child: Row(
             children: [
-              Container(
-                height: 38,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(
-                    alpha: 0.45,
+              SizedBox(
+                width: 20,
+                child: Text(
+                  _bookShortcut(book),
+                  style: const TextStyle(
+                    color: Color(0xFF2F6FE4),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                   ),
-                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              ListWheelScrollView.useDelegate(
-                controller: FixedExtentScrollController(
-                  initialItem: selectedIndex.clamp(0, items.length - 1),
-                ),
-                itemExtent: 38,
-                diameterRatio: 1.35,
-                physics: const FixedExtentScrollPhysics(),
-                overAndUnderCenterOpacity: 0.42,
-                onSelectedItemChanged: onSelectedIndexChanged,
-                childDelegate: ListWheelChildBuilderDelegate(
-                  childCount: items.length,
-                  builder: (context, index) {
-                    return Center(
-                      child: Text(
-                        items[index],
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: index == selectedIndex
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                        ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      book.koreanName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF323A45),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
-                    );
-                  },
+                    ),
+                    Text(
+                      book.englishName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF848B95),
+                        fontSize: 11,
+                        height: 1.1,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-      ],
+      ),
+    );
+  }
+}
+
+class _BibleNumberColumn extends StatelessWidget {
+  final int itemCount;
+  final int selectedValue;
+  final String suffix;
+  final ValueChanged<int> onSelected;
+
+  const _BibleNumberColumn({
+    super.key,
+    required this.itemCount,
+    required this.selectedValue,
+    required this.suffix,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      itemExtent: 34,
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        final value = index + 1;
+        final isSelected = value == selectedValue;
+
+        return Material(
+          color: isSelected ? const Color(0xFFB9BAA6) : Colors.white,
+          child: InkWell(
+            onTap: () => onSelected(value),
+            child: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 18),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFE1E4EA), width: 1),
+                ),
+              ),
+              child: Text(
+                '$value$suffix',
+                style: TextStyle(
+                  color: isSelected ? Colors.white : const Color(0xFF2F3640),
+                  fontSize: 15,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BibleStatusStrip extends StatelessWidget {
+  final String message;
+
+  const _BibleStatusStrip({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      color: const Color(0xFFFFF4E5),
+      child: Text(
+        message,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Color(0xFF9A5B00), fontSize: 12),
+      ),
+    );
+  }
+}
+
+class _BibleSelectionBar extends StatelessWidget {
+  final BibleBook selectedBook;
+  final int selectedChapter;
+  final bool isBusy;
+  final bool isDisabled;
+  final VoidCallback onClear;
+  final VoidCallback onSearch;
+
+  const _BibleSelectionBar({
+    required this.selectedBook,
+    required this.selectedChapter,
+    required this.isBusy,
+    required this.isDisabled,
+    required this.onClear,
+    required this.onSearch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final canSearch = !isBusy && !isDisabled;
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        height: 46,
+        padding: const EdgeInsets.fromLTRB(8, 6, 10, 6),
+        color: const Color(0xFFE9EBEF),
+        child: Row(
+          children: [
+            Expanded(
+              child: Material(
+                color: Colors.white,
+                child: InkWell(
+                  key: const Key('bible-selection-bar'),
+                  onTap: canSearch ? onSearch : null,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Center(
+                          child: isBusy
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  '${selectedBook.koreanName} $selectedChapter장',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xFF006DFF),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '선택 초기화',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: isBusy ? null : onClear,
+                        icon: const Icon(
+                          Icons.cancel,
+                          color: Color(0xFFB4B8BE),
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            IconButton(
+              tooltip: '본문 조회',
+              onPressed: canSearch ? onSearch : null,
+              icon: const Icon(Icons.keyboard_alt_outlined),
+              color: const Color(0xFF4E5968),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TocDivider extends StatelessWidget {
+  const _TocDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 1,
+      child: ColoredBox(color: Color(0xFFD5DAE1)),
     );
   }
 }
@@ -567,7 +817,7 @@ class _BibleResultPane extends StatelessWidget {
   final Object? error;
   final bool showEnglish;
   final ValueChanged<bool> onShowEnglishChanged;
-  final ValueChanged<BibleVerseRange> onOpenSermonNotes;
+  final VoidCallback onOpenSermonNotes;
   final VoidCallback onRetry;
 
   const _BibleResultPane({
@@ -585,11 +835,12 @@ class _BibleResultPane extends StatelessWidget {
 
     if (error != null) {
       return ErrorView(
-        message: '성경본문을 불러오지 못했습니다.\n$error',
+        message: '성경본문을 불러오지 못했습니다. 다시 시도해 주세요.',
         onRetry: onRetry,
       );
     }
 
+    final range = this.range;
     if (range == null) {
       return const EmptyView(
         message: '조회할 성경본문을 선택해 주세요.',
@@ -598,10 +849,10 @@ class _BibleResultPane extends StatelessWidget {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       children: [
         Text(
-          '${range!.book.koreanName} ${range!.book.chapter}장',
+          '${range.book.koreanName} ${range.book.chapter}장',
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -615,29 +866,26 @@ class _BibleResultPane extends StatelessWidget {
               onSelected: onShowEnglishChanged,
               label: const Text('영어'),
             ),
+            const SizedBox(width: 8),
+            TextButton.icon(
+              key: const Key('bible-browser-sermon-note-button'),
+              onPressed: range.verses.isEmpty ? null : onOpenSermonNotes,
+              icon: const Icon(Icons.edit_note_outlined),
+              label: const Text('노트'),
+            ),
           ],
-        ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            key: const Key('bible-browser-sermon-note-button'),
-            onPressed:
-                range!.verses.isEmpty ? null : () => onOpenSermonNotes(range!),
-            icon: const Icon(Icons.edit_note_outlined),
-            label: const Text('노트'),
-          ),
         ),
         if (showEnglish) ...[
           const SizedBox(height: 6),
           Text(
-            range!.book.englishName,
+            range.book.englishName,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
         const SizedBox(height: 18),
-        for (final verse in range!.verses)
+        for (final verse in range.verses)
           _BibleVerseTile(
             verse: verse,
             showEnglish: showEnglish,
@@ -696,71 +944,58 @@ class _BibleVerseTile extends StatelessWidget {
   }
 }
 
-const _chapterCounts = [
-  50,
-  40,
-  27,
-  36,
-  34,
-  24,
-  21,
-  4,
-  31,
-  24,
-  22,
-  25,
-  29,
-  36,
-  10,
-  13,
-  10,
-  42,
-  150,
-  31,
-  12,
-  8,
-  66,
-  52,
-  5,
-  48,
-  12,
-  14,
-  3,
-  9,
-  1,
-  4,
-  7,
-  3,
-  3,
-  3,
-  2,
-  14,
-  4,
-  28,
-  16,
-  24,
-  21,
-  28,
-  16,
-  16,
-  13,
-  6,
-  6,
-  4,
-  4,
-  5,
-  3,
-  6,
-  4,
-  3,
-  1,
-  13,
-  5,
-  5,
-  3,
-  5,
-  1,
-  1,
-  1,
-  22,
-];
+class _BookListEntry {
+  final String? section;
+  final BibleBook? book;
+
+  const _BookListEntry.section(this.section) : book = null;
+  const _BookListEntry.book(this.book) : section = null;
+}
+
+List<_BookListEntry> _bookEntries(List<BibleBook> books) {
+  final entries = <_BookListEntry>[];
+  String? currentSection;
+
+  for (final book in books) {
+    final section = _sectionForBook(book.displayOrder);
+    if (section != currentSection) {
+      entries.add(_BookListEntry.section(section));
+      currentSection = section;
+    }
+    entries.add(_BookListEntry.book(book));
+  }
+
+  return entries;
+}
+
+String _sectionForBook(int displayOrder) {
+  if (displayOrder <= 5) {
+    return '율법서';
+  }
+  if (displayOrder <= 17) {
+    return '역사서';
+  }
+  if (displayOrder <= 22) {
+    return '시가서';
+  }
+  if (displayOrder <= 39) {
+    return '예언서';
+  }
+  if (displayOrder <= 43) {
+    return '복음서';
+  }
+  if (displayOrder == 44) {
+    return '역사서';
+  }
+  if (displayOrder <= 65) {
+    return '서신서';
+  }
+  return '예언서';
+}
+
+String _bookShortcut(BibleBook book) {
+  if (book.koreanName.isEmpty) {
+    return book.code.characters.firstOrNull ?? '';
+  }
+  return book.koreanName.characters.first;
+}

@@ -10,16 +10,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class SuTodayPassageParser {
 
-    private static final Pattern TITLE_PATTERN = Pattern.compile(
-            "<div[^>]*id=[\"']bible_text[\"'][^>]*>(.*?)</div>",
-            Pattern.CASE_INSENSITIVE | Pattern.DOTALL
-    );
     private static final Pattern REFERENCE_PATTERN = Pattern.compile(
             "([가-힣0-9ⅠⅡⅢ]+)\\s*\\(([^)]+)\\)\\s*(\\d{1,3})\\s*:\\s*(\\d{1,3})\\s*-\\s*(?:(\\d{1,3})\\s*:\\s*)?(\\d{1,3})"
     );
 
     public SuTodayPassage parseToday(String html) {
-        String title = extractTitle(html);
         Matcher matcher = REFERENCE_PATTERN.matcher(plainText(html));
         if (!matcher.find()) {
             throw invalidInput("성서유니온 오늘 본문 범위를 찾을 수 없습니다.");
@@ -37,24 +32,19 @@ public class SuTodayPassageParser {
 
         String koreanBookName = matcher.group(1).trim();
         String englishBookName = matcher.group(2).trim();
+        String referenceText = koreanBookName + "(" + englishBookName + ") "
+                + startChapter + ":" + startVerse + "-" + endVerse;
         return new SuTodayPassage(
-                title,
+                referenceText,
                 koreanBookName,
                 englishBookName,
                 startChapter,
                 startVerse,
                 endVerse,
-                koreanBookName + "(" + englishBookName + ") " + startChapter + ":" + startVerse + "-" + endVerse
+                referenceText
         );
     }
 
-    private String extractTitle(String html) {
-        Matcher matcher = TITLE_PATTERN.matcher(html);
-        if (!matcher.find()) {
-            throw invalidInput("성서유니온 오늘 본문 제목을 찾을 수 없습니다.");
-        }
-        return plainText(matcher.group(1));
-    }
 
     private String plainText(String html) {
         return decodeHtmlEntities(html)

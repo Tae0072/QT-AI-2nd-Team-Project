@@ -1,8 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qtai_app/l10n/app_localizations.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/screens/bible_browser_screen.dart';
@@ -11,10 +10,12 @@ import 'package:qtai_app/features/note/models/note_models.dart';
 import 'package:qtai_app/features/note/providers/note_providers.dart';
 import 'package:qtai_app/features/note/screens/note_list_screen.dart';
 import 'package:qtai_app/features/note/services/note_repository.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/routes/app_router.dart';
 
 void main() {
-  testWidgets('BibleBrowserScreen renders selected passage after search',
+  testWidgets(
+      'BibleBrowserScreen renders TOC picker and opens selected passage',
       (tester) async {
     final repository = _FakeBibleRepository();
 
@@ -24,38 +25,73 @@ void main() {
           bibleRepositoryProvider.overrideWithValue(repository),
         ],
         child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('ko'),
-            home: const BibleBrowserScreen()),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: const BibleBrowserScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('성경본문'), findsOneWidget);
+    expect(find.text('목차검색 :: 성경본문'), findsOneWidget);
     expect(find.text('창세기'), findsWidgets);
-    expect(find.byKey(const Key('bible-book-picker')), findsOneWidget);
-    expect(find.byKey(const Key('bible-chapter-picker')), findsOneWidget);
-    expect(find.byKey(const Key('bible-verse-from-picker')), findsOneWidget);
-    expect(find.byKey(const Key('bible-verse-to-picker')), findsOneWidget);
-    expect(find.byKey(const Key('bible-chapter-input')), findsNothing);
+    expect(find.text('Genesis'), findsOneWidget);
+    expect(find.text('율법서'), findsOneWidget);
+    expect(find.byKey(const Key('bible-book-list')), findsOneWidget);
+    expect(find.byKey(const Key('bible-chapter-list')), findsOneWidget);
+    expect(find.byKey(const Key('bible-verse-list')), findsOneWidget);
+    expect(find.byKey(const Key('bible-book-picker')), findsNothing);
+    expect(find.byKey(const Key('bible-verse-from-picker')), findsNothing);
+    expect(find.byKey(const Key('bible-verse-to-picker')), findsNothing);
 
-    await tester.tap(find.text('조회'));
+    await tester.tap(find.text('2절'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('bible-selection-bar')));
     await tester.pumpAndSettle();
 
     expect(repository.requestedBookCode, 'GEN');
     expect(repository.requestedChapter, 1);
-    expect(repository.requestedVerseFrom, 1);
-    expect(repository.requestedVerseTo, 1);
-    expect(find.text('1:1'), findsOneWidget);
-    expect(find.text('테스트 본문 1'), findsOneWidget);
-    expect(find.text('Test English body 1'), findsNothing);
+    expect(repository.requestedVerseFrom, 2);
+    expect(repository.requestedVerseTo, 2);
+    expect(find.text('1:2'), findsOneWidget);
+    expect(find.text('테스트 본문 2'), findsOneWidget);
+    expect(find.text('Test English body 2'), findsNothing);
 
     await tester.tap(find.byKey(const Key('bible-browser-english-toggle')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Genesis'), findsOneWidget);
-    expect(find.text('Test English body 1'), findsOneWidget);
+    expect(find.text('Genesis'), findsWidgets);
+    expect(find.text('Test English body 2'), findsOneWidget);
+  });
+
+  testWidgets('BibleBrowserScreen shows safe message when search fails',
+      (tester) async {
+    final repository = _FakeBibleRepository(failSearch: true);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          bibleRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: const BibleBrowserScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bible-selection-bar')));
+    await tester.pump();
+
+    expect(
+      find.text('성경본문을 불러오지 못했습니다. 다시 시도해 주세요.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('boom'), findsNothing);
   });
 
   testWidgets('sermon note button opens the note sermon entry point',
@@ -80,7 +116,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(FilledButton).first);
+    await tester.tap(find.byKey(const Key('bible-selection-bar')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('bible-browser-sermon-note-button')));
@@ -117,7 +153,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(FilledButton).first);
+    await tester.tap(find.byKey(const Key('bible-selection-bar')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('bible-browser-sermon-note-button')));
@@ -133,8 +169,9 @@ class _FakeBibleRepository extends BibleRepository {
   int? requestedChapter;
   int? requestedVerseFrom;
   int? requestedVerseTo;
+  final bool failSearch;
 
-  _FakeBibleRepository() : super(Dio());
+  _FakeBibleRepository({this.failSearch = false}) : super(Dio());
 
   @override
   Future<List<BibleBook>> getBooks() async {
@@ -155,26 +192,26 @@ class _FakeBibleRepository extends BibleRepository {
     required String bookCode,
     required int chapter,
   }) async {
-    return const BibleVerseRange(
+    return BibleVerseRange(
       book: BibleVerseBook(
-        code: 'GEN',
+        code: bookCode,
         koreanName: '창세기',
         englishName: 'Genesis',
-        chapter: 1,
+        chapter: chapter,
       ),
       verses: [
         BibleVerse(
           id: 1001,
-          bookCode: 'GEN',
-          chapterNo: 1,
+          bookCode: bookCode,
+          chapterNo: chapter,
           verseNo: 1,
           koreanText: '테스트 본문 1',
           englishText: 'Test English body 1',
         ),
         BibleVerse(
           id: 1002,
-          bookCode: 'GEN',
-          chapterNo: 1,
+          bookCode: bookCode,
+          chapterNo: chapter,
           verseNo: 2,
           koreanText: '테스트 본문 2',
           englishText: 'Test English body 2',
@@ -190,25 +227,28 @@ class _FakeBibleRepository extends BibleRepository {
     required int verseFrom,
     required int verseTo,
   }) async {
+    if (failSearch) {
+      throw StateError('boom');
+    }
     requestedBookCode = bookCode;
     requestedChapter = chapter;
     requestedVerseFrom = verseFrom;
     requestedVerseTo = verseTo;
-    return const BibleVerseRange(
+    return BibleVerseRange(
       book: BibleVerseBook(
-        code: 'GEN',
+        code: bookCode,
         koreanName: '창세기',
         englishName: 'Genesis',
-        chapter: 1,
+        chapter: chapter,
       ),
       verses: [
         BibleVerse(
-          id: 1001,
-          bookCode: 'GEN',
-          chapterNo: 1,
-          verseNo: 1,
-          koreanText: '테스트 본문 1',
-          englishText: 'Test English body 1',
+          id: 1000 + verseFrom,
+          bookCode: bookCode,
+          chapterNo: chapter,
+          verseNo: verseFrom,
+          koreanText: '테스트 본문 $verseFrom',
+          englishText: 'Test English body $verseFrom',
         ),
       ],
     );
