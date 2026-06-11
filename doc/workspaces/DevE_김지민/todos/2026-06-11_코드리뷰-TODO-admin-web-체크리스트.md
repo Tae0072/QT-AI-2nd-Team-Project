@@ -46,11 +46,9 @@
 - [ ] `npm run typecheck` + `npm run build` 통과
 - [ ] 워크플로우·리포트 갱신 → 커밋 → push → PR(base dev)
 
-## ⏳ P5c `chore/admin-web-code-split` (진행 중)
+## ⏳ P5c `chore/admin-web-code-split` (예정)
 
-- [ ] `vite.config.ts` `build.rollupOptions.output.manualChunks`(antd / vendor=react·react-dom·react-router-dom·axios) 추가
-- [ ] `npm run build`로 청크 분리 확인(1.15MB 단일청크 → antd/vendor/index 분할, 경고 해소)
-- [ ] 워크플로우·리포트 갱신 → 커밋 → push → PR(base dev)
+- [ ] `vite.config.ts` `build.rollupOptions.output.manualChunks`(antd/vendor) → 청크 분리 확인(1.15MB 단일청크 해소)
 
 ## ⏳ P5b `feature/admin-web-kakao-sdk-notice` (예정)
 
@@ -62,7 +60,7 @@
 
 ---
 
-## ✅ P2 `feature/admin-web-token-refresh` — 머지 완료 (#504, 리다이렉트 B)
+## ⏳ P2 `feature/admin-web-token-refresh` — 진행 중 (리다이렉트 방식 B 확정)
 
 > 공용 `POST /api/v1/auth/refresh` 재사용(계약서 §6). 재발급 role=ADMIN 유지. 리다이렉트=B(AuthContext 콜백, 새로고침 없음).
 

@@ -219,8 +219,6 @@
 
   "settingsNotification": "Notifications",
   "settingsNotificationDesc": "Receive push notifications",
-  "settingsDarkMode": "Dark mode",
-  "settingsDarkModeDesc": "Use the dark theme",
   "settingsFontSize": "Font size",
   "settingsFontSizeDesc": "Set the body text size",
   "settingsFontSmall": "Small",

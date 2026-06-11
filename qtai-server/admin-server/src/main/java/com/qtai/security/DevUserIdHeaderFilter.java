@@ -16,9 +16,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * dev 프로파일 전용 임시 인증 필터.
@@ -43,7 +41,6 @@ import java.util.Locale;
 public class DevUserIdHeaderFilter extends OncePerRequestFilter {
 
     private static final String HEADER_NAME = "X-Dev-User-Id";
-    private static final String ROLES_HEADER = "X-Dev-Roles";
     private static final String DEFAULT_ROLE = "ROLE_USER";
 
     @Override
@@ -59,7 +56,7 @@ public class DevUserIdHeaderFilter extends OncePerRequestFilter {
                         new UsernamePasswordAuthenticationToken(
                                 memberId,
                                 null,
-                                resolveAuthorities(request)
+                                List.of(new SimpleGrantedAuthority(DEFAULT_ROLE))
                         );
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (NumberFormatException e) {
@@ -69,33 +66,5 @@ public class DevUserIdHeaderFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    /**
-     * 부여할 권한 목록을 만든다. 기본은 {@code ROLE_USER}이며,
-     * dev 전용 {@code X-Dev-Roles} 헤더(쉼표 구분, 예: {@code ADMIN})가 있으면
-     * 각 값을 {@code ROLE_*} 권한으로 추가한다.
-     *
-     * <p>관리자 웹(admin-web) dev 로그인에서 {@code X-Dev-Roles: ADMIN}으로
-     * {@code ROLE_ADMIN}을 주입해, 관리자 API의 1차 권한(ROLE_ADMIN) 검사를 통과시키는 용도.
-     */
-    private List<SimpleGrantedAuthority> resolveAuthorities(HttpServletRequest request) {
-        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-        authorities.add(new SimpleGrantedAuthority(DEFAULT_ROLE));
-        String rolesHeader = request.getHeader(ROLES_HEADER);
-        if (StringUtils.hasText(rolesHeader)) {
-            for (String raw : rolesHeader.split(",")) {
-                String role = raw.trim().toUpperCase(Locale.ROOT);
-                if (role.isEmpty()) {
-                    continue;
-                }
-                String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
-                if (!authority.equals(DEFAULT_ROLE)
-                        && authorities.stream().noneMatch(a -> a.getAuthority().equals(authority))) {
-                    authorities.add(new SimpleGrantedAuthority(authority));
-                }
-            }
-        }
-        return authorities;
     }
 }

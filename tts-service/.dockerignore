@@ -1,6 +1,0 @@
-.env
-__pycache__/
-*.pyc
-*.wav
-*.mp3
-README.md

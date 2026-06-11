@@ -5,7 +5,7 @@
 ## 1. 프로젝트 기준
 
 - 서비스: QT-AI, 큐티 AI 앱
-- 서버 형태: 단일 `qtai-server` Modular Monolith(v1) → v2 MSA 분리(2026-06-08)
+- 서버 형태: 단일 `qtai-server` Modular Monolith
 - Backend: Java 21, Spring Boot 3.3, Gradle, Spring Modulith, ArchUnit
 - DB/cache: MySQL 8.0, 테스트 H2, Caffeine app cache
 - Redis: token/rate/idempotency 등 필요 범위 검토 후 사용
