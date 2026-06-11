@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -194,7 +196,8 @@ class MusicController extends StateNotifier<MusicState> {
     } else {
       await _player.pause();
     }
-    _persist(musicEnabled: value);
+    // 서버 저장은 fire-and-forget(UI 즉시 반영) — 실패 처리는 _persist 내부 책임.
+    unawaited(_persist(musicEnabled: value));
   }
 
   /// 슬라이더 드래그 중 실시간 볼륨 반영(저장하지 않음).
@@ -206,7 +209,7 @@ class MusicController extends StateNotifier<MusicState> {
   /// 볼륨 확정(서버 저장).
   Future<void> commitVolume(int value) async {
     await previewVolume(value);
-    _persist(musicVolume: value);
+    unawaited(_persist(musicVolume: value));
   }
 
   /// 카테고리 변경(서버 저장 + 플레이리스트 재구성).
@@ -214,7 +217,7 @@ class MusicController extends StateNotifier<MusicState> {
     state = state.copyWith(category: value);
     await _loadPlaylist();
     if (state.enabled && state.hasTracks) _safePlay();
-    _persist(musicCategory: value);
+    unawaited(_persist(musicCategory: value));
   }
 
   /// 목록에서 특정 곡 선택 재생(현재 플레이리스트 인덱스 기준).
@@ -228,7 +231,7 @@ class MusicController extends StateNotifier<MusicState> {
     }
     state = state.copyWith(enabled: true, currentIndex: index);
     _safePlay();
-    _persist(musicEnabled: true);
+    unawaited(_persist(musicEnabled: true));
   }
 
   /// 첫 사용자 제스처 알림 — 웹에서 자동재생이 막혔을 때 첫 터치에 재생을 시작한다.

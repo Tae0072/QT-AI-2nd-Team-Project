@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
@@ -31,7 +33,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
 
       if (result.isNewMember) {
-        Navigator.of(context).pushReplacementNamed(AppRouter.nicknameSetup);
+        // 화면 전환 Future는 대기하지 않는다(다음 라우트 pop까지 완료되지 않음).
+        unawaited(
+            Navigator.of(context).pushReplacementNamed(AppRouter.nicknameSetup));
       } else {
         ref.read(authStatusProvider.notifier).setAuthenticated();
       }
