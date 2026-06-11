@@ -605,7 +605,7 @@ abstract class AppLocalizations {
   /// No description provided for @navToday.
   ///
   /// In en, this message translates to:
-  /// **'Today'**
+  /// **'QT'**
   String get navToday;
 
   /// No description provided for @navBible.
@@ -743,7 +743,7 @@ abstract class AppLocalizations {
   /// No description provided for @bibleSimulator.
   ///
   /// In en, this message translates to:
-  /// **'Simulator'**
+  /// **'Animation'**
   String get bibleSimulator;
 
   /// No description provided for @qtVideoTitle.
