@@ -32,4 +32,23 @@ public interface QtPassageRepository extends JpaRepository<QtPassage, Long> {
                )
             """)
     List<QtPassage> findAllWithoutVerseMappings();
+
+    /**
+     * 선택한 본문 범위(book/chapter/verseFrom~verseTo)를 포함하는 QT 본문을 조회한다.
+     *
+     * <p>성경 목차에서 임의 범위를 조회했을 때, 그 범위를 포괄하는 QT 본문이 있으면
+     * 해당 본문의 해설 진입점을 노출하기 위한 매핑이다. startVerse..endVerse가
+     * 선택 범위를 포함하는 본문을 startVerse 오름차순으로 반환한다(보통 0~1건).
+     */
+    @Query("""
+            select p
+              from QtPassage p
+             where p.deletedAt is null
+               and p.bookId = :bookId
+               and p.chapter = :chapter
+               and p.startVerse <= :verseFrom
+               and p.endVerse >= :verseTo
+             order by p.startVerse asc
+            """)
+    List<QtPassage> findContainingRange(Short bookId, Short chapter, Short verseFrom, Short verseTo);
 }
