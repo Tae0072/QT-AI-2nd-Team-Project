@@ -114,6 +114,27 @@ class AuthServiceTest {
     }
 
     @Test
+    void refresh_ADMIN_회원은_ADMIN_role로_재발급한다() {
+        // 계약(2026-06-11 개정 추가): admin-web도 공용 /api/v1/auth/refresh 재사용.
+        // 재발급 access token이 DB의 role(ADMIN)을 유지하는지 보증한다 (코드리뷰 TODO 5).
+        Member admin = Member.builder().kakaoId(9L).email("a@test.dev").nickname("운영자").build();
+        // role 승급 도메인 메서드가 없어(운영은 DB 시드로 부여) 테스트에서만 직접 주입한다.
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                admin, "role", Member.MemberRole.ADMIN);
+        when(jwtProvider.validateRefreshToken("rtk")).thenReturn(9L);
+        when(refreshTokenStore.find(9L)).thenReturn("rtk");
+        when(memberRepository.findById(9L)).thenReturn(Optional.of(admin));
+        when(jwtProvider.issueAccessToken(9L, "ADMIN")).thenReturn("atk-admin");
+        when(jwtProvider.issueRefreshToken(9L)).thenReturn("rtk2");
+
+        LoginResponse response = authService.refresh(new RefreshTokenRequest("rtk"));
+
+        assertThat(response.accessToken()).isEqualTo("atk-admin");
+        verify(jwtProvider).issueAccessToken(9L, "ADMIN"); // USER로 강등되지 않음
+        verify(refreshTokenStore).save(eq(9L), eq("rtk2"), any());
+    }
+
+    @Test
     void logout_리프레시토큰을_삭제한다() {
         authService.logout(7L);
 
