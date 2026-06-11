@@ -638,6 +638,12 @@ abstract class AppLocalizations {
   /// **'My'**
   String get navMy;
 
+  /// No description provided for @homeBackExitGuide.
+  ///
+  /// In en, this message translates to:
+  /// **'Press back again to exit'**
+  String get homeBackExitGuide;
+
   /// No description provided for @ttsRead.
   ///
   /// In en, this message translates to:
