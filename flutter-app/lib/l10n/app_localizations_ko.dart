@@ -267,7 +267,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteShareImageFailed => '이미지 공유에 실패했습니다';
 
   @override
-  String get navToday => '오늘';
+  String get navToday => 'QT';
 
   @override
   String get navBible => '성경';

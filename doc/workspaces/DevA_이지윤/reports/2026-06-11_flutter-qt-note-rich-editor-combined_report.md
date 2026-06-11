@@ -38,7 +38,7 @@
 - `QtVisibility`처럼 더 이상 사용하지 않는 enum 및 TODO 참조를 `service-bible`, `admin-server` 복사본에서 제거했다.
 - 성서유니온 수집 parser가 임의 제목을 저장하지 않도록 정리하고, 관련 parser 테스트 기대값을 갱신했다.
 - 관리자 웹 프록시에서 `/api/v1/admin/auth/**` 요청이 generic `/api` proxy보다 먼저 `service-user:8081`로 전달되도록 분리했다.
-- `admin-web/.env.example`에 `VITE_ADMIN_AUTH_PROXY_TARGET` 예시를 추가했다.
+- `admin-web/.env.example`에 현재 dev 프록시 계약인 `VITE_AUTH_PROXY_TARGET` 예시를 추가했다.
 - 죽은 중복 migration인 `service-bible/src/main/resources/db/migration/V30__create_qt_video_clips.sql`을 제거했다.
 
 ### 4. Flutter 영상 플레이어 l10n 대응
