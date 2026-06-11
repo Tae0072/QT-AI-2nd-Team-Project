@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -56,7 +58,7 @@ class AppRouter {
               onComplete: () async {
                 await ref.read(onboardingCompleteProvider.notifier).complete();
                 if (context.mounted) {
-                  Navigator.of(context).pushReplacementNamed(login);
+                  unawaited(Navigator.of(context).pushReplacementNamed(login));
                 }
               },
             ),

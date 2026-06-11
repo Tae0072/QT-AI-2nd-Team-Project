@@ -98,7 +98,7 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
         return toResponse(member);
     }
 
-    // ── ChangeNicknameUseCase (닉네임 변경, 7일 잠금) ──
+    // ── ChangeNicknameUseCase (닉네임 변경 — 즉시 변경 가능, 2026-06-11 잠금 폐지) ──
 
     @Override
     @Transactional
@@ -144,10 +144,7 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
         if (newNickname == null || newNickname.isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "닉네임은 공백일 수 없습니다.");
         }
-        if (!member.isNicknameChangeable(clock)) {
-            throw new BusinessException(ErrorCode.NICKNAME_LOCKED,
-                    "닉네임은 " + member.getNicknameUnlockAt() + " 이후에 변경할 수 있습니다.");
-        }
+        // 7일 잠금 검사 제거(2026-06-11 피드백) — 닉네임은 즉시 변경 가능. Member.isNicknameChangeable 참조.
         // 임시 닉네임 접두사(user_) 사칭 차단 — 시스템 예약 접두사
         if (newNickname.startsWith(RESERVED_NICKNAME_PREFIX)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT,

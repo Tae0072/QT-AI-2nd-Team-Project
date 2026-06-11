@@ -42,21 +42,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get commonBack => '뒤로';
 
   @override
-  String get videoTooltipBack => '뒤로';
-
-  @override
-  String get videoTooltipPlay => '재생';
-
-  @override
-  String get videoTooltipPause => '일시정지';
-
-  @override
-  String get videoTooltipSpeed => '배속';
-
-  @override
-  String get videoTooltipFullscreen => '전체화면';
-
-  @override
   String get loginHeadline => '매일의 묵상을\n가장 단순하게.';
 
   @override
@@ -282,7 +267,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteShareImageFailed => '이미지 공유에 실패했습니다';
 
   @override
-  String get navToday => 'QT';
+  String get navToday => '오늘';
 
   @override
   String get navBible => '성경';
@@ -352,6 +337,27 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get bibleSimulator => '애니메이션';
+
+  @override
+  String get qtVideoTitle => 'QT 영상';
+
+  @override
+  String get qtVideoRetry => '다시 불러오기';
+
+  @override
+  String get videoBack => '뒤로';
+
+  @override
+  String get videoPlay => '재생';
+
+  @override
+  String get videoPause => '일시정지';
+
+  @override
+  String get videoSpeed => '배속';
+
+  @override
+  String get videoFullscreen => '전체화면';
 
   @override
   String get bibleMeditationNote => '묵상 노트 작성';
@@ -547,7 +553,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notifMarkAllRead => '모두 읽음';
 
   @override
-  String get notifUnreadOnly => '미읽음만';
+  String get notifUnreadOnly => '안 읽은 알림만';
 
   @override
   String get notifEmpty => '알림이 없습니다';

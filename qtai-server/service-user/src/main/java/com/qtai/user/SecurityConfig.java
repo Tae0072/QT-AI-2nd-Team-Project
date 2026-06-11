@@ -3,12 +3,18 @@ package com.qtai.user;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.common.security.JwtAuthenticationFilter;
 import com.qtai.common.security.SecurityErrorResponseWriter;
+import com.qtai.security.RateLimitFilter;
+import com.qtai.security.RateLimitProperties;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -43,6 +49,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@EnableConfigurationProperties(RateLimitProperties.class)
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -62,8 +69,25 @@ public class SecurityConfig {
         this.securityErrorResponseWriter = securityErrorResponseWriter;
     }
 
+    /** 공개 인증 경로 rate limit 필터 (코드리뷰 TODO 1). 시큐리티 체인에서만 실행한다. */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public RateLimitFilter rateLimitFilter(StringRedisTemplate redisTemplate,
+                                           RateLimitProperties rateLimitProperties,
+                                           SecurityErrorResponseWriter errorResponseWriter,
+                                           Clock clock) {
+        return new RateLimitFilter(redisTemplate, rateLimitProperties, errorResponseWriter, clock);
+    }
+
+    /** 서블릿 컨테이너 자동 등록 비활성 — 시큐리티 체인과 이중 실행되면 카운트가 2배가 된다. */
+    @Bean
+    public FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter rateLimitFilter) {
+        FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>(rateLimitFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http, RateLimitFilter rateLimitFilter) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 // CORS는 시큐리티 필터 레벨에서 활성화해야 preflight(OPTIONS)가 401이 되지 않는다.
@@ -95,6 +119,8 @@ public class SecurityConfig {
                             .anyRequest().authenticated();
                 });
 
+        // rate limit을 먼저 등록해 JWT 검증보다 앞서 실행되게 한다(같은 anchor에서는 등록 순서 유지).
+        http.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
         if (jwtAuthenticationFilter != null) {
             http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         }
