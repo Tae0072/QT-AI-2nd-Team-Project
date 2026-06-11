@@ -38,11 +38,11 @@ void main() {
 
     await _openSheet(tester, day.date, day);
 
-    // 5종 라벨이 모두 보인다.
-    for (final label in ['묵상', '설교', '기도', '회개', '감사']) {
+    // 5종 라벨이 모두 보인다. (① 카테고리 라벨 묵상→QT)
+    for (final label in ['QT', '설교', '기도', '회개', '감사']) {
       expect(find.text(label), findsOneWidget);
     }
-    // 작성된 2종(묵상·기도) = 체크, 나머지 3종 = 미체크.
+    // 작성된 2종(QT·기도) = 체크, 나머지 3종 = 미체크.
     expect(find.byIcon(Icons.check_circle), findsNWidgets(2));
     expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(3));
   });
