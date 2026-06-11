@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import 'package:qtai_app/core/theme/app_theme.dart';
 import '../models/dashboard_response.dart';
 
 /// 대시보드 상단 프로필 카드.
@@ -34,11 +35,13 @@ class ProfileCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 28,
+                backgroundColor: context.appColors.bgSunken,
                 backgroundImage: profileImageUrl != null
                     ? NetworkImage(profileImageUrl!)
                     : null,
                 child: profileImageUrl == null
-                    ? const Icon(Icons.person, size: 28)
+                    ? Icon(Icons.person,
+                        size: 28, color: context.appColors.text2)
                     : null,
               ),
               const SizedBox(width: 16),
