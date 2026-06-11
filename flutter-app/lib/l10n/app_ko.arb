@@ -178,7 +178,7 @@
   "statsStreak": "연속",
   "statsDays": "{days}일",
   "notifMarkAllRead": "모두 읽음",
-  "notifUnreadOnly": "미읽음만",
+  "notifUnreadOnly": "안 읽은 알림만",
   "notifEmpty": "알림이 없습니다",
   "timeJustNow": "방금 전",
   "timeMinutesAgo": "{minutes}분 전",
