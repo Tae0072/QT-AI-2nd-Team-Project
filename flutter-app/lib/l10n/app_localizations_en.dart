@@ -598,6 +598,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsNotificationDesc => 'Receive push notifications';
 
   @override
+  String get settingsDarkMode => 'Dark mode';
+
+  @override
+  String get settingsDarkModeDesc => 'Use the dark theme';
+
+  @override
   String get settingsFontSize => 'Font size';
 
   @override

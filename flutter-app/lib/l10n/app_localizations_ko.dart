@@ -589,6 +589,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsNotificationDesc => '푸시 알림을 받습니다';
 
   @override
+  String get settingsDarkMode => '다크 모드';
+
+  @override
+  String get settingsDarkModeDesc => '어두운 테마를 사용합니다';
+
+  @override
   String get settingsFontSize => '폰트 크기';
 
   @override

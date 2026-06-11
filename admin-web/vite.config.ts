@@ -41,5 +41,17 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    // 단일 번들(1.15MB)을 라이브러리 단위로 쪼개 첫 로딩·캐싱 개선.
+    // (코드리뷰 P5c. 최초 #508로 머지됐으나 #510 롤백에 휩쓸려 revert → 재적용.)
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            antd: ['antd', '@ant-design/icons'],
+            vendor: ['react', 'react-dom', 'react-router-dom', 'axios'],
+          },
+        },
+      },
+    },
   };
 });
