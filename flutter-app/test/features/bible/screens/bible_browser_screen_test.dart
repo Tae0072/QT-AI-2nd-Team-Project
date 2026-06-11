@@ -29,7 +29,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('목차검색 :: 성경본문'), findsOneWidget);
+    expect(find.text('성경 본문'), findsOneWidget);
     expect(find.text('창세기'), findsWidgets);
     expect(find.text('Genesis'), findsOneWidget);
     expect(find.text('율법서'), findsOneWidget);
