@@ -1,6 +1,8 @@
 package com.qtai.domain.member.web;
 
 import com.qtai.common.dto.ApiResponse;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.member.api.dto.DashboardResponse;
 import com.qtai.domain.member.api.dto.DashboardResponse.PraiseSummary;
@@ -52,7 +54,11 @@ public class MyPageController {
      */
     @GetMapping("/api/v1/me/dashboard")
     public ResponseEntity<ApiResponse<DashboardResponse>> dashboard(
-            @AuthenticationPrincipal Long memberId) {
+            @AuthenticationPrincipal Long principalMemberId) {
+
+        // 방어적 검증: 보안 설정 변경으로 비인증 접근이 새어 들어와도 NPE 대신 401로 응답
+        // (MeditationCalendarController.requireMemberId와 동일 패턴)
+        Long memberId = requireMemberId(principalMemberId);
 
         List<String> widgetErrors = new ArrayList<>();
 
@@ -75,6 +81,13 @@ public class MyPageController {
                 profile, stats, unreadCount, praiseSummary, missionProgress, widgetErrors);
 
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    private Long requireMemberId(Long memberId) {
+        if (memberId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return memberId;
     }
 
     // ── private widget loaders (부분 실패 허용) ──
