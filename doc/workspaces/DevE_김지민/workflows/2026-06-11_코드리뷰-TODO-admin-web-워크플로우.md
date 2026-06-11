@@ -10,7 +10,7 @@
 | 기준 문서  | `04_API_명세서.md`, 백엔드 계약서(아래 의존성 표)                                                              |
 | 담당 경로  | `admin-web/` (React + TS + Vite + AntD)                                                         |
 | 검증 게이트 | `npm run typecheck`(strict) + `npm run build` (테스트 프레임워크 없음)                                    |
-| 상태     | P1(#482)·P3a(#490)·P3b(#496)·P3c(#501) 머지 완료 · P2 토큰 갱신 진행 중(`feature/admin-web-token-refresh`) |
+| 상태     | P1(#482)·P3a(#490)·P3b(#496)·P3c(#501)·P2(#504) 머지 · P5b PR대기 · **P5c 재적용 필요**(#508→#510 롤백 revert) · P4/P5a 대기. 상세: `2026-06-11_admin-web-진행상황-핸드오프.md` |
 
 
 ---
