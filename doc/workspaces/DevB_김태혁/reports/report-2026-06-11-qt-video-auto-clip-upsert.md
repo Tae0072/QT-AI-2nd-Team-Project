@@ -1,4 +1,4 @@
-# 2026-06-11 QT 영상 클립 자동 준비 버그 수정 리포트
+# Report — 2026-06-11 qt-video-auto-clip-upsert
 
 ## 요약
 

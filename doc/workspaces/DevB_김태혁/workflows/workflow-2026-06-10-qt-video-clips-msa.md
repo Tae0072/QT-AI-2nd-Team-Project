@@ -1,4 +1,4 @@
-# 2026-06-10 QT 영상 클립 MSA 적용 워크플로우
+# Workflow — 2026-06-10 qt-video-clips-msa
 
 ## 목표
 
