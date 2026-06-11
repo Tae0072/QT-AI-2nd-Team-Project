@@ -14,7 +14,7 @@
 
 ---
 
-## ⏳ P3a `feat/admin-web-dashboard-dto` — 진행 중 (렌더 A)
+## ⏳ P3a `feature/admin-web-dashboard-dto` — 진행 중 (렌더 A)
 
 - [ ] `src/api/dashboard.ts`: `[key:string]:unknown` → 실타입(`DashboardSummary`/`TodayQt`/`TodayQtStatus`/`RecentAuditLog`, 백엔드 DTO 1:1)
 - [ ] `DashboardPage.tsx` 카운트 3개 = `Statistic` 카드(AI 검증 대기·신고 접수·신고 검토)
@@ -24,12 +24,12 @@
 - [ ] `npm run typecheck` + `npm run build` 통과
 - [ ] 워크플로우·리포트 갱신 → 커밋 → push → PR(base dev)
 
-## ⏳ P3b `feat/admin-web-qt-passages-dto` — AD-02 (예정)
+## ⏳ P3b `feature/admin-web-qt-passages-dto` — AD-02 (예정)
 
 - [ ] `src/api/qtPassages.ts` 실타입(`AdminQtPassageResponse`/`AdminQtPassageListResponse`, #454 계약서 기준)
 - [ ] `QtPassagesPage.tsx` 실데이터 테이블 + 빈/에러 + "준비 중" 철거 + 페이징(`usePagedList` 재사용)
 
-## ⏳ P3c `feat/admin-web-notices-dto` — AD-06 (예정)
+## ⏳ P3c `feature/admin-web-notices-dto` — AD-06 (예정)
 
 - [ ] `src/api/notices.ts` 실타입(`AdminNoticeListResponse`/`DetailResponse`/`PublishResponse`, #450)
 - [ ] `NoticesPage.tsx` 실데이터 + 빈/에러 + "준비 중" 철거
@@ -38,7 +38,7 @@
 
 - [ ] `vite.config.ts` `build.rollupOptions.output.manualChunks`(antd/vendor) → 청크 분리 확인(1.15MB 단일청크 해소)
 
-## ⏳ P5b `feat/admin-web-kakao-sdk-notice` (예정)
+## ⏳ P5b `feature/admin-web-kakao-sdk-notice` (예정)
 
 - [ ] LoginPage에서 `kakao.ts` 키 미설정 에러를 AntD `Alert`로 노출(VITE_KAKAO_JS_KEY 안내)
 

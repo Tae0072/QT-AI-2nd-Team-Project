@@ -9,7 +9,7 @@
 | 기준 문서 | `04_API_명세서.md`, 백엔드 계약서(아래 의존성 표) |
 | 담당 경로 | `admin-web/` (React + TS + Vite + AntD) |
 | 검증 게이트 | `npm run typecheck`(strict) + `npm run build` (테스트 프레임워크 없음) |
-| 상태 | P1 머지 완료(#482) · P3a 대시보드 진행 중(`feat/admin-web-dashboard-dto`, 렌더 A) |
+| 상태 | P1 머지 완료(#482) · P3a 대시보드 진행 중(`feature/admin-web-dashboard-dto`, 렌더 A) |
 
 ---
 
@@ -40,11 +40,11 @@
 | 순서 | 브랜치 | 항목 | 상태 |
 | --- | --- | --- | --- |
 | 1 | `bugfix/admin-web-auth-proxy` | P1 로그인 라우팅 | ✅ 머지(#482) |
-| 2 | `feat/admin-web-dashboard-dto` | P3 AD-01 | 진행 중(렌더 A) |
-| 3 | `feat/admin-web-qt-passages-dto` | P3 AD-02 | 예정 |
-| 4 | `feat/admin-web-notices-dto` | P3 AD-06 | 예정 |
+| 2 | `feature/admin-web-dashboard-dto` | P3 AD-01 | 진행 중(렌더 A) |
+| 3 | `feature/admin-web-qt-passages-dto` | P3 AD-02 | 예정 |
+| 4 | `feature/admin-web-notices-dto` | P3 AD-06 | 예정 |
 | 5 | `chore/admin-web-code-split` | P5c | 예정 |
-| 6 | `feat/admin-web-kakao-sdk-notice` | P5b | 예정 |
+| 6 | `feature/admin-web-kakao-sdk-notice` | P5b | 예정 |
 | 7 | `docs/admin-web-token-storage-review` | P4 | 예정(강태오 확인) |
 | 보류 | — | P2 refresh | 이승욱 계약 결정 후 |
 | 보류 | — | P5a 찬양 숨김 | admin-server praise 컨트롤러 구현 후 |
