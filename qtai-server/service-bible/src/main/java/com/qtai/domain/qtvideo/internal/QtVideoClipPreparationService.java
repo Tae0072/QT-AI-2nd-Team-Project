@@ -5,6 +5,7 @@ import com.qtai.domain.qt.api.dto.QtPassageContentContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -32,7 +33,7 @@ public class QtVideoClipPreparationService {
     private final QtVideoClipRepository qtVideoClipRepository;
     private final Clock clock;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean prepareToday() {
         LocalDate today = LocalDate.now(clock.withZone(KST));
         return getQtPassageContentContextUseCase.findContentContextByDate(today)
@@ -43,7 +44,7 @@ public class QtVideoClipPreparationService {
                 });
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean prepare(Long qtPassageId) {
         if (qtPassageId == null || qtPassageId < 1) {
             log.warn("Skip QT video clip preparation - invalid qtPassageId={}", qtPassageId);

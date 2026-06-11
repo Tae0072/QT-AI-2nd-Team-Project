@@ -14,6 +14,11 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @RequiredArgsConstructor
 class QtVideoClipPreparationListener {
 
+    private static final String STARTUP_HANDLER =
+            "QtVideoClipPreparationListener.prepareTodayOnStartup";
+    private static final String MAPPING_CHANGED_HANDLER =
+            "QtVideoClipPreparationListener.prepareAfterQtVerseMappingsChanged";
+
     private final QtVideoClipPreparationService preparationService;
 
     @EventListener(ApplicationReadyEvent.class)
@@ -22,7 +27,10 @@ class QtVideoClipPreparationListener {
             preparationService.prepareToday();
         } catch (RuntimeException exception) {
             log.warn(
-                    "Failed to prepare today's QT video clip on startup. errorType={}, errorMessage={}",
+                    "Failed to prepare today's QT video clip on startup. eventType={}, handlerName={}, retryable={}, errorType={}, errorMessage={}",
+                    ApplicationReadyEvent.class.getSimpleName(),
+                    STARTUP_HANDLER,
+                    true,
                     exception.getClass().getSimpleName(),
                     exception.getMessage()
             );
@@ -32,11 +40,23 @@ class QtVideoClipPreparationListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     void prepareAfterQtVerseMappingsChanged(QtPassageVerseMappingsChangedEvent event) {
         try {
-            preparationService.prepare(event.qtPassageId());
+            boolean prepared = preparationService.prepare(event.qtPassageId());
+            log.info(
+                    "Handled QT video clip preparation event. eventId={}, eventType={}, handlerName={}, qtPassageId={}, prepared={}",
+                    event.eventId(),
+                    event.eventType(),
+                    MAPPING_CHANGED_HANDLER,
+                    event.qtPassageId(),
+                    prepared
+            );
         } catch (RuntimeException exception) {
             log.warn(
-                    "Failed to prepare QT video clip. qtPassageId={}, errorType={}, errorMessage={}",
+                    "Failed to prepare QT video clip. eventId={}, eventType={}, handlerName={}, qtPassageId={}, retryable={}, errorType={}, errorMessage={}",
+                    event.eventId(),
+                    event.eventType(),
+                    MAPPING_CHANGED_HANDLER,
                     event.qtPassageId(),
+                    true,
                     exception.getClass().getSimpleName(),
                     exception.getMessage()
             );
