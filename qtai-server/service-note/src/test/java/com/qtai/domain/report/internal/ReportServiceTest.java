@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.qtai.common.exception.BusinessException;
@@ -23,6 +24,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+/**
+ * 신고 접수 서비스 단위 테스트.
+ *
+ * <p>service-note는 신고 접수만 담당한다. POST/COMMENT 대상은 즉시 검증하고, AI_QA_REQUEST 대상 검증은
+ * service-ai 조회 API가 준비된 뒤 설정으로 활성화한다.
+ */
 @ExtendWith(MockitoExtension.class)
 class ReportServiceTest {
 
@@ -40,16 +47,23 @@ class ReportServiceTest {
     private CheckAiQaRequestExistsClient checkAiQaRequestExistsClient;
 
     private ReportService reportService() {
+        return reportService(true);
+    }
+
+    private ReportService reportService(boolean aiQaRequestValidationEnabled) {
+        ReportTargetValidationProperties properties = new ReportTargetValidationProperties();
+        properties.setAiQaRequestEnabled(aiQaRequestValidationEnabled);
         return new ReportService(
                 reportRepository,
                 CLOCK,
                 getSharingPostUseCase,
                 checkCommentExistsUseCase,
-                checkAiQaRequestExistsClient);
+                checkAiQaRequestExistsClient,
+                properties);
     }
 
     @Test
-    void unsupported_target_type_returns_invalid_input() {
+    void 지원하지_않는_대상타입이면_INVALID_INPUT() {
         ReportCreateRequest request = new ReportCreateRequest("UNKNOWN", 1L, "SPAM", null);
 
         assertThatThrownBy(() -> reportService().createReport(1L, request))
@@ -60,7 +74,7 @@ class ReportServiceTest {
     }
 
     @Test
-    void duplicate_report_returns_duplicate_report() {
+    void 중복_신고면_DUPLICATE_REPORT() {
         ReportCreateRequest request = new ReportCreateRequest("AI_QA_REQUEST", 9L, "FACT_ERROR", null);
         when(checkAiQaRequestExistsClient.exists(1L, 9L)).thenReturn(true);
         when(reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(
@@ -74,7 +88,7 @@ class ReportServiceTest {
     }
 
     @Test
-    void post_target_not_found_maps_to_report_target_not_found() {
+    void POST_대상이_없으면_REPORT_TARGET_NOT_FOUND() {
         ReportCreateRequest request = new ReportCreateRequest("POST", 100L, "SPAM", null);
         when(getSharingPostUseCase.getDetail(anyLong(), anyLong()))
                 .thenThrow(new BusinessException(ErrorCode.SHARING_POST_NOT_FOUND));
@@ -87,7 +101,7 @@ class ReportServiceTest {
     }
 
     @Test
-    void comment_target_not_found_maps_to_report_target_not_found() {
+    void COMMENT_대상이_없으면_REPORT_TARGET_NOT_FOUND() {
         ReportCreateRequest request = new ReportCreateRequest("COMMENT", 100L, "SPAM", null);
         when(checkCommentExistsUseCase.existsReportableComment(100L)).thenReturn(false);
 
@@ -99,7 +113,7 @@ class ReportServiceTest {
     }
 
     @Test
-    void ai_qa_request_target_not_found_maps_to_report_target_not_found() {
+    void AI_QA_REQUEST_검증_활성화_상태에서_대상이_없으면_REPORT_TARGET_NOT_FOUND() {
         ReportCreateRequest request = new ReportCreateRequest("AI_QA_REQUEST", 9L, "FACT_ERROR", null);
         when(checkAiQaRequestExistsClient.exists(1L, 9L)).thenReturn(false);
 
@@ -111,7 +125,7 @@ class ReportServiceTest {
     }
 
     @Test
-    void comment_report_saves_received_status() {
+    void COMMENT_신고면_RECEIVED_상태로_저장된다() {
         ReportCreateRequest request = new ReportCreateRequest("COMMENT", 100L, "SPAM", "상세");
         when(checkCommentExistsUseCase.existsReportableComment(100L)).thenReturn(true);
         when(reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(
@@ -124,7 +138,7 @@ class ReportServiceTest {
     }
 
     @Test
-    void ai_qa_request_report_saves_received_status() {
+    void AI_QA_REQUEST_검증_활성화_상태에서_신고면_RECEIVED_상태로_저장된다() {
         ReportCreateRequest request = new ReportCreateRequest("AI_QA_REQUEST", 9L, "FACT_ERROR", "상세");
         when(checkAiQaRequestExistsClient.exists(1L, 9L)).thenReturn(true);
         when(reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(
@@ -133,6 +147,19 @@ class ReportServiceTest {
         ReportResponse response = reportService().createReport(1L, request);
 
         assertThat(response.status()).isEqualTo(ReportStatus.RECEIVED.name());
+        verify(reportRepository).save(any(Report.class));
+    }
+
+    @Test
+    void AI_QA_REQUEST_검증_비활성화면_존재확인_없이_저장된다() {
+        ReportCreateRequest request = new ReportCreateRequest("AI_QA_REQUEST", 9L, "FACT_ERROR", "상세");
+        when(reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(
+                1L, ReportTargetType.AI_QA_REQUEST, 9L)).thenReturn(false);
+
+        ReportResponse response = reportService(false).createReport(1L, request);
+
+        assertThat(response.status()).isEqualTo(ReportStatus.RECEIVED.name());
+        verifyNoInteractions(checkAiQaRequestExistsClient);
         verify(reportRepository).save(any(Report.class));
     }
 }

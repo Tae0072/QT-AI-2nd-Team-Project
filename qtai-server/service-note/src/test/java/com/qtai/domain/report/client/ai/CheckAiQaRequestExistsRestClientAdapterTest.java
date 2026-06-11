@@ -35,7 +35,7 @@ class CheckAiQaRequestExistsRestClientAdapterTest {
         server = MockRestServiceServer.bindTo(builder).build();
         ServiceEndpointsProperties endpoints = new ServiceEndpointsProperties();
         endpoints.setAiBaseUrl(AI_BASE_URL);
-        adapter = new CheckAiQaRequestExistsRestClientAdapter(builder, endpoints);
+        adapter = new CheckAiQaRequestExistsRestClientAdapter(builder, endpoints, false);
     }
 
     @AfterEach
@@ -54,25 +54,21 @@ class CheckAiQaRequestExistsRestClientAdapterTest {
     }
 
     @Test
-    void maps_404_to_report_target_not_found() {
+    void returns_false_when_ai_qa_request_is_not_found() {
         server.expect(requestTo(AI_BASE_URL + "/api/v1/ai/qa-requests/9"))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND));
 
-        assertThatThrownBy(() -> adapter.exists(1L, 9L))
-                .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.REPORT_TARGET_NOT_FOUND);
+        assertThat(adapter.exists(1L, 9L)).isFalse();
+        server.verify();
     }
 
     @Test
-    void maps_403_to_report_target_not_found() {
+    void returns_false_when_ai_qa_request_is_forbidden() {
         server.expect(requestTo(AI_BASE_URL + "/api/v1/ai/qa-requests/9"))
                 .andRespond(withStatus(HttpStatus.FORBIDDEN));
 
-        assertThatThrownBy(() -> adapter.exists(1L, 9L))
-                .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.REPORT_TARGET_NOT_FOUND);
+        assertThat(adapter.exists(1L, 9L)).isFalse();
+        server.verify();
     }
 
     @Test

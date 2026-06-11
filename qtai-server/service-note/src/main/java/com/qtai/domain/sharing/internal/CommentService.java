@@ -110,7 +110,7 @@ public class CommentService implements CommentUseCase, CheckCommentExistsUseCase
 
     @Override
     public boolean existsReportableComment(Long commentId) {
-        return commentRepository.existsByIdAndIsDeletedFalse(commentId);
+        return commentRepository.existsReportableComment(commentId);
     }
 
     @Override

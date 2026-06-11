@@ -27,7 +27,14 @@ public class ReportService implements CreateReportUseCase {
     private final GetSharingPostUseCase getSharingPostUseCase;
     private final CheckCommentExistsUseCase checkCommentExistsUseCase;
     private final CheckAiQaRequestExistsClient checkAiQaRequestExistsClient;
+    private final ReportTargetValidationProperties targetValidationProperties;
 
+    /**
+     * 신고를 접수한다.
+     *
+     * <p>대상은 `(targetType, targetId)`로 식별하고, 대상별 공개 UseCase/client 포트로 신고 가능한 대상인지 먼저
+     * 확인한다. 중복 신고는 사전 조회와 DB unique 제약 양쪽으로 막는다.
+     */
     @Override
     @Transactional
     public ReportResponse createReport(Long memberId, ReportCreateRequest request) {
@@ -50,6 +57,7 @@ public class ReportService implements CreateReportUseCase {
         try {
             reportRepository.save(report);
         } catch (DataIntegrityViolationException e) {
+            // TOCTOU: existsBy 이후 동시 INSERT로 unique 제약이 깨지면 동일한 비즈니스 예외로 변환한다.
             throw new BusinessException(ErrorCode.DUPLICATE_REPORT);
         }
 
@@ -96,6 +104,9 @@ public class ReportService implements CreateReportUseCase {
     }
 
     private void validateAiQaRequestTarget(Long memberId, Long targetId) {
+        if (!targetValidationProperties.isAiQaRequestEnabled()) {
+            return;
+        }
         if (!checkAiQaRequestExistsClient.exists(memberId, targetId)) {
             throw new BusinessException(ErrorCode.REPORT_TARGET_NOT_FOUND);
         }
