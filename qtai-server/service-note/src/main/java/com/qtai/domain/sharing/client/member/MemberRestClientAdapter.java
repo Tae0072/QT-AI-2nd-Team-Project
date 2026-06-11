@@ -25,7 +25,7 @@ import java.util.function.Function;
  *
  * <p>MSA 분리 기준(CLAUDE.md §4): member는 service-user 소관이라 service-note(sharing)는 api 계약 타입만
  * 가져와 client 어댑터로 구현한다. 회의록 2026-06-09 §3대로 통신은 RestClient(동기)만 사용한다.
- * 이 어댑터가 기존 {@code GetMemberUseCaseMock}을 대체한다.
+ * 이 어댑터가 기존 member client mock을 대체한다.
  *
  * <p>인증(설계 §5/§81): 나눔 피드·댓글 조회는 사용자 요청 맥락이라 요청 JWT를 그대로 전달한다
  * ({@link ServiceCallAuthForwarder}). 오류(CLAUDE.md §9): {@link RestClientException}만 구체 캐치 →
