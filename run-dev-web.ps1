@@ -47,7 +47,9 @@ Start-Process powershell -ArgumentList @(
     "cd '$root\qtai-server'; `$env:SPRING_PROFILES_ACTIVE='dev'; .\gradlew.bat bootRun"
 )
 
-Write-Host "      서버 포트 8080 대기 (최초 빌드면 수십 초 걸릴 수 있음)..." -ForegroundColor Cyan
+# 8080은 nginx 게이트웨이(클라이언트 단일 진입점)다 — docker compose up 시 gateway 서비스가 연다.
+# (MSA 전환 후 단일 모놀리식 8080은 없음. 경로별 분배는 deploy/nginx/dev.conf 참고)
+Write-Host "      게이트웨이 포트 8080 대기 (최초 빌드면 수십 초 걸릴 수 있음)..." -ForegroundColor Cyan
 while (-not (Test-Port 8080)) { Start-Sleep -Seconds 3 }
 
 Write-Host "[3/3] Flutter 웹 시작 (이 창)..." -ForegroundColor Cyan
