@@ -14,7 +14,7 @@
 
 ---
 
-## ⏳ P3a `feature/admin-web-dashboard-dto` — 진행 중 (렌더 A)
+## ✅ P3a `feature/admin-web-dashboard-dto` — 머지 완료 (#490, 렌더 A)
 
 - [ ] `src/api/dashboard.ts`: `[key:string]:unknown` → 실타입(`DashboardSummary`/`TodayQt`/`TodayQtStatus`/`RecentAuditLog`, 백엔드 DTO 1:1)
 - [ ] `DashboardPage.tsx` 카운트 3개 = `Statistic` 카드(AI 검증 대기·신고 접수·신고 검토)
@@ -24,10 +24,16 @@
 - [ ] `npm run typecheck` + `npm run build` 통과
 - [ ] 워크플로우·리포트 갱신 → 커밋 → push → PR(base dev)
 
-## ⏳ P3b `feature/admin-web-qt-passages-dto` — AD-02 (예정)
+## ⏳ P3b `feature/admin-web-qt-passages-dto` — AD-02 풀 CRUD (진행 중)
 
-- [ ] `src/api/qtPassages.ts` 실타입(`AdminQtPassageResponse`/`AdminQtPassageListResponse`, #454 계약서 기준)
-- [ ] `QtPassagesPage.tsx` 실데이터 테이블 + 빈/에러 + "준비 중" 철거 + 페이징(`usePagedList` 재사용)
+- [x] `qtPassages.ts` 실타입(`QtPassage`+`QtPassageStatus` 5종)+필터 파라미터+`QtPassageRequest`+create/update API
+- [x] `QtPassagesPage.tsx` `usePagedList` 목록 + 명시 컬럼 + 상태 Tag(한글 라벨)
+- [x] 필터(상태/기간/검색) + 에러 Alert+재시도 + "준비 중" 철거 + 페이징
+- [x] 행 액션(상태별 수정/게시/숨김, Popconfirm) — 계약서 §7 버튼 정책
+- [x] 등록/수정 Modal 폼(qtDate·bookId·chapter·startVerse~endVerse·title·mainVerseRef) + 검증(필수·날짜형식·startVerse≤endVerse)
+- [x] antd 함정 보정: Modal `forceRender`(수정 시 빈 폼 방지), validateFields 검증/저장 분리
+- [x] `npm run typecheck` + `npm run build` 통과
+- [ ] 워크플로우·리포트 갱신 → 커밋 → push → PR(base dev)
 
 ## ⏳ P3c `feature/admin-web-notices-dto` — AD-06 (예정)
 
