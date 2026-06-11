@@ -18,9 +18,11 @@ import com.qtai.domain.study.internal.VerseExplanationStatus;
 import com.qtai.support.TestEntityFactory;
 import java.time.LocalDate;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -46,6 +48,17 @@ class QtPassageStudyApiTest {
     @Autowired private QtPassageRepository qtPassageRepository;
     @Autowired private QtPassageVerseRepository qtPassageVerseRepository;
     @Autowired private VerseExplanationRepository verseExplanationRepository;
+    @Autowired private CacheManager cacheManager;
+
+    // @Cacheable("bibleBooks")는 컨텍스트 캐시라 트랜잭션 롤백과 무관 — 앞선 @SpringBootTest가
+    // 캐싱한 권 목록이 남아 새로 시드한 권을 못 찾는 일을 막기 위해 각 테스트 전 무효화한다.
+    @BeforeEach
+    void clearBibleBooksCache() {
+        var cache = cacheManager.getCache("bibleBooks");
+        if (cache != null) {
+            cache.clear();
+        }
+    }
 
     private static RequestPostProcessor user(long memberId) {
         return authentication(new UsernamePasswordAuthenticationToken(
