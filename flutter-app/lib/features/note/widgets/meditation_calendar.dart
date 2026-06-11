@@ -10,10 +10,11 @@ import 'note_day_checklist_sheet.dart';
 
 /// 카테고리별 색점 색상 — Calm Paper 톤(저채도 어스톤).
 ///
-/// 유일한 유채색 포인트는 accentDot(#E0492F)이므로, QT(묵상)만 시그니처 웜레드를
-/// 쓰고 나머지 4종은 차분한 저채도 톤으로 구분한다. Map의 키 순서가 색점 표시 순서다.
+/// 예약색 accentDot(#E0492F)은 활성 탭 도트 전용이므로 카테고리 점에는 쓰지 않는다.
+/// 5종 모두 저채도 어스톤으로 구분하며, QT만 따뜻한 클레이로 살짝 도드라지게 한다.
+/// Map의 키 순서가 색점 표시 순서다.
 const Map<String, Color> kNoteCategoryDotColors = {
-  'MEDITATION': Color(0xFFE0492F), // QT — 시그니처 웜레드(accentDot)
+  'MEDITATION': Color(0xFFB5654D), // QT — 더스티 클레이(탭 accentDot과 분리)
   'SERMON': Color(0xFF7E8A93), // 설교 — 더스티 슬레이트
   'PRAYER': Color(0xFF84937E), // 기도 — 더스티 세이지
   'REPENTANCE': Color(0xFF94858F), // 회개 — 더스티 모브
