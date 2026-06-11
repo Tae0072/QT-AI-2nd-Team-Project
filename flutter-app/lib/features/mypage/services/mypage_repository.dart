@@ -146,10 +146,12 @@ class MyPageRepository {
   }
 
   /// 내 찬양 저장 (큐레이션 곡).
-  Future<void> saveMyPraiseSong(int praiseSongId) async {
+  ///
+  /// POST /me/praise-songs — praiseSongId + displayTitle 필수 (04 §4.6.4).
+  Future<void> saveMyPraiseSong(int praiseSongId, String displayTitle) async {
     await _dio.post('/me/praise-songs', data: {
       'praiseSongId': praiseSongId,
-      'sourceType': 'CURATION',
+      'displayTitle': displayTitle,
     });
   }
 
