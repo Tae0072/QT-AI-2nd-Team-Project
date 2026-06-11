@@ -350,7 +350,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bibleExplanation => 'Commentary';
 
   @override
-  String get bibleSimulator => 'Animation';
+  String get bibleSimulator => 'QT Video';
 
   @override
   String get qtVideoTitle => 'QT Video';

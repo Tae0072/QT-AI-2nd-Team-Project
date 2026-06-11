@@ -195,14 +195,14 @@ void main() {
     expect(find.text('아직 준비된 해설이 없습니다.'), findsOneWidget);
   });
 
-  testWidgets('애니메이션 버튼을 누르면 영상 섹션으로 스크롤한다', (tester) async {
+  testWidgets('QT 영상 버튼을 누르면 영상 섹션으로 스크롤한다', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
 
     final passage = TodayQtPassage(
       qtPassageId: 7,
       passageDate: '2026-06-11',
-      simulatorStatus: 'READY',
+      simulatorStatus: 'MISSING',
       reference: const BibleReference(
         koreanBookName: '창세기',
         englishBookName: 'Genesis',
@@ -259,11 +259,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('애니메이션'), findsOneWidget);
+    expect(find.text('QT 영상'), findsOneWidget);
+    final animationButtonFinder =
+        find.widgetWithIcon(OutlinedButton, Icons.movie_outlined);
+    final animationButton =
+        tester.widget<OutlinedButton>(animationButtonFinder);
+    expect(animationButton.onPressed, isNotNull);
+
     final videoFinder = find.byKey(const Key('today-qt-video-section'));
     expect(videoFinder, findsNothing);
 
-    await tester.tap(find.text('애니메이션'));
+    await tester.tap(animationButtonFinder);
     await tester.pumpAndSettle();
 
     expect(videoFinder, findsOneWidget);
