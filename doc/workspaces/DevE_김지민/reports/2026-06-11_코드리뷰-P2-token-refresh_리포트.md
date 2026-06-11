@@ -40,7 +40,7 @@ refresh 최종 실패(만료·무효·M0006 탈퇴·M0007 정지) 시 로그인 
 
 ## 남은 리스크 / 후속
 
-- ⚠️ **refresh 토큰 회전(rotation) 확인 필요 (이승욱)**: 계약 §6에 "refresh token rotation" 언급. FE는 응답 body에 새 `refreshToken`이 오면 저장하도록 방어 구현했으나, **만약 서버가 "기존 refresh를 1회 사용 후 무효화하면서 새 refresh를 body로 안 주는" 방식이면** 두 번째 갱신부터 실패(저장된 refresh가 stale). 확인 질문: ① `/auth/refresh` 응답 body에 새 `refreshToken`이 포함되는가? ② 기존 refresh는 사용 후 무효화되는가? → 케이스에 따라 FE 조정.
+- ✅ **refresh 토큰 회전(rotation) — 백엔드 코드로 확인 완료**: `service-user/AuthService.refresh()`가 새 토큰 쌍을 발급(rotation)하고 응답 `LoginResponse`에 **새 `refreshToken`을 body로 반환**, 기존 refresh는 `RefreshTokenStore`(Redis)에서 교체·무효화(단일 세션). FE는 `data.refreshToken`을 매번 저장하므로 **그대로 정상 — 추가 수정 불필요**. (참고: 같은 계정을 **다중 탭**에서 동시 갱신하면 rotation+단일세션 특성상 한쪽이 INVALID_REFRESH_TOKEN으로 로그아웃될 수 있음 — admin 도구 특성상 영향 미미, 필요 시 후속.)
 - 실데이터 스모크: access 만료→자동 갱신→화면 유지 / refresh 만료→로그인 이동을 풀스택에서 확인.
 - (선택) 로그아웃 시 서버 `POST /auth/logout` 호출로 refresh 무효화(현재는 클라이언트 토큰만 제거).
 - 로드맵 다음: P5c → P5b → P4. (P5a 찬양 숨김 보류)
