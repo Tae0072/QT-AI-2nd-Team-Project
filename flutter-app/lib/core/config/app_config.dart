@@ -76,7 +76,7 @@ class AppConfig {
     Environment environment = Environment.dev,
     String baseUrl = 'http://localhost:8080/api/v1',
     String kakaoNativeAppKey = 'test-key',
-    String ttsBaseUrl = 'http://localhost:8090',
+    String ttsBaseUrl = 'http://localhost:8091',
   }) {
     _instance = AppConfig._(
       environment: environment,
@@ -110,13 +110,16 @@ class AppConfig {
 
   /// TTS 서버 URL 결정.
   /// `--dart-define=TTS_BASE_URL=...` 으로 override 가능.
+  ///
+  /// dev 기본 포트는 8091 — 8090은 MSA 전환 후 admin-server가 사용하므로
+  /// TTS 로컬 서버는 8091로 띄운다(코드리뷰 2026-06-10 TODO 2 후속, 2026-06-11 합의).
   static String _ttsBaseUrlFor(Environment env) {
     const override = String.fromEnvironment('TTS_BASE_URL', defaultValue: '');
     if (override.isNotEmpty) return override;
     switch (env) {
       case Environment.dev:
         final host = _devHost();
-        return 'http://$host:8090';
+        return 'http://$host:8091';
       case Environment.staging:
         return 'https://tts.qtai.com';
       case Environment.prod:
