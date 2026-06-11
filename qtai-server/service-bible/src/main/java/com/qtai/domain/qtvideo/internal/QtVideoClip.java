@@ -91,6 +91,24 @@ public class QtVideoClip extends BaseEntity {
         return clip;
     }
 
+    public void replaceWithApprovedSingleCut(
+            String title,
+            SourceVideo sourceVideo,
+            String videoUrl,
+            BigDecimal startTimeSec,
+            BigDecimal endTimeSec,
+            LocalDateTime approvedAt) {
+        this.title = title;
+        this.sourceVideo = sourceVideo;
+        this.compositionType = QtVideoCompositionType.SINGLE_CUT;
+        this.videoUrl = videoUrl;
+        this.startTimeSec = startTimeSec;
+        this.endTimeSec = endTimeSec;
+        this.status = QtVideoClipStatus.APPROVED;
+        this.activeUniqueKey = ACTIVE_UNIQUE_KEY;
+        this.approvedAt = approvedAt;
+    }
+
     public void hide() {
         this.status = QtVideoClipStatus.HIDDEN;
         this.activeUniqueKey = null;
