@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -162,7 +164,7 @@ void main() {
       expect(navKey.currentState!.canPop(), isFalse);
 
       // 하위 화면을 push하면 뒤로가기가 가능해진다(설정/마이페이지 등 진입 시).
-      navKey.currentState!.pushNamed(AppRouter.login);
+      unawaited(navKey.currentState!.pushNamed(AppRouter.login));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       expect(navKey.currentState!.canPop(), isTrue);
