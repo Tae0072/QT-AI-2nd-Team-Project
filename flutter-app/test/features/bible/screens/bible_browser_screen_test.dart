@@ -100,6 +100,16 @@ class _FakeBibleRepository extends BibleRepository {
   _FakeBibleRepository({this.failSearch = false}) : super(Dio());
 
   @override
+  Future<BiblePassageStudy> getBiblePassageStudy({
+    required String bookCode,
+    required int chapter,
+    required int verseFrom,
+    required int verseTo,
+  }) async {
+    return BiblePassageStudy.none;
+  }
+
+  @override
   Future<List<BibleBook>> getBooks() async {
     return const [
       BibleBook(
