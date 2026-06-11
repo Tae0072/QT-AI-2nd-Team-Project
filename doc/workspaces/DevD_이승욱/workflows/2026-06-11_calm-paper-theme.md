@@ -15,7 +15,7 @@ T가 확정한 "Calm Paper" 디자인(DESIGN_PROMPT.md — 웜 오프화이트 +
 - 다크 토큰 세트 "잉크 위의 종이" — 웜 다크 차콜 배경(#1B1A18/#242220/#21201D) + 종이색 텍스트(#F0EEEA/#A5A29C/#6E6B66), 헤어라인 #383531. `accentDot`(#E0492F)은 양 모드 동일.
 - 색 토큰을 `AppColors` **ThemeExtension**으로 승격 — 라이트/다크 인스턴스를 ThemeData에 등록하고, 화면은 `context.appColors`로 현재 모드의 색을 받는다(테마 미지정 컨텍스트는 라이트 fallback — 테스트 NPE 방지).
 - ThemeData는 `_build(토큰, brightness)` 공용 빌더 하나로 생성 — 컴포넌트 규격은 두 모드 동일, 색만 교체.
-- `main.dart`: 두 MaterialApp에 `darkTheme` + `themeMode: ThemeMode.system`(시스템 설정 추종). 스플래시도 Builder로 다크 대응.
+- `main.dart`: 두 MaterialApp에 `darkTheme` 등록. ~~`themeMode: system`~~ → **설정 화면 토글만 따른다**(3차 커밋, T 결정): `themeModeProvider`(SharedPreferences `dark_mode` 로컬 저장, 기본 라이트)를 watch — 시스템 다크 설정 비추종. 마이페이지 설정 화면에 "다크 모드" SwitchListTile 추가(l10n ko/en). 스플래시도 Builder로 다크 대응.
 - 정적 토큰 직접 참조 화면(login/home/main 스플래시)을 `context.appColors`로 전환. 로고 가운뎃점은 `accentDot`(포인트 토큰 일원화), 약관 링크는 무채색+밑줄로 변경(유채색 1곳 이하 규칙).
 - 기존 `AppTheme.x` 정적 상수는 라이트 값으로 유지(타 화면 호환) — 신규 코드는 `context.appColors` 사용을 표준으로.
 

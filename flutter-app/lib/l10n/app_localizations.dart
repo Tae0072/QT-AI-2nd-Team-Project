@@ -1220,6 +1220,18 @@ abstract class AppLocalizations {
   /// **'Receive push notifications'**
   String get settingsNotificationDesc;
 
+  /// No description provided for @settingsDarkMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark mode'**
+  String get settingsDarkMode;
+
+  /// No description provided for @settingsDarkModeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the dark theme'**
+  String get settingsDarkModeDesc;
+
   /// No description provided for @settingsFontSize.
   ///
   /// In en, this message translates to:
