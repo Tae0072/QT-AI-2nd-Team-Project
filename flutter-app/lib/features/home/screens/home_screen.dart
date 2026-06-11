@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
-import '../services/double_back_exit_policy.dart';
+import '../widgets/double_back_exit_scope.dart';
 import '../../bible/screens/bible_browser_screen.dart';
 import '../../bible/screens/today_qt_screen.dart';
 import '../../music/providers/music_providers.dart';
@@ -23,28 +22,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
-  /// 마지막 뒤로가기 입력 시각 — 2초 내 재입력 시에만 종료(실수 종료 방지).
-  DateTime? _lastBackPressedAt;
-
-  /// 루트 뒤로가기 처리: 첫 입력은 안내 스낵바, [DoubleBackExitPolicy.window] 내 재입력은 종료.
-  void _onPopInvoked(bool didPop, Object? result) {
-    if (didPop) return;
-    final now = DateTime.now();
-    if (DoubleBackExitPolicy.shouldExit(last: _lastBackPressedAt, now: now)) {
-      // pop이 아니라 앱 종료 — 루트라 pop할 라우트가 없고, 안드로이드 관례상 태스크를 닫는다.
-      SystemNavigator.pop();
-      return;
-    }
-    _lastBackPressedAt = now;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(AppLocalizations.of(context).homeBackExitGuide),
-        duration: DoubleBackExitPolicy.window,
-        behavior: SnackBarBehavior.floating,
-      ));
-  }
-
   // 탭 순서는 아래 BottomNavigationBar items와 동일해야 한다.
   final _screens = const [
     TodayQtScreen(),
@@ -57,11 +34,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    // canPop: false — 루트에서 시스템 pop을 막고 _onPopInvoked에서 2번 입력 종료를 처리한다.
-    // (홈 위에 push된 상세 화면들은 자기 라우트가 pop을 처리하므로 영향 없음)
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: _onPopInvoked,
+    // 뒤로가기 2번 종료 — 다섯 탭 어디서든 동일. 홈 위에 push된 상세 화면들(알림·설정·
+    // 노트 작성 등)은 자기 라우트가 pop을 처리해 부모로 정상 복귀한다(스코프 javadoc 참조).
+    return DoubleBackExitScope(
       child: Scaffold(
       body: Consumer(
         builder: (context, ref, child) => Listener(
