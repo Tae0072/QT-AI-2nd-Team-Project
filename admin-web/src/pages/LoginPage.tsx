@@ -45,7 +45,7 @@ export default function LoginPage() {
     try {
       const kakaoToken = await loginWithKakao(); // 카카오 access token
       const res = await loginAdminWithKakao(kakaoToken); // ADMIN 토큰 발급
-      login(res.accessToken); // accessToken 저장 = 로그인
+      login(res.accessToken, res.refreshToken); // access + refresh 저장 = 로그인(자동 갱신 가능)
       navigate(from, { replace: true });
     } catch (e) {
       // 합의 ④: 권한 부족(403 ADMIN_USER_NOT_FOUND) 등은 별도 화면 없이 ErrorCode 그대로 표시.
