@@ -151,18 +151,6 @@ cd qtai-server
 
 - 결과: PASS
 
-## System endpoint 계약 동기화 후속 반영
-
-- 후속 workflow/report:
-  - `doc/workspaces/DevC_강상민/workflows/2026-06-08_ai-system-endpoint-contract-sync.md`
-  - `doc/workspaces/DevC_강상민/reports/2026-06-08_ai-system-endpoint-contract-sync_report.md`
-- `qtai-server/apis/ai-service/openapi.yaml`에 AI outbound provider endpoint 계약을 `x-ai-outbound-system-endpoints`로 추가했다.
-- provider endpoint는 ai-service가 제공하는 API가 아니므로 OpenAPI `paths`에는 추가하지 않았다.
-- 공통 규약은 `/api/v1/system/**`, service-token bearer, `SYSTEM_BATCH`, `ApiResponse<T>`, 쓰기 endpoint `Idempotency-Key`, `traceparent`, `traceId`, `AiClientException` 매핑으로 고정했다.
-- `QtContextClient`와 `QtContextResult` 파일은 잘려 있지 않은 정상 상태로 확인했다.
-- `QtContextResult`에는 `cacheStatus`를 포함하지 않고, today QT status 응답에만 `HIT`, `MISS`, `STALE_FALLBACK`, `EMPTY` cacheStatus를 둔다.
-- `passageContext`는 본문 원문 전체가 아니라 AI 생성/검증에 필요한 허용된 메타/context 블록으로 정의했다.
-
 ```powershell
 cd qtai-server
 .\gradlew.bat compileJava

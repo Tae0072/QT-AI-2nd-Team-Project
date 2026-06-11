@@ -61,10 +61,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // dev 웹 우회(webDevNoLogin, 삼중 게이트)가 켜진 경우는 기존 동작 유지.
     final webLoginUnsupported =
         isKakaoLoginUnsupported(isWeb: kIsWeb, webDevBypassEnabled: webDevNoLogin);
-    // 다크 모드 대응 — 정적 토큰 대신 현재 모드의 색 토큰을 받는다(fallback 내장).
-    final colors = context.appColors;
     return Scaffold(
-      backgroundColor: colors.bg,
+      backgroundColor: AppTheme.bg,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -76,15 +74,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text.rich(
                 TextSpan(children: [
                   const TextSpan(text: 'QT'),
-                  // 로고 가운뎃점 — 유일한 유채색 포인트(탭 도트와 동일 토큰).
-                  TextSpan(text: '·', style: TextStyle(color: colors.accentDot)),
+                  TextSpan(text: '·', style: TextStyle(color: AppTheme.accent)),
                   const TextSpan(text: 'AI'),
                 ]),
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'GowunDodum',
                   fontSize: 40,
                   fontWeight: FontWeight.w400,
-                  color: colors.text,
+                  color: AppTheme.text,
                   letterSpacing: -1,
                 ),
               ),
@@ -94,11 +91,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text(
                 l.loginHeadline,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'GowunDodum',
                   fontSize: 28,
                   fontWeight: FontWeight.w400,
-                  color: colors.text,
+                  color: AppTheme.text,
                   height: 1.2,
                   letterSpacing: -0.4,
                 ),
@@ -107,7 +104,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text(
                 l.loginSubtitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, color: colors.textMuted, height: 1.5),
+                style: const TextStyle(fontSize: 17, color: AppTheme.textMuted, height: 1.5),
               ),
 
               const Spacer(flex: 2),
@@ -167,7 +164,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Text(
                   l.loginWebNotSupported,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: colors.textMuted),
+                  style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
                 ),
               ],
 
@@ -180,23 +177,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   children: [
                     TextSpan(
                       text: l.loginTermsOfService,
-                      // 링크 강조는 무채색(본문색) + 밑줄 — 유채색 포인트는 도트 전용(§2).
-                      style: TextStyle(
-                          color: colors.text,
-                          decoration: TextDecoration.underline),
+                      style: const TextStyle(color: AppTheme.accent),
                     ),
                     TextSpan(text: l.loginLegalAnd),
                     TextSpan(
                       text: l.loginPrivacyPolicy,
-                      style: TextStyle(
-                          color: colors.text,
-                          decoration: TextDecoration.underline),
+                      style: const TextStyle(color: AppTheme.accent),
                     ),
                     TextSpan(text: l.loginLegalSuffix),
                   ],
                 ),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: colors.textMuted),
+                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
               ),
 
               const SizedBox(height: 40),

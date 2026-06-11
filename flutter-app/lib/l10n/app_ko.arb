@@ -196,8 +196,6 @@
 
   "settingsNotification": "알림 수신",
   "settingsNotificationDesc": "푸시 알림을 받습니다",
-  "settingsDarkMode": "다크 모드",
-  "settingsDarkModeDesc": "어두운 테마를 사용합니다",
   "settingsFontSize": "폰트 크기",
   "settingsFontSizeDesc": "본문 글자 크기를 설정합니다",
   "settingsFontSmall": "작게",
