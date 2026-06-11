@@ -5,12 +5,18 @@ import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.common.security.SystemTokenProvider;
+import com.qtai.domain.study.api.HidePublishedGlossaryTermsUseCase;
 import com.qtai.domain.study.api.HidePublishedVerseExplanationUseCase;
 import com.qtai.domain.study.api.ListApprovedVerseExplanationUseCase;
+import com.qtai.domain.study.api.PublishApprovedGlossaryTermsUseCase;
 import com.qtai.domain.study.api.PublishApprovedVerseExplanationUseCase;
 import com.qtai.domain.study.api.dto.ApprovedVerseExplanationResponse;
+import com.qtai.domain.study.api.dto.HidePublishedGlossaryTermsCommand;
+import com.qtai.domain.study.api.dto.HidePublishedGlossaryTermsResult;
 import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
 import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationResult;
+import com.qtai.domain.study.api.dto.PublishApprovedGlossaryTermsCommand;
+import com.qtai.domain.study.api.dto.PublishApprovedGlossaryTermsResult;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationResult;
 import org.springframework.beans.factory.ObjectProvider;
@@ -42,14 +48,25 @@ import java.util.List;
 public class VerseExplanationRestClientAdapter
         implements PublishApprovedVerseExplanationUseCase,
         HidePublishedVerseExplanationUseCase,
-        ListApprovedVerseExplanationUseCase {
+        ListApprovedVerseExplanationUseCase,
+        PublishApprovedGlossaryTermsUseCase,
+        HidePublishedGlossaryTermsUseCase {
 
     private static final String BASE_PATH = "/api/v1/study/verse-explanations";
+    private static final String GLOSSARY_BASE_PATH = "/api/v1/study/glossary-terms";
 
     private static final ParameterizedTypeReference<ApiResponse<PublishApprovedVerseExplanationResult>> PUBLISH_TYPE =
             new ParameterizedTypeReference<>() {
             };
     private static final ParameterizedTypeReference<ApiResponse<HidePublishedVerseExplanationResult>> HIDE_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<PublishApprovedGlossaryTermsResult>>
+            GLOSSARY_PUBLISH_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<HidePublishedGlossaryTermsResult>>
+            GLOSSARY_HIDE_TYPE =
             new ParameterizedTypeReference<>() {
             };
     private static final ParameterizedTypeReference<ApiResponse<List<ApprovedVerseExplanationResponse>>> LIST_TYPE =
@@ -112,6 +129,46 @@ public class VerseExplanationRestClientAdapter
                         throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
                     })
                     .body(HIDE_TYPE);
+            return unwrap(body);
+        } catch (RestClientException e) {
+            throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
+        }
+    }
+
+    @Override
+    public PublishApprovedGlossaryTermsResult publishApprovedGlossaryTerms(PublishApprovedGlossaryTermsCommand command) {
+        String systemToken = issueSystemToken();
+        try {
+            ApiResponse<PublishApprovedGlossaryTermsResult> body = restClient.post()
+                    .uri(GLOSSARY_BASE_PATH)
+                    .headers(headers -> headers.setBearerAuth(systemToken))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(command)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (request, response) -> {
+                        throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
+                    })
+                    .body(GLOSSARY_PUBLISH_TYPE);
+            return unwrap(body);
+        } catch (RestClientException e) {
+            throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
+        }
+    }
+
+    @Override
+    public HidePublishedGlossaryTermsResult hidePublishedGlossaryTerms(HidePublishedGlossaryTermsCommand command) {
+        String systemToken = issueSystemToken();
+        try {
+            ApiResponse<HidePublishedGlossaryTermsResult> body = restClient.post()
+                    .uri(GLOSSARY_BASE_PATH + "/hide")
+                    .headers(headers -> headers.setBearerAuth(systemToken))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(command)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (request, response) -> {
+                        throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);
+                    })
+                    .body(GLOSSARY_HIDE_TYPE);
             return unwrap(body);
         } catch (RestClientException e) {
             throw new BusinessException(ErrorCode.EXTERNAL_API_FAILURE);

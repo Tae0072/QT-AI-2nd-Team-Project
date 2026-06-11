@@ -17,9 +17,13 @@ import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetCommand;
 import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetResult;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
+import com.qtai.domain.study.api.HidePublishedGlossaryTermsUseCase;
 import com.qtai.domain.study.api.HidePublishedVerseExplanationUseCase;
+import com.qtai.domain.study.api.PublishApprovedGlossaryTermsUseCase;
 import com.qtai.domain.study.api.PublishApprovedVerseExplanationUseCase;
+import com.qtai.domain.study.api.dto.HidePublishedGlossaryTermsCommand;
 import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
+import com.qtai.domain.study.api.dto.PublishApprovedGlossaryTermsCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 
 @Service
@@ -37,6 +41,8 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     private final AiValidationLogRepository validationLogRepository;
     private final PublishApprovedVerseExplanationUseCase publishApprovedVerseExplanationUseCase;
     private final HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase;
+    private final PublishApprovedGlossaryTermsUseCase publishApprovedGlossaryTermsUseCase;
+    private final HidePublishedGlossaryTermsUseCase hidePublishedGlossaryTermsUseCase;
     private final WriteAuditLogUseCase auditLogUseCase;
     private final ObjectMapper objectMapper;
 
@@ -45,6 +51,8 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             AiValidationLogRepository validationLogRepository,
             PublishApprovedVerseExplanationUseCase publishApprovedVerseExplanationUseCase,
             HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase,
+            PublishApprovedGlossaryTermsUseCase publishApprovedGlossaryTermsUseCase,
+            HidePublishedGlossaryTermsUseCase hidePublishedGlossaryTermsUseCase,
             WriteAuditLogUseCase auditLogUseCase,
             ObjectMapper objectMapper
     ) {
@@ -52,6 +60,8 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         this.validationLogRepository = validationLogRepository;
         this.publishApprovedVerseExplanationUseCase = publishApprovedVerseExplanationUseCase;
         this.hidePublishedVerseExplanationUseCase = hidePublishedVerseExplanationUseCase;
+        this.publishApprovedGlossaryTermsUseCase = publishApprovedGlossaryTermsUseCase;
+        this.hidePublishedGlossaryTermsUseCase = hidePublishedGlossaryTermsUseCase;
         this.auditLogUseCase = auditLogUseCase;
         this.objectMapper = objectMapper;
     }
@@ -97,9 +107,13 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         );
 
         PublishApprovedVerseExplanationCommand publishCommand = publishCommandForTarget(command, asset);
+        PublishApprovedGlossaryTermsCommand glossaryCommand = glossaryCommand(command, asset);
         asset.approve(command.reviewedAt());
         if (publishCommand != null) {
             publishApprovedVerseExplanationUseCase.publishApprovedVerseExplanation(publishCommand);
+        }
+        if (glossaryCommand != null) {
+            publishApprovedGlossaryTermsUseCase.publishApprovedGlossaryTerms(glossaryCommand);
         }
     }
 
@@ -127,6 +141,9 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         if (isVerseExplanationBibleVerseAsset(asset)) {
             hidePublishedVerseExplanationUseCase.hidePublishedVerseExplanation(
                     new HidePublishedVerseExplanationCommand(asset.getId())
+            );
+            hidePublishedGlossaryTermsUseCase.hidePublishedGlossaryTerms(
+                    new HidePublishedGlossaryTermsCommand(asset.getId())
             );
         }
     }
@@ -201,6 +218,64 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             }
         }
         throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson target verse explanation is missing");
+    }
+
+    private PublishApprovedGlossaryTermsCommand glossaryCommand(ReviewAiAssetCommand command, AiGeneratedAsset asset) {
+        if (!command.activateForTarget() || !isVerseExplanationBibleVerseAsset(asset)) {
+            return null;
+        }
+
+        JsonNode root = payloadRoot(asset);
+        JsonNode glossaryTerms = root.get("glossaryTerms");
+        if (glossaryTerms == null || !glossaryTerms.isArray() || glossaryTerms.isEmpty()) {
+            return null;
+        }
+
+        java.util.List<PublishApprovedGlossaryTermsCommand.Term> terms = glossaryTermItems(asset, glossaryTerms);
+        if (terms.isEmpty()) {
+            return null;
+        }
+        return new PublishApprovedGlossaryTermsCommand(
+                asset.getId(),
+                requireText(asset.getSourceLabel(), "sourceLabel"),
+                command.reviewedAt(),
+                terms
+        );
+    }
+
+    private java.util.List<PublishApprovedGlossaryTermsCommand.Term> glossaryTermItems(
+            AiGeneratedAsset asset,
+            JsonNode glossaryTerms
+    ) {
+        java.util.List<PublishApprovedGlossaryTermsCommand.Term> terms = new java.util.ArrayList<>();
+        for (JsonNode term : glossaryTerms) {
+            JsonNode verseIdNode = term.get("verseId");
+            if (verseIdNode == null || !verseIdNode.canConvertToLong()) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson glossaryTerms verseId is required");
+            }
+            long verseId = verseIdNode.asLong();
+            if (verseId != asset.getTargetId()) {
+                continue;
+            }
+            terms.add(new PublishApprovedGlossaryTermsCommand.Term(
+                    verseId,
+                    requireText(textValue(term.get("term")), "term"),
+                    requireText(textValue(term.get("meaning")), "meaning")
+            ));
+        }
+        return terms;
+    }
+
+    private JsonNode payloadRoot(AiGeneratedAsset asset) {
+        try {
+            JsonNode root = objectMapper.readTree(asset.getPayloadJson());
+            if (root == null || !root.isObject()) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson must be a JSON object");
+            }
+            return root;
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson is not valid JSON");
+        }
     }
 
     private void writeReviewAudit(
