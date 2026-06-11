@@ -1,10 +1,10 @@
-# 2026-06-11 마이페이지 피드백 5건 처리 (fix/flutter-mypage-feedback)
+# 2026-06-11 마이페이지 피드백 5건 처리 (bugfix/member-mypage-feedback)
 
 ## 목표·배경
 2026-06-10 팀원 마이페이지 사용 피드백 5건 처리. 핵심은 기록탭 작성 내용이 '나의 묵상' 통계에 반영되지 않는 버그(F-13) — 원인은 service-user 대시보드의 노트 통계가 MSA 통합 전 스텁/Mock으로 남아 있던 것.
 
 ## 범위
-- 브랜치: `fix/flutter-mypage-feedback` (dev 분기), PR 대상 dev
+- 브랜치: `bugfix/member-mypage-feedback` (dev 분기, 09_Git_규칙 §1.2 컨벤션 — 최초 `fix/flutter-*`에서 정정), PR 대상 dev
 - 변경: service-user 11파일 + flutter-app 4파일 + 문서 2파일 (한 PR로 통합 — 2026-06-11 T 결정)
 
 ## 처리 내역
