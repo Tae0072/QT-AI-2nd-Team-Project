@@ -44,12 +44,8 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
   /// 본문에서의 절 범위 선택(탭-탭). 진입 시 포커스 절을 단일 선택으로 시작한다.
   late VerseRangeSelection _selection;
 
-  /// 진입 포커스 절(첫 화면 스크롤 대상 + 해설 가용성 기준).
+  /// 진입 포커스 절(첫 화면 스크롤 대상).
   late final int _focusVerseNo;
-
-  /// 해설 가용성 조회용 고정 ref — 진입 포커스 기준으로 **1회만** 조회한다.
-  /// (절 선택마다 재조회하지 않도록 live 선택 _selection이 아닌 고정값을 쓴다.)
-  late final BiblePassageRef _studyRef;
 
   final _scrollController = ScrollController();
   final Map<int, GlobalKey> _verseKeys = {};
@@ -67,12 +63,6 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
     final verseNos = _verses.map((v) => v.verseNo).toList();
     _focusVerseNo = resolvePassageFocusVerse(verseNos, widget.focusVerseNo);
     _selection = VerseRangeSelection(from: _focusVerseNo, to: _focusVerseNo);
-    _studyRef = (
-      bookCode: _chapter.book.code,
-      chapter: _chapter.book.chapter,
-      verseFrom: _focusVerseNo,
-      verseTo: _focusVerseNo,
-    );
     for (final v in _verses) {
       _verseKeys[v.verseNo] = GlobalKey();
     }
@@ -113,20 +103,29 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
       '${_chapter.book.koreanName} ${_chapter.book.chapter}:'
       '${passageVerseLabel(from, to)}';
 
-  String get _selectionLabel =>
-      _referenceLabel(_selection.from, _selection.to);
+  String get _selectionLabel => _referenceLabel(_selection.from, _selection.to);
 
-  /// 해설 진입 — 가용성 조회와 동일하게 진입 포커스 절 기준으로 연다.
+  BiblePassageRef? get _selectedStudyRef {
+    if (_selectedVerses.isEmpty) return null;
+    return (
+      bookCode: _chapter.book.code,
+      chapter: _chapter.book.chapter,
+      verseFrom: _selection.from,
+      verseTo: _selection.to,
+    );
+  }
+
+  /// 해설 진입 — 가용성 조회와 동일하게 현재 선택 범위 기준으로 연다.
   void _openExplanation(int qtPassageId) {
-    final focusVerses =
-        _verses.where((v) => v.verseNo == _focusVerseNo).toList();
+    final selectedVerses = _selectedVerses;
+    if (selectedVerses.isEmpty) return;
     Navigator.of(context).pushNamed(
       AppRouter.qtStudyContent,
       arguments: QtStudyContentArgs(
         qtPassageId: qtPassageId,
-        referenceText: _referenceLabel(_focusVerseNo, _focusVerseNo),
+        referenceText: _selectionLabel,
         verseLabels: {
-          for (final verse in focusVerses) verse.id: '${verse.verseNo}',
+          for (final verse in selectedVerses) verse.id: '${verse.verseNo}',
         },
       ),
     );
@@ -159,9 +158,12 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
     final l = AppLocalizations.of(context);
     final book = _chapter.book;
 
-    // 해설 가용성 — 진입 포커스 기준 1회 조회(절 선택마다 재조회하지 않음).
-    final study = ref.watch(biblePassageStudyProvider(_studyRef));
-    final explanation = study.valueOrNull ?? BiblePassageStudy.none;
+    // 해설 가용성 — 현재 선택 범위 기준. 빈 장은 잘못된 1절 조회를 만들지 않는다.
+    final studyRef = _selectedStudyRef;
+    final explanation = studyRef == null
+        ? BiblePassageStudy.none
+        : ref.watch(biblePassageStudyProvider(studyRef)).valueOrNull ??
+            BiblePassageStudy.none;
     final explanationReady = explanation.explanationReady;
 
     return Scaffold(
