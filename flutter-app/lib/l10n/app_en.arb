@@ -54,6 +54,8 @@
     }
   },
   "noteEmpty": "No notes yet",
+  "noteSearchHint": "Search records",
+  "noteSearchEmpty": "No matching records",
   "noteEmptyQtHint": "Write QT notes from the Today QT screen",
   "noteEmptySermonHint": "Write sermon notes from the Bible screen",
   "noteSelect": "Select",

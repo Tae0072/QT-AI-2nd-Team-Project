@@ -48,6 +48,8 @@
     }
   },
   "noteEmpty": "작성한 노트가 없습니다",
+  "noteSearchHint": "기록 검색",
+  "noteSearchEmpty": "검색 결과가 없습니다",
   "noteEmptyQtHint": "QT 노트는 오늘의 QT 화면에서 작성해요",
   "noteEmptySermonHint": "설교 노트는 성경 화면에서 작성해요",
   "noteSelect": "선택",

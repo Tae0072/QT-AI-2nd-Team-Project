@@ -135,6 +135,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteEmpty => 'No notes yet';
 
   @override
+  String get noteSearchHint => 'Search records';
+
+  @override
+  String get noteSearchEmpty => 'No matching records';
+
+  @override
   String get noteEmptyQtHint => 'Write QT notes from the Today QT screen';
 
   @override

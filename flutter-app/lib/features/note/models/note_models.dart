@@ -36,6 +36,7 @@ class NoteListItem {
   final int id;
   final String category; // MEDITATION/SERMON/PRAYER/REPENTANCE/GRATITUDE
   final String title;
+  final String? bodyPreview; // 목록 카드용 본문 앞부분 발췌 (없을 수 있음)
   final String status; // DRAFT/SAVED
   final String visibility; // PRIVATE/PUBLIC
   final String? qtDate; // QT 노트만 값이 있음 (yyyy-MM-dd)
@@ -48,6 +49,7 @@ class NoteListItem {
     required this.id,
     required this.category,
     required this.title,
+    this.bodyPreview,
     required this.status,
     required this.visibility,
     this.qtDate,
@@ -65,6 +67,7 @@ class NoteListItem {
       id: json['id'] as int,
       category: json['category'] as String? ?? '',
       title: json['title'] as String? ?? '',
+      bodyPreview: json['bodyPreview'] as String?,
       status: json['status'] as String? ?? '',
       visibility: json['visibility'] as String? ?? 'PRIVATE',
       qtDate: json['qtDate'] as String?,

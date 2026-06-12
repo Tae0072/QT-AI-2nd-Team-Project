@@ -4885,6 +4885,10 @@ components:
           $ref: "#/components/schemas/NoteCategory"
         title:
           type: string
+        bodyPreview:
+          type: string
+          nullable: true
+          description: 목록 카드용 본문 미리보기(앞부분 발췌). 내용이 없으면 null.
         status:
           $ref: "#/components/schemas/NoteStatus"
         visibility:
