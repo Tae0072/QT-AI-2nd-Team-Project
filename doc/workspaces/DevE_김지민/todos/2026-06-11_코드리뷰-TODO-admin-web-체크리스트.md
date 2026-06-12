@@ -100,3 +100,23 @@
 > `AdminPraiseController` GET/POST/PATCH/DELETE 구현 완료(`feature/praise-admin-crud`). hide(`POST /{id}/hide`) 는 04 §4.7.6에 명시되어 있으나 **v1 범위 제외**로 보류.
 
 - [ ] **P5a 찬양 숨김** — `PraiseSong.hide()` 엔티티 메서드는 이미 존재. v1.1 이후 admin-server `PATCH /{id}/hide` 컨트롤러 엔드포인트 + `praiseSongs.ts` `hidePraiseSong` 행 액션 연결(AD-03 Popconfirm 패턴)
+
+---
+
+## ✅ `feature/admin-ai-report-evaluation-candidate` — 신고→평가항목 후보(USER_REPORT) + 식별자 기반 케이스 (F-06/F-14, 2026-06-12)
+
+> 브랜치: `feature/admin-ai-report-evaluation-candidate` (base=origin/dev). 신고→평가 케이스 후보 등록 엔드포인트 신설 + 수동 폼 식별자 기반 전환.
+
+- [x] **admin-server 백엔드**
+  - [x] `report.api.GetReportUseCase` + `dto/ReportForEvaluation` 포트 신규 (도메인 경계 준수)
+  - [x] `AdminReportService` — `getReportForEvaluation()` 구현(식별자·메타만, 원문 미반환)
+  - [x] `CreateAiEvaluationReportCandidateUseCase` + `Command` 신규
+  - [x] `AiEvaluationService` — `createReportCandidate()`(AI 신고만 허용, reportCandidateSnapshot 식별자/메타만), `createEvaluationCase()` 식별자 기반 전환(targetId 필수, raw inputJson 제거)
+  - [x] `AdminAiEvaluationController` — `POST /reports/{reportId}/evaluation-candidates` + `ReportCandidateRequest` + 수동 요청 식별자 전용 축소
+- [x] **admin-web FE**
+  - [x] `aiEvaluations.ts` — `createReportEvaluationCandidate()` + `CreateEvaluationCasePayload` 식별자 전용 축소
+  - [x] `ReportsPage.tsx` — AI 신고 행에 '평가 항목으로 등록' 버튼+모달(평가 세트 드롭다운)
+  - [x] `AiEvaluationsPage.tsx` — 수동 폼 식별자 전용(targetType·targetId·기대 판정 자연어)으로 전환
+  - [x] `npm run typecheck` + `npm run build` 통과
+- [x] **테스트** — AiEvaluationServiceTest/ControllerTest report 후보 4종 + 식별자화 검증 BUILD SUCCESSFUL
+- [x] 워크플로우·리포트 작성 → 커밋(6a47e358) → push 대기

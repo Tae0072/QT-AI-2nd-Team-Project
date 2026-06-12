@@ -69,14 +69,12 @@ export interface EvaluationCaseListParams extends PageParams {
   status?: string;
 }
 
-// 백엔드 AiEvaluationCaseRequest (inputJson 필수, JSON 값으로 전송)
+// 백엔드 AiEvaluationCaseRequest — 식별자·기대판정만. 자유 텍스트(원문/프롬프트)는 보내지 않는다.
+// inputJson은 서버가 {targetType,targetId,sourceType} 메타로 조립한다(§7).
 export interface CreateEvaluationCasePayload {
   targetType: string;
-  targetId?: number;
+  targetId: number;
   sourceType: string;
-  sourceId?: number;
-  inputJson: unknown;
-  expectedOutputJson?: unknown;
   expectedPolicyJson?: unknown;
   status?: string;
 }
@@ -176,6 +174,21 @@ export function createEvaluationCandidate(
   return unwrap<EvaluationCase>(
     apiClient.post<ApiResponse<EvaluationCase>>(
       `/admin/ai/assets/${assetId}/evaluation-candidates`,
+      payload,
+    ),
+  );
+}
+
+// ----- 신고 → 평가 항목 후보 등록 (USER_REPORT) -----
+// FE는 판단값(평가 세트·기대 정책)만 보내고, 백엔드가 신고 메타데이터로 inputJson을 조립한다
+// (원문/프롬프트/민감정보 미저장). AI 신고(AI_QA_REQUEST/AI_ASSET)만 등록 가능.
+export function createReportEvaluationCandidate(
+  reportId: number,
+  payload: CreateEvaluationCandidatePayload,
+) {
+  return unwrap<EvaluationCase>(
+    apiClient.post<ApiResponse<EvaluationCase>>(
+      `/admin/ai/reports/${reportId}/evaluation-candidates`,
       payload,
     ),
   );

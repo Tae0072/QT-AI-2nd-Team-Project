@@ -2420,6 +2420,7 @@
 | v1.8 | 2026-06-11 | 이승욱 (DevD) | `07_요구사항_정의서.md` v3.6(닉네임 7일 잠금 폐지, Lead 승인 2026-06-11) 반영 — 원본 보존 원칙에 따라 본문은 수정하지 않고 아래 "개정 추가 (2026-06-11)" 절로 기록. §4.1.2/§4.1.5/§6.2의 잠금 관련 서술은 해당 절이 대체한다. 코드 변경: PR #478 포함. |
 | v1.9 | 2026-06-12 | T (강태오) / Codex | §4.7.7 공지 관리에 상세 조회 응답(`GET /api/v1/admin/notices/{id}`), 입력 검증, 상태 전이, 성공/실패 코드(`AD0003`, `C0004`, `C0007`)를 보강. 상단 AD-06 기능 표와 §9 전체 API 요약 표에 공지 상세 조회 행(#85)을 추가하고 이후 번호를 #90까지 재정렬. 코드 변경 없음. |
 | v1.10 | 2026-06-12 | 김지민 (DevE) | `07_요구사항_정의서.md` v3.7(F-03 QT 노트 단일 body 확정, Lead 합의 2026-06-12) 반영 — 원본 보존 원칙에 따라 본문은 수정하지 않고 아래 "개정 추가 (2026-06-12)" 절로 기록. 노트 API(§4.3)의 4섹션 필드(`rememberSection`·`interpretSection`·`applySection`·`praySection`)를 **deprecated**(서버 계약·`notes` 테이블에 하위호환으로 잔존, v1 클라이언트 미사용)로 표기하고, QT 노트도 단일 `body` 사용임을 명시. 4섹션 필드·컬럼의 실제 제거는 서버 정리 버전(별도 백엔드 작업)에서 본 명세와 함께 처리한다. 코드 변경 없음. |
+| v1.11 | 2026-06-12 | 김지민 (DevE) | §7.3 평가 케이스 생성/등록을 **식별자·메타 기반**으로 정렬(원문/프롬프트/민감정보 미저장, `07` §7 / CLAUDE.md §7). ① `POST /admin/ai/reports/{reportId}/evaluation-candidates`(신규) — 신고를 평가 케이스 후보로 등록, `sourceType=USER_REPORT`·`sourceId=reportId`, 백엔드가 신고+산출물 메타로 `inputJson` 조립. ② `POST /admin/ai/evaluation-sets/{setId}/cases`(수동 생성) 요청을 식별자 전용(`targetType`·`targetId`·`expectedPolicyJson`)으로 축소 — `inputJson`/`expectedOutputJson` 자유 텍스트 입력 제거, 서버가 `{targetType,targetId,sourceType}` 메타로 조립. 아래 "개정 추가 (2026-06-12) — 평가 케이스 식별자 기반" 절로 상세 기록. 코드 변경: 있음(admin-server + admin-web, FE/BE 동시). |
 
 ---
 
@@ -2458,3 +2459,29 @@
   **서버 정리 버전(별도 백엔드 작업)** 에서 본 명세 예시와 함께 처리한다. 그 PR에서 §4.3 예시의 4섹션 표기와
   본 절을 함께 정리한다.
 - **연계:** `07_요구사항_정의서.md` v3.7 개정 추가 절, `23_도메인_용어사전.md`·`25_기능_명세서.md` 단일 body 갱신.
+
+---
+
+## 개정 추가 (2026-06-12) — 평가 케이스 식별자 기반 (§7.3 평가 셋 API 보강)
+
+> AI 평가 케이스의 `inputJson`에 신고 원문·프롬프트·민감정보를 저장하지 않고 **식별자·메타데이터만** 저장하도록
+> 정렬한다(`07` §7, CLAUDE.md §7). FE는 판단값만 보내고, 백엔드가 메타로 `inputJson`을 조립한다.
+
+### 신규: 신고 → 평가 케이스 후보 등록
+- **Method + URL:** `POST /api/v1/admin/ai/reports/{reportId}/evaluation-candidates`
+- **인증:** ADMIN + REVIEWER / CONTENT_CREATOR / SUPER_ADMIN (`requireEvaluationManager`)
+- **요청 본문:** `{ "evaluationSetId": <Long>, "expectedPolicyJson": <JSON|null> }`
+- **처리:** 신고(`reports`)를 평가 케이스 후보로 등록한다. **AI 신고만 허용**(`targetType ∈ {AI_QA_REQUEST, AI_ASSET}`,
+  아니면 `422/400 INVALID_INPUT`). 케이스 `sourceType=USER_REPORT`, `sourceId=reportId`. 평가 대상 유형은 신고에서 파생
+  (`AI_QA_REQUEST → QA_REQUEST`, `AI_ASSET → 산출물의 targetType`)하고 평가 셋의 `targetType`과 일치해야 한다.
+  `inputJson`은 서버가 **식별자·메타만**으로 조립한다(`reportId`, `reportTargetType`, `reportTargetId`, `reason`,
+  `reportStatus`, `reporterMemberId`, AI_ASSET이면 연결 산출물 메타). **신고 원문/상세(detail)는 저장하지 않는다.**
+- **응답:** `201 Created` + 평가 케이스 응답.
+
+### 변경: 평가 케이스 수동 생성 식별자 전용
+- **Method + URL:** `POST /api/v1/admin/ai/evaluation-sets/{setId}/cases` (기존)
+- **요청 본문(축소):** `{ "targetType": <enum>, "targetId": <Long>, "sourceType": <enum>, "expectedPolicyJson": <JSON|null>, "status": "CANDIDATE" }`
+  — 기존 `inputJson`(필수)·`expectedOutputJson`·`sourceId`(자유 텍스트/원문 유입 경로) **제거**.
+- **처리:** 서버가 `inputJson`을 `{targetType, targetId, sourceType}` 메타로 조립한다(원문 미저장). `targetId` 필수.
+- **연계 코드:** admin-server(`AdminAiEvaluationController`/`AiEvaluationService`/`report.api.GetReportUseCase`),
+  admin-web(`ReportsPage` 등록 버튼, `AiEvaluationsPage` 수동 폼 식별자화). DB 변경 없음(`USER_REPORT` enum·컬럼 기존).

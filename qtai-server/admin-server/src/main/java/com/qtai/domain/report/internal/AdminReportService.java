@@ -2,12 +2,14 @@ package com.qtai.domain.report.internal;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.report.api.GetReportUseCase;
 import com.qtai.domain.report.api.ListAdminReportsUseCase;
 import com.qtai.domain.report.api.ProcessReportUseCase;
 import com.qtai.domain.report.api.dto.AdminReportListQuery;
 import com.qtai.domain.report.api.dto.AdminReportListResponse;
 import com.qtai.domain.report.api.dto.ProcessReportCommand;
 import com.qtai.domain.report.api.dto.ProcessReportResult;
+import com.qtai.domain.report.api.dto.ReportForEvaluation;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class AdminReportService implements ListAdminReportsUseCase, ProcessReportUseCase {
+public class AdminReportService implements ListAdminReportsUseCase, ProcessReportUseCase, GetReportUseCase {
 
     private final ReportRepository reportRepository;
     // 후속 조치 포트 — 타 도메인은 api/UseCase로만 (CLAUDE.md §4)
@@ -37,6 +39,19 @@ public class AdminReportService implements ListAdminReportsUseCase, ProcessRepor
     private final com.qtai.domain.notification.api.SendNotificationUseCase sendNotificationUseCase;
     private final com.qtai.domain.audit.api.WriteAuditLogUseCase writeAuditLogUseCase;
     private final Clock clock;
+
+    @Override
+    public ReportForEvaluation getReportForEvaluation(Long reportId) {
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.REPORT_NOT_FOUND));
+        return new ReportForEvaluation(
+                report.getId(),
+                report.getTargetType().name(),
+                report.getTargetId(),
+                report.getReason(),
+                report.getStatus().name(),
+                report.getReporterMemberId());
+    }
 
     @Override
     public AdminReportListResponse listReports(AdminReportListQuery query) {
