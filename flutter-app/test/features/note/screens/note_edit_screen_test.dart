@@ -230,7 +230,7 @@ class _FakeNoteRepository extends NoteRepository {
     required String category,
     required String title,
     required String body,
-    List<int> verseIds = const [],
+    List<int>? verseIds,
     String status = 'SAVED',
     String visibility = 'PRIVATE',
   }) async {
@@ -249,7 +249,7 @@ class _FakeNoteRepository extends NoteRepository {
     int noteId, {
     required String title,
     required String body,
-    List<int> verseIds = const [],
+    List<int>? verseIds,
     String status = 'SAVED',
     String visibility = 'PRIVATE',
   }) async {
