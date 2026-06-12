@@ -6,7 +6,7 @@ import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/screens/bible_passage_screen.dart';
 import 'package:qtai_app/features/bible/services/bible_repository.dart';
-import 'package:qtai_app/features/note/screens/note_edit_screen.dart';
+import 'package:qtai_app/features/note/models/note_models.dart';
 import 'package:qtai_app/routes/app_router.dart';
 import 'package:qtai_app/core/widgets/calm_paper.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';

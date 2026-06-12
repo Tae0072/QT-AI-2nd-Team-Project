@@ -7,7 +7,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/calm_paper.dart';
 import '../../../routes/app_router.dart';
 import '../../note/models/note_models.dart';
-import '../../note/screens/note_edit_screen.dart';
 import '../../study/screens/qt_study_content_screen.dart';
 import '../models/bible_models.dart';
 import '../models/passage_view_logic.dart';
@@ -54,6 +53,10 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
 
   final _scrollController = ScrollController();
   final Map<int, GlobalKey> _verseKeys = {};
+
+  /// 포커스 스크롤(ensureVisible) 신뢰성을 위해 장 전체 절을 미리 빌드하는 캐시 범위(px).
+  /// 한 장은 최대 ~176절(시편 119편)이고 텍스트 위젯이라 전체 선빌드 비용은 허용 범위로 본다.
+  static const double _chapterCacheExtent = 100000;
 
   BibleVerseRange get _chapter => widget.chapter;
   List<BibleVerse> get _verses => _chapter.verses;
@@ -105,9 +108,13 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
       .where((v) => v.verseNo >= _selection.from && v.verseNo <= _selection.to)
       .toList();
 
-  String get _selectionLabel =>
+  /// "권 장:절(범위)" 참조 라벨. 선택·해설이 동일 포맷(passageVerseLabel)을 쓰도록 통일.
+  String _referenceLabel(int from, int to) =>
       '${_chapter.book.koreanName} ${_chapter.book.chapter}:'
-      '${passageVerseLabel(_selection.from, _selection.to)}';
+      '${passageVerseLabel(from, to)}';
+
+  String get _selectionLabel =>
+      _referenceLabel(_selection.from, _selection.to);
 
   /// 해설 진입 — 가용성 조회와 동일하게 진입 포커스 절 기준으로 연다.
   void _openExplanation(int qtPassageId) {
@@ -117,8 +124,7 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
       AppRouter.qtStudyContent,
       arguments: QtStudyContentArgs(
         qtPassageId: qtPassageId,
-        referenceText:
-            '${_chapter.book.koreanName} ${_chapter.book.chapter}:$_focusVerseNo',
+        referenceText: _referenceLabel(_focusVerseNo, _focusVerseNo),
         verseLabels: {
           for (final verse in focusVerses) verse.id: '${verse.verseNo}',
         },
@@ -170,7 +176,7 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
               controller: _scrollController,
               // 한 장의 모든 절을 미리 빌드해, 먼 절로의 포커스 스크롤
               // (Scrollable.ensureVisible)이 지연 빌드로 실패하지 않게 한다.
-              cacheExtent: 100000,
+              cacheExtent: _chapterCacheExtent,
               padding: const EdgeInsets.fromLTRB(
                 AppGap.xl,
                 AppGap.md,

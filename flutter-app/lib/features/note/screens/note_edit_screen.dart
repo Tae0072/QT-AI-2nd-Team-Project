@@ -8,37 +8,9 @@ import '../models/note_models.dart';
 import '../providers/note_providers.dart';
 import '../widgets/note_rich_text_editor.dart';
 
-/// N-03 라우트 인자.
-///
-/// - 작성(N-02→N-03): category만 채워 보냄 (noteId=null)
-/// - 수정(N-04→N-03): noteId를 채워 보냄 → 편집 모드
-///
-/// 왜 클래스로 받냐면: 문자열/숫자 타입으로 모드를 구분하면 헷갈리고 깨지기 쉬워,
-/// "무엇을 넘기는지"가 코드에 드러나는 전용 인자 객체로 받는다.
-class NoteEditArgs {
-  final String? category; // 작성 모드에서 필수
-  final int? noteId; // 수정 모드에서 필수 (null이면 작성)
-
-  /// 작성 진입 시 미리 동봉하는 인용 절(설교 노트 ②: 성경 화면에서 선택한 절).
-  /// note_verses(verseIds)로 저장된다(§6.4.1). 자유노트(N-02)는 비운다.
-  final List<int>? verseIds;
-
-  /// 성경 본문에서 진입할 때 보여줄 선택 범위 라벨(예: "고린도전서 7:25-30"). 없으면 미표시.
-  final String? referenceText;
-
-  /// 선택 범위 본문 미리보기(인용). 작성 화면 상단에 읽기 전용으로 보여준다. 없으면 미표시.
-  final String? versePreview;
-
-  const NoteEditArgs({
-    this.category,
-    this.noteId,
-    this.verseIds,
-    this.referenceText,
-    this.versePreview,
-  });
-
-  bool get isEdit => noteId != null;
-}
+// N-03 라우트 인자 NoteEditArgs는 화면 간 계약이라 모델(note_models.dart)에 둔다.
+// 기존 import 경로(이 화면)와의 호환을 위해 re-export한다.
+export '../models/note_models.dart' show NoteEditArgs;
 
 /// 개인 노트 작성/수정 화면 (N-03).
 ///

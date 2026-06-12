@@ -31,6 +31,36 @@ String noteCategoryLabel(String code) => noteCategoryLabels[code] ?? code;
 /// 묵상(QT 화면)·설교(성경 화면)는 다른 화면에서 작성하므로 제외.
 const List<String> writableNoteCategories = ['PRAYER', 'REPENTANCE', 'GRATITUDE'];
 
+/// 노트 작성/수정(N-03) 라우트 인자 — **화면 간 계약(모델)**.
+///
+/// 화면 위젯이 아니라 이 계약만 의존하도록 모델에 둔다(bible 성경 화면 등 타 기능이
+/// note 화면을 직접 import하지 않게 함). 모드: 작성=category, 수정=noteId,
+/// 설교 노트(성경 화면)=verseIds + referenceText/versePreview로 인용 절·본문 동봉.
+class NoteEditArgs {
+  final String? category; // 작성 모드에서 필수
+  final int? noteId; // 수정 모드에서 필수 (null이면 작성)
+
+  /// 작성 진입 시 미리 동봉하는 인용 절(설교 노트 ②: 성경 화면에서 선택한 절).
+  /// note_verses(verseIds)로 저장된다(§6.4.1). 자유노트(N-02)는 비운다.
+  final List<int>? verseIds;
+
+  /// 성경 본문에서 진입할 때 보여줄 선택 범위 라벨(예: "고린도전서 7:25-30"). 없으면 미표시.
+  final String? referenceText;
+
+  /// 선택 범위 본문 미리보기(인용). 작성 화면 상단에 읽기 전용으로 보여준다. 없으면 미표시.
+  final String? versePreview;
+
+  const NoteEditArgs({
+    this.category,
+    this.noteId,
+    this.verseIds,
+    this.referenceText,
+    this.versePreview,
+  });
+
+  bool get isEdit => noteId != null;
+}
+
 /// 노트 목록 1건 (GET /api/v1/notes, 04 §4.3.1).
 class NoteListItem {
   final int id;

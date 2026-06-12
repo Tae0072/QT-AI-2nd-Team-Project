@@ -8,7 +8,6 @@ import '../models/note_models.dart';
 import '../providers/note_providers.dart';
 import '../widgets/meditation_calendar.dart';
 import '../widgets/note_card.dart';
-import 'note_edit_screen.dart' show NoteEditArgs;
 
 /// 노트 목록 화면 (N-01).
 ///

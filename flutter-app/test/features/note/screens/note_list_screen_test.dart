@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/note/models/note_models.dart';
 import 'package:qtai_app/features/note/providers/note_providers.dart';
-import 'package:qtai_app/features/note/screens/note_edit_screen.dart';
 import 'package:qtai_app/features/note/screens/note_list_screen.dart';
 import 'package:qtai_app/features/note/services/note_repository.dart';
 import 'package:qtai_app/features/note/widgets/note_card.dart';
