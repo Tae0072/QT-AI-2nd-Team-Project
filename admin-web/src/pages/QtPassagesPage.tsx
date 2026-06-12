@@ -32,6 +32,10 @@ import {
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
 import { ApiClientError } from '../api/client';
+import {
+  QT_PASSAGE_FILTERABLE_STATUSES,
+  qtPassageActionsForStatus,
+} from './adminPageContracts';
 
 // ===== AD-02 오늘 QT 관리 (풀 CRUD) =====
 // 목록·필터 + 등록/수정 폼 + 상태별 게시/숨김. (공개 00:00 KST / 노출 04:00 KST)
@@ -46,7 +50,7 @@ const STATUS_META: Record<QtPassageStatus, { label: string; color: string }> = {
   removed: { label: '제거됨', color: 'red' },
 };
 
-const STATUS_OPTIONS = (Object.keys(STATUS_META) as QtPassageStatus[]).map((s) => ({
+const STATUS_OPTIONS = QT_PASSAGE_FILTERABLE_STATUSES.map((s) => ({
   label: STATUS_META[s].label,
   value: s,
 }));
@@ -174,9 +178,7 @@ export default function QtPassagesPage() {
       title: '작업',
       width: 220,
       render: (_, r) => {
-        const canEdit = ['pending_review', 'active', 'hidden'].includes(r.status);
-        const canPublish = ['pending_review', 'hidden'].includes(r.status);
-        const canHide = r.status === 'active';
+        const { canEdit, canPublish, canHide } = qtPassageActionsForStatus(r.status);
         if (!canEdit && !canPublish && !canHide) return '-';
         return (
           <Space size={4}>

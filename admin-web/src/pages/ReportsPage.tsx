@@ -29,6 +29,12 @@ import {
 } from '../api/aiEvaluations';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
+import {
+  buildReportProcessPayload,
+  isAiReport,
+  isOpenReportStatus,
+  reportEvaluationSetListParams,
+} from './adminPageContracts';
 
 // ===== AD-04 신고 처리 =====
 // 목록 + 필터(상태/대상 유형) + 서버 페이지네이션 + 처리(resolve)/반려(reject) 모달.
@@ -58,11 +64,6 @@ function statusTag(status: string) {
   const m = map[status] ?? { color: 'default', text: status };
   return <Tag color={m.color}>{m.text}</Tag>;
 }
-
-const isOpenStatus = (s: string) => s === 'RECEIVED' || s === 'REVIEWING';
-
-// AI 신고만 평가 항목으로 등록 가능(백엔드도 동일 검증).
-const isAiReport = (t: string) => t === 'AI_QA_REQUEST' || t === 'AI_ASSET';
 
 export default function ReportsPage() {
   const { rows, page, size, total, loading, applyFilters, changePage, reload } =
@@ -109,10 +110,12 @@ export default function ReportsPage() {
     if (!action) return;
     setSubmitting(true);
     try {
-      const payload = {
-        reason: reason.trim() || undefined,
-        notifyReporter: notify,
-      };
+      const payload = buildReportProcessPayload(
+        action.mode,
+        action.report,
+        reason,
+        notify,
+      );
       if (action.mode === 'resolve') {
         await resolveReport(action.report.id, payload);
         message.success('신고를 처리(인정)했습니다.');
@@ -135,11 +138,7 @@ export default function ReportsPage() {
     setCandidateSetsLoading(true);
     try {
       // AI_QA_REQUEST → QA_REQUEST 평가 세트만. AI_ASSET은 대상유형을 모르니 전체 로드(백엔드 검증).
-      const params =
-        report.targetType === 'AI_QA_REQUEST'
-          ? { targetType: 'QA_REQUEST', size: 100 }
-          : { size: 100 };
-      const res = await listEvaluationSets(params);
+      const res = await listEvaluationSets(reportEvaluationSetListParams(report));
       setCandidateSets(res.content);
     } catch (e) {
       message.error(
@@ -217,7 +216,7 @@ export default function ReportsPage() {
       fixed: 'right',
       render: (_, r) => (
         <Space wrap>
-          {isOpenStatus(r.status) && (
+          {isOpenReportStatus(r.status) && (
             <>
               <Button
                 size="small"
@@ -236,7 +235,7 @@ export default function ReportsPage() {
               평가 항목으로 등록
             </Button>
           )}
-          {!isOpenStatus(r.status) && !isAiReport(r.targetType) && (
+          {!isOpenReportStatus(r.status) && !isAiReport(r.targetType) && (
             <Typography.Text type="secondary">완료</Typography.Text>
           )}
         </Space>

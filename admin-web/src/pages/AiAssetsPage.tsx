@@ -40,6 +40,12 @@ import {
 } from '../api/aiEvaluations';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
+import {
+  AI_ASSET_FILTERABLE_STATUSES,
+  aiAssetEvaluationSetListParams,
+  isAiAssetRegeneratable,
+  isAiAssetReviewable,
+} from './adminPageContracts';
 
 // ===== AD-03 AI 산출물 검증 =====
 // 목록(메타데이터만, 원문 비노출) + 필터 + 승인/반려/숨김 모달. 권한: REVIEWER / SUPER_ADMIN.
@@ -49,13 +55,17 @@ const ASSET_TYPE_OPTIONS = [
   { label: '성경구절(BIBLE_VERSE)', value: 'BIBLE_VERSE' },
 ];
 
-const STATUS_OPTIONS = [
-  { label: '검증중(VALIDATING)', value: 'VALIDATING' },
-  { label: '검토필요(NEEDS_REVIEW)', value: 'NEEDS_REVIEW' },
-  { label: '승인(APPROVED)', value: 'APPROVED' },
-  { label: '반려(REJECTED)', value: 'REJECTED' },
-  { label: '숨김(HIDDEN)', value: 'HIDDEN' },
-];
+const STATUS_LABELS: Record<string, string> = {
+  VALIDATING: '검증중(VALIDATING)',
+  APPROVED: '승인(APPROVED)',
+  REJECTED: '반려(REJECTED)',
+  HIDDEN: '숨김(HIDDEN)',
+};
+
+const STATUS_OPTIONS = AI_ASSET_FILTERABLE_STATUSES.map((value) => ({
+  label: STATUS_LABELS[value],
+  value,
+}));
 
 function statusTag(status: string) {
   const map: Record<string, { color: string; text: string }> = {
@@ -79,8 +89,6 @@ function validationResultTag(result: string) {
   const m = map[result] ?? { color: 'default', text: result };
   return <Tag color={m.color}>{m.text}</Tag>;
 }
-
-const isReviewable = (s: string) => s === 'VALIDATING' || s === 'NEEDS_REVIEW';
 
 function targetLabel(target: { targetType: string | null; targetId: number | null }) {
   return target.targetType
@@ -247,10 +255,9 @@ export default function AiAssetsPage() {
     setCandidateSetsLoading(true);
     try {
       // 대상 유형이 같은 평가 세트만 후보 등록 가능(서버가 불일치 시 거절) → 같은 targetType으로 필터.
-      const res = await listEvaluationSets({
-        targetType: selectedAsset.targetType ?? undefined,
-        size: 100,
-      });
+      const res = await listEvaluationSets(
+        aiAssetEvaluationSetListParams(selectedAsset.targetType),
+      );
       setCandidateSets(res.content);
     } catch (e) {
       message.error(
@@ -402,7 +409,7 @@ export default function AiAssetsPage() {
           >
             상세
           </Button>
-          {isReviewable(r.status) && (
+          {isAiAssetReviewable(r.status) && (
             <>
               <Button
                 size="small"
@@ -536,13 +543,15 @@ export default function AiAssetsPage() {
           selectedAsset ? (
             <Space>
               <Button onClick={openCandidate}>평가 항목으로 추가</Button>
-              <Button
-                icon={<SyncOutlined />}
-                loading={regenerating}
-                onClick={openRegenerate}
-              >
-                재생성
-              </Button>
+              {isAiAssetRegeneratable(selectedAsset.status) && (
+                <Button
+                  icon={<SyncOutlined />}
+                  loading={regenerating}
+                  onClick={openRegenerate}
+                >
+                  재생성
+                </Button>
+              )}
             </Space>
           ) : null
         }
