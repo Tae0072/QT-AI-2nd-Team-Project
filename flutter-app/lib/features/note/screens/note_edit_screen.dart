@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
@@ -188,14 +189,15 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     final preview = _args.versePreview;
     if (reference == null && preview == null) return const SizedBox.shrink();
     final theme = Theme.of(context);
+    final colors = context.appColors;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF4F3F1),
-        borderRadius: BorderRadius.all(Radius.circular(10)),
-        border: Border(left: BorderSide(color: Color(0xFF1F1F1F), width: 3)),
+      decoration: BoxDecoration(
+        color: colors.bgSunken,
+        borderRadius: BorderRadius.circular(10),
+        border: Border(left: BorderSide(color: colors.text, width: 3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,8 +206,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
           if (reference != null)
             Row(
               children: [
-                const Icon(Icons.menu_book_outlined,
-                    size: 15, color: Color(0xFF1F1F1F)),
+                Icon(Icons.menu_book_outlined, size: 15, color: colors.text),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(

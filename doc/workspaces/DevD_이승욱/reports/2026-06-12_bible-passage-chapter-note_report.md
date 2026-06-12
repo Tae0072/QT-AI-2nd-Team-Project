@@ -19,6 +19,7 @@
 - **포커스 스크롤 신뢰성**: lazy 빌드로 먼 절에서 `ensureVisible` 실패 가능 → ListView `cacheExtent`를 키워 장 전체를 미리 빌드.
 - **해설 가용성 1회 조회**: 절 선택마다 `/qt/passage-study` 재호출하던 것을 진입 포커스 기준 고정 ref로 **1회만** 조회하도록 변경.
 - **신규 로직 단위 테스트**: 포커스 보정·범위 라벨을 순수 함수(`passage_view_logic.dart`)로 분리해 테스트 추가.
+- **인터랙티브 위젯 테스트(REQUEST_CHANGES 2차)**: ① 탭-탭 범위 선택 시 선택 라벨 갱신, ② '노트 작성하기' → 설교 노트(verseIds·참조 동봉) 네비게이션, ③ 인용 미리보기 박스 표시/미표시 위젯 테스트 추가. `VerseRangeSelection` from<=to 불변식 테스트. note 에디터 인용 박스 색을 하드코딩 → Calm Paper 토큰(`context.appColors`)으로 정리.
 
 ## 미해결 / 후속
 - **bible 화면은 이지윤(DevA) 담당 → PR 리뷰 필요.**

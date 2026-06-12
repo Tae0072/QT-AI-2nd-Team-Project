@@ -50,6 +50,16 @@ void main() {
       expect([s.from, s.to, s.anchored], [6, 6, true]);
     });
 
+    test('불변식: 어떤 두 번 탭 조합이든 항상 from <= to (스왑 보장)', () {
+      for (var a = 1; a <= 6; a++) {
+        for (var b = 1; b <= 6; b++) {
+          final r = start.tap(a).tap(b);
+          expect(r.from <= r.to, isTrue,
+              reason: 'tap($a).tap($b) → ${r.from}-${r.to}');
+        }
+      }
+    });
+
     test('동일 값은 == / hashCode가 같다', () {
       const a = VerseRangeSelection(from: 2, to: 4, anchored: true);
       const b = VerseRangeSelection(from: 2, to: 4, anchored: true);
