@@ -65,9 +65,12 @@
   "@noteDeletedCount": {
     "placeholders": { "count": { "type": "int" } }
   },
-  "noteDeletePartialFailed": "{count}개는 삭제하지 못했어요",
-  "@noteDeletePartialFailed": {
-    "placeholders": { "count": { "type": "int" } }
+  "noteDeletePartial": "{ok}개 삭제, {failed}개 실패",
+  "@noteDeletePartial": {
+    "placeholders": {
+      "ok": { "type": "int" },
+      "failed": { "type": "int" }
+    }
   },
   "noteUntitled": "(제목 없음)",
   "noteDraft": "임시저장",

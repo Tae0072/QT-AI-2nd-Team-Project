@@ -302,7 +302,115 @@ void main() {
       await tester.pump(); // deleteMany 처리 + 다이얼로그 닫힘
       await tester.pump(const Duration(milliseconds: 300)); // 스낵바 렌더
 
-      expect(find.text('1개는 삭제하지 못했어요'), findsOneWidget);
+      // 부분 성공도 정확히: 성공 0 + 실패 1.
+      expect(find.text('0개 삭제, 1개 실패'), findsOneWidget);
+    });
+
+    testWidgets('전체선택 토글: 누르면 전부 선택, 다시 누르면 해제', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final container = ProviderContainer(
+        overrides: [
+          noteRepositoryProvider.overrideWithValue(
+            _FakeNoteRepository(items: [_item(1, 'PRAYER'), _item(2, 'GRATITUDE')]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(notesProvider.future); // 목록 채움
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: const NoteListScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.menu));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('전체선택'));
+      await tester.pumpAndSettle();
+      expect(container.read(noteSelectedIdsProvider), {1, 2});
+
+      await tester.tap(find.text('전체선택'));
+      await tester.pumpAndSettle();
+      expect(container.read(noteSelectedIdsProvider), isEmpty);
+    });
+
+    testWidgets('선택 모드 중 카테고리 필터를 바꾸면 선택이 초기화된다(누수 방지)',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final container = ProviderContainer(
+        overrides: [
+          noteRepositoryProvider.overrideWithValue(
+            _FakeNoteRepository(items: [_item(1, 'PRAYER')]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: const NoteListScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.menu));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(NoteCard).first);
+      await tester.pumpAndSettle();
+      expect(container.read(noteSelectionModeProvider), isTrue);
+      expect(container.read(noteSelectedIdsProvider), isNotEmpty);
+
+      // 카테고리 칩을 바꾸면 선택 모드·선택이 초기화된다.
+      // (카드 배지에도 '기도'가 있어 칩을 콕 집는다.)
+      await tester.tap(find.widgetWithText(FilterChip, '기도'));
+      await tester.pumpAndSettle();
+      expect(container.read(noteSelectionModeProvider), isFalse);
+      expect(container.read(noteSelectedIdsProvider), isEmpty);
+    });
+  });
+
+  group('NoteListScreen — ② 빈 상태 안내', () {
+    testWidgets('QT 칩 + 빈 목록이면 작성 안내가 뜬다', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            noteRepositoryProvider.overrideWithValue(_FakeNoteRepository()),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: const NoteListScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('QT'));
+      await tester.pumpAndSettle();
+      expect(find.text('QT 노트는 오늘의 QT 화면에서 작성해요'), findsOneWidget);
     });
   });
 }

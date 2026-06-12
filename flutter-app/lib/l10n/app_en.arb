@@ -71,9 +71,12 @@
   "@noteDeletedCount": {
     "placeholders": { "count": { "type": "int" } }
   },
-  "noteDeletePartialFailed": "Failed to delete {count}",
-  "@noteDeletePartialFailed": {
-    "placeholders": { "count": { "type": "int" } }
+  "noteDeletePartial": "{ok} deleted, {failed} failed",
+  "@noteDeletePartial": {
+    "placeholders": {
+      "ok": { "type": "int" },
+      "failed": { "type": "int" }
+    }
   },
   "noteUntitled": "(Untitled)",
   "noteDraft": "Draft",

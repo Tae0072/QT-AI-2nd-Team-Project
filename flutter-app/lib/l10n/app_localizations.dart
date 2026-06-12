@@ -386,11 +386,11 @@ abstract class AppLocalizations {
   /// **'Deleted {count}'**
   String noteDeletedCount(int count);
 
-  /// No description provided for @noteDeletePartialFailed.
+  /// No description provided for @noteDeletePartial.
   ///
   /// In en, this message translates to:
-  /// **'Failed to delete {count}'**
-  String noteDeletePartialFailed(int count);
+  /// **'{ok} deleted, {failed} failed'**
+  String noteDeletePartial(int ok, int failed);
 
   /// No description provided for @noteUntitled.
   ///

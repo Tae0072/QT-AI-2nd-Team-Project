@@ -74,10 +74,12 @@ class NoteListScreen extends ConsumerWidget {
     ref.invalidate(meditationCalendarProvider);
     _exitSelection(ref);
     if (!context.mounted) return;
+    final okCount = ids.length - failed.length;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      // 부분 성공도 정확히: 성공 n개 + 실패 m개를 함께 안내.
       content: Text(failed.isEmpty
-          ? l.noteDeletedCount(ids.length)
-          : l.noteDeletePartialFailed(failed.length)),
+          ? l.noteDeletedCount(okCount)
+          : l.noteDeletePartial(okCount, failed.length)),
     ));
   }
 
@@ -106,8 +108,7 @@ class NoteListScreen extends ConsumerWidget {
             : null;
     // ② 기록에서 작성하지 않는 맥락(QT·설교)·선택 모드에서는 작성 FAB을 숨긴다.
     final showFab = !selectionMode &&
-        selectedCategory != 'MEDITATION' &&
-        selectedCategory != 'SERMON';
+        !tabAuthoredCategories.contains(selectedCategory);
 
     return Scaffold(
       // 선택 모드면 AppBar가 ✕ + "n개 선택" + 전체선택으로 바뀐다.
@@ -263,9 +264,9 @@ class _NoteListBody extends ConsumerWidget {
       data: (response) {
         if (response.items.isEmpty) {
           // ② QT·설교는 기록에서 작성하지 않으니, 비었을 때 어디서 작성하는지 안내한다.
-          final message = category == 'MEDITATION'
+          final message = category == kNoteCatMeditation
               ? l.noteEmptyQtHint
-              : category == 'SERMON'
+              : category == kNoteCatSermon
                   ? l.noteEmptySermonHint
                   : l.noteEmpty;
           return EmptyView(message: message);

@@ -165,8 +165,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String noteDeletePartialFailed(int count) {
-    return 'Failed to delete $count';
+  String noteDeletePartial(int ok, int failed) {
+    return '$ok deleted, $failed failed';
   }
 
   @override

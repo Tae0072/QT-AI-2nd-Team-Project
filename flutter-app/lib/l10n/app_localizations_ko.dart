@@ -161,8 +161,8 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String noteDeletePartialFailed(int count) {
-    return '$count개는 삭제하지 못했어요';
+  String noteDeletePartial(int ok, int failed) {
+    return '$ok개 삭제, $failed개 실패';
   }
 
   @override

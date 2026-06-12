@@ -4,13 +4,24 @@
 // (평범한 Dart 클래스 + 손으로 쓴 fromJson + null 안전 기본값).
 // 필드는 04_API_명세서 §4.3.1(목록)·§4.3.4(생성)에 정의된 것만 V1 범위로 담는다.
 
+/// 노트 카테고리 코드 상수(매직 스트링 방지).
+const String kNoteCatMeditation = 'MEDITATION'; // QT
+const String kNoteCatSermon = 'SERMON'; // 설교
+const String kNoteCatPrayer = 'PRAYER';
+const String kNoteCatRepentance = 'REPENTANCE';
+const String kNoteCatGratitude = 'GRATITUDE';
+
+/// 기록 탭이 아니라 각자 화면(오늘의 QT/성경)에서 작성하는 카테고리.
+/// 기록 탭에서는 이 카테고리들의 작성 진입(FAB)을 두지 않는다(수정·삭제만).
+const Set<String> tabAuthoredCategories = {kNoteCatMeditation, kNoteCatSermon};
+
 /// 카테고리 코드 → 한글 라벨. (여러 화면에서 재사용)
 const Map<String, String> noteCategoryLabels = {
-  'MEDITATION': 'QT',
-  'SERMON': '설교',
-  'PRAYER': '기도',
-  'REPENTANCE': '회개',
-  'GRATITUDE': '감사',
+  kNoteCatMeditation: 'QT',
+  kNoteCatSermon: '설교',
+  kNoteCatPrayer: '기도',
+  kNoteCatRepentance: '회개',
+  kNoteCatGratitude: '감사',
 };
 
 /// 카테고리 코드를 한글 라벨로 변환 (모르는 코드는 코드 그대로 반환).
