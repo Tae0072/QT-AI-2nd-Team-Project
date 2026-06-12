@@ -131,6 +131,24 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
                       final item = response.items[index];
                       return PostCard(
                         item: item,
+                        // 낙관적 좋아요: 즉시 갱신, 실패 시 롤백 + 안내(전체 재조회 없음).
+                        onLike: () async {
+                          final wasLiked = item.likedByMe;
+                          try {
+                            await ref
+                                .read(sharingPostsProvider.notifier)
+                                .toggleLike(item.id);
+                          } catch (_) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(
+                                content: Text(wasLiked
+                                    ? l.sharingUnlikeFailed
+                                    : l.sharingLikeFailed),
+                              ),
+                            );
+                          }
+                        },
                         onTap: () => Navigator.of(context).pushNamed(
                           AppRouter.sharingDetail,
                           arguments: item.id,

@@ -14,13 +14,64 @@ final sharingCategoryFilterProvider = StateProvider<String?>((ref) => null);
 /// 검색어 상태.
 final sharingQueryProvider = StateProvider<String?>((ref) => null);
 
-/// 나눔 피드 목록.
-final sharingPostsProvider = FutureProvider.autoDispose<SharingPostListResponse>((ref) {
-  final repository = ref.watch(sharingRepositoryProvider);
-  final category = ref.watch(sharingCategoryFilterProvider);
-  final query = ref.watch(sharingQueryProvider);
-  return repository.getSharingPosts(category: category, query: query);
-});
+/// 나눔 피드 목록 + 낙관적 좋아요.
+///
+/// FutureProvider 대신 AsyncNotifier로 둬서, 좋아요 시 전체 재조회(invalidate) 없이
+/// 해당 글의 likeCount/likedByMe만 즉시 갱신한다(낙관적). 실패하면 롤백한다.
+class SharingFeedNotifier
+    extends AutoDisposeAsyncNotifier<SharingPostListResponse> {
+  @override
+  Future<SharingPostListResponse> build() {
+    final repository = ref.watch(sharingRepositoryProvider);
+    final category = ref.watch(sharingCategoryFilterProvider);
+    final query = ref.watch(sharingQueryProvider);
+    return repository.getSharingPosts(category: category, query: query);
+  }
+
+  /// 좋아요 토글 — 즉시 로컬 갱신 후 서버 반영. 실패 시 원래 상태로 롤백한다.
+  Future<void> toggleLike(int postId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final index = current.items.indexWhere((e) => e.id == postId);
+    if (index < 0) return;
+    final original = current.items[index];
+    final liked = original.likedByMe;
+
+    // 1) 낙관적 갱신
+    state = AsyncData(_replace(
+      current,
+      index,
+      original.copyWith(
+        likedByMe: !liked,
+        likeCount: original.likeCount + (liked ? -1 : 1),
+      ),
+    ));
+
+    // 2) 서버 반영
+    try {
+      final repo = ref.read(sharingRepositoryProvider);
+      liked ? await repo.unlike(postId) : await repo.like(postId);
+    } catch (_) {
+      // 3) 실패 → 롤백(현재 인덱스를 다시 찾아 원본 복원)
+      final now = state.valueOrNull;
+      if (now != null) {
+        final i = now.items.indexWhere((e) => e.id == postId);
+        if (i >= 0) state = AsyncData(_replace(now, i, original));
+      }
+      rethrow; // 화면이 실패 안내할 수 있게 전파
+    }
+  }
+
+  SharingPostListResponse _replace(
+      SharingPostListResponse res, int index, SharingPostItem item) {
+    final items = [...res.items];
+    items[index] = item;
+    return SharingPostListResponse(items: items, hasNext: res.hasNext);
+  }
+}
+
+final sharingPostsProvider = AsyncNotifierProvider.autoDispose<
+    SharingFeedNotifier, SharingPostListResponse>(SharingFeedNotifier.new);
 
 /// 내 나눔 글 목록 (M-05).
 ///
