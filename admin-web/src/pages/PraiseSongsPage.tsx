@@ -29,19 +29,25 @@ import {
 } from '../api/praiseSongs';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
+import {
+  PRAISE_SONG_FILTERABLE_STATUSES,
+  buildPraiseSongCreatePayload,
+  buildPraiseSongUpdatePayload,
+} from './adminPageContracts';
 
 // ===== AD-05 찬양 큐레이션 =====
 // 곡 메타데이터 목록 + 상태 필터 + 서버 페이지네이션 + 등록·수정·삭제. 권한: OPERATOR / SUPER_ADMIN.
 // 🚫 가사·음원 파일·외부 재생 URL 은 저장하지 않는다(메타데이터만, CLAUDE.md §8 / F-09).
 
-const STATUS_OPTIONS = [
-  { label: '노출(ACTIVE)', value: 'ACTIVE' },
-  { label: '숨김(HIDDEN)', value: 'HIDDEN' },
-];
-const SOURCE_OPTIONS = [
-  { label: '큐레이션(CURATED)', value: 'CURATED' },
-  { label: '디바이스(DEVICE)', value: 'DEVICE' },
-];
+const STATUS_LABELS: Record<PraiseSongStatus, string> = {
+  ACTIVE: '노출(ACTIVE)',
+  HIDDEN: '숨김(HIDDEN)',
+};
+
+const STATUS_OPTIONS = PRAISE_SONG_FILTERABLE_STATUSES.map((value) => ({
+  label: STATUS_LABELS[value],
+  value,
+}));
 
 function statusTag(status: string) {
   const map: Record<string, { color: string; text: string }> = {
@@ -100,7 +106,7 @@ export default function PraiseSongsPage() {
     }
     setSubmitting(true);
     try {
-      await createPraiseSong(values);
+      await createPraiseSong(buildPraiseSongCreatePayload(values));
       message.success('찬양 곡을 등록했습니다.');
       setCreateOpen(false);
       reload();
@@ -131,7 +137,7 @@ export default function PraiseSongsPage() {
     }
     setEditSubmitting(true);
     try {
-      await updatePraiseSong(editTarget.id, values);
+      await updatePraiseSong(editTarget.id, buildPraiseSongUpdatePayload(values));
       message.success('찬양 곡을 수정했습니다.');
       setEditOpen(false);
       reload();
@@ -273,11 +279,7 @@ export default function PraiseSongsPage() {
         onCancel={() => setCreateOpen(false)}
         destroyOnClose
       >
-        <Form
-          form={createForm}
-          layout="vertical"
-          initialValues={{ sourceType: 'CURATED', status: 'ACTIVE' }}
-        >
+        <Form form={createForm} layout="vertical">
           <Form.Item
             name="title"
             label="곡명"
@@ -292,26 +294,12 @@ export default function PraiseSongsPage() {
           >
             <Input maxLength={100} placeholder="아티스트명" />
           </Form.Item>
-          <Form.Item
-            name="sourceType"
-            label="출처"
-            rules={[{ required: true, message: '출처를 선택하세요' }]}
-          >
-            <Select options={SOURCE_OPTIONS} />
-          </Form.Item>
           <Form.Item name="licenseNote" label="라이선스 메모">
             <Input.TextArea
               rows={2}
               maxLength={300}
               placeholder="저작권 확인 메모 (가사·음원·URL 저장 금지 — 메타데이터만)"
             />
-          </Form.Item>
-          <Form.Item
-            name="status"
-            label="상태"
-            rules={[{ required: true, message: '상태를 선택하세요' }]}
-          >
-            <Select options={STATUS_OPTIONS} />
           </Form.Item>
         </Form>
       </Modal>

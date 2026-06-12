@@ -24,7 +24,8 @@ export interface AiAsset {
   assetType: string; // EXPLANATION / BIBLE_VERSE
   targetType: string | null;
   targetId: number | null;
-  status: string; // VALIDATING / NEEDS_REVIEW / APPROVED / REJECTED / HIDDEN
+  // 백엔드 AiGeneratedAssetStatus 기준. NEEDS_REVIEW는 latestValidationResult에만 나타난다.
+  status: string; // VALIDATING / APPROVED / REJECTED / HIDDEN
   promptVersion: PromptVersionSummary | null;
   checklistVersionId: number | null;
   latestValidationResult: string | null;

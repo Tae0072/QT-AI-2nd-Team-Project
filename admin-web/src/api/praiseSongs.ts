@@ -37,9 +37,7 @@ export interface PraiseSongListParams extends PageParams {
 export interface CreatePraiseSongRequest {
   title: string;
   artist: string;
-  sourceType: PraiseSongSourceType;
   licenseNote?: string;
-  status: PraiseSongStatus;
 }
 
 // 수정 요청 바디(04 §4.7.6). title·artist·licenseNote 만 허용한다.
