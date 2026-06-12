@@ -22,6 +22,7 @@ import com.qtai.domain.ai.api.admin.evaluation.ActivateAiEvaluationSetUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.ApproveAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationAssetCandidateUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationCaseUseCase;
+import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationReportCandidateUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationSetUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationSetUseCase;
@@ -71,6 +72,8 @@ class AdminAiEvaluationControllerTest {
     @Mock
     private CreateAiEvaluationAssetCandidateUseCase assetCandidateUseCase;
     @Mock
+    private CreateAiEvaluationReportCandidateUseCase reportCandidateUseCase;
+    @Mock
     private VerifyAdminRoleUseCase verifyAdminRoleUseCase;
 
     private MockMvc mockMvc;
@@ -93,6 +96,7 @@ class AdminAiEvaluationControllerTest {
                 approveCaseUseCase,
                 rejectCaseUseCase,
                 assetCandidateUseCase,
+                reportCandidateUseCase,
                 authentication,
                 objectMapper,
                 Clock.systemDefaultZone()

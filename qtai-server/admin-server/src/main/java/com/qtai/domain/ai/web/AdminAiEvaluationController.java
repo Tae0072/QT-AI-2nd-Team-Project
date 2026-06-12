@@ -29,6 +29,7 @@ import com.qtai.domain.ai.api.admin.evaluation.ActivateAiEvaluationSetUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.ApproveAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationAssetCandidateUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationCaseUseCase;
+import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationReportCandidateUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationSetUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationSetUseCase;
@@ -45,6 +46,7 @@ import com.qtai.domain.ai.api.admin.evaluation.dto.ChangeAiEvaluationCaseStatusC
 import com.qtai.domain.ai.api.admin.evaluation.dto.ChangeAiEvaluationSetStatusCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationAssetCandidateCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationCaseCommand;
+import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationReportCandidateCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationSetCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.GetAiEvaluationCaseQuery;
 import com.qtai.domain.ai.api.admin.evaluation.dto.GetAiEvaluationSetQuery;
@@ -66,6 +68,7 @@ public class AdminAiEvaluationController {
     private final ApproveAiEvaluationCaseUseCase approveCaseUseCase;
     private final RejectAiEvaluationCaseUseCase rejectCaseUseCase;
     private final CreateAiEvaluationAssetCandidateUseCase assetCandidateUseCase;
+    private final CreateAiEvaluationReportCandidateUseCase reportCandidateUseCase;
     private final AdminAiAuthentication adminAiAuthentication;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -83,12 +86,14 @@ public class AdminAiEvaluationController {
             ApproveAiEvaluationCaseUseCase approveCaseUseCase,
             RejectAiEvaluationCaseUseCase rejectCaseUseCase,
             CreateAiEvaluationAssetCandidateUseCase assetCandidateUseCase,
+            CreateAiEvaluationReportCandidateUseCase reportCandidateUseCase,
             AdminAiAuthentication adminAiAuthentication,
             ObjectMapper objectMapper
     ) {
         this(listSetsUseCase, createSetUseCase, getSetUseCase, activateSetUseCase, retireSetUseCase,
                 listCasesUseCase, createCaseUseCase, getCaseUseCase, approveCaseUseCase, rejectCaseUseCase,
-                assetCandidateUseCase, adminAiAuthentication, objectMapper, Clock.systemDefaultZone());
+                assetCandidateUseCase, reportCandidateUseCase, adminAiAuthentication, objectMapper,
+                Clock.systemDefaultZone());
     }
 
     AdminAiEvaluationController(
@@ -103,6 +108,7 @@ public class AdminAiEvaluationController {
             ApproveAiEvaluationCaseUseCase approveCaseUseCase,
             RejectAiEvaluationCaseUseCase rejectCaseUseCase,
             CreateAiEvaluationAssetCandidateUseCase assetCandidateUseCase,
+            CreateAiEvaluationReportCandidateUseCase reportCandidateUseCase,
             AdminAiAuthentication adminAiAuthentication,
             ObjectMapper objectMapper,
             Clock clock
@@ -118,6 +124,7 @@ public class AdminAiEvaluationController {
         this.approveCaseUseCase = approveCaseUseCase;
         this.rejectCaseUseCase = rejectCaseUseCase;
         this.assetCandidateUseCase = assetCandidateUseCase;
+        this.reportCandidateUseCase = reportCandidateUseCase;
         this.adminAiAuthentication = adminAiAuthentication;
         this.objectMapper = objectMapper;
         this.clock = clock;
@@ -198,10 +205,11 @@ public class AdminAiEvaluationController {
             @Valid @RequestBody AiEvaluationCaseRequest request
     ) {
         AdminAiAuthentication.AdminAiPrincipal principal = adminAiAuthentication.requireEvaluationManager(authentication);
+        // 식별자·기대판정만 받는다. inputJson/expectedOutput(자유 텍스트)은 받지 않고 서버가 메타로 조립한다(§7).
         AiEvaluationCaseResponse response = createCaseUseCase.createEvaluationCase(new CreateAiEvaluationCaseCommand(
                 principal.adminId(), principal.memberRole(), principal.adminRole(), setId,
-                request.targetType(), request.targetId(), request.sourceType(), request.sourceId(),
-                json(request.inputJson()), json(request.expectedOutputJson()), json(request.expectedPolicyJson()),
+                request.targetType(), request.targetId(), request.sourceType(), null,
+                null, null, json(request.expectedPolicyJson()),
                 request.status()
         ));
         return ResponseEntity.status(201).body(ApiResponse.success(response));
@@ -246,6 +254,21 @@ public class AdminAiEvaluationController {
                 principal.adminId(), principal.memberRole(), principal.adminRole(),
                 request.evaluationSetId(), assetId, json(request.expectedPolicyJson())
         ));
+        return ResponseEntity.status(201).body(ApiResponse.success(response));
+    }
+
+    @PostMapping("/reports/{reportId}/evaluation-candidates")
+    public ResponseEntity<ApiResponse<AiEvaluationCaseResponse>> createReportCandidate(
+            Authentication authentication,
+            @PathVariable Long reportId,
+            @Valid @RequestBody ReportCandidateRequest request
+    ) {
+        AdminAiAuthentication.AdminAiPrincipal principal = adminAiAuthentication.requireEvaluationManager(authentication);
+        AiEvaluationCaseResponse response = reportCandidateUseCase.createReportCandidate(
+                new CreateAiEvaluationReportCandidateCommand(
+                        principal.adminId(), principal.memberRole(), principal.adminRole(),
+                        request.evaluationSetId(), reportId, json(request.expectedPolicyJson())
+                ));
         return ResponseEntity.status(201).body(ApiResponse.success(response));
     }
 
@@ -298,11 +321,8 @@ public class AdminAiEvaluationController {
 
     public record AiEvaluationCaseRequest(
             @NotBlank String targetType,
-            Long targetId,
+            @NotNull Long targetId,
             @NotBlank String sourceType,
-            Long sourceId,
-            @NotNull JsonNode inputJson,
-            JsonNode expectedOutputJson,
             JsonNode expectedPolicyJson,
             String status
     ) {
@@ -312,6 +332,12 @@ public class AdminAiEvaluationController {
     }
 
     public record AssetCandidateRequest(
+            @NotNull Long evaluationSetId,
+            JsonNode expectedPolicyJson
+    ) {
+    }
+
+    public record ReportCandidateRequest(
             @NotNull Long evaluationSetId,
             JsonNode expectedPolicyJson
     ) {
