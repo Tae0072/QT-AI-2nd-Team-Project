@@ -56,7 +56,7 @@ class QtStudyAvailabilityServiceTest {
     }
 
     @Test
-    @DisplayName("승인 클립이 없으면 시뮬레이터 MISSING")
+    @DisplayName("승인 QT 영상 클립이 없으면 MISSING")
     void 승인클립_없으면_MISSING() {
         lenient().when(getQtVideoAvailabilityUseCase.hasReadyVideo(2L)).thenReturn(false);
 

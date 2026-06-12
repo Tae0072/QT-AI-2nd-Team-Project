@@ -31,7 +31,7 @@ class QtStudyAvailabilityService implements GetQtStudyAvailabilityUseCase {
 
     @Override
     public QtStudyAvailability getAvailability(Long qtPassageId, List<Long> verseIds) {
-        // The response field is still named simulatorStatus for API compatibility.
+        // 응답 필드명은 기존 API 호환을 위해 simulatorStatus로 유지한다.
         boolean qtVideoReady = getQtVideoAvailabilityUseCase.hasReadyVideo(qtPassageId);
 
         boolean hasExplanation = verseIds != null && !verseIds.isEmpty()
