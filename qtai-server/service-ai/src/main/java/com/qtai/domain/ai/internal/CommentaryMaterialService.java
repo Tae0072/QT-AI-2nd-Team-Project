@@ -1,16 +1,27 @@
 package com.qtai.domain.ai.internal;
 
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 
 @Service
 @Transactional(readOnly = true)
 public class CommentaryMaterialService {
 
+    private static final Logger log = LoggerFactory.getLogger(CommentaryMaterialService.class);
+
     private static final int MAX_EXCERPT_LENGTH = 1_200;
+    private static final String SOURCE_MISMATCH_ERROR = "COMMENTARY_MATERIAL_SOURCE_MISMATCH";
 
     private final CommentaryMaterialVerseRepository repository;
 
@@ -28,33 +39,47 @@ public class CommentaryMaterialService {
             return CommentaryMaterialContext.empty();
         }
 
-        Long selectedMaterialId = null;
-        MaterialAccumulator selected = null;
-        // Prompt policy: use one active material by repository order, while collecting all mappings for that material.
+        Map<Long, MaterialAccumulator> selectedMaterials = new LinkedHashMap<>();
         for (CommentaryMaterialVerse mapping : mappings) {
             CommentaryMaterial material = mapping.getMaterial();
-            if (selectedMaterialId == null) {
-                selectedMaterialId = material.getId();
-                selected = new MaterialAccumulator(material);
-            }
-            if (!selectedMaterialId.equals(material.getId())) {
-                continue;
-            }
-            selected.addVerseId(mapping.getBibleVerseId());
+            selectedMaterials.computeIfAbsent(material.getId(), ignored -> new MaterialAccumulator(material))
+                    .addVerseId(mapping.getBibleVerseId());
         }
 
-        List<MaterialAccumulator> selectedMaterials = List.of(selected);
-        CommentaryMaterial firstMaterial = selected.material();
+        List<MaterialAccumulator> materialAccumulators = List.copyOf(selectedMaterials.values());
+        CommentaryMaterial firstMaterial = materialAccumulators.get(0).material();
         CommentarySource source = firstMaterial.getSource();
+        requireSingleSource(materialAccumulators, source);
         return new CommentaryMaterialContext(
                 source.getSourceKey(),
                 source.getName(),
                 source.getLicenseLabel(),
                 firstNonBlank(source.getCopyrightNotice(), source.getAttribution()),
-                selectedMaterials.stream().map(accumulator -> accumulator.material().getId()).toList(),
+                materialAccumulators.stream().map(accumulator -> accumulator.material().getId()).toList(),
                 verseRange(firstMaterial),
-                selectedMaterials.stream().map(MaterialAccumulator::toExcerpt).toList()
+                materialAccumulators.stream().map(MaterialAccumulator::toExcerpt).toList()
         );
+    }
+
+    private static void requireSingleSource(List<MaterialAccumulator> materialAccumulators, CommentarySource source) {
+        String sourceKey = source == null ? null : source.getSourceKey();
+        for (MaterialAccumulator accumulator : materialAccumulators) {
+            CommentarySource candidateSource = accumulator.material().getSource();
+            String candidateSourceKey = candidateSource == null ? null : candidateSource.getSourceKey();
+            if (!Objects.equals(sourceKey, candidateSourceKey)) {
+                log.warn(
+                        "commentary material source mismatch: expectedSourceKey={}, actualSourceKey={}, materialId={}, verseIds={}",
+                        sourceKey,
+                        candidateSourceKey,
+                        accumulator.material().getId(),
+                        accumulator.verseIds()
+                );
+                throw new BusinessException(
+                        ErrorCode.INTERNAL_ERROR,
+                        SOURCE_MISMATCH_ERROR
+                );
+            }
+        }
     }
 
     private static String verseRange(CommentaryMaterial material) {
@@ -105,6 +130,10 @@ public class CommentaryMaterialService {
 
         private void addVerseId(Long verseId) {
             verseIds.add(verseId);
+        }
+
+        private List<Long> verseIds() {
+            return List.copyOf(verseIds);
         }
 
         private CommentaryMaterialContext.MaterialExcerpt toExcerpt() {

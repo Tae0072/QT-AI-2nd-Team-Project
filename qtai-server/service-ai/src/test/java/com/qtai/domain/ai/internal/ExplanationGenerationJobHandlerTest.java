@@ -44,6 +44,49 @@ class ExplanationGenerationJobHandlerTest {
     );
 
     @Test
+    void generateAddsEmptyCommentaryMetadataWhenNoMaterials() throws Exception {
+        AiGenerationJob job = AiGenerationJob.queue(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                1001L,
+                12L,
+                CREATED_AT
+        );
+        setId(job, 7002L);
+
+        when(promptVersionRepository.findById(12L)).thenReturn(Optional.of(AiPromptVersion.of(
+                12L,
+                AiPromptType.EXPLANATION,
+                "2026.06.2",
+                "hash-002",
+                AiPromptVersionStatus.ACTIVE,
+                CREATED_AT.minusDays(1)
+        )));
+        when(bibleVerseUseCase.getVerses(List.of(1001L))).thenReturn(List.of(new BibleVerseResponse(
+                1001L,
+                "Gen",
+                1,
+                1,
+                "test verse",
+                "test verse"
+        )));
+        when(commentaryMaterialService.findPromptContextByVerseIds(List.of(1001L)))
+                .thenReturn(CommentaryMaterialContext.empty());
+        when(llmClient.complete(any(LlmCompletionRequest.class))).thenReturn(completionResponse());
+
+        AiGeneratedAsset asset = handler.generate(job, CREATED_AT);
+
+        ArgumentCaptor<LlmCompletionRequest> requestCaptor = ArgumentCaptor.forClass(LlmCompletionRequest.class);
+        org.mockito.Mockito.verify(llmClient).complete(requestCaptor.capture());
+        assertThat(requestCaptor.getValue().prompt())
+                .doesNotContain("Commentary materials:")
+                .doesNotContain("Commentary excerpt");
+
+        JsonNode sourceMetadata = objectMapper.readTree(asset.getPayloadJson()).get("sourceMetadata");
+        assertEmptyCommentaryMetadata(sourceMetadata);
+    }
+
+    @Test
     void generateAddsCommentaryExcerptToPromptAndSourceMetadata() throws Exception {
         AiGenerationJob job = AiGenerationJob.queue(
                 AiGenerationJobType.EXPLANATION,
@@ -93,7 +136,29 @@ class ExplanationGenerationJobHandlerTest {
                                 List.of(1001L)
                         ))
                 ));
-        when(llmClient.complete(any(LlmCompletionRequest.class))).thenReturn(new LlmCompletionResponse(
+        when(llmClient.complete(any(LlmCompletionRequest.class))).thenReturn(completionResponse());
+
+        AiGeneratedAsset asset = handler.generate(job, CREATED_AT);
+
+        ArgumentCaptor<LlmCompletionRequest> requestCaptor = ArgumentCaptor.forClass(LlmCompletionRequest.class);
+        org.mockito.Mockito.verify(llmClient).complete(requestCaptor.capture());
+        assertThat(requestCaptor.getValue().prompt())
+                .contains("Commentary materials:")
+                .contains("Tyndale Open Study Notes")
+                .contains("Commentary excerpt")
+                .contains("materialId=3001");
+
+        JsonNode sourceMetadata = objectMapper.readTree(asset.getPayloadJson()).get("sourceMetadata");
+        assertThat(sourceMetadata.get("commentarySource").asText()).isEqualTo("TYNDALE_OPEN_STUDY_NOTES");
+        assertThat(sourceMetadata.get("sourceName").asText()).isEqualTo("Tyndale Open Study Notes");
+        assertThat(sourceMetadata.get("licenseLabel").asText()).isEqualTo("CC BY-SA 4.0");
+        assertThat(sourceMetadata.get("copyrightNotice").asText()).isEqualTo("Copyright notice");
+        assertThat(sourceMetadata.get("commentaryMaterialIds").get(0).asLong()).isEqualTo(3001L);
+        assertThat(sourceMetadata.get("commentaryVerseRange").asText()).isEqualTo("Gen.1.1-1.1");
+    }
+
+    private static LlmCompletionResponse completionResponse() {
+        return new LlmCompletionResponse(
                 """
                         {
                           "explanations": [
@@ -116,25 +181,17 @@ class ExplanationGenerationJobHandlerTest {
                 20,
                 30,
                 "deepseek-chat"
-        ));
+        );
+    }
 
-        AiGeneratedAsset asset = handler.generate(job, CREATED_AT);
-
-        ArgumentCaptor<LlmCompletionRequest> requestCaptor = ArgumentCaptor.forClass(LlmCompletionRequest.class);
-        org.mockito.Mockito.verify(llmClient).complete(requestCaptor.capture());
-        assertThat(requestCaptor.getValue().prompt())
-                .contains("Commentary materials:")
-                .contains("Tyndale Open Study Notes")
-                .contains("Commentary excerpt")
-                .contains("materialId=3001");
-
-        JsonNode sourceMetadata = objectMapper.readTree(asset.getPayloadJson()).get("sourceMetadata");
-        assertThat(sourceMetadata.get("commentarySource").asText()).isEqualTo("TYNDALE_OPEN_STUDY_NOTES");
-        assertThat(sourceMetadata.get("sourceName").asText()).isEqualTo("Tyndale Open Study Notes");
-        assertThat(sourceMetadata.get("licenseLabel").asText()).isEqualTo("CC BY-SA 4.0");
-        assertThat(sourceMetadata.get("copyrightNotice").asText()).isEqualTo("Copyright notice");
-        assertThat(sourceMetadata.get("commentaryMaterialIds").get(0).asLong()).isEqualTo(3001L);
-        assertThat(sourceMetadata.get("commentaryVerseRange").asText()).isEqualTo("Gen.1.1-1.1");
+    private static void assertEmptyCommentaryMetadata(JsonNode sourceMetadata) {
+        assertThat(sourceMetadata.get("commentarySource").isNull()).isTrue();
+        assertThat(sourceMetadata.get("sourceName").isNull()).isTrue();
+        assertThat(sourceMetadata.get("licenseLabel").isNull()).isTrue();
+        assertThat(sourceMetadata.get("copyrightNotice").isNull()).isTrue();
+        assertThat(sourceMetadata.get("commentaryVerseRange").isNull()).isTrue();
+        assertThat(sourceMetadata.get("commentaryMaterialIds").isArray()).isTrue();
+        assertThat(sourceMetadata.get("commentaryMaterialIds").isEmpty()).isTrue();
     }
 
     private static void setId(Object target, Long id) throws ReflectiveOperationException {
