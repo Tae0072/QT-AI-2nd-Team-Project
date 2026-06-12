@@ -2,6 +2,7 @@
 // 기준: 03_아키텍처_정의서 / 04_API_명세서.
 // 인증 시 회원 토큰의 ADMIN 역할(members.role=ADMIN)과 아래 세부 권한(admin_users.admin_role)을
 // 함께 확인한다. (CLAUDE.md §5)
+// 프런트 역할 체크는 메뉴/라우트 노출 제어용이며, API 최종 인가는 백엔드가 담당한다.
 export const ADMIN_ROLES = {
   OPERATOR: 'OPERATOR', // 운영: 대시보드, QT/신고/찬양/공지, 감사·AI 모니터링 조회
   REVIEWER: 'REVIEWER', // 검증: 대시보드, AI 산출물 검증, 감사·AI 모니터링 조회

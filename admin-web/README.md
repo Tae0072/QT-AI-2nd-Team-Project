@@ -100,6 +100,7 @@ admin-web/
 
 권한 표는 `src/constants/menu.ts`와 백엔드 `AdminDashboardService`, 각 도메인 Controller/Authentication,
 `VerifyAdminRoleUseCase` 기준으로 맞춥니다. 정책이 바뀌면 README와 메뉴 정의를 함께 갱신합니다.
+프런트 권한표는 메뉴/라우트 노출을 줄이는 UX 보조 장치이며, 최종 인가는 백엔드가 강제합니다.
 
 ## 배포 메모
 

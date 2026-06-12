@@ -13,6 +13,7 @@ export interface MenuItem {
 }
 
 // 권한 기준(2026-06-12): 백엔드 컨트롤러/서비스의 실제 인가(enforce)를 기준으로 한다.
+// 프런트 메뉴/라우트 제한은 UX 보조 장치이며, 최종 인가는 항상 백엔드가 강제한다.
 //  - AD-01 대시보드    : OPERATOR/REVIEWER   (AdminDashboardService)
 //  - AD-02 오늘QT관리  : OPERATOR            (AdminQtPassageController.requireOperator)
 //  - AD-03 AI검증     : REVIEWER            (AdminAiAuthentication.requireReviewer)
