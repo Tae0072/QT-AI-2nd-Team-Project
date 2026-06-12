@@ -33,6 +33,11 @@ import {
   type AiAssetListParams,
   type AiValidationLog,
 } from '../api/aiAssets';
+import {
+  createEvaluationCandidate,
+  listEvaluationSets,
+  type EvaluationSet,
+} from '../api/aiEvaluations';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
 
@@ -140,6 +145,14 @@ export default function AiAssetsPage() {
   >(null);
   const [regenerating, setRegenerating] = useState(false);
 
+  // 평가 항목으로 추가(평가 후보 등록) — 상세 산출물을 평가 세트의 케이스로 등록.
+  // API 함수는 aiEvaluations.ts(AD-11)가 소유, 여기선 import만 해서 연결한다.
+  const [candidateOpen, setCandidateOpen] = useState(false);
+  const [candidateSetId, setCandidateSetId] = useState<number | null>(null);
+  const [candidateSets, setCandidateSets] = useState<EvaluationSet[]>([]);
+  const [candidateSetsLoading, setCandidateSetsLoading] = useState(false);
+  const [candidateSubmitting, setCandidateSubmitting] = useState(false);
+
   const onSearch = () =>
     applyFilters({
       assetType: assetType || undefined,
@@ -162,6 +175,7 @@ export default function AiAssetsPage() {
     setSelectedAsset(null);
     setDetailError(null);
     setRegenerateOpen(false);
+    setCandidateOpen(false);
   };
 
   const loadDetail = async (assetId: number) => {
@@ -223,6 +237,49 @@ export default function AiAssetsPage() {
       message.error(e instanceof Error ? e.message : '재생성 요청에 실패했습니다.');
     } finally {
       setRegenerating(false);
+    }
+  };
+
+  const openCandidate = async () => {
+    if (!selectedAsset) return;
+    setCandidateSetId(null);
+    setCandidateOpen(true);
+    setCandidateSetsLoading(true);
+    try {
+      // 대상 유형이 같은 평가 세트만 후보 등록 가능(서버가 불일치 시 거절) → 같은 targetType으로 필터.
+      const res = await listEvaluationSets({
+        targetType: selectedAsset.targetType ?? undefined,
+        size: 100,
+      });
+      setCandidateSets(res.content);
+    } catch (e) {
+      message.error(
+        e instanceof Error ? e.message : '평가 세트 목록을 불러오지 못했습니다.',
+      );
+    } finally {
+      setCandidateSetsLoading(false);
+    }
+  };
+
+  const submitCandidate = async () => {
+    if (!selectedAsset) return;
+    if (candidateSetId == null) {
+      message.error('평가 세트을 선택하세요.');
+      return;
+    }
+    setCandidateSubmitting(true);
+    try {
+      await createEvaluationCandidate(selectedAsset.id, {
+        evaluationSetId: candidateSetId,
+      });
+      message.success('평가 항목으로 추가했습니다.');
+      setCandidateOpen(false);
+    } catch (e) {
+      message.error(
+        e instanceof Error ? e.message : '평가 항목 추가에 실패했습니다.',
+      );
+    } finally {
+      setCandidateSubmitting(false);
     }
   };
 
@@ -477,13 +534,16 @@ export default function AiAssetsPage() {
         destroyOnClose
         extra={
           selectedAsset ? (
-            <Button
-              icon={<SyncOutlined />}
-              loading={regenerating}
-              onClick={openRegenerate}
-            >
-              재생성
-            </Button>
+            <Space>
+              <Button onClick={openCandidate}>평가 항목으로 추가</Button>
+              <Button
+                icon={<SyncOutlined />}
+                loading={regenerating}
+                onClick={openRegenerate}
+              >
+                재생성
+              </Button>
+            </Space>
           ) : null
         }
       >
@@ -618,6 +678,51 @@ export default function AiAssetsPage() {
                 style={{ display: 'block', marginTop: 4, width: '100%' }}
               />
             </div>
+          </Space>
+        )}
+      </Modal>
+
+      <Modal
+        open={candidateOpen}
+        title="평가 항목으로 추가"
+        okText="추가"
+        cancelText="취소"
+        confirmLoading={candidateSubmitting}
+        onOk={submitCandidate}
+        onCancel={() => setCandidateOpen(false)}
+        destroyOnClose
+      >
+        {selectedAsset && (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Typography.Text type="secondary">
+              이 AI 산출물을 평가 세트의 평가 항목으로 등록합니다. · 산출물 #
+              {selectedAsset.id} · 대상 {targetLabel(selectedAsset)}
+            </Typography.Text>
+            <div>
+              <Typography.Text>
+                평가 세트 선택 <Typography.Text type="danger">*</Typography.Text>
+              </Typography.Text>
+              <Select
+                style={{ display: 'block', marginTop: 4, width: '100%' }}
+                placeholder="평가 세트 선택"
+                loading={candidateSetsLoading}
+                value={candidateSetId ?? undefined}
+                onChange={(v) => setCandidateSetId(v ?? null)}
+                options={candidateSets.map((s) => ({
+                  label: `#${s.id} ${s.name} · ${s.version} [${s.status}]`,
+                  value: s.id,
+                }))}
+                notFoundContent={
+                  candidateSetsLoading
+                    ? '불러오는 중...'
+                    : '이 대상 유형에 맞는 평가 세트이 없습니다'
+                }
+              />
+            </div>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              대상 유형이 같은 평가 세트만 보입니다. 없으면 먼저 ‘AI 평가 세트’
+              화면에서 만들어 주세요.
+            </Typography.Text>
           </Space>
         )}
       </Modal>

@@ -24,6 +24,7 @@ export interface MenuItem {
 //  - AD-08 AI모니터링  : OPERATOR/REVIEWER   (AdminAiAuthentication.requireMonitoring)
 //  - AD-09 검증체크리스트: REVIEWER           (AdminAiValidationChecklistController.requireReviewer)
 //  - AD-10 배치실행로그  : OPERATOR/REVIEWER   (AdminAiBatchRunLogController.requireMonitoring)
+//  - AD-11 평가셋/케이스 : REVIEWER/CONTENT_CREATOR (AdminAiAuthentication.requireEvaluationManager)
 export const MENU_ITEMS: MenuItem[] = [
   {
     code: 'AD-01',
@@ -84,5 +85,11 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/ai-batch-logs',
     label: 'AI 배치 실행 로그',
     requiredRoles: [ADMIN_ROLES.OPERATOR, ADMIN_ROLES.REVIEWER],
+  },
+  {
+    code: 'AD-11',
+    path: '/ai-evaluations',
+    label: 'AI 평가 세트',
+    requiredRoles: [ADMIN_ROLES.REVIEWER, ADMIN_ROLES.CONTENT_CREATOR],
   },
 ];

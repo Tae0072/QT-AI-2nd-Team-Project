@@ -13,6 +13,7 @@ import AuditLogsPage from './pages/AuditLogsPage';
 import AiMonitoringPage from './pages/AiMonitoringPage';
 import AiChecklistsPage from './pages/AiChecklistsPage';
 import AiBatchRunLogsPage from './pages/AiBatchRunLogsPage';
+import AiEvaluationsPage from './pages/AiEvaluationsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { MENU_ITEMS } from './constants/menu';
 
@@ -72,6 +73,10 @@ export default function App() {
           <Route
             path="/ai-batch-logs"
             element={withRole('/ai-batch-logs', <AiBatchRunLogsPage />)}
+          />
+          <Route
+            path="/ai-evaluations"
+            element={withRole('/ai-evaluations', <AiEvaluationsPage />)}
           />
         </Route>
       </Route>
