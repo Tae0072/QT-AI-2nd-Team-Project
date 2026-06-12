@@ -333,6 +333,11 @@ export default function ReportsPage() {
                 : ''}{' '}
               · 신고 #{action.report.id}
             </Typography.Text>
+            {action.mode === 'resolve' && action.report.targetType === 'POST' && (
+              <Typography.Text type="warning">
+                처리 시 대상 나눔글이 숨김 처리됩니다.
+              </Typography.Text>
+            )}
             <div>
               <Typography.Text>처리 사유 (선택)</Typography.Text>
               <Input.TextArea

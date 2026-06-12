@@ -16,12 +16,52 @@ export const AI_ASSET_FILTERABLE_STATUSES = [
 
 export type AiAssetFilterableStatus = (typeof AI_ASSET_FILTERABLE_STATUSES)[number];
 
+export type RegenerationJobNotice = {
+  generationJobId?: number;
+  status: string;
+};
+
+type GenerationJobLike =
+  | {
+      id?: number;
+      generationJobId?: number;
+      status: string;
+    }
+  | null
+  | undefined;
+
 export function isAiAssetReviewable(status: string) {
   return status === 'VALIDATING';
 }
 
 export function isAiAssetRegeneratable(status: string) {
   return status === 'REJECTED' || status === 'HIDDEN';
+}
+
+export function isActiveGenerationJobStatus(status: string) {
+  return status === 'QUEUED' || status === 'RUNNING';
+}
+
+function toRegenerationJobNotice(job: GenerationJobLike): RegenerationJobNotice | undefined {
+  if (!job || !isActiveGenerationJobStatus(job.status)) {
+    return undefined;
+  }
+  return {
+    generationJobId: job.generationJobId ?? job.id,
+    status: job.status,
+  };
+}
+
+export function resolveActiveRegenerationJob(
+  cachedJob: RegenerationJobNotice | undefined,
+  activeGenerationJob: GenerationJobLike,
+  generationJob: GenerationJobLike,
+) {
+  return (
+    cachedJob ??
+    toRegenerationJobNotice(activeGenerationJob) ??
+    toRegenerationJobNotice(generationJob)
+  );
 }
 
 export function aiAssetEvaluationSetListParams(
@@ -42,6 +82,7 @@ export function buildPraiseSongCreatePayload(
     title: values.title,
     artist: values.artist,
     licenseNote: values.licenseNote,
+    status: values.status,
   };
 }
 
@@ -52,6 +93,7 @@ export function buildPraiseSongUpdatePayload(
     title: values.title,
     artist: values.artist,
     licenseNote: values.licenseNote,
+    status: values.status,
   };
 }
 
@@ -89,8 +131,6 @@ export function buildReportProcessPayload(
     reason: reason.trim() || undefined,
     notifyReporter,
   };
-  // AdminReportController accepts action, and current moderation hiding is wired
-  // only for resolved POST reports.
   if (mode === 'resolve' && report.targetType === 'POST') {
     payload.action = 'HIDE_TARGET';
   }

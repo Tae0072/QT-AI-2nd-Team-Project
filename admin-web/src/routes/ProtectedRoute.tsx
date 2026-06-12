@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { Button, Result, Space, Spin } from 'antd';
+import { Button, Result, Space, Spin, Typography } from 'antd';
 import { useAuth } from '../auth/useAuth';
 
 // ===== 로그인한 사용자만 통과시키는 길목(가드) =====
@@ -19,7 +19,10 @@ export default function ProtectedRoute() {
   if (adminLoading) {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <Spin tip="관리자 권한 확인 중" />
+        <Space direction="vertical" align="center" size="middle">
+          <Spin />
+          <Typography.Text type="secondary">관리자 권한 확인 중</Typography.Text>
+        </Space>
       </div>
     );
   }

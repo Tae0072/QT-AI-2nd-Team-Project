@@ -26,7 +26,7 @@ export interface ReportListParams extends PageParams {
   status?: string; // RECEIVED/REVIEWING/RESOLVED/REJECTED
 }
 
-// resolve/reject 요청 본문 (백엔드 ProcessReportRequest: action, reason, notifyReporter)
+// resolve/reject 요청 본문 (백엔드 ProcessReportRequest: reason, notifyReporter)
 export interface ProcessReportPayload {
   action?: 'HIDE_TARGET';
   reason?: string;
