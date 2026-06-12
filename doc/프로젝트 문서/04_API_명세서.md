@@ -228,7 +228,7 @@
 | AD-03 | AI 산출물 검증 | `GET /api/v1/admin/ai/assets`, `POST /api/v1/admin/ai/assets/{assetId}/approve`, `POST /api/v1/admin/ai/assets/{assetId}/reject` |
 | AD-04 | 신고 처리 | `GET /api/v1/admin/reports`, `POST /api/v1/admin/reports/{reportId}/resolve` |
 | AD-05 | 찬양 큐레이션 | `GET /api/v1/admin/praise-songs`, `POST /api/v1/admin/praise-songs`, `PATCH /api/v1/admin/praise-songs/{id}` |
-| AD-06 | 시스템 공지 | `GET /api/v1/admin/notices`, `POST /api/v1/admin/notices`, `POST /api/v1/admin/notices/{id}/publish` |
+| AD-06 | 시스템 공지 | `GET /api/v1/admin/notices`, `GET /api/v1/admin/notices/{id}`, `POST /api/v1/admin/notices`, `PATCH /api/v1/admin/notices/{id}`, `POST /api/v1/admin/notices/{id}/publish`, `POST /api/v1/admin/notices/{id}/hide` |
 | AD-07 | 감사 로그 | `GET /api/v1/admin/audit-logs` |
 | AD-08 | AI 운영 모니터링 | `GET /api/v1/admin/ai/monitoring` |
 
@@ -1632,6 +1632,20 @@
 }
 ```
 
+상세 응답 `data` 객체 (`GET /api/v1/admin/notices/{id}`, 생성, 수정 공통):
+
+```json
+{
+  "id": 20,
+  "title": "서비스 점검 안내",
+  "body": "오늘 밤 점검이 예정되어 있습니다.",
+  "status": "DRAFT",
+  "publishedAt": null,
+  "createdAt": "2026-05-17T10:00:00+09:00",
+  "updatedAt": "2026-05-17T10:05:00+09:00"
+}
+```
+
 생성/수정 요청:
 
 ```json
@@ -1709,6 +1723,10 @@
 }
 ```
 
+- **상세 조회:** 관리자 공지 편집 화면에서 전체 본문을 다시 채우기 위해 `bodyPreview`가 아니라 전체 `body`를 반환한다. 관리자 권한을 가진 운영자는 `DRAFT`, `PUBLISHED`, `HIDDEN` 상태 공지를 모두 조회할 수 있다.
+- **입력 검증:** `title`은 1~100자, `body`는 1~10,000자이며 공지 본문은 plain text로만 저장한다. HTML/script 삽입을 막기 위해 `<`, `>` 문자는 허용하지 않는다. 생성 시 `status`는 생략하거나 `DRAFT`만 허용한다. 수정 요청에는 `status`를 포함하지 않는다.
+- **상태 전이:** 수정과 발행은 `DRAFT` 상태에서만 가능하다. `PUBLISHED` 또는 `HIDDEN` 상태에서 수정/발행을 시도하면 `409 C0007 INVALID_STATUS_TRANSITION`을 반환한다. 숨김은 `DRAFT → HIDDEN`, `PUBLISHED → HIDDEN` 전이를 허용하고, 이미 `HIDDEN`인 공지는 `409 C0007 INVALID_STATUS_TRANSITION`으로 거부한다.
+
 발행 응답:
 
 ```json
@@ -1725,9 +1743,9 @@
 ```
 
 - **발행 정책:** `PUBLISHED` 전환 시 대상 회원에게 `notifications.type=NOTICE`, `notifications.notice_id=notices.id`를 생성한다. 알림 생성이 일부 실패하면 공지 상태는 `PUBLISHED`로 유지하고 `notificationResult.failedCount`와 감사 로그에 실패를 기록한다.
-- **숨김 처리:** `POST /api/v1/admin/notices/{id}/hide`는 `notices.status=HIDDEN`으로 변경한다. 이미 생성된 알림은 삭제하지 않지만 링크 이동 시 숨김 안내를 반환한다.
-- **성공 코드:** 생성 `201 Created`, 수정/발행 `200 OK`, 숨김 `204 No Content`
-- **실패 코드:** `400 VALIDATION_ERROR`, `403 FORBIDDEN`, `404 NOT_FOUND`, `409 INVALID_STATUS_TRANSITION`, `500 INTERNAL_ERROR`
+- **숨김 처리:** `POST /api/v1/admin/notices/{id}/hide`는 `notices.status=HIDDEN`으로 변경하고 본문 없이 `204 No Content`를 반환한다. 클라이언트가 변경된 `status=HIDDEN` 값을 화면에 반영하려면 목록 또는 상세를 재조회한다. 이미 생성된 알림은 삭제하지 않지만 링크 이동 시 숨김 안내를 반환한다.
+- **성공 코드:** 목록/상세/수정/발행 `200 OK`, 생성 `201 Created`, 숨김 `204 No Content`
+- **실패 코드:** `400 VALIDATION_ERROR` 또는 `C0002 INVALID_INPUT`(생성/수정 입력값 오류), `401 M0002 UNAUTHORIZED`, `403 M0003 FORBIDDEN`(ADMIN 아님), `403 AD0003 ADMIN_ROLE_INSUFFICIENT`(세부 관리자 권한 부족), `404 C0004 RESOURCE_NOT_FOUND`(없는 공지), `409 C0007 INVALID_STATUS_TRANSITION`, `500 C0001 INTERNAL_ERROR`
 
 ### 4.7.8 감사 로그 조회
 
@@ -2378,11 +2396,12 @@
 | 82 | PATCH | `/api/v1/admin/praise-songs/{id}` | OPERATOR | 관리자 찬양 수정 |
 | 83 | POST | `/api/v1/admin/praise-songs/{id}/hide` | OPERATOR | 관리자 찬양 숨김 |
 | 84 | GET | `/api/v1/admin/notices` | OPERATOR | 관리자 공지 목록 |
-| 85 | POST | `/api/v1/admin/notices` | OPERATOR | 공지 생성 |
-| 86 | PATCH | `/api/v1/admin/notices/{id}` | OPERATOR | 공지 수정 |
-| 87 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
-| 88 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
-| 89 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
+| 85 | GET | `/api/v1/admin/notices/{id}` | OPERATOR | 관리자 공지 상세 |
+| 86 | POST | `/api/v1/admin/notices` | OPERATOR | 공지 생성 |
+| 87 | PATCH | `/api/v1/admin/notices/{id}` | OPERATOR | 공지 수정 |
+| 88 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
+| 89 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
+| 90 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
 
 ---
 
@@ -2399,6 +2418,7 @@
 | v1.6 | 2026-05-19 | T (강태오) | `07_요구사항_정의서.md` v3.4 §F-01 한글 성경 클라이언트 로컬 저장 정책 반영 — §4.2.2 성경 절 조회에 "언어 정책" 명시(이 API는 영어 본문 조회 또는 한글 로컬 미적재 시 백업 조회 용도), §4.2.2.1 한글 성경 번들 다운로드 API 신설(`GET /api/v1/bible/bundle?language=ko&version=`). 쿼리 파라미터·응답 예시·`304 Not Modified` 분기·실패 코드 정의. 영어 번들은 v1에서 제공하지 않고 §4.2.2로 온라인 조회. 출처: 2026-05-18 바이블서버 회의록 §1·§3·§4. 코드 변경 없음. |
 | v1.7 | 2026-05-21 | T (강태오) | Notion 역할분담 회의록(재작성) 반영 — §4.1.6~4.1.7 `GET/PATCH /api/v1/me/settings`(사용자 설정 조회/수정) 신설, 기존 §4.1.6~4.1.7(튜토리얼 완료·회원 탈퇴)을 §4.1.8~4.1.9로 재번호. §9 전체 API 요약 표에 `GET /api/v1/me/settings`(#7), `PATCH /api/v1/me/settings`(#8) 행 추가 및 이후 번호 순차 재정렬(총 88개). **[Breaking Change]** `GET /api/v1/qt/today` 응답 `entryPoints` 객체 내 `simulator` 필드 타입 변경: `boolean(false)` → `string enum("READY"/"MISSING"/"FAILED"/"DISABLED")`로 변경 후 필드명을 `simulatorStatus`로 교체. 기존 클라이언트가 `simulator: false`를 파싱하던 코드는 수정 필요. 코드 변경 없음. |
 | v1.8 | 2026-06-11 | 이승욱 (DevD) | `07_요구사항_정의서.md` v3.6(닉네임 7일 잠금 폐지, Lead 승인 2026-06-11) 반영 — 원본 보존 원칙에 따라 본문은 수정하지 않고 아래 "개정 추가 (2026-06-11)" 절로 기록. §4.1.2/§4.1.5/§6.2의 잠금 관련 서술은 해당 절이 대체한다. 코드 변경: PR #478 포함. |
+| v1.9 | 2026-06-12 | T (강태오) / Codex | §4.7.7 공지 관리에 상세 조회 응답(`GET /api/v1/admin/notices/{id}`), 입력 검증, 상태 전이, 성공/실패 코드(`AD0003`, `C0004`, `C0007`)를 보강. 상단 AD-06 기능 표와 §9 전체 API 요약 표에 공지 상세 조회 행(#85)을 추가하고 이후 번호를 #90까지 재정렬. 코드 변경 없음. |
 
 ---
 

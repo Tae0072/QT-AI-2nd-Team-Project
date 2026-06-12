@@ -48,6 +48,30 @@
     }
   },
   "noteEmpty": "작성한 노트가 없습니다",
+  "noteEmptyQtHint": "QT 노트는 오늘의 QT 화면에서 작성해요",
+  "noteEmptySermonHint": "설교 노트는 성경 화면에서 작성해요",
+  "noteSelect": "선택",
+  "noteSelectAll": "전체선택",
+  "noteSelectedCount": "{count}개 선택",
+  "@noteSelectedCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeleteSelectedTitle": "선택한 노트 삭제",
+  "noteDeleteSelectedBody": "선택한 {count}개 노트를 삭제할까요? 되돌릴 수 없어요.",
+  "@noteDeleteSelectedBody": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeletedCount": "{count}개 삭제했어요",
+  "@noteDeletedCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeletePartial": "{ok}개 삭제, {failed}개 실패",
+  "@noteDeletePartial": {
+    "placeholders": {
+      "ok": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
   "noteUntitled": "(제목 없음)",
   "noteDraft": "임시저장",
   "noteModeWrite": "작성",
@@ -58,10 +82,6 @@
   "noteDeleteConfirmBody": "삭제한 노트는 되돌릴 수 없습니다.",
   "noteDeleted": "삭제되었습니다",
   "noteDeleteFailed": "삭제에 실패했습니다. 다시 시도해 주세요",
-  "noteSectionFelt": "느낀 점",
-  "noteSectionVerse": "기억할 구절",
-  "noteSectionApply": "적용할 점",
-  "noteSectionPray": "기도",
   "noteQuotedVerses": "인용 구절",
   "noteLoadFailed": "노트를 불러오지 못했습니다",
   "noteEditTitleLabel": "제목 (선택)",

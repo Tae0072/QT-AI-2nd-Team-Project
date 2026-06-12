@@ -6,6 +6,7 @@ import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/screens/bible_passage_screen.dart';
 import 'package:qtai_app/features/bible/services/bible_repository.dart';
+import 'package:qtai_app/core/widgets/calm_paper.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 
 const _range = BibleVerseRange(
@@ -66,6 +67,30 @@ void main() {
 
     final button = tester.widget<FilledButton>(find.byType(FilledButton));
     expect(button.onPressed, isNotNull);
+  });
+
+  testWidgets('영어 토글 전에는 영어 본문이 안 보인다', (tester) async {
+    await _pump(tester, _FakeRepo(BiblePassageStudy.none));
+
+    expect(find.text('Test verse body 1'), findsNothing);
+    expect(find.byType(CpSubBox), findsNothing);
+  });
+
+  testWidgets('영어 토글 시 영어 본문이 QT처럼 sub-box로 보인다', (tester) async {
+    await _pump(tester, _FakeRepo(BiblePassageStudy.none));
+
+    await tester.tap(find.byKey(const Key('bible-browser-english-toggle')));
+    await tester.pumpAndSettle();
+
+    // 영어 본문이 노출되고, 오늘의 QT와 동일한 sunken sub-box 안에 들어간다.
+    expect(find.text('Test verse body 1'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('Test verse body 1'),
+        matching: find.byType(CpSubBox),
+      ),
+      findsOneWidget,
+    );
   });
 }
 

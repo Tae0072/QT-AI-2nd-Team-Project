@@ -54,6 +54,30 @@
     }
   },
   "noteEmpty": "No notes yet",
+  "noteEmptyQtHint": "Write QT notes from the Today QT screen",
+  "noteEmptySermonHint": "Write sermon notes from the Bible screen",
+  "noteSelect": "Select",
+  "noteSelectAll": "Select all",
+  "noteSelectedCount": "{count} selected",
+  "@noteSelectedCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeleteSelectedTitle": "Delete selected notes",
+  "noteDeleteSelectedBody": "Delete {count} selected notes? This can't be undone.",
+  "@noteDeleteSelectedBody": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeletedCount": "Deleted {count}",
+  "@noteDeletedCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeletePartial": "{ok} deleted, {failed} failed",
+  "@noteDeletePartial": {
+    "placeholders": {
+      "ok": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
   "noteUntitled": "(Untitled)",
   "noteDraft": "Draft",
   "noteModeWrite": "New",
@@ -64,10 +88,6 @@
   "noteDeleteConfirmBody": "Deleted notes cannot be recovered.",
   "noteDeleted": "Deleted",
   "noteDeleteFailed": "Failed to delete. Please try again.",
-  "noteSectionFelt": "Reflections",
-  "noteSectionVerse": "Verse to remember",
-  "noteSectionApply": "How to apply",
-  "noteSectionPray": "Prayer",
   "noteQuotedVerses": "Quoted verses",
   "noteLoadFailed": "Couldn't load the note",
   "noteEditTitleLabel": "Title (optional)",
