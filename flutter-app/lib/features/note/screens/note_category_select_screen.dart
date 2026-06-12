@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
-import 'note_edit_screen.dart';
 
 /// 노트 카테고리 선택 화면 (N-02).
 ///
