@@ -5,6 +5,7 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
 import com.qtai.domain.notification.api.CreateAdminNoticeUseCase;
+import com.qtai.domain.notification.api.GetAdminNoticeUseCase;
 import com.qtai.domain.notification.api.HideAdminNoticeUseCase;
 import com.qtai.domain.notification.api.ListAdminNoticesUseCase;
 import com.qtai.domain.notification.api.PublishAdminNoticeUseCase;
@@ -41,6 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminNoticeController {
 
     private final ListAdminNoticesUseCase listAdminNoticesUseCase;
+    private final GetAdminNoticeUseCase getAdminNoticeUseCase;
     private final CreateAdminNoticeUseCase createAdminNoticeUseCase;
     private final UpdateAdminNoticeUseCase updateAdminNoticeUseCase;
     private final PublishAdminNoticeUseCase publishAdminNoticeUseCase;
@@ -61,6 +63,14 @@ public class AdminNoticeController {
             @RequestParam(defaultValue = "20") int size) {
         requireOperator(authentication);
         return ResponseEntity.ok(ApiResponse.success(listAdminNoticesUseCase.listAdminNotices(page, size)));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<AdminNoticeDetailResponse>> get(
+            @PathVariable Long id,
+            Authentication authentication) {
+        requireOperator(authentication);
+        return ResponseEntity.ok(ApiResponse.success(getAdminNoticeUseCase.getAdminNotice(id)));
     }
 
     @PostMapping

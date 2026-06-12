@@ -1667,6 +1667,7 @@
 ### 4.7.7 공지 관리
 
 - **Method + URL:** `GET /api/v1/admin/notices?page=0&size=20`
+- **Method + URL:** `GET /api/v1/admin/notices/{id}`
 - **Method + URL:** `POST /api/v1/admin/notices`
 - **Method + URL:** `PATCH /api/v1/admin/notices/{id}`
 - **Method + URL:** `POST /api/v1/admin/notices/{id}/publish`

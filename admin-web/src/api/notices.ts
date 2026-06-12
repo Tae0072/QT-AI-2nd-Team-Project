@@ -4,6 +4,7 @@ import type { ApiResponse, Page, PageParams } from './types';
 // ===== AD-06 시스템 공지 =====
 // 연결 API (권한: ADMIN + OPERATOR/SUPER_ADMIN)
 //   GET   /api/v1/admin/notices              목록(정렬 createdAt,desc 고정)
+//   GET   /api/v1/admin/notices/{id}         상세(전체 body 포함)
 //   POST  /api/v1/admin/notices              등록(201, 상세 반환)
 //   PATCH /api/v1/admin/notices/{id}         수정(200, DRAFT만 / status 보내면 400)
 //   POST  /api/v1/admin/notices/{id}/publish 발행(200, 알림 fan-out 결과 반환)
@@ -14,7 +15,7 @@ import type { ApiResponse, Page, PageParams } from './types';
 
 export type NoticeStatus = 'DRAFT' | 'PUBLISHED' | 'HIDDEN';
 
-// 목록 Item(미리보기). 상세 GET이 없어 create/update 응답으로 body를 받는다.
+// 목록 Item(미리보기). 상세 조회는 NoticeDetail이 전체 body를 반환한다.
 export interface Notice {
   id: number;
   title: string;
@@ -57,6 +58,12 @@ export interface NoticePublishResponse {
 export function listNotices(params: PageParams = {}) {
   return unwrap<Page<Notice>>(
     apiClient.get<ApiResponse<Page<Notice>>>('/admin/notices', { params }),
+  );
+}
+
+export function getNotice(id: number) {
+  return unwrap<NoticeDetail>(
+    apiClient.get<ApiResponse<NoticeDetail>>(`/admin/notices/${id}`),
   );
 }
 
