@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import { API_BASE_URL, IS_DEV, DEV_ADMIN_MEMBER_ID } from '../config/env';
+import { API_BASE_URL } from '../config/env';
 import {
   getToken,
   setToken,
@@ -41,28 +41,18 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// [요청 전] 저장된 access 토큰을 Authorization 헤더에 자동 첨부
+// [요청 전] 저장된 ADMIN access 토큰을 Authorization 헤더에 자동 첨부.
+// dev·prod 동일: 자체 아이디/비밀번호 로그인으로 발급된 실토큰만 사용한다(dev-bypass 제거, 2026-06-11).
 apiClient.interceptors.request.use((config) => {
   const token = getToken();
-  // dev에선 정식 토큰 발급 경로가 없어 가짜 토큰('dev-bypass')을 저장하므로 Bearer로 보내지 않는다.
-  // (가짜 토큰을 보내면 JwtAuthenticationFilter가 JWT 파싱 실패로 401을 낸다. dev 인증은 X-Dev-* 헤더가 담당.)
-  if (token && !IS_DEV) {
+  if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-  }
-  // [DEV 전용] dev 서버(dev-bypass)는 정식 토큰 발급 경로가 없으므로,
-  // 관리자 식별 헤더를 보낸다: X-Dev-User-Id(회원 id) + X-Dev-Roles(ADMIN → ROLE_ADMIN).
-  // prod 빌드에서는 IS_DEV=false 라 절대 첨부되지 않는다.
-  if (IS_DEV) {
-    // axios v1: 커스텀 헤더는 .set()으로 넣어야 실제 요청에 확실히 직렬화된다.
-    // (AxiosHeaders 인스턴스에 대괄호 대입은 요청에서 누락될 수 있음)
-    config.headers.set('X-Dev-User-Id', DEV_ADMIN_MEMBER_ID);
-    config.headers.set('X-Dev-Roles', 'ADMIN');
   }
   return config;
 });
 
 // ===== 토큰 자동 갱신 (single-flight) =====
-// 공용 POST /api/v1/auth/refresh 재사용(계약서 §6). 재발급 access의 role=ADMIN은 서버가 유지.
+// POST /api/v1/admin/auth/refresh (admin-server) 사용. 재발급 access의 role=ADMIN은 서버가 유지.
 interface RefreshResponse {
   accessToken: string;
   refreshToken?: string; // 회전(rotation) 시 새 refresh가 올 수 있음 → 있으면 갱신
@@ -73,7 +63,7 @@ async function requestNewAccessToken(): Promise<string> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) throw new Error('NO_REFRESH_TOKEN');
   const res = await axios.post<ApiResponse<RefreshResponse>>(
-    `${API_BASE_URL}/auth/refresh`,
+    `${API_BASE_URL}/admin/auth/refresh`,
     { refreshToken },
     { headers: { 'Content-Type': 'application/json' } },
   );

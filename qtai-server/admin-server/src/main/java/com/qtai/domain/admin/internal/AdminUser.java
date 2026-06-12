@@ -50,11 +50,25 @@ public class AdminUser extends BaseEntity {
     @Column(nullable = false, length = 20)
     private AdminStatus status;
 
+    /** 관리자 웹 로그인 아이디(UNIQUE). 카카오 대체 자체 로그인용. 기존 행은 null일 수 있다. */
+    @Column(name = "username", length = 100, unique = true)
+    private String username;
+
+    /** 비밀번호 BCrypt 해시. 평문 저장 금지(CLAUDE.md §8/§9). 기존 행은 null일 수 있다. */
+    @Column(name = "password_hash", length = 255)
+    private String passwordHash;
+
     @Builder
     public AdminUser(Long memberId, AdminRole adminRole) {
         this.memberId = memberId;
         this.adminRole = adminRole;
         this.status = AdminStatus.ACTIVE;
+    }
+
+    /** 로그인 자격(아이디·비밀번호 해시) 설정/변경. 비밀번호는 호출 전 BCrypt 해시여야 한다. */
+    public void assignCredentials(String username, String passwordHash) {
+        this.username = username;
+        this.passwordHash = passwordHash;
     }
 
     /** 관리자 계정 활성 여부. */

@@ -34,17 +34,22 @@ WHERE kakao_id = ${devAdminKakaoId}
   AND role <> 'ADMIN';
 
 -- 3) admin_users 연결: 없으면 생성(member_id UNIQUE)
-INSERT INTO admin_users (member_id, admin_role, status)
-SELECT m.id, '${devAdminRole}', 'ACTIVE'
+--    username/password_hash: 자체 아이디 로그인용(dev 전용). 비밀번호 평문은 'admin1234'이고,
+--    아래 password_hash는 그 BCrypt($2a$10$) 해시다. dev 전용 throwaway 값으로 운영에 적용되지 않는다.
+INSERT INTO admin_users (member_id, admin_role, status, username, password_hash)
+SELECT m.id, '${devAdminRole}', 'ACTIVE',
+       'admin', '$2a$10$4vY2VPLzS964grfCYoSDC.sEoDgcjABk5n3lxU4Ul2/aHUh0ssnHG'
 FROM members m
 WHERE m.kakao_id = ${devAdminKakaoId}
   AND NOT EXISTS (
       SELECT 1 FROM admin_users au WHERE au.member_id = m.id
   );
 
--- 4) 이미 admin_users가 있으면 역할/상태를 시드 기준으로 동기화(soft-delete 해제 포함)
+-- 4) 이미 admin_users가 있으면 역할/상태/로그인 자격을 시드 기준으로 동기화(soft-delete 해제 포함)
 UPDATE admin_users
-SET admin_role = '${devAdminRole}',
-    status     = 'ACTIVE',
-    deleted_at = NULL
+SET admin_role    = '${devAdminRole}',
+    status        = 'ACTIVE',
+    deleted_at    = NULL,
+    username      = 'admin',
+    password_hash = '$2a$10$4vY2VPLzS964grfCYoSDC.sEoDgcjABk5n3lxU4Ul2/aHUh0ssnHG'
 WHERE member_id IN (SELECT id FROM members WHERE kakao_id = ${devAdminKakaoId});

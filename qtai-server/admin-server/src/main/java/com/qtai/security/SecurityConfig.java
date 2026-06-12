@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -86,6 +87,12 @@ public class SecurityConfig {
                     }
 
                     auth
+                            // 관리자 로그인/토큰 갱신 — 비인증 접근 허용(자체 아이디/비밀번호 로그인, 2026-06-11 결정).
+                            // 반드시 /api/v1/admin/** hasRole 규칙보다 먼저 둔다(구체 경로 우선).
+                            .requestMatchers(HttpMethod.POST,
+                                    "/api/v1/admin/auth/login",
+                                    "/api/v1/admin/auth/refresh").permitAll()
+
                             // 시스템·배치 내부 API — 필터 레벨에서 ROLE_SYSTEM_BATCH 강제(컨트롤러 수동 검사에만 의존하지 않음)
                             .requestMatchers("/api/v1/system/**").hasRole("SYSTEM_BATCH")
 
