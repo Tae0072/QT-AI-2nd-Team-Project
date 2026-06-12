@@ -261,7 +261,10 @@ services:
       SECURITY_JWT_SYSTEM_SECRET: ${SECURITY_JWT_SYSTEM_SECRET:-}
       # 로컬 기동 안정성: AI 생성 워커·외부 SU 호출 비활성
       AI_GENERATION_WORKER_ENABLED: "false"
+      AI_DAILY_QT_VERSE_SEED_ENABLED: "false"
       QT_TODAY_SUM_ENABLED: "false"
+      # note 아웃박스 재처리기는 service-note가 소유한다. admin-server 복사본에서는 중복 폴링 방지.
+      JOURNAL_REPROCESSOR_ENABLED: "false"
       # 음원 시더 off — service-bible과 동일(음원 자산 미이전). 단일 DB에서 음원 테이블 시딩 충돌 방지.
       QTAI_MUSIC_SEED_ENABLED: "false"
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
