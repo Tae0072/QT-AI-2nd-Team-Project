@@ -4,8 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../../routes/app_router.dart';
+import '../../note/providers/note_providers.dart';
 import '../models/bible_chapter_counts.dart';
 import '../models/bible_models.dart';
+import '../models/verse_range_selection.dart';
 import '../providers/bible_providers.dart';
 import 'bible_passage_screen.dart';
 
@@ -28,6 +31,8 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
   int _selectedChapter = 1;
   int _verseFrom = 1;
   int _verseTo = 1;
+  // 첫 절을 찍어 범위 시작을 대기 중인지(true=다음 탭이 범위 끝).
+  bool _verseRangeAnchored = false;
   int _verseCount = _defaultVerseCount;
   int _chapterRequestId = 0;
 
@@ -136,6 +141,7 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
       _selectedChapter = 1;
       _verseFrom = 1;
       _verseTo = 1;
+      _verseRangeAnchored = false;
       _verseCount = _defaultVerseCount;
       _chapterLoadFailed = false;
       _error = null;
@@ -148,6 +154,7 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
       _selectedChapter = chapter;
       _verseFrom = 1;
       _verseTo = 1;
+      _verseRangeAnchored = false;
       _verseCount = _defaultVerseCount;
       _chapterLoadFailed = false;
       _error = null;
@@ -155,10 +162,19 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
     _loadChapterVerseCount(bookCode, chapter);
   }
 
+  // 절 선택 — 범위(시작~끝) 지정 지원.
+  // 첫 탭: 그 절로 단일 선택(범위 시작 앵커). 둘째 탭: 범위 끝 지정(앞/뒤 자동 정렬).
+  // 셋째 탭: 다시 새 단일 선택으로 시작. → "탭-탭"으로 범위, "탭" 한 번이면 단일.
   void _selectVerse(int verse) {
+    final next = VerseRangeSelection(
+      from: _verseFrom,
+      to: _verseTo,
+      anchored: _verseRangeAnchored,
+    ).tap(verse);
     setState(() {
-      _verseFrom = verse;
-      _verseTo = verse;
+      _verseFrom = next.from;
+      _verseTo = next.to;
+      _verseRangeAnchored = next.anchored;
       _error = null;
     });
   }
@@ -167,6 +183,7 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
     setState(() {
       _verseFrom = 1;
       _verseTo = 1;
+      _verseRangeAnchored = false;
       _error = null;
     });
   }
@@ -221,7 +238,8 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
             selectedBook: selectedBook,
             selectedChapter: _selectedChapter,
             chapterCount: _chapterCountFor(selectedBook),
-            selectedVerse: _verseFrom,
+            verseFrom: _verseFrom,
+            verseTo: _verseTo,
             verseCount: _verseCount,
             error: _error,
             isSearching: _isSearching,
@@ -263,7 +281,8 @@ class _BibleBrowserContent extends StatelessWidget {
   final BibleBook selectedBook;
   final int selectedChapter;
   final int chapterCount;
-  final int selectedVerse;
+  final int verseFrom;
+  final int verseTo;
   final int verseCount;
   final Object? error;
   final bool isSearching;
@@ -280,7 +299,8 @@ class _BibleBrowserContent extends StatelessWidget {
     required this.selectedBook,
     required this.selectedChapter,
     required this.chapterCount,
-    required this.selectedVerse,
+    required this.verseFrom,
+    required this.verseTo,
     required this.verseCount,
     required this.error,
     required this.isSearching,
@@ -304,7 +324,8 @@ class _BibleBrowserContent extends StatelessWidget {
             selectedBook: selectedBook,
             selectedChapter: selectedChapter,
             chapterCount: chapterCount,
-            selectedVerse: selectedVerse,
+            verseFrom: verseFrom,
+            verseTo: verseTo,
             verseCount: verseCount,
             isLoadingChapter: isLoadingChapter,
             onBookChanged: onBookChanged,
@@ -317,6 +338,8 @@ class _BibleBrowserContent extends StatelessWidget {
         _BibleSelectionBar(
           selectedBook: selectedBook,
           selectedChapter: selectedChapter,
+          verseFrom: verseFrom,
+          verseTo: verseTo,
           isBusy: isSearching || isLoadingChapter,
           isDisabled: isChapterLoadFailed,
           onClear: onClearSelection,
@@ -356,6 +379,31 @@ class _BibleTocHeader extends StatelessWidget {
                   ),
                 ),
               ),
+              // 노트 버튼 — 클릭 시 기록(노트) 화면으로 이동(설교 노트 맥락).
+              // 실제 기록은 기록 화면이 담당. (이전 #505에 있던 진입점 복원)
+              Consumer(
+                builder: (context, ref, _) => TextButton.icon(
+                  onPressed: () {
+                    ref.read(noteCategoryFilterProvider.notifier).state =
+                        'SERMON';
+                    Navigator.of(context).pushNamed(AppRouter.noteList);
+                  },
+                  icon: Icon(Icons.edit_note_outlined,
+                      size: 18, color: colors.text),
+                  label: Text('노트',
+                      style: TextStyle(
+                          color: colors.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: colors.text,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
             ],
           ),
         ),
@@ -369,7 +417,8 @@ class _BibleTocPicker extends StatelessWidget {
   final BibleBook selectedBook;
   final int selectedChapter;
   final int chapterCount;
-  final int selectedVerse;
+  final int verseFrom;
+  final int verseTo;
   final int verseCount;
   final bool isLoadingChapter;
   final ValueChanged<BibleBook> onBookChanged;
@@ -381,7 +430,8 @@ class _BibleTocPicker extends StatelessWidget {
     required this.selectedBook,
     required this.selectedChapter,
     required this.chapterCount,
-    required this.selectedVerse,
+    required this.verseFrom,
+    required this.verseTo,
     required this.verseCount,
     required this.isLoadingChapter,
     required this.onBookChanged,
@@ -427,7 +477,8 @@ class _BibleTocPicker extends StatelessWidget {
                 _BibleNumberColumn(
                   key: const Key('bible-verse-list'),
                   itemCount: safeVerseCount,
-                  selectedValue: selectedVerse,
+                  selectedValue: verseFrom,
+                  rangeEnd: verseTo,
                   suffix: '절',
                   onSelected: onVerseChanged,
                 ),
@@ -605,6 +656,9 @@ class _BibleBookRow extends StatelessWidget {
 class _BibleNumberColumn extends StatelessWidget {
   final int itemCount;
   final int selectedValue;
+
+  /// 범위 선택 끝(절 열에서 사용). null이면 단일 선택(장 열).
+  final int? rangeEnd;
   final String suffix;
   final ValueChanged<int> onSelected;
 
@@ -612,6 +666,7 @@ class _BibleNumberColumn extends StatelessWidget {
     super.key,
     required this.itemCount,
     required this.selectedValue,
+    this.rangeEnd,
     required this.suffix,
     required this.onSelected,
   });
@@ -619,12 +674,16 @@ class _BibleNumberColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final hi = rangeEnd ?? selectedValue;
+    final start = selectedValue <= hi ? selectedValue : hi;
+    final end = selectedValue <= hi ? hi : selectedValue;
     return ListView.builder(
       padding: EdgeInsets.zero,
       itemCount: itemCount,
       itemBuilder: (context, index) {
         final value = index + 1;
-        final isSelected = value == selectedValue;
+        final isSelected = value >= start && value <= end;
+        final isEndpoint = value == start || value == end;
 
         return Material(
           color: isSelected ? colors.accentSoft : colors.bg,
@@ -648,7 +707,9 @@ class _BibleNumberColumn extends StatelessWidget {
                 style: TextStyle(
                   color: isSelected ? colors.text : colors.text2,
                   fontSize: 15,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: isEndpoint
+                      ? FontWeight.w700
+                      : (isSelected ? FontWeight.w600 : FontWeight.w500),
                   height: 1.2,
                 ),
               ),
@@ -699,6 +760,8 @@ class _BibleStatusStrip extends StatelessWidget {
 class _BibleSelectionBar extends StatelessWidget {
   final BibleBook selectedBook;
   final int selectedChapter;
+  final int verseFrom;
+  final int verseTo;
   final bool isBusy;
   final bool isDisabled;
   final VoidCallback onClear;
@@ -707,6 +770,8 @@ class _BibleSelectionBar extends StatelessWidget {
   const _BibleSelectionBar({
     required this.selectedBook,
     required this.selectedChapter,
+    required this.verseFrom,
+    required this.verseTo,
     required this.isBusy,
     required this.isDisabled,
     required this.onClear,
@@ -765,7 +830,8 @@ class _BibleSelectionBar extends StatelessWidget {
                                     ),
                                   )
                                 : Text(
-                                    '${selectedBook.koreanName} $selectedChapter장',
+                                    '${selectedBook.koreanName} $selectedChapter장 '
+                                    '$verseFrom${verseFrom == verseTo ? '' : '–$verseTo'}절',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
