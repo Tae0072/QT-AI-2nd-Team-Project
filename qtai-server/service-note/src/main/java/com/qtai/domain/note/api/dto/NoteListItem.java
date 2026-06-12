@@ -11,6 +11,7 @@ public record NoteListItem(
         Long id,
         NoteCategory category,
         String title,
+        String bodyPreview,
         NoteStatus status,
         NoteVisibility visibility,
         LocalDate qtDate,
