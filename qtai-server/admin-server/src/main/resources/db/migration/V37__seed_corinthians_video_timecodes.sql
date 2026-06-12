@@ -1,8 +1,9 @@
--- Seed public 1 Corinthians video metadata.
--- The app plays the video_url returned by service-bible, so this must be a
--- public URL instead of the Android-emulator-only http://10.0.2.2 address.
+-- Seed 1 Corinthians video timecode metadata.
+-- Do not seed a personal or test file-host URL in the operational Flyway path.
+-- The source row stays INACTIVE with an internal placeholder URL until an
+-- approved storage URL is imported/updated by operations.
 
-SET @corinthians_video_url := 'https://github.com/xogurrh012/qtai-bible-videos/releases/download/1co-v1/corinthians_full.mp4?raw=1';
+SET @corinthians_placeholder_url := 'qt-video://unconfigured/1-corinthians-full';
 
 INSERT INTO source_videos (
     bible_book_id,
@@ -14,20 +15,14 @@ INSERT INTO source_videos (
     active_unique_key
 ) VALUES (
     46,
-    '1 Corinthians full video',
-    'EXTERNAL_URL',
-    @corinthians_video_url,
+    '1 Corinthians full video timecode source',
+    'UNCONFIGURED',
+    @corinthians_placeholder_url,
     NULL,
-    'ACTIVE',
+    'INACTIVE',
     'ACTIVE'
 )
 ON DUPLICATE KEY UPDATE
-    title = VALUES(title),
-    storage_provider = VALUES(storage_provider),
-    video_url = VALUES(video_url),
-    duration_sec = VALUES(duration_sec),
-    status = VALUES(status),
-    deleted_at = NULL,
     id = LAST_INSERT_ID(id);
 
 SET @corinthians_source_video_id := LAST_INSERT_ID();
@@ -54,10 +49,3 @@ ON DUPLICATE KEY UPDATE
     start_time_sec = VALUES(start_time_sec),
     end_time_sec = VALUES(end_time_sec),
     deleted_at = NULL;
-
-UPDATE qt_video_clips
-SET
-    video_url = @corinthians_video_url,
-    updated_at = CURRENT_TIMESTAMP(6)
-WHERE source_video_id = @corinthians_source_video_id
-  AND video_url <> @corinthians_video_url;

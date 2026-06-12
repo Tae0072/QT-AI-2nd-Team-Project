@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 public class QtVideoClipPreparationService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final String UNCONFIGURED_VIDEO_URL_PREFIX = "qt-video://unconfigured/";
 
     private final GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
     private final BibleVerseVideoSegmentRepository bibleVerseVideoSegmentRepository;
@@ -107,6 +108,15 @@ public class QtVideoClipPreparationService {
         }
 
         SegmentGroup group = segmentGroup.get();
+        if (!hasPlayableUrl(group.sourceVideo())) {
+            log.warn(
+                    "Skip QT video clip preparation - source video URL is not configured. qtPassageId={}, sourceVideoId={}",
+                    context.qtPassageId(),
+                    group.sourceVideo().getId()
+            );
+            return false;
+        }
+
         if (group.endTimeSec().compareTo(group.startTimeSec()) <= 0) {
             log.warn(
                     "Skip QT video clip preparation - invalid timecode. qtPassageId={}, start={}, end={}",
@@ -206,6 +216,13 @@ public class QtVideoClipPreparationService {
                 .max(Comparator.naturalOrder())
                 .orElse(BigDecimal.ZERO);
         return new SegmentGroup(segments.get(0).getSourceVideo(), startTimeSec, endTimeSec);
+    }
+
+    private static boolean hasPlayableUrl(SourceVideo sourceVideo) {
+        if (sourceVideo == null || sourceVideo.getVideoUrl() == null || sourceVideo.getVideoUrl().isBlank()) {
+            return false;
+        }
+        return !sourceVideo.getVideoUrl().startsWith(UNCONFIGURED_VIDEO_URL_PREFIX);
     }
 
     private static List<Long> distinctVerseIds(List<Long> verseIds) {

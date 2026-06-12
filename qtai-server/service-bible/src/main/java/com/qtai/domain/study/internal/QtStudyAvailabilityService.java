@@ -22,8 +22,8 @@ import com.qtai.domain.qtvideo.api.GetQtVideoAvailabilityUseCase;
 @Transactional(readOnly = true)
 class QtStudyAvailabilityService implements GetQtStudyAvailabilityUseCase {
 
-    private static final String SIMULATOR_READY = "READY";
-    private static final String SIMULATOR_MISSING = "MISSING";
+    private static final String QT_VIDEO_READY = "READY";
+    private static final String QT_VIDEO_MISSING = "MISSING";
     private static final String ACTIVE_UNIQUE_KEY = "ACTIVE";
 
     private final GetQtVideoAvailabilityUseCase getQtVideoAvailabilityUseCase;
@@ -31,7 +31,8 @@ class QtStudyAvailabilityService implements GetQtStudyAvailabilityUseCase {
 
     @Override
     public QtStudyAvailability getAvailability(Long qtPassageId, List<Long> verseIds) {
-        boolean simulatorReady = getQtVideoAvailabilityUseCase.hasReadyVideo(qtPassageId);
+        // The response field is still named simulatorStatus for API compatibility.
+        boolean qtVideoReady = getQtVideoAvailabilityUseCase.hasReadyVideo(qtPassageId);
 
         boolean hasExplanation = verseIds != null && !verseIds.isEmpty()
                 && !verseExplanationRepository.findByBibleVerseIdInAndStatusAndActiveUniqueKey(
@@ -39,7 +40,7 @@ class QtStudyAvailabilityService implements GetQtStudyAvailabilityUseCase {
                 .isEmpty();
 
         return new QtStudyAvailability(
-                simulatorReady ? SIMULATOR_READY : SIMULATOR_MISSING,
+                qtVideoReady ? QT_VIDEO_READY : QT_VIDEO_MISSING,
                 hasExplanation
         );
     }
