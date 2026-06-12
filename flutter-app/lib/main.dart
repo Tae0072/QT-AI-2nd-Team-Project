@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/config/app_config.dart';
 import 'core/dev/web_dev_access.dart'; // [WEB_DEV_ACCESS] 개발 종료 시 삭제
 import 'core/theme/app_theme.dart';
+import 'core/theme/font_scale_provider.dart';
 import 'core/theme/theme_providers.dart';
 import 'features/auth/providers/auth_providers.dart';
 import 'features/onboarding/providers/onboarding_providers.dart';
@@ -43,6 +44,9 @@ class QTAIApp extends ConsumerWidget {
     final authStatus = ref.watch(authStatusProvider);
     // 다크 모드 — 마이페이지 설정 토글만 따른다(시스템 설정 비추종, theme_providers.dart).
     final themeMode = ref.watch(themeModeProvider);
+    // 폰트 크기 — 설정 화면의 SMALL/MEDIUM/LARGE를 앱 전역 글자 배율로 적용한다.
+    // OS 글자 크기는 추종하지 않고(다크 모드와 같은 철학) 앱 설정이 단일 진실이다.
+    final fontScale = fontScaleOf(ref.watch(fontSizeProvider));
     // [WEB_DEV_ACCESS] 웹 개발용 로그인 우회 (개발 종료 시 이 두 줄과 web_dev_access.dart 삭제)
     final webBypass = webDevNoLogin;
     final forceHome = (AppConfig.instance.isDev && _devForceHome) || webBypass;
@@ -120,6 +124,15 @@ class QTAIApp extends ConsumerWidget {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('ko'),
+      // 폰트 크기 설정을 앱 전역에 적용 — 모든 화면의 텍스트 배율을 한 번에 덮어쓴다.
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(fontScale),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       initialRoute: initialRoute,
       // 초기 스택을 단일 라우트로 생성한다.
       // 기본 동작은 '/home' → ['/', '/home'] 2단 스택을 만들어 루트 탭 화면에도
