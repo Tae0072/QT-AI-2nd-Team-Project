@@ -115,13 +115,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteListTitle => 'Notes';
 
   @override
-  String get noteViewList => 'List view';
-
-  @override
-  String get noteViewCalendar => 'Calendar view';
-
-  @override
   String get noteFilterAll => 'All';
+
+  @override
+  String get noteStatusAll => 'All';
+
+  @override
+  String get noteStatusDraft => 'Draft';
+
+  @override
+  String get noteStatusSaved => 'Saved';
+
+  @override
+  String noteQuickCreate(String label) {
+    return 'New $label';
+  }
 
   @override
   String get noteEmpty => 'No notes yet';

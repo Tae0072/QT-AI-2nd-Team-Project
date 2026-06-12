@@ -43,9 +43,16 @@
   "noteNewTitle": "New note",
   "noteCategoryPrompt": "What kind of note?",
   "noteListTitle": "Notes",
-  "noteViewList": "List view",
-  "noteViewCalendar": "Calendar view",
   "noteFilterAll": "All",
+  "noteStatusAll": "All",
+  "noteStatusDraft": "Draft",
+  "noteStatusSaved": "Saved",
+  "noteQuickCreate": "New {label}",
+  "@noteQuickCreate": {
+    "placeholders": {
+      "label": { "type": "String" }
+    }
+  },
   "noteEmpty": "No notes yet",
   "noteUntitled": "(Untitled)",
   "noteDraft": "Draft",

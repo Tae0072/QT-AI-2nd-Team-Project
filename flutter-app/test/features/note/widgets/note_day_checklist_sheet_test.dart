@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/note/models/note_models.dart';
-import 'package:qtai_app/features/note/providers/note_providers.dart';
 import 'package:qtai_app/features/note/widgets/note_day_checklist_sheet.dart';
 
 /// 시트를 띄우는 버튼 하나만 있는 호스트 위젯으로 감싸 바텀시트를 연다.
@@ -52,11 +50,5 @@ void main() {
 
     expect(find.byIcon(Icons.check_circle), findsNothing);
     expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(5));
-  });
-
-  test('노트 진입 시 달력이 기본 화면이다(noteCalendarViewProvider 기본 true)', () {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    expect(container.read(noteCalendarViewProvider), isTrue);
   });
 }

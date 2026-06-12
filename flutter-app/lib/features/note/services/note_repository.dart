@@ -32,12 +32,16 @@ class NoteRepository {
   }
 
   /// 노트 목록 조회 (GET /api/v1/notes).
+  ///
+  /// [status]는 서버 `notes.status`(DRAFT/SAVED) 필터. null이면 전체(04 §4.3.1).
   Future<NoteListResponse> getNotes({
     String? category,
+    String? status,
     int page = 0,
   }) async {
     final response = await _dio.get('/notes', queryParameters: {
       if (category != null) 'category': category,
+      if (status != null) 'status': status,
       'page': page,
       'size': 20,
     });
