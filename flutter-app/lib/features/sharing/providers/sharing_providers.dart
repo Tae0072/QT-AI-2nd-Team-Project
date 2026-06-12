@@ -94,12 +94,53 @@ class SharingDetailData {
 /// 나눔 상세(S-02) 데이터 — 상세 + (댓글 허용 시) 댓글 목록.
 ///
 /// ② Riverpod 일관화: 화면이 직접 setState로 조회하던 것을 Provider로 일원화한다.
-/// 좋아요/댓글/삭제/신고 후 `ref.invalidate(sharingPostDetailProvider(postId))`로 새로고침한다.
-final sharingPostDetailProvider = FutureProvider.autoDispose
-    .family<SharingDetailData, int>((ref, postId) async {
-  final repo = ref.watch(sharingRepositoryProvider);
-  final detail = await repo.getSharingPostDetail(postId);
-  final comments =
-      detail.commentsEnabled ? await repo.getComments(postId) : <CommentItem>[];
-  return SharingDetailData(detail: detail, comments: comments);
-});
+/// 댓글/삭제/신고 후 `ref.invalidate(sharingPostDetailProvider(postId))`로 새로고침한다.
+/// 좋아요는 [toggleLike]로 낙관적 갱신 — 본문·댓글 재조회 없이 좋아요 수/하트만 즉시 바꾼다(피드와 동일).
+class SharingDetailNotifier
+    extends AutoDisposeFamilyAsyncNotifier<SharingDetailData, int> {
+  @override
+  Future<SharingDetailData> build(int postId) async {
+    final repo = ref.watch(sharingRepositoryProvider);
+    final detail = await repo.getSharingPostDetail(postId);
+    final comments = detail.commentsEnabled
+        ? await repo.getComments(postId)
+        : <CommentItem>[];
+    return SharingDetailData(detail: detail, comments: comments);
+  }
+
+  /// 좋아요 토글 — 즉시 로컬 갱신(낙관적) 후 서버 반영. 실패 시 원래 상태로 롤백한다.
+  /// 댓글 목록은 그대로 두고 detail의 좋아요 상태/수만 바꾸므로 화면이 깜빡이지 않는다.
+  Future<void> toggleLike() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final original = current.detail;
+    final liked = original.likedByMe;
+
+    // 1) 낙관적 갱신
+    state = AsyncData(SharingDetailData(
+      detail: original.copyWith(
+        likedByMe: !liked,
+        likeCount: original.likeCount + (liked ? -1 : 1),
+      ),
+      comments: current.comments,
+    ));
+
+    // 2) 서버 반영
+    try {
+      final repo = ref.read(sharingRepositoryProvider);
+      liked ? await repo.unlike(original.id) : await repo.like(original.id);
+    } catch (_) {
+      // 3) 실패 → 롤백(댓글은 현재 상태 유지)
+      final now = state.valueOrNull;
+      if (now != null) {
+        state = AsyncData(
+            SharingDetailData(detail: original, comments: now.comments));
+      }
+      rethrow; // 화면이 실패 안내할 수 있게 전파
+    }
+  }
+}
+
+final sharingPostDetailProvider = AsyncNotifierProvider.autoDispose
+    .family<SharingDetailNotifier, SharingDetailData, int>(
+        SharingDetailNotifier.new);

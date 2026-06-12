@@ -79,14 +79,11 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
 
   Future<void> _toggleLike(SharingPostDetail detail) async {
     final l = AppLocalizations.of(context);
-    final repo = ref.read(sharingRepositoryProvider);
     try {
-      if (detail.likedByMe) {
-        await repo.unlike(detail.id);
-      } else {
-        await repo.like(detail.id);
-      }
-      _refresh();
+      // 낙관적 갱신: 본문·댓글 재조회 없이 좋아요만 즉시 바뀐다(실패 시 롤백).
+      await ref.read(sharingPostDetailProvider(_postId).notifier).toggleLike();
+      // 피드 목록도 좋아요 수가 어긋나지 않게 백그라운드로 동기화(상세 화면은 깜빡이지 않음).
+      ref.invalidate(sharingPostsProvider);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

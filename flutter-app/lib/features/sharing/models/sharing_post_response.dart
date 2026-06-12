@@ -216,4 +216,23 @@ class SharingPostDetail {
           : null,
     );
   }
+
+  /// 낙관적 좋아요 업데이트용 — 좋아요 상태/수만 바꾼 복제본.
+  SharingPostDetail copyWith({int? likeCount, bool? likedByMe}) {
+    return SharingPostDetail(
+      id: id,
+      noteId: noteId,
+      memberId: memberId,
+      nicknameSnapshot: nicknameSnapshot,
+      titleSnapshot: titleSnapshot,
+      bodySnapshot: bodySnapshot,
+      category: category,
+      commentsEnabled: commentsEnabled,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount,
+      likedByMe: likedByMe ?? this.likedByMe,
+      ownedByMe: ownedByMe,
+      publishedAt: publishedAt,
+    );
+  }
 }
