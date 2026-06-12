@@ -126,9 +126,10 @@ export default function AiAssetsPage() {
     usePagedList<AiAsset, AiAssetListParams>(listAiAssets, {
       page: 0,
       size: 20,
+      status: 'VALIDATING',
     });
 
-  const [status, setStatus] = useState<string | undefined>(undefined);
+  const [status, setStatus] = useState<string | undefined>('VALIDATING');
 
   const [action, setAction] = useState<{
     mode: ActionMode;
@@ -164,8 +165,8 @@ export default function AiAssetsPage() {
       status: status || undefined,
     });
   const onReset = () => {
-    setStatus(undefined);
-    applyFilters({ status: undefined });
+    setStatus('VALIDATING');
+    applyFilters({ status: 'VALIDATING' });
   };
 
   const openAction = (mode: ActionMode, asset: AiAsset) => {
@@ -551,7 +552,7 @@ export default function AiAssetsPage() {
         title={selectedAsset ? `AI 산출물 #${selectedAsset.id}` : 'AI 산출물 상세'}
         width={760}
         onClose={closeDetail}
-        destroyOnClose
+        destroyOnHidden
         extra={
           selectedAsset ? (
             <Space>
@@ -681,7 +682,7 @@ export default function AiAssetsPage() {
         confirmLoading={regenerating}
         onOk={submitRegenerate}
         onCancel={() => setRegenerateOpen(false)}
-        destroyOnClose
+        destroyOnHidden
       >
         {selectedAsset && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -725,7 +726,7 @@ export default function AiAssetsPage() {
         confirmLoading={candidateSubmitting}
         onOk={submitCandidate}
         onCancel={() => setCandidateOpen(false)}
-        destroyOnClose
+        destroyOnHidden
       >
         {selectedAsset && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -777,7 +778,7 @@ export default function AiAssetsPage() {
         confirmLoading={submitting}
         onOk={submitAction}
         onCancel={() => setAction(null)}
-        destroyOnClose
+        destroyOnHidden
       >
         {action && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>

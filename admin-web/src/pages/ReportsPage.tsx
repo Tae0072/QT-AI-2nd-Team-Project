@@ -322,7 +322,7 @@ export default function ReportsPage() {
         confirmLoading={submitting}
         onOk={submitAction}
         onCancel={() => setAction(null)}
-        destroyOnClose
+        destroyOnHidden
       >
         {action && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -366,7 +366,7 @@ export default function ReportsPage() {
         confirmLoading={candidateSubmitting}
         onOk={submitCandidate}
         onCancel={() => setCandidateReport(null)}
-        destroyOnClose
+        destroyOnHidden
       >
         {candidateReport && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>

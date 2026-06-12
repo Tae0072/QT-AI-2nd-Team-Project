@@ -278,7 +278,7 @@ export default function PraiseSongsPage() {
         confirmLoading={submitting}
         onOk={submitCreate}
         onCancel={() => setCreateOpen(false)}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={createForm}
@@ -328,7 +328,7 @@ export default function PraiseSongsPage() {
         confirmLoading={editSubmitting}
         onOk={submitEdit}
         onCancel={() => setEditOpen(false)}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={editForm} layout="vertical">
           <Form.Item
