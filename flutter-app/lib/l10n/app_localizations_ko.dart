@@ -120,6 +120,20 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteFilterAll => '전체';
 
   @override
+  String get noteStatusAll => '전체';
+
+  @override
+  String get noteStatusDraft => '임시저장';
+
+  @override
+  String get noteStatusSaved => '저장';
+
+  @override
+  String noteQuickCreate(String label) {
+    return '$label 작성';
+  }
+
+  @override
   String get noteEmpty => '작성한 노트가 없습니다';
 
   @override

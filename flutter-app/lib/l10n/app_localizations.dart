@@ -320,6 +320,30 @@ abstract class AppLocalizations {
   /// **'All'**
   String get noteFilterAll;
 
+  /// No description provided for @noteStatusAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get noteStatusAll;
+
+  /// No description provided for @noteStatusDraft.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get noteStatusDraft;
+
+  /// No description provided for @noteStatusSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get noteStatusSaved;
+
+  /// No description provided for @noteQuickCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'New {label}'**
+  String noteQuickCreate(String label);
+
   /// No description provided for @noteEmpty.
   ///
   /// In en, this message translates to:

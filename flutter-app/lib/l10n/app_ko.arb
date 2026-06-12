@@ -40,6 +40,15 @@
   "noteViewList": "목록 보기",
   "noteViewCalendar": "달력 보기",
   "noteFilterAll": "전체",
+  "noteStatusAll": "전체",
+  "noteStatusDraft": "임시저장",
+  "noteStatusSaved": "저장",
+  "noteQuickCreate": "{label} 작성",
+  "@noteQuickCreate": {
+    "placeholders": {
+      "label": { "type": "String" }
+    }
+  },
   "noteEmpty": "작성한 노트가 없습니다",
   "noteUntitled": "(제목 없음)",
   "noteDraft": "임시저장",
