@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import {
+  Alert,
   Card,
+  Descriptions,
+  Divider,
+  Drawer,
   Table,
   Tag,
   Typography,
@@ -10,18 +14,24 @@ import {
   Tooltip,
   Modal,
   Input,
+  InputNumber,
   Checkbox,
+  Spin,
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined } from '@ant-design/icons';
+import { EyeOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
 import {
   listAiAssets,
+  getAiAsset,
   approveAiAsset,
   rejectAiAsset,
   hideAiAsset,
+  regenerateAiAsset,
   type AiAsset,
+  type AiAssetDetail,
   type AiAssetListParams,
+  type AiValidationLog,
 } from '../api/aiAssets';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
@@ -54,7 +64,51 @@ function statusTag(status: string) {
   return <Tag color={m.color}>{m.text}</Tag>;
 }
 
+function validationResultTag(result: string) {
+  const map: Record<string, { color: string; text: string }> = {
+    PASSED: { color: 'green', text: '통과' },
+    FAILED: { color: 'red', text: '실패' },
+    BLOCKED: { color: 'red', text: '차단' },
+    WARNING: { color: 'gold', text: '경고' },
+  };
+  const m = map[result] ?? { color: 'default', text: result };
+  return <Tag color={m.color}>{m.text}</Tag>;
+}
+
 const isReviewable = (s: string) => s === 'VALIDATING' || s === 'NEEDS_REVIEW';
+
+function targetLabel(target: { targetType: string | null; targetId: number | null }) {
+  return target.targetType
+    ? `${target.targetType}${target.targetId != null ? ` #${target.targetId}` : ''}`
+    : '-';
+}
+
+function promptVersionLabel(promptVersion: AiAsset['promptVersion']) {
+  if (!promptVersion) return '-';
+  const label = `${promptVersion.promptType ?? ''} ${promptVersion.version ?? ''}`.trim();
+  return label || '-';
+}
+
+function formatJson(value: unknown) {
+  if (value == null) return '-';
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+const preStyle: CSSProperties = {
+  margin: '4px 0 0',
+  padding: 8,
+  background: '#f6f8fa',
+  borderRadius: 6,
+  maxHeight: 280,
+  overflow: 'auto',
+  fontSize: 12,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-all',
+};
 
 type ActionMode = 'approve' | 'reject' | 'hide';
 
@@ -75,6 +129,16 @@ export default function AiAssetsPage() {
   const [reason, setReason] = useState('');
   const [activate, setActivate] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<AiAssetDetail | null>(null);
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
+  const [regenerateReason, setRegenerateReason] = useState('');
+  const [regeneratePromptVersionId, setRegeneratePromptVersionId] = useState<
+    number | null
+  >(null);
+  const [regenerating, setRegenerating] = useState(false);
 
   const onSearch = () =>
     applyFilters({
@@ -91,6 +155,75 @@ export default function AiAssetsPage() {
     setAction({ mode, asset });
     setReason('');
     setActivate(true);
+  };
+
+  const closeDetail = () => {
+    setDetailOpen(false);
+    setSelectedAsset(null);
+    setDetailError(null);
+    setRegenerateOpen(false);
+  };
+
+  const loadDetail = async (assetId: number) => {
+    setDetailLoading(true);
+    setDetailError(null);
+    try {
+      const detail = await getAiAsset(assetId);
+      setSelectedAsset(detail);
+    } catch (e) {
+      const errorMessage =
+        e instanceof Error ? e.message : '상세 조회에 실패했습니다.';
+      setDetailError(errorMessage);
+      message.error(errorMessage);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const openDetail = (asset: AiAsset) => {
+    setDetailOpen(true);
+    setSelectedAsset(null);
+    void loadDetail(asset.id);
+  };
+
+  const openRegenerate = () => {
+    if (!selectedAsset) return;
+    setRegenerateReason('');
+    setRegeneratePromptVersionId(
+      selectedAsset.promptVersion?.id ?? selectedAsset.generationJob.promptVersionId ?? null,
+    );
+    setRegenerateOpen(true);
+  };
+
+  const submitRegenerate = async () => {
+    if (!selectedAsset) return;
+    const trimmedReason = regenerateReason.trim();
+    if (!trimmedReason) {
+      message.error('재생성 사유를 입력하세요.');
+      return;
+    }
+    if (regeneratePromptVersionId == null || regeneratePromptVersionId <= 0) {
+      message.error('프롬프트 버전 ID를 입력하세요.');
+      return;
+    }
+
+    setRegenerating(true);
+    try {
+      const result = await regenerateAiAsset(selectedAsset.id, {
+        reason: trimmedReason,
+        promptVersionId: regeneratePromptVersionId,
+      });
+      message.success(
+        `재생성 작업을 요청했습니다. job #${result.generationJobId} (${result.status})`,
+      );
+      setRegenerateOpen(false);
+      await loadDetail(selectedAsset.id);
+      reload();
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '재생성 요청에 실패했습니다.');
+    } finally {
+      setRegenerating(false);
+    }
   };
 
   const submitAction = async () => {
@@ -120,6 +253,42 @@ export default function AiAssetsPage() {
     }
   };
 
+  const validationLogColumns: ColumnsType<AiValidationLog> = [
+    { title: 'ID', dataIndex: 'validationLogId', width: 80 },
+    {
+      title: '시각',
+      dataIndex: 'createdAt',
+      width: 160,
+      render: (v: string) => formatDateTime(v),
+    },
+    { title: 'Layer', dataIndex: 'layer', width: 80 },
+    { title: '검토자', dataIndex: 'reviewerType', width: 110 },
+    {
+      title: '결과',
+      dataIndex: 'result',
+      width: 100,
+      render: (v: string) => validationResultTag(v),
+    },
+    {
+      title: '체크리스트',
+      dataIndex: 'checklistVersionId',
+      width: 110,
+      render: (v: number | null) => (v != null ? `#${v}` : '-'),
+    },
+    {
+      title: '참조 job',
+      dataIndex: 'validationReferenceJobId',
+      width: 110,
+      render: (v: number | null) => (v != null ? `#${v}` : '-'),
+    },
+    {
+      title: '오류',
+      dataIndex: 'errorMessage',
+      ellipsis: true,
+      render: (v: string | null) => v ?? '-',
+    },
+  ];
+
   const columns: ColumnsType<AiAsset> = [
     { title: 'ID', dataIndex: 'id', width: 70 },
     {
@@ -137,10 +306,7 @@ export default function AiAssetsPage() {
     {
       title: '대상',
       width: 150,
-      render: (_, r) =>
-        r.targetType
-          ? `${r.targetType}${r.targetId != null ? ` #${r.targetId}` : ''}`
-          : '-',
+      render: (_, r) => targetLabel(r),
     },
     {
       title: '상태',
@@ -151,11 +317,7 @@ export default function AiAssetsPage() {
     {
       title: '프롬프트버전',
       width: 150,
-      render: (_, r) =>
-        r.promptVersion
-          ? `${r.promptVersion.promptType ?? ''} ${r.promptVersion.version ?? ''}`.trim() ||
-            '-'
-          : '-',
+      render: (_, r) => promptVersionLabel(r.promptVersion),
     },
     {
       title: '검증결과',
@@ -172,10 +334,17 @@ export default function AiAssetsPage() {
     },
     {
       title: '액션',
-      width: 190,
+      width: 260,
       fixed: 'right',
       render: (_, r) => (
         <Space>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => openDetail(r)}
+          >
+            상세
+          </Button>
           {isReviewable(r.status) && (
             <>
               <Button
@@ -194,9 +363,6 @@ export default function AiAssetsPage() {
             <Button size="small" onClick={() => openAction('hide', r)}>
               숨김
             </Button>
-          )}
-          {!isReviewable(r.status) && r.status !== 'APPROVED' && (
-            <Typography.Text type="secondary">-</Typography.Text>
           )}
         </Space>
       ),
@@ -302,6 +468,159 @@ export default function AiAssetsPage() {
           }}
         />
       </Space>
+
+      <Drawer
+        open={detailOpen}
+        title={selectedAsset ? `AI 산출물 #${selectedAsset.id}` : 'AI 산출물 상세'}
+        width={760}
+        onClose={closeDetail}
+        destroyOnClose
+        extra={
+          selectedAsset ? (
+            <Button
+              icon={<SyncOutlined />}
+              loading={regenerating}
+              onClick={openRegenerate}
+            >
+              재생성
+            </Button>
+          ) : null
+        }
+      >
+        {detailLoading && !selectedAsset ? (
+          <Spin />
+        ) : (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            {detailError && <Alert type="error" showIcon message={detailError} />}
+            {selectedAsset && (
+              <>
+                <Descriptions bordered size="small" column={1}>
+                  <Descriptions.Item label="유형">
+                    <Tag>{selectedAsset.assetType}</Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="대상">
+                    {targetLabel(selectedAsset)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="상태">
+                    {statusTag(selectedAsset.status)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="생성일">
+                    {formatDateTime(selectedAsset.createdAt)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="검토일">
+                    {formatDateTime(selectedAsset.reviewedAt)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="원문 라벨">
+                    {selectedAsset.sourceLabel ? (
+                      <Typography.Text code>{selectedAsset.sourceLabel}</Typography.Text>
+                    ) : (
+                      '-'
+                    )}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="프롬프트 버전">
+                    {selectedAsset.promptVersion
+                      ? `${selectedAsset.promptVersion.promptType ?? '-'} / ${
+                          selectedAsset.promptVersion.version ?? '-'
+                        } (${selectedAsset.promptVersion.status ?? '-'}, id ${
+                          selectedAsset.promptVersion.id ?? '-'
+                        })`
+                      : '-'}
+                  </Descriptions.Item>
+                </Descriptions>
+
+                <Divider orientation="left">생성 작업</Divider>
+                <Descriptions bordered size="small" column={1}>
+                  <Descriptions.Item label="Job ID">
+                    #{selectedAsset.generationJob.id}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="유형">
+                    {selectedAsset.generationJob.jobType}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="대상">
+                    {targetLabel(selectedAsset.generationJob)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="프롬프트 버전 ID">
+                    #{selectedAsset.generationJob.promptVersionId}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="상태">
+                    <Tag>{selectedAsset.generationJob.status}</Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="시작/종료">
+                    {formatDateTime(selectedAsset.generationJob.startedAt)} /{' '}
+                    {formatDateTime(selectedAsset.generationJob.finishedAt)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="오류">
+                    {selectedAsset.generationJob.errorMessage ?? '-'}
+                  </Descriptions.Item>
+                </Descriptions>
+
+                <Divider orientation="left">Payload JSON</Divider>
+                <pre style={preStyle}>{formatJson(selectedAsset.payloadJson)}</pre>
+
+                <Divider orientation="left">검증 로그</Divider>
+                <Table<AiValidationLog>
+                  rowKey="validationLogId"
+                  size="small"
+                  columns={validationLogColumns}
+                  dataSource={selectedAsset.validationLogs}
+                  pagination={false}
+                  scroll={{ x: 'max-content' }}
+                  expandable={{
+                    expandedRowRender: (r) => (
+                      <pre style={preStyle}>{r.errorMessage ?? '-'}</pre>
+                    ),
+                    rowExpandable: (r) => Boolean(r.errorMessage),
+                  }}
+                />
+              </>
+            )}
+          </Space>
+        )}
+      </Drawer>
+
+      <Modal
+        open={regenerateOpen}
+        title="AI 산출물 재생성"
+        okText="재생성 요청"
+        cancelText="취소"
+        confirmLoading={regenerating}
+        onOk={submitRegenerate}
+        onCancel={() => setRegenerateOpen(false)}
+        destroyOnClose
+      >
+        {selectedAsset && (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Typography.Text type="secondary">
+              {selectedAsset.assetType} · 대상 {targetLabel(selectedAsset)} · 산출물 #
+              {selectedAsset.id}
+            </Typography.Text>
+            <div>
+              <Typography.Text>사유</Typography.Text>
+              <Input.TextArea
+                rows={3}
+                value={regenerateReason}
+                onChange={(e) => setRegenerateReason(e.target.value)}
+                placeholder="재생성 사유"
+                style={{ marginTop: 4 }}
+              />
+            </div>
+            <div>
+              <Typography.Text>프롬프트 버전 ID</Typography.Text>
+              <InputNumber
+                min={1}
+                precision={0}
+                value={regeneratePromptVersionId ?? undefined}
+                onChange={(value) =>
+                  setRegeneratePromptVersionId(
+                    typeof value === 'number' ? value : null,
+                  )
+                }
+                style={{ display: 'block', marginTop: 4, width: '100%' }}
+              />
+            </div>
+          </Space>
+        )}
+      </Modal>
 
       <Modal
         open={action !== null}
