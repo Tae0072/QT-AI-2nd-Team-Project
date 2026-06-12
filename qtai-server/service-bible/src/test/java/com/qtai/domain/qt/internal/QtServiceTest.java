@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
@@ -68,6 +69,19 @@ class QtServiceTest {
         return QtPassage.create(date, (short) 19, (short) 23, (short) 1, (short) 6, "제목", "시 23:1-6");
     }
 
+    private static QtPassage activePassage(Long id, LocalDate date) {
+        QtPassage passage = passageOn(date);
+        ReflectionTestUtils.setField(passage, "id", id);
+        passage.publish(date.atStartOfDay());
+        return passage;
+    }
+
+    private static QtPassage hiddenPassage(Long id, LocalDate date) {
+        QtPassage passage = activePassage(id, date);
+        passage.hide(date.atStartOfDay().plusHours(1));
+        return passage;
+    }
+
     @Test
     @DisplayName("getPassage — 존재하지 않는 본문이면 QT_PASSAGE_NOT_FOUND")
     void getPassage_없는_본문() {
@@ -81,7 +95,7 @@ class QtServiceTest {
     @Test
     @DisplayName("getPassage — 미래 본문은 공개 게이트로 숨겨 QT_PASSAGE_NOT_FOUND (CLAUDE.md §6)")
     void getPassage_미래_본문_차단() {
-        when(qtPassageRepository.findById(5L)).thenReturn(Optional.of(passageOn(LocalDate.of(2026, 12, 31))));
+        when(qtPassageRepository.findById(5L)).thenReturn(Optional.of(activePassage(5L, LocalDate.of(2026, 12, 31))));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> qtService.getPassage(1L, 5L));
@@ -91,7 +105,7 @@ class QtServiceTest {
     @Test
     @DisplayName("getPassage — 과거/오늘 본문은 cacheStatus=DIRECT (캐시 미경유)")
     void getPassage_DIRECT_라벨() {
-        when(qtPassageRepository.findById(7L)).thenReturn(Optional.of(passageOn(LocalDate.of(2026, 6, 1))));
+        when(qtPassageRepository.findById(7L)).thenReturn(Optional.of(activePassage(7L, LocalDate.of(2026, 6, 1))));
         lenient().when(getNoteUseCase.getDraft(org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong()))
                 .thenReturn(new NoteDraftResponse(false, null));
@@ -144,6 +158,8 @@ class QtServiceTest {
     void getPassageStudy_해설_있음() {
         QtPassage passage = mock(QtPassage.class);
         when(passage.getId()).thenReturn(42L);
+        when(passage.getStatus()).thenReturn(QtPassageStatus.ACTIVE);
+        when(passage.getQtDate()).thenReturn(LocalDate.of(2026, 6, 1));
         when(bibleBookLookup.findBookIdByCode("GEN")).thenReturn(Optional.of((short) 1));
         when(qtPassageRepository.findContainingRange((short) 1, (short) 1, (short) 1, (short) 3))
                 .thenReturn(List.of(passage));
@@ -196,6 +212,8 @@ class QtServiceTest {
     void getPassageStudy_해설_없음() {
         QtPassage passage = mock(QtPassage.class);
         when(passage.getId()).thenReturn(7L);
+        when(passage.getStatus()).thenReturn(QtPassageStatus.ACTIVE);
+        when(passage.getQtDate()).thenReturn(LocalDate.of(2026, 6, 1));
         when(bibleBookLookup.findBookIdByCode("GEN")).thenReturn(Optional.of((short) 1));
         when(qtPassageRepository.findContainingRange((short) 1, (short) 1, (short) 1, (short) 3))
                 .thenReturn(List.of(passage));
@@ -203,6 +221,45 @@ class QtServiceTest {
                 .thenReturn(List.of());
         when(getQtStudyAvailabilityUseCase.getAvailability(any(), any()))
                 .thenReturn(new QtStudyAvailability("MISSING", false));
+
+        BiblePassageStudy result = qtService.getPassageStudy("GEN", 1, 1, 3);
+
+        assertNull(result.qtPassageId());
+        assertFalse(result.hasExplanation());
+    }
+
+    @Test
+    @DisplayName("getPassage blocks hidden passages")
+    void getPassage_hidden_blocks() {
+        when(qtPassageRepository.findById(6L)).thenReturn(Optional.of(hiddenPassage(6L, LocalDate.of(2026, 6, 1))));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> qtService.getPassage(1L, 6L));
+        assertEquals(ErrorCode.QT_PASSAGE_NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("getContentContext returns hidden passage with published false")
+    void getContentContext_hidden_publishedFalse() {
+        when(qtPassageRepository.findById(8L))
+                .thenReturn(Optional.of(hiddenPassage(8L, LocalDate.of(2026, 6, 1))));
+        when(qtPassageVerseRepository.findByQtPassageIdOrderByDisplayOrderAsc(8L))
+                .thenReturn(List.of());
+
+        var result = qtService.getContentContext(8L);
+
+        assertEquals(8L, result.qtPassageId());
+        assertFalse(result.published());
+    }
+
+    @Test
+    @DisplayName("getPassageStudy hides hidden passages")
+    void getPassageStudy_hidden_blocks() {
+        QtPassage passage = mock(QtPassage.class);
+        when(passage.getStatus()).thenReturn(QtPassageStatus.HIDDEN);
+        when(bibleBookLookup.findBookIdByCode("GEN")).thenReturn(Optional.of((short) 1));
+        when(qtPassageRepository.findContainingRange((short) 1, (short) 1, (short) 1, (short) 3))
+                .thenReturn(List.of(passage));
 
         BiblePassageStudy result = qtService.getPassageStudy("GEN", 1, 1, 3);
 

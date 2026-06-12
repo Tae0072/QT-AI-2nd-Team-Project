@@ -198,9 +198,9 @@ class QtVideoClipPreparationEventIntegrationTest {
         return insertAndReturnId("""
                 INSERT INTO qt_passages (
                     qt_date, book_id, chapter, start_verse, end_verse,
-                    title, main_verse_ref, created_at, updated_at
+                    title, main_verse_ref, status, published_at, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """,
                 qtDate,
                 FIRST_CORINTHIANS_BOOK_ID,
