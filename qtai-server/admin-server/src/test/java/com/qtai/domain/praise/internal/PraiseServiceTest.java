@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.praise.api.dto.PraiseCreateRequest;
 import com.qtai.domain.praise.api.dto.PraiseResponse;
 import com.qtai.domain.praise.api.dto.PraiseUpdateRequest;
 import java.time.Clock;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -52,18 +54,72 @@ class PraiseServiceTest {
     // ── update ──
 
     @Test
+    @DisplayName("create는 요청 status가 HIDDEN이면 숨김 상태로 등록한다")
+    void create_withHiddenStatus_savesHiddenSong() {
+        PraiseResponse response = service.create(3L,
+                new PraiseCreateRequest("검수 대기곡", "큐레이터", "저작권 확인 중", "HIDDEN"));
+
+        ArgumentCaptor<PraiseSong> captor = ArgumentCaptor.forClass(PraiseSong.class);
+        verify(praiseSongRepository).save(captor.capture());
+
+        PraiseSong saved = captor.getValue();
+        assertThat(saved.getStatus()).isEqualTo(PraiseSongStatus.HIDDEN);
+        assertThat(response.status()).isEqualTo("HIDDEN");
+    }
+
+    @Test
+    @DisplayName("create는 요청 status가 없으면 기존처럼 ACTIVE로 등록한다")
+    void create_withoutStatus_defaultsToActive() {
+        PraiseResponse response = service.create(3L,
+                new PraiseCreateRequest("노출곡", "큐레이터", "저작권 확인", null));
+
+        ArgumentCaptor<PraiseSong> captor = ArgumentCaptor.forClass(PraiseSong.class);
+        verify(praiseSongRepository).save(captor.capture());
+
+        PraiseSong saved = captor.getValue();
+        assertThat(saved.getStatus()).isEqualTo(PraiseSongStatus.ACTIVE);
+        assertThat(response.status()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("create는 잘못된 status를 INVALID_INPUT으로 거절한다")
+    void create_rejectsInvalidStatus() {
+        assertThatThrownBy(() -> service.create(3L,
+                new PraiseCreateRequest("오류곡", "큐레이터", "저작권 확인", "UNKNOWN")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+
+        verify(praiseSongRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("update는 곡 메타데이터를 갱신하고 응답을 반환한다")
     void update_updatesAndReturnsResponse() {
         PraiseSong song = song(50L, "은혜", "큐레이션");
         when(praiseSongRepository.findById(50L)).thenReturn(Optional.of(song));
 
         PraiseResponse response = service.update(3L, 50L,
-                new PraiseUpdateRequest("새 제목", "새 아티스트", "저작권 확인함"));
+                new PraiseUpdateRequest("새 제목", "새 아티스트", "저작권 확인함", null));
 
         assertThat(response.id()).isEqualTo(50L);
         assertThat(response.title()).isEqualTo("새 제목");
         assertThat(response.artist()).isEqualTo("새 아티스트");
         assertThat(response.licenseNote()).isEqualTo("저작권 확인함");
+        assertThat(response.status()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("update는 요청 status가 있으면 노출 상태를 변경한다")
+    void update_withStatus_updatesStatus() {
+        PraiseSong song = song(50L, "은혜", "큐레이션");
+        when(praiseSongRepository.findById(50L)).thenReturn(Optional.of(song));
+
+        PraiseResponse response = service.update(3L, 50L,
+                new PraiseUpdateRequest("은혜", "큐레이션", "저작권 확인함", "HIDDEN"));
+
+        assertThat(song.getStatus()).isEqualTo(PraiseSongStatus.HIDDEN);
+        assertThat(response.status()).isEqualTo("HIDDEN");
     }
 
     @Test
@@ -72,7 +128,7 @@ class PraiseServiceTest {
         when(praiseSongRepository.findById(404L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.update(3L, 404L,
-                new PraiseUpdateRequest("제목", null, null)))
+                new PraiseUpdateRequest("제목", null, null, null)))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.PRAISE_SONG_NOT_FOUND);

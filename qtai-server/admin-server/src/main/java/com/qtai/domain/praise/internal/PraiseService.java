@@ -76,7 +76,7 @@ public class PraiseService implements
                 .artist(request.artist())
                 .sourceType(PraiseSourceType.CURATED)
                 .licenseNote(request.licenseNote())
-                .status(PraiseSongStatus.ACTIVE)
+                .status(parseStatusOrDefault(request.status()))
                 .build();
         praiseSongRepository.save(song);
         log.info("큐레이션 곡 등록: adminId={}, songId={}, title={}", adminId, song.getId(), song.getTitle());
@@ -89,6 +89,18 @@ public class PraiseService implements
     public Page<PraiseResponse> listActive(Pageable pageable) {
         return praiseSongRepository.findByStatus(PraiseSongStatus.ACTIVE, pageable)
                 .map(this::toResponse);
+    }
+
+    private PraiseSongStatus parseStatusOrDefault(String rawStatus) {
+        if (rawStatus == null || rawStatus.isBlank()) {
+            return PraiseSongStatus.ACTIVE;
+        }
+        try {
+            return PraiseSongStatus.valueOf(rawStatus);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "유효하지 않은 찬양 곡 상태입니다: " + rawStatus);
+        }
     }
 
     @Override
@@ -114,9 +126,17 @@ public class PraiseService implements
     public PraiseResponse update(Long adminId, Long praiseSongId, PraiseUpdateRequest request) {
         PraiseSong song = praiseSongRepository.findById(praiseSongId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRAISE_SONG_NOT_FOUND));
-        song.update(request.title(), request.artist(), request.licenseNote());
+        song.update(request.title(), request.artist(), request.licenseNote(),
+                parseStatusOrNull(request.status()));
         log.info("큐레이션 곡 수정: adminId={}, songId={}, title={}", adminId, song.getId(), song.getTitle());
         return toResponse(song);
+    }
+
+    private PraiseSongStatus parseStatusOrNull(String rawStatus) {
+        if (rawStatus == null || rawStatus.isBlank()) {
+            return null;
+        }
+        return parseStatusOrDefault(rawStatus);
     }
 
     // ── DeletePraiseUseCase (ADMIN) ──

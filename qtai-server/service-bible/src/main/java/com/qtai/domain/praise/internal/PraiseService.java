@@ -56,7 +56,7 @@ public class PraiseService implements
                 .artist(request.artist())
                 .sourceType(PraiseSourceType.CURATED)
                 .licenseNote(request.licenseNote())
-                .status(PraiseSongStatus.ACTIVE)
+                .status(parseStatusOrDefault(request.status()))
                 .build();
         praiseSongRepository.save(song);
         log.info("큐레이션 곡 등록: adminId={}, songId={}, title={}", adminId, song.getId(), song.getTitle());
@@ -69,6 +69,18 @@ public class PraiseService implements
     public Page<PraiseResponse> listActive(Pageable pageable) {
         return praiseSongRepository.findByStatus(PraiseSongStatus.ACTIVE, pageable)
                 .map(this::toResponse);
+    }
+
+    private PraiseSongStatus parseStatusOrDefault(String rawStatus) {
+        if (rawStatus == null || rawStatus.isBlank()) {
+            return PraiseSongStatus.ACTIVE;
+        }
+        try {
+            return PraiseSongStatus.valueOf(rawStatus);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "유효하지 않은 찬양 곡 상태입니다: " + rawStatus);
+        }
     }
 
     // ── SaveMemberPraiseSongUseCase ──

@@ -110,6 +110,18 @@ class AdminPraiseControllerTest {
     }
 
     @Test
+    @DisplayName("등록 요청 status가 허용값이 아니면 400을 반환한다")
+    void create_invalidStatus_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/praise-songs")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"검수 대기곡","status":"PENDING"}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("OPERATOR는 찬양 곡을 수정할 수 있다 (200)")
     void update_returnsOk() throws Exception {
         operator();
@@ -123,6 +135,18 @@ class AdminPraiseControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(50));
+    }
+
+    @Test
+    @DisplayName("수정 요청 status가 허용값이 아니면 400을 반환한다")
+    void update_invalidStatus_returnsBadRequest() throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/praise-songs/50")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"검수 대기곡","status":"PENDING"}
+                                """))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
