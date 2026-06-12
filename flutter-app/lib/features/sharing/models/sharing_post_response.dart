@@ -33,7 +33,7 @@ class SharingPostItem {
       titleSnapshot: json['titleSnapshot'] as String? ?? '',
       category: json['category'] as String? ?? '',
       bodyPreview: json['bodyPreview'] as String? ?? '',
-      verseLabel: (json['verseSnapshot'] as Map<String, dynamic>?)?['rangeLabel'] as String?,
+      verseLabel: _parseVerseLabel(json['verseSnapshot']),
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       likedByMe: json['likedByMe'] as bool? ?? false,
@@ -241,4 +241,14 @@ class SharingPostDetail {
       publishedAt: publishedAt,
     );
   }
+}
+
+/// verseSnapshot.rangeLabel 을 안전하게 추출한다.
+/// Map 이 아니거나 rangeLabel 이 없거나(또는 null) 공백뿐이면 null, 아니면 트림한 값.
+String? _parseVerseLabel(dynamic verseSnapshot) {
+  if (verseSnapshot is! Map) return null;
+  final raw = verseSnapshot['rangeLabel'];
+  if (raw is! String) return null;
+  final trimmed = raw.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }

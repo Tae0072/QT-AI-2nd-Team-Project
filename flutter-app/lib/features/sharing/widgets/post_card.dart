@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/utils/date_format_utils.dart';
 import '../models/sharing_post_response.dart';
+import 'sharing_feed_palette.dart';
 
 /// 나눔 피드 카드 — 시안(흰 배경) 기준.
 /// 작성자 + 카테고리 배지 + 시간 / 제목 / 본문 미리보기 / (본문 범위 인용 박스) / 좋아요·댓글.
@@ -20,18 +21,11 @@ class PostCard extends StatelessWidget {
     this.onLike,
   });
 
-  // 시안 팔레트(이 화면 한정 — 앱 전역 Calm Paper와 별개로 흰 배경 디자인을 재현).
-  static const Color _text = Color(0xFF1F1F1F);
-  static const Color _muted = Color(0xFF8A8A8E);
-  static const Color _verseBoxBg = Color(0xFFF6F5F3);
-  static const Color _liked = Color(0xFFE0492F);
-
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cat = _categoryStyle(item.category);
-    final hasVerse =
-        item.verseLabel != null && item.verseLabel!.trim().isNotEmpty;
+    final hasVerse = item.verseLabel != null;
 
     return InkWell(
       onTap: onTap,
@@ -56,7 +50,7 @@ class PostCard extends StatelessWidget {
                               fontFamily: 'GowunDodum',
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: _text),
+                              color: SharingFeedPalette.text),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -71,7 +65,9 @@ class PostCard extends StatelessWidget {
                 Text(
                   relativeTimeLabel(item.publishedAt),
                   style: const TextStyle(
-                      fontFamily: 'GowunDodum', fontSize: 13, color: _muted),
+                      fontFamily: 'GowunDodum',
+                      fontSize: 13,
+                      color: SharingFeedPalette.muted),
                 ),
               ],
             ),
@@ -84,7 +80,7 @@ class PostCard extends StatelessWidget {
                   fontFamily: 'GowunDodum',
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: _text),
+                  color: SharingFeedPalette.text),
             ),
             if (item.bodyPreview.isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -96,7 +92,7 @@ class PostCard extends StatelessWidget {
                     fontFamily: 'GowunDodum',
                     fontSize: 14,
                     height: 1.55,
-                    color: _muted),
+                    color: SharingFeedPalette.muted),
               ),
             ],
             // 본문 범위 인용 박스(범위 라벨이 있을 때만). 피드 API는 범위 라벨만 제공.
@@ -106,7 +102,7 @@ class PostCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                 decoration: BoxDecoration(
-                  color: _verseBoxBg,
+                  color: SharingFeedPalette.verseBoxBg,
                   borderRadius: BorderRadius.circular(10),
                   border: Border(left: BorderSide(color: cat.fg, width: 3)),
                 ),
@@ -117,14 +113,14 @@ class PostCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        item.verseLabel!.trim(),
+                        item.verseLabel!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontFamily: 'GowunDodum',
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF5B5B60)),
+                            color: SharingFeedPalette.verseLabelText),
                       ),
                     ),
                   ],
@@ -149,24 +145,29 @@ class PostCard extends StatelessWidget {
                               ? Icons.favorite
                               : Icons.favorite_border,
                           size: 15,
-                          color: item.likedByMe ? _liked : _muted,
+                          color: item.likedByMe
+                              ? SharingFeedPalette.liked
+                              : SharingFeedPalette.muted,
                         ),
                         const SizedBox(width: 4),
                         Text('${item.likeCount}',
                             style: const TextStyle(
                                 fontFamily: 'GowunDodum',
                                 fontSize: 13,
-                                color: _muted)),
+                                color: SharingFeedPalette.muted)),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Icon(Icons.chat_bubble_outline, size: 15, color: _muted),
+                const Icon(Icons.chat_bubble_outline,
+                    size: 15, color: SharingFeedPalette.muted),
                 const SizedBox(width: 4),
                 Text('${item.commentCount}',
                     style: const TextStyle(
-                        fontFamily: 'GowunDodum', fontSize: 13, color: _muted)),
+                        fontFamily: 'GowunDodum',
+                        fontSize: 13,
+                        color: SharingFeedPalette.muted)),
               ],
             ),
           ],

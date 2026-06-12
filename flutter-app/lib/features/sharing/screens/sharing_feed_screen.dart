@@ -6,6 +6,7 @@ import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../providers/sharing_providers.dart';
 import '../widgets/post_card.dart';
+import '../widgets/sharing_feed_palette.dart';
 
 /// 나눔 피드 화면 (S-01) — 시안(흰 배경) 기준.
 ///
@@ -22,14 +23,6 @@ class SharingFeedScreen extends ConsumerStatefulWidget {
 class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
   final _searchController = TextEditingController();
 
-  // 시안 팔레트(이 화면 한정).
-  static const Color _bg = Colors.white;
-  static const Color _text = Color(0xFF1F1F1F);
-  static const Color _muted = Color(0xFF8A8A8E);
-  static const Color _fieldBg = Color(0xFFF4F3F1);
-  static const Color _divider = Color(0xFFEFEDEA);
-  static const Color _chipBorder = Color(0xFFE3E1DD);
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -43,9 +36,9 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
     final l = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: SharingFeedPalette.bg,
       appBar: AppBar(
-        backgroundColor: _bg,
+        backgroundColor: SharingFeedPalette.bg,
         title: Text(l.navShare),
         centerTitle: true,
         actions: [
@@ -66,15 +59,20 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
             child: TextField(
               controller: _searchController,
               style: const TextStyle(
-                  fontFamily: 'GowunDodum', fontSize: 14, color: _text),
+                  fontFamily: 'GowunDodum',
+                  fontSize: 14,
+                  color: SharingFeedPalette.text),
               decoration: InputDecoration(
                 hintText: l.sharingSearchHint,
                 hintStyle: const TextStyle(
-                    fontFamily: 'GowunDodum', fontSize: 14, color: _muted),
-                prefixIcon: const Icon(Icons.search, color: _muted, size: 20),
+                    fontFamily: 'GowunDodum',
+                    fontSize: 14,
+                    color: SharingFeedPalette.muted),
+                prefixIcon: const Icon(Icons.search,
+                    color: SharingFeedPalette.muted, size: 20),
                 isDense: true,
                 filled: true,
-                fillColor: _fieldBg,
+                fillColor: SharingFeedPalette.fieldBg,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 border: OutlineInputBorder(
@@ -87,7 +85,8 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: _text, width: 1),
+                  borderSide:
+                      const BorderSide(color: SharingFeedPalette.text, width: 1),
                 ),
               ),
               onSubmitted: (value) {
@@ -126,7 +125,7 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
                         style: const TextStyle(
                             fontFamily: 'GowunDodum',
                             fontSize: 14,
-                            color: _muted)),
+                            color: SharingFeedPalette.muted)),
                   );
                 }
 
@@ -136,7 +135,7 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
                     itemCount: response.items.length,
                     padding: const EdgeInsets.only(bottom: 12),
                     separatorBuilder: (_, __) => const Divider(
-                        height: 1, thickness: 1, color: _divider),
+                        height: 1, thickness: 1, color: SharingFeedPalette.divider),
                     itemBuilder: (context, index) {
                       final item = response.items[index];
                       return PostCard(
@@ -200,14 +199,12 @@ class _CategoryChip extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: isSelected
-                  ? _SharingFeedScreenState._text
-                  : Colors.white,
+              color: isSelected ? SharingFeedPalette.text : Colors.white,
               borderRadius: BorderRadius.circular(999),
               border: Border.all(
                 color: isSelected
-                    ? _SharingFeedScreenState._text
-                    : _SharingFeedScreenState._chipBorder,
+                    ? SharingFeedPalette.text
+                    : SharingFeedPalette.chipBorder,
               ),
             ),
             child: Row(
@@ -223,9 +220,7 @@ class _CategoryChip extends ConsumerWidget {
                     fontFamily: 'GowunDodum',
                     fontSize: 14,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? Colors.white
-                        : _SharingFeedScreenState._muted,
+                    color: isSelected ? Colors.white : SharingFeedPalette.muted,
                   ),
                 ),
               ],
