@@ -2,15 +2,19 @@ package com.qtai.domain.praise.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.praise.api.dto.MemberPraiseSongCreateRequest;
+import com.qtai.domain.praise.api.dto.PraiseCreateRequest;
 import java.time.Clock;
 import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,6 +33,35 @@ class PraiseServiceTest {
 
     @InjectMocks
     private PraiseService praiseService;
+
+    @Test
+    @DisplayName("create는 요청 status가 HIDDEN이면 숨김 상태로 등록한다")
+    void create_hidden_status() {
+        praiseService.create(3L, new PraiseCreateRequest("검수 대기곡", "큐레이터", "저작권 확인 중", "HIDDEN"));
+
+        ArgumentCaptor<PraiseSong> captor = ArgumentCaptor.forClass(PraiseSong.class);
+        verify(praiseSongRepository).save(captor.capture());
+        assertEquals(PraiseSongStatus.HIDDEN, captor.getValue().getStatus());
+    }
+
+    @Test
+    @DisplayName("create는 요청 status가 없으면 ACTIVE로 등록한다")
+    void create_default_active_status() {
+        praiseService.create(3L, new PraiseCreateRequest("은혜", "큐레이터", null, null));
+
+        ArgumentCaptor<PraiseSong> captor = ArgumentCaptor.forClass(PraiseSong.class);
+        verify(praiseSongRepository).save(captor.capture());
+        assertEquals(PraiseSongStatus.ACTIVE, captor.getValue().getStatus());
+    }
+
+    @Test
+    @DisplayName("create는 잘못된 status를 INVALID_INPUT으로 거절한다")
+    void create_invalid_status() {
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> praiseService.create(3L, new PraiseCreateRequest("은혜", "큐레이터", null, "INVALID")));
+
+        assertEquals(ErrorCode.INVALID_INPUT, ex.getErrorCode());
+    }
 
     @Test
     void save_대상이_모두_null이면_INVALID_INPUT() {
