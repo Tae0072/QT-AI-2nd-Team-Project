@@ -76,7 +76,8 @@ public enum ErrorCode {
     ADMIN_USER_NOT_FOUND("AD0001", "관리자 계정을 찾을 수 없습니다.", HttpStatus.FORBIDDEN),
     ADMIN_USER_DISABLED("AD0002", "비활성화된 관리자 계정입니다.", HttpStatus.FORBIDDEN),
     ADMIN_ROLE_INSUFFICIENT("AD0003", "해당 작업에 필요한 관리자 권한이 없습니다.", HttpStatus.FORBIDDEN),
-    ADMIN_LOGIN_FAILED("AD0004", "아이디 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED);
+    ADMIN_LOGIN_FAILED("AD0004", "아이디 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED),
+    ADMIN_LOGIN_RATE_LIMITED("AD0005", "로그인 시도가 너무 많습니다. 잠시 후 다시 시도하세요.", HttpStatus.TOO_MANY_REQUESTS);
 
     private final String code;
     private final String message;

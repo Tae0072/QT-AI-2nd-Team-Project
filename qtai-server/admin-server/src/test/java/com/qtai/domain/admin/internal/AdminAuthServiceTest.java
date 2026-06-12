@@ -2,6 +2,7 @@ package com.qtai.domain.admin.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 import com.qtai.common.exception.BusinessException;
@@ -25,7 +26,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * {@link AdminAuthService} 단위 테스트.
  *
  * <p>자체 아이디/비밀번호 로그인은 ADMIN 토큰을 발급하는 보안 민감 경로이므로,
- * 성공/실패(미존재·비밀번호 불일치·비활성)·토큰 갱신 분기를 모두 검증한다.
+ * 성공/실패(미존재·비밀번호 불일치·비활성)·시도 제한(잠금)·토큰 갱신(회전·재사용) 분기를 모두 검증한다.
  */
 @ExtendWith(MockitoExtension.class)
 class AdminAuthServiceTest {
@@ -38,6 +39,10 @@ class AdminAuthServiceTest {
     JwtProvider jwtProvider;
     @Mock
     GetMemberUseCase getMemberUseCase;
+    @Mock
+    AdminLoginAttemptGuard loginAttemptGuard;
+    @Mock
+    AdminRefreshTokenStore refreshTokenStore;
 
     @InjectMocks
     AdminAuthService adminAuthService;
@@ -76,6 +81,17 @@ class AdminAuthServiceTest {
         assertThat(result.admin().role()).isEqualTo("ADMIN");
         assertThat(result.admin().adminRole()).isEqualTo("OPERATOR");
         assertThat(result.admin().status()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("연속 실패 잠금 상태 → ADMIN_LOGIN_RATE_LIMITED(429)")
+    void login_locked_fails() {
+        doThrow(new BusinessException(ErrorCode.ADMIN_LOGIN_RATE_LIMITED))
+                .when(loginAttemptGuard).assertNotLocked("admin");
+
+        assertThatThrownBy(() -> adminAuthService.login("admin", "admin1234"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ADMIN_LOGIN_RATE_LIMITED));
     }
 
     @Test
@@ -123,9 +139,10 @@ class AdminAuthServiceTest {
     }
 
     @Test
-    @DisplayName("refresh 성공 → 새 토큰 발급")
+    @DisplayName("refresh 성공(저장된 토큰 일치) → 새 토큰 발급(회전)")
     void refresh_success() {
         when(jwtProvider.validateRefreshToken("refresh-token")).thenReturn(10L);
+        when(refreshTokenStore.matches(10L, "refresh-token")).thenReturn(true);
         when(adminUserRepository.findByMemberId(10L)).thenReturn(Optional.of(activeAdmin));
         stubIssue();
 
@@ -133,6 +150,17 @@ class AdminAuthServiceTest {
 
         assertThat(result.accessToken()).isEqualTo("access-token");
         assertThat(result.admin().adminRole()).isEqualTo("OPERATOR");
+    }
+
+    @Test
+    @DisplayName("회전/재사용된 refresh token(저장본 불일치) → ADMIN_LOGIN_FAILED(401)")
+    void refresh_reusedToken_fails() {
+        when(jwtProvider.validateRefreshToken("old-token")).thenReturn(10L);
+        when(refreshTokenStore.matches(10L, "old-token")).thenReturn(false);
+
+        assertThatThrownBy(() -> adminAuthService.refresh("old-token"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ADMIN_LOGIN_FAILED));
     }
 
     @Test
