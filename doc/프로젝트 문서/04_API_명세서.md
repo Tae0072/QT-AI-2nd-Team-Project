@@ -1632,7 +1632,7 @@
 }
 ```
 
-상세 응답 (`GET /api/v1/admin/notices/{id}`, 생성, 수정 공통):
+상세 응답 `data` 객체 (`GET /api/v1/admin/notices/{id}`, 생성, 수정 공통):
 
 ```json
 {
@@ -1724,8 +1724,8 @@
 ```
 
 - **상세 조회:** 관리자 공지 편집 화면에서 전체 본문을 다시 채우기 위해 `bodyPreview`가 아니라 전체 `body`를 반환한다. 관리자 권한을 가진 운영자는 `DRAFT`, `PUBLISHED`, `HIDDEN` 상태 공지를 모두 조회할 수 있다.
-- **입력 검증:** `title`은 1~100자, `body`는 1~10,000자이며 `<`, `>` 문자는 허용하지 않는다. 생성 시 `status`는 생략하거나 `DRAFT`만 허용한다. 수정 요청에는 `status`를 포함하지 않는다.
-- **상태 전이:** 수정과 발행은 `DRAFT` 상태에서만 가능하다. 숨김은 이미 `HIDDEN`인 공지를 제외하고 수행할 수 있다.
+- **입력 검증:** `title`은 1~100자, `body`는 1~10,000자이며 공지 본문은 plain text로만 저장한다. HTML/script 삽입을 막기 위해 `<`, `>` 문자는 허용하지 않는다. 생성 시 `status`는 생략하거나 `DRAFT`만 허용한다. 수정 요청에는 `status`를 포함하지 않는다.
+- **상태 전이:** 수정과 발행은 `DRAFT` 상태에서만 가능하다. 숨김은 `DRAFT → HIDDEN`, `PUBLISHED → HIDDEN` 전이를 허용하고, 이미 `HIDDEN`인 공지는 `409 C0007 INVALID_STATUS_TRANSITION`으로 거부한다.
 
 발행 응답:
 
