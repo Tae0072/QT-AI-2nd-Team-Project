@@ -179,7 +179,7 @@ export default function AiEvaluationsPage() {
         status: values.status,
         expectedPolicyJson: policy,
       });
-      message.success('평가 셋을 생성했습니다.');
+      message.success('평가 세트을 만들었습니다.');
       setCreateOpen(false);
       form.resetFields();
       reload();
@@ -194,7 +194,7 @@ export default function AiEvaluationsPage() {
     setBusyId(row.id);
     try {
       await activateEvaluationSet(row.id);
-      message.success(`#${row.id} 평가 셋을 활성화했습니다.`);
+      message.success(`#${row.id} 평가 세트을 활성화했습니다.`);
       reload();
     } catch (e) {
       message.error(e instanceof Error ? e.message : '활성화에 실패했습니다.');
@@ -207,7 +207,7 @@ export default function AiEvaluationsPage() {
     setBusyId(row.id);
     try {
       await retireEvaluationSet(row.id);
-      message.success(`#${row.id} 평가 셋을 폐기했습니다.`);
+      message.success(`#${row.id} 평가 세트을 폐기했습니다.`);
       reload();
     } catch (e) {
       message.error(e instanceof Error ? e.message : '폐기에 실패했습니다.');
@@ -251,11 +251,11 @@ export default function AiEvaluationsPage() {
       render: (_, r) => (
         <Space>
           <Button size="small" onClick={() => setSelectedSet(r)}>
-            케이스 관리
+            항목 보기
           </Button>
           {r.status === 'DRAFT' && (
             <Popconfirm
-              title="이 평가 셋을 활성화할까요?"
+              title="이 평가 세트을 활성화할까요?"
               okText="활성화"
               cancelText="취소"
               onConfirm={() => doActivate(r)}
@@ -267,7 +267,7 @@ export default function AiEvaluationsPage() {
           )}
           {r.status !== 'RETIRED' && (
             <Popconfirm
-              title="이 평가 셋을 폐기할까요?"
+              title="이 평가 세트을 폐기할까요?"
               okText="폐기"
               okButtonProps={{ danger: true }}
               cancelText="취소"
@@ -289,20 +289,20 @@ export default function AiEvaluationsPage() {
         <Space align="center" wrap>
           <Tag color="blue">AD-11</Tag>
           <Typography.Title level={3} style={{ margin: 0 }}>
-            AI 평가셋 / 평가케이스
+            AI 평가 세트
           </Typography.Title>
         </Space>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          AI Q&A·해설의 회귀 평가 기준(평가 셋)과 개별 평가 케이스를 관리합니다. 권한:
-          REVIEWER / CONTENT_CREATOR / SUPER_ADMIN. (케이스 승인·반려는 REVIEWER /
-          SUPER_ADMIN만 가능합니다. 검증 참조 원문은 다루지 않습니다.)
+          AI Q&A·해설이 제대로 동작하는지 검사하는 평가 세트와 그 안의 평가 항목을
+          관리합니다. 권한: REVIEWER / CONTENT_CREATOR / SUPER_ADMIN. (항목 승인·반려는
+          REVIEWER / SUPER_ADMIN만 가능합니다. 검증 참조 원문은 다루지 않습니다.)
         </Typography.Paragraph>
 
         {error && (
           <Alert
             type="error"
             showIcon
-            message="평가 셋 목록을 불러오지 못했습니다"
+            message="평가 세트 목록을 불러오지 못했습니다"
             description={error}
             action={
               <Button size="small" onClick={reload}>
@@ -344,7 +344,7 @@ export default function AiEvaluationsPage() {
               setCreateOpen(true);
             }}
           >
-            평가 셋 생성
+            평가 세트 만들기
           </Button>
         </Space>
 
@@ -386,8 +386,8 @@ export default function AiEvaluationsPage() {
       {/* 평가 셋 생성 모달 */}
       <Modal
         open={createOpen}
-        title="평가 셋 생성"
-        okText="생성"
+        title="평가 세트 만들기"
+        okText="만들기"
         cancelText="취소"
         confirmLoading={creating}
         onOk={submitCreate}
@@ -433,7 +433,7 @@ export default function AiEvaluationsPage() {
             <Select options={SET_STATUS_OPTIONS} />
           </Form.Item>
           <Form.Item name="description" label="설명 (선택)">
-            <Input.TextArea rows={2} maxLength={500} placeholder="평가 셋 설명" />
+            <Input.TextArea rows={2} maxLength={500} placeholder="평가 세트 설명" />
           </Form.Item>
           <Form.Item
             name="expectedPolicyJson"
@@ -450,8 +450,8 @@ export default function AiEvaluationsPage() {
         open={selectedSet !== null}
         title={
           selectedSet
-            ? `평가 케이스 — #${selectedSet.id} ${selectedSet.name}`
-            : '평가 케이스'
+            ? `평가 항목 — #${selectedSet.id} ${selectedSet.name}`
+            : '평가 항목'
         }
         width={760}
         onClose={() => setSelectedSet(null)}
@@ -551,7 +551,7 @@ function EvaluationCasesPanel({
         expectedPolicyJson: expectedPolicy,
         status: values.status,
       });
-      message.success('평가 케이스를 생성했습니다.');
+      message.success('평가 항목을 추가했습니다.');
       setCreateOpen(false);
       form.resetFields();
       reload();
@@ -661,7 +661,7 @@ function EvaluationCasesPanel({
         <Alert
           type="error"
           showIcon
-          message="평가 케이스 목록을 불러오지 못했습니다"
+          message="평가 항목 목록을 불러오지 못했습니다"
           description={error}
           action={
             <Button size="small" onClick={reload}>
@@ -695,7 +695,7 @@ function EvaluationCasesPanel({
             setCreateOpen(true);
           }}
         >
-          케이스 생성
+          평가 항목 추가
         </Button>
       </Space>
 
@@ -741,8 +741,8 @@ function EvaluationCasesPanel({
       {/* 케이스 생성 모달 */}
       <Modal
         open={createOpen}
-        title="평가 케이스 생성"
-        okText="생성"
+        title="평가 항목 추가"
+        okText="추가"
         cancelText="취소"
         confirmLoading={creating}
         onOk={submitCreate}
@@ -801,7 +801,7 @@ function EvaluationCasesPanel({
       {/* 승인/반려 모달 */}
       <Modal
         open={action !== null}
-        title={action?.mode === 'approve' ? '평가 케이스 승인' : '평가 케이스 반려'}
+        title={action?.mode === 'approve' ? '평가 항목 승인' : '평가 항목 반려'}
         okText={action?.mode === 'approve' ? '승인' : '반려'}
         okButtonProps={{ danger: action?.mode === 'reject' }}
         cancelText="취소"
@@ -813,7 +813,7 @@ function EvaluationCasesPanel({
         {action && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
             <Typography.Text type="secondary">
-              케이스 #{action.target.id} · {action.target.targetType}
+              항목 #{action.target.id} · {action.target.targetType}
               {action.target.targetId != null ? ` #${action.target.targetId}` : ''}
             </Typography.Text>
             <div>

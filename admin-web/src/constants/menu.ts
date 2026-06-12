@@ -89,7 +89,7 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     code: 'AD-11',
     path: '/ai-evaluations',
-    label: 'AI 평가셋/케이스',
+    label: 'AI 평가 세트',
     requiredRoles: [ADMIN_ROLES.REVIEWER, ADMIN_ROLES.CONTENT_CREATOR],
   },
 ];
