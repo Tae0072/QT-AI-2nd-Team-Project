@@ -135,6 +135,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteEmpty => 'No notes yet';
 
   @override
+  String get noteEmptyQtHint => 'Write QT notes from the Today QT screen';
+
+  @override
+  String get noteEmptySermonHint => 'Write sermon notes from the Bible screen';
+
+  @override
+  String get noteSelect => 'Select';
+
+  @override
+  String get noteSelectAll => 'Select all';
+
+  @override
+  String noteSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get noteDeleteSelectedTitle => 'Delete selected notes';
+
+  @override
+  String noteDeleteSelectedBody(int count) {
+    return 'Delete $count selected notes? This can\'t be undone.';
+  }
+
+  @override
+  String noteDeletedCount(int count) {
+    return 'Deleted $count';
+  }
+
+  @override
+  String noteDeletePartialFailed(int count) {
+    return 'Failed to delete $count';
+  }
+
+  @override
   String get noteUntitled => '(Untitled)';
 
   @override

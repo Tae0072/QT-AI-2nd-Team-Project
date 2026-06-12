@@ -54,6 +54,27 @@
     }
   },
   "noteEmpty": "No notes yet",
+  "noteEmptyQtHint": "Write QT notes from the Today QT screen",
+  "noteEmptySermonHint": "Write sermon notes from the Bible screen",
+  "noteSelect": "Select",
+  "noteSelectAll": "Select all",
+  "noteSelectedCount": "{count} selected",
+  "@noteSelectedCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeleteSelectedTitle": "Delete selected notes",
+  "noteDeleteSelectedBody": "Delete {count} selected notes? This can't be undone.",
+  "@noteDeleteSelectedBody": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeletedCount": "Deleted {count}",
+  "@noteDeletedCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeletePartialFailed": "Failed to delete {count}",
+  "@noteDeletePartialFailed": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "noteUntitled": "(Untitled)",
   "noteDraft": "Draft",
   "noteModeWrite": "New",

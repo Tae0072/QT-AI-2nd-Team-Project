@@ -8,23 +8,39 @@ import 'package:qtai_app/features/note/providers/note_providers.dart';
 import 'package:qtai_app/features/note/screens/note_edit_screen.dart';
 import 'package:qtai_app/features/note/screens/note_list_screen.dart';
 import 'package:qtai_app/features/note/services/note_repository.dart';
+import 'package:qtai_app/features/note/widgets/note_card.dart';
 import 'package:qtai_app/routes/app_router.dart';
 
-/// 노트 목록·달력에 필요한 두 API만 가짜로 응답하고, getNotes 인자를 기록한다.
-class _FakeNoteRepository extends NoteRepository {
-  _FakeNoteRepository() : super(Dio());
+NoteListItem _item(int id, String category) => NoteListItem(
+      id: id,
+      category: category,
+      title: '노트 $id',
+      status: 'SAVED',
+      visibility: 'PRIVATE',
+      shared: false,
+    );
 
+/// 노트 목록·달력에 필요한 API만 가짜로 응답하고, getNotes 인자·deleteMany 호출을 기록한다.
+class _FakeNoteRepository extends NoteRepository {
+  _FakeNoteRepository({this.items = const []}) : super(Dio());
+
+  final List<NoteListItem> items;
   String? lastCategory;
   String? lastStatus;
-  int getNotesCallCount = 0;
+  List<int>? deletedIds;
 
   @override
   Future<NoteListResponse> getNotes(
       {String? category, String? status, int page = 0}) async {
-    getNotesCallCount++;
     lastCategory = category;
     lastStatus = status;
-    return NoteListResponse(items: const [], hasNext: false);
+    return NoteListResponse(items: items, hasNext: false);
+  }
+
+  @override
+  Future<List<int>> deleteMany(Iterable<int> noteIds) async {
+    deletedIds = noteIds.toList();
+    return const []; // 전부 성공
   }
 
   @override
@@ -134,6 +150,84 @@ void main() {
       expect(pushedRoute, AppRouter.noteEdit);
       expect(pushedArgs, isA<NoteEditArgs>());
       expect((pushedArgs as NoteEditArgs).category, 'PRAYER');
+    });
+  });
+
+  group('NoteListScreen — ② QT/설교 칩 FAB 숨김', () {
+    Future<void> pump(WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            noteRepositoryProvider.overrideWithValue(_FakeNoteRepository()),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: const NoteListScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('QT 칩 선택 시 작성 FAB이 사라진다(설교도 동일)', (tester) async {
+      await pump(tester);
+      // 전체: FAB 보임
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+
+      await tester.tap(find.text('QT'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FloatingActionButton), findsNothing);
+
+      await tester.tap(find.text('설교'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FloatingActionButton), findsNothing);
+    });
+  });
+
+  group('NoteListScreen — ① 다중 선택 삭제', () {
+    testWidgets('☰ 선택 → 체크 → 삭제 시 deleteMany가 호출된다', (tester) async {
+      // 달력이 커서 기본 뷰포트(800x600)에선 카드가 화면 밖이라, 둘 다 보이게 키운다.
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repo = _FakeNoteRepository(
+        items: [_item(1, 'PRAYER'), _item(2, 'GRATITUDE')],
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [noteRepositoryProvider.overrideWithValue(repo)],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: const NoteListScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 선택 모드 진입(햄버거)
+      await tester.tap(find.byIcon(Icons.menu));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(2));
+
+      // 첫 카드 선택
+      await tester.tap(find.byType(NoteCard).first);
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+
+      // 하단 삭제바 → 확인 다이얼로그 → 삭제
+      await tester.tap(find.text('삭제 (1)'));
+      await tester.pumpAndSettle();
+      expect(find.text('선택한 노트 삭제'), findsOneWidget);
+      await tester.tap(find.text('삭제'));
+      await tester.pumpAndSettle();
+
+      expect(repo.deletedIds, [1]);
     });
   });
 }
