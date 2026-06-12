@@ -51,8 +51,10 @@ class QtContentContextApiTest {
 
     /** 공개 게이트상 published=true가 되도록 과거(어제) 날짜로 본문을 시드한다. */
     private QtPassage seedPassage(LocalDate date) {
-        return qtPassageRepository.save(
-                QtPassage.create(date, (short) 19, (short) 23, (short) 1, (short) 6, "제목", "시 23:1-6"));
+        QtPassage passage =
+                QtPassage.create(date, (short) 19, (short) 23, (short) 1, (short) 6, "제목", "시 23:1-6");
+        passage.publish(date.atStartOfDay());
+        return qtPassageRepository.save(passage);
     }
 
     @Test
