@@ -4,13 +4,24 @@
 // (평범한 Dart 클래스 + 손으로 쓴 fromJson + null 안전 기본값).
 // 필드는 04_API_명세서 §4.3.1(목록)·§4.3.4(생성)에 정의된 것만 V1 범위로 담는다.
 
+/// 노트 카테고리 코드 상수(매직 스트링 방지).
+const String kNoteCatMeditation = 'MEDITATION'; // QT
+const String kNoteCatSermon = 'SERMON'; // 설교
+const String kNoteCatPrayer = 'PRAYER';
+const String kNoteCatRepentance = 'REPENTANCE';
+const String kNoteCatGratitude = 'GRATITUDE';
+
+/// 기록 탭이 아니라 각자 화면(오늘의 QT/성경)에서 작성하는 카테고리.
+/// 기록 탭에서는 이 카테고리들의 작성 진입(FAB)을 두지 않는다(수정·삭제만).
+const Set<String> tabAuthoredCategories = {kNoteCatMeditation, kNoteCatSermon};
+
 /// 카테고리 코드 → 한글 라벨. (여러 화면에서 재사용)
 const Map<String, String> noteCategoryLabels = {
-  'MEDITATION': 'QT',
-  'SERMON': '설교',
-  'PRAYER': '기도',
-  'REPENTANCE': '회개',
-  'GRATITUDE': '감사',
+  kNoteCatMeditation: 'QT',
+  kNoteCatSermon: '설교',
+  kNoteCatPrayer: '기도',
+  kNoteCatRepentance: '회개',
+  kNoteCatGratitude: '감사',
 };
 
 /// 카테고리 코드를 한글 라벨로 변환 (모르는 코드는 코드 그대로 반환).
@@ -127,21 +138,15 @@ class NoteVerseRef {
 
 /// 노트 상세 (GET /api/v1/notes/{id}, 04 §4.3.5).
 ///
-/// 전 카테고리를 한 모델로 받는다(설계 결정 A, 2026-06-05):
-/// - 자유노트(기도/회개/감사): `body`에 내용
-/// - 묵상(QT)노트: `rememberSection`~`praySection` 4섹션에 내용
-/// 화면은 카테고리를 보고 "있는 것만" 표시한다.
+/// 전 카테고리(QT/설교/기도/회개/감사)가 단일 `body`를 쓴다. QT 노트도 QT 에디터에서
+/// 단일 body로 저장하므로, 과거 4섹션(느낀 점/기억할 구절/적용할 점/기도) 모델은 제거했다
+/// (2026-06-12, 구현이 이미 단일 body — F-03 스펙 드리프트는 Lead 공유). 표시·편집은 모두 body 기준.
 class NoteDetail {
   final int id;
   final String category;
   final int? qtPassageId;
   final String title;
   final String? body;
-  // 묵상 노트 4섹션 (자유노트에선 null)
-  final String? rememberSection;
-  final String? interpretSection;
-  final String? applySection;
-  final String? praySection;
   final String status; // DRAFT/SAVED
   final String visibility; // PRIVATE/PUBLIC
   final String? qtDate;
@@ -158,10 +163,6 @@ class NoteDetail {
     this.qtPassageId,
     required this.title,
     this.body,
-    this.rememberSection,
-    this.interpretSection,
-    this.applySection,
-    this.praySection,
     required this.status,
     required this.visibility,
     this.qtDate,
@@ -174,8 +175,8 @@ class NoteDetail {
   });
 
   // 왜 이렇게 짰냐면:
-  // 목록 모델과 동일한 방어(null이면 기본값)로 어떤 응답이 와도 앱이 안 죽게 했고,
-  // 자유노트는 4섹션이 null로 와도 정상이라 전부 String?(nullable)로 받는다.
+  // 목록 모델과 동일한 방어(null이면 기본값)로 어떤 응답이 와도 앱이 안 죽게 한다.
+  // 응답에 과거 4섹션 키가 와도 읽지 않으므로(extra 키 무시) 안전하다.
   factory NoteDetail.fromJson(Map<String, dynamic> json) {
     final verses = (json['verses'] as List<dynamic>? ?? [])
         .map((e) => NoteVerseRef.fromJson(e as Map<String, dynamic>))
@@ -186,10 +187,6 @@ class NoteDetail {
       qtPassageId: json['qtPassageId'] as int?,
       title: json['title'] as String? ?? '',
       body: json['body'] as String?,
-      rememberSection: json['rememberSection'] as String?,
-      interpretSection: json['interpretSection'] as String?,
-      applySection: json['applySection'] as String?,
-      praySection: json['praySection'] as String?,
       status: json['status'] as String? ?? '',
       visibility: json['visibility'] as String? ?? 'PRIVATE',
       qtDate: json['qtDate'] as String?,
@@ -207,9 +204,6 @@ class NoteDetail {
       verses: verses,
     );
   }
-
-  /// 자유노트(body 기반) 여부 — 묵상은 4섹션이라 N-03 단일본문 편집 대상이 아니다.
-  bool get isFreeNote => category != 'MEDITATION';
 }
 
 /// 묵상 달력 응답 (GET /api/v1/me/meditation-calendar, 04 §4.6.2).

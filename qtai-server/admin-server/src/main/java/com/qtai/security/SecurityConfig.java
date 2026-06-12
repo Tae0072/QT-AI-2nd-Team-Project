@@ -6,7 +6,6 @@ import java.util.List;
 import com.qtai.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -36,17 +35,13 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *   <li>SYSTEM_BATCH 주체: 배치·AI 내부 작업용</li>
  * </ul>
  *
- * <p>활성 조건 (P1-7 프로파일 갭 수정):
- * {@code qtai.security.dev-bypass}가 false이거나 미설정일 때 활성.
- * dev 프로파일이라도 dev-bypass=false면 이 정식 체인이 켜져 JWT 인증이 동작한다
- * (기존 {@code @Profile("!dev")}는 dev+bypass=false 조합에서 시큐리티 체인이 0개가 되어
- * Boot 기본 폼로그인으로 폴백하던 갭이 있었다). dev+bypass=true일 때만 DevSecurityConfig가 켜진다.
+ * <p>모든 프로파일에서 활성인 단일 보안 체인이다. (2026-06-12: dev-bypass 토글과 DevSecurityConfig를
+ * 제거하고, dev에서도 정식 JWT 인증 + 관리자 자체 아이디/비밀번호 로그인을 사용한다.)
  */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "qtai.security.dev-bypass", havingValue = "false", matchIfMissing = true)
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

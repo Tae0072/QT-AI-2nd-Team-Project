@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/calm_paper.dart';
 import '../../../routes/app_router.dart';
 import '../../study/screens/qt_study_content_screen.dart';
 import '../models/bible_models.dart';
@@ -60,8 +61,7 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
         qtPassageId: qtPassageId,
         referenceText: _referenceText,
         verseLabels: {
-          for (final verse in _range.verses)
-            verse.id: '${verse.chapterNo}:${verse.verseNo}',
+          for (final verse in _range.verses) verse.id: '${verse.verseNo}',
         },
       ),
     );
@@ -165,15 +165,20 @@ class _PassageVerseTile extends StatelessWidget {
           const SizedBox(height: AppGap.xs),
           if (koreanText != null && koreanText.isNotEmpty)
             Text(koreanText, style: theme.textTheme.bodyLarge),
-          if (showEnglish && englishText != null && englishText.isNotEmpty) ...[
-            const SizedBox(height: AppGap.sm),
-            Text(
-              englishText,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.textMuted,
+          // 영어 본문은 오늘의 QT(_VerseTile)와 동일하게 sunken sub-box로 분리한다.
+          if (showEnglish && englishText != null && englishText.isNotEmpty)
+            CpSubBox(
+              margin: const EdgeInsets.only(top: 10),
+              child: Text(
+                englishText,
+                style: TextStyle(
+                  fontFamily: 'GowunDodum',
+                  fontSize: 14,
+                  height: 1.55,
+                  color: colors.text2,
+                ),
               ),
             ),
-          ],
         ],
       ),
     );

@@ -11,8 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * <p>관리자 자체 아이디 로그인의 비밀번호 검증에 사용한다. BCrypt 단방향 해시만 저장하며
  * 평문 비밀번호는 저장·로그에 남기지 않는다(CLAUDE.md §8/§9).
  *
- * <p>SecurityConfig/DevSecurityConfig가 프로파일 조건부로 갈리므로, 항상 등록되도록
- * 별도 설정에 둔다.
+ * <p>보안 설정과 독립적으로 항상 등록되도록 별도 설정에 둔다.
  */
 @Configuration
 public class PasswordEncoderConfig {

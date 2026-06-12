@@ -144,7 +144,7 @@ class _ExplanationItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              verseLabel == null ? '절 해설' : '$verseLabel 해설',
+              verseLabel ?? '절',
               style: theme.textTheme.labelLarge?.copyWith(
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.w700,
@@ -164,15 +164,6 @@ class _ExplanationItem extends StatelessWidget {
               Text(
                 explanation.explanation.trim(),
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
-              ),
-            ],
-            if (explanation.sourceLabel?.trim().isNotEmpty ?? false) ...[
-              const SizedBox(height: 8),
-              Text(
-                explanation.sourceLabel!.trim(),
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
               ),
             ],
           ],
@@ -213,15 +204,6 @@ class _GlossaryTermItem extends StatelessWidget {
               Text(
                 term.meaning.trim(),
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
-              ),
-            ],
-            if (term.sourceLabel?.trim().isNotEmpty ?? false) ...[
-              const SizedBox(height: 8),
-              Text(
-                term.sourceLabel!.trim(),
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
               ),
             ],
           ],

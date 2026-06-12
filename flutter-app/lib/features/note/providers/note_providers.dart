@@ -37,6 +37,12 @@ final notesProvider = FutureProvider.autoDispose<NoteListResponse>((ref) {
   return repository.getNotes(category: category, status: status, q: q);
 });
 
+/// 목록 다중 선택 모드 on/off. AppBar 햄버거(선택) 토글로 켜고, ✕로 끈다.
+final noteSelectionModeProvider = StateProvider<bool>((ref) => false);
+
+/// 선택 모드에서 체크된 노트 id 집합. 선택 모드를 끄면 비운다.
+final noteSelectedIdsProvider = StateProvider<Set<int>>((ref) => <int>{});
+
 /// 노트 상세 (id별).
 ///
 /// 왜 이렇게 짰냐면:

@@ -137,6 +137,41 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteSearchEmpty => '검색 결과가 없습니다';
 
   @override
+  String get noteEmptyQtHint => 'QT 노트는 오늘의 QT 화면에서 작성해요';
+
+  @override
+  String get noteEmptySermonHint => '설교 노트는 성경 화면에서 작성해요';
+
+  @override
+  String get noteSelect => '선택';
+
+  @override
+  String get noteSelectAll => '전체선택';
+
+  @override
+  String noteSelectedCount(int count) {
+    return '$count개 선택';
+  }
+
+  @override
+  String get noteDeleteSelectedTitle => '선택한 노트 삭제';
+
+  @override
+  String noteDeleteSelectedBody(int count) {
+    return '선택한 $count개 노트를 삭제할까요? 되돌릴 수 없어요.';
+  }
+
+  @override
+  String noteDeletedCount(int count) {
+    return '$count개 삭제했어요';
+  }
+
+  @override
+  String noteDeletePartial(int ok, int failed) {
+    return '$ok개 삭제, $failed개 실패';
+  }
+
+  @override
   String get noteUntitled => '(제목 없음)';
 
   @override
@@ -165,18 +200,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get noteDeleteFailed => '삭제에 실패했습니다. 다시 시도해 주세요';
-
-  @override
-  String get noteSectionFelt => '느낀 점';
-
-  @override
-  String get noteSectionVerse => '기억할 구절';
-
-  @override
-  String get noteSectionApply => '적용할 점';
-
-  @override
-  String get noteSectionPray => '기도';
 
   @override
   String get noteQuotedVerses => '인용 구절';

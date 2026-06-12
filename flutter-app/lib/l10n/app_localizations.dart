@@ -350,6 +350,60 @@ abstract class AppLocalizations {
   /// **'No matching records'**
   String get noteSearchEmpty;
 
+  /// No description provided for @noteEmptyQtHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write QT notes from the Today QT screen'**
+  String get noteEmptyQtHint;
+
+  /// No description provided for @noteEmptySermonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write sermon notes from the Bible screen'**
+  String get noteEmptySermonHint;
+
+  /// No description provided for @noteSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get noteSelect;
+
+  /// No description provided for @noteSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all'**
+  String get noteSelectAll;
+
+  /// No description provided for @noteSelectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String noteSelectedCount(int count);
+
+  /// No description provided for @noteDeleteSelectedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete selected notes'**
+  String get noteDeleteSelectedTitle;
+
+  /// No description provided for @noteDeleteSelectedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {count} selected notes? This can\'t be undone.'**
+  String noteDeleteSelectedBody(int count);
+
+  /// No description provided for @noteDeletedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted {count}'**
+  String noteDeletedCount(int count);
+
+  /// No description provided for @noteDeletePartial.
+  ///
+  /// In en, this message translates to:
+  /// **'{ok} deleted, {failed} failed'**
+  String noteDeletePartial(int ok, int failed);
+
   /// No description provided for @noteUntitled.
   ///
   /// In en, this message translates to:
@@ -409,30 +463,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to delete. Please try again.'**
   String get noteDeleteFailed;
-
-  /// No description provided for @noteSectionFelt.
-  ///
-  /// In en, this message translates to:
-  /// **'Reflections'**
-  String get noteSectionFelt;
-
-  /// No description provided for @noteSectionVerse.
-  ///
-  /// In en, this message translates to:
-  /// **'Verse to remember'**
-  String get noteSectionVerse;
-
-  /// No description provided for @noteSectionApply.
-  ///
-  /// In en, this message translates to:
-  /// **'How to apply'**
-  String get noteSectionApply;
-
-  /// No description provided for @noteSectionPray.
-  ///
-  /// In en, this message translates to:
-  /// **'Prayer'**
-  String get noteSectionPray;
 
   /// No description provided for @noteQuotedVerses.
   ///

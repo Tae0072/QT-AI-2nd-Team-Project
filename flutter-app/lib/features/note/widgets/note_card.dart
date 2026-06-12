@@ -9,11 +9,24 @@ import '../models/note_models.dart';
 ///
 /// 레이아웃(승인 시안): 좌측 카테고리 색 세로선 + [날짜·시각(스택)·배지(오전/오후 + 카테고리)
 /// → 제목 → 본문 2줄 미리보기]. 아이콘·썸네일은 쓰지 않는다.
+/// 다중 선택 모드에서는 본문 앞에 체크 아이콘을 두고, 탭은 선택 토글로 동작한다.
 class NoteCard extends StatelessWidget {
   final NoteListItem item;
   final VoidCallback onTap;
 
-  const NoteCard({super.key, required this.item, required this.onTap});
+  /// 다중 선택 모드. true면 좌측 체크박스를 보이고, 탭은 [onToggleSelect]로 간다.
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onToggleSelect;
+
+  const NoteCard({
+    super.key,
+    required this.item,
+    required this.onTap,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onToggleSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -41,10 +54,13 @@ class NoteCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: c.bgSunken,
         borderRadius: BorderRadius.circular(14),
+        // 선택된 카드는 강조 테두리로 구분한다.
+        border: selected ? Border.all(color: c.accent, width: 1.5) : null,
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
+        // 선택 모드면 탭이 선택 토글, 아니면 상세 이동.
+        onTap: selectionMode ? onToggleSelect : onTap,
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -54,76 +70,100 @@ class NoteCard extends StatelessWidget {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-                  child: Column(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 날짜·시각(왼쪽, 위아래로 스택)
-                          if (dateLine != null) ...[
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(dateLine, style: _metaStyle(c)),
-                                if (timeLine != null)
-                                  Text(timeLine, style: _metaStyle(c)),
-                              ],
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          // 배지(오른쪽, 공간 부족 시 다음 줄로): 오전/오후 + 카테고리 (+ 임시저장/나눔)
-                          Expanded(
-                            child: Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              alignment: WrapAlignment.end,
-                              children: [
-                                if (amPm != null)
-                                  _Chip(label: amPm, color: c.text2),
-                                _Chip(
-                                    label: noteCategoryLabel(item.category),
-                                    color: accent,
-                                    tinted: true),
-                                if (item.status == 'DRAFT')
-                                  _Chip(label: l.noteDraft, color: c.textMuted),
-                                if (item.shared)
-                                  _Chip(
-                                      label: '나눔',
-                                      color: accent,
-                                      tinted: true),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'GowunDodum',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                          color: c.text,
-                        ),
-                      ),
-                      if (preview != null && preview.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          preview,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'GowunDodum',
-                            fontSize: 13,
-                            height: 1.5,
-                            color: c.text2,
+                      // 다중 선택 모드: 좌측 체크 아이콘
+                      if (selectionMode) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(top: 1, right: 10),
+                          child: Icon(
+                            selected
+                                ? Icons.check_circle
+                                : Icons.radio_button_unchecked,
+                            size: 22,
+                            color: selected ? c.accent : c.textMuted,
                           ),
                         ),
                       ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // 날짜·시각(왼쪽, 위아래로 스택)
+                                if (dateLine != null) ...[
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(dateLine, style: _metaStyle(c)),
+                                      if (timeLine != null)
+                                        Text(timeLine, style: _metaStyle(c)),
+                                    ],
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                // 배지(오른쪽, 공간 부족 시 다음 줄로): 오전/오후 + 카테고리 (+ 임시저장/나눔)
+                                Expanded(
+                                  child: Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    alignment: WrapAlignment.end,
+                                    children: [
+                                      if (amPm != null)
+                                        _Chip(label: amPm, color: c.text2),
+                                      _Chip(
+                                          label:
+                                              noteCategoryLabel(item.category),
+                                          color: accent,
+                                          tinted: true),
+                                      if (item.status == 'DRAFT')
+                                        _Chip(
+                                            label: l.noteDraft,
+                                            color: c.textMuted),
+                                      if (item.shared)
+                                        _Chip(
+                                            label: '나눔',
+                                            color: accent,
+                                            tinted: true),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'GowunDodum',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 1.3,
+                                color: c.text,
+                              ),
+                            ),
+                            if (preview != null && preview.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                preview,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'GowunDodum',
+                                  fontSize: 13,
+                                  height: 1.5,
+                                  color: c.text2,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -156,9 +196,7 @@ class _Chip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
-        color: tinted
-            ? color.withValues(alpha: 0.16)
-            : context.appColors.bg,
+        color: tinted ? color.withValues(alpha: 0.16) : context.appColors.bg,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(

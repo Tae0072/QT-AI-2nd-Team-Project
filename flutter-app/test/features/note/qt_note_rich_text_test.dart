@@ -18,10 +18,34 @@ void main() {
 
     expect(visible, hasLength(2));
     for (final child in visible) {
-      expect(child.style!.fontWeight, FontWeight.w700);
+      expect(
+        child.style!.fontWeight!.value,
+        greaterThanOrEqualTo(FontWeight.w800.value),
+      );
       expect(child.style!.fontSize, 22);
       expect(child.style!.color, const Color(0xFF2563EB));
       expect(child.style!.backgroundColor, const Color(0xFFDBEAFE));
+    }
+  });
+
+  test('parses bold marker with visibly heavy font weight', () {
+    final span = QtNoteRichTextParser.parse(
+      '**강조**',
+      const TextStyle(fontSize: 16, color: Colors.black),
+      emojiFontSize: 16,
+    );
+
+    final visible = span.children!
+        .whereType<TextSpan>()
+        .where((child) => child.text == '강' || child.text == '조')
+        .toList();
+
+    expect(visible, hasLength(2));
+    for (final child in visible) {
+      expect(
+        child.style!.fontWeight!.value,
+        greaterThanOrEqualTo(FontWeight.w800.value),
+      );
     }
   });
 

@@ -126,4 +126,21 @@ class NoteRepository {
   Future<void> delete(int noteId) async {
     await _dio.delete('/notes/$noteId');
   }
+
+  /// 여러 노트 삭제(목록 다중 선택). bulk API가 없어 단건 DELETE를 반복한다.
+  /// 부분 실패를 알리기 위해 실패한 id 목록을 반환한다(비어 있으면 전부 성공).
+  ///
+  /// 네트워크/HTTP 실패(DioException)만 "부분 실패"로 모은다. 그 외(프로그래밍 오류 등)는
+  /// 삼키지 않고 그대로 전파해 표면화한다(catch 범위 축소).
+  Future<List<int>> deleteMany(Iterable<int> noteIds) async {
+    final failed = <int>[];
+    for (final id in noteIds) {
+      try {
+        await delete(id);
+      } on DioException {
+        failed.add(id);
+      }
+    }
+    return failed;
+  }
 }
