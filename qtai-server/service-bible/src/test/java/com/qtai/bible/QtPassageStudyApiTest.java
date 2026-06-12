@@ -75,9 +75,10 @@ class QtPassageStudyApiTest {
     @DisplayName("해설 있음 — 범위를 포함하는 QT 본문에 승인 해설이 있으면 qtPassageId·hasExplanation=true")
     void 해설_있음_200() throws Exception {
         BibleVerse verse = seedGenesis1_1();
-        QtPassage passage = qtPassageRepository.save(
-                QtPassage.create(LocalDate.now().minusDays(1),
-                        (short) 1, (short) 1, (short) 1, (short) 1, "제목", "창 1:1"));
+        QtPassage passage = QtPassage.create(LocalDate.now().minusDays(1),
+                (short) 1, (short) 1, (short) 1, (short) 1, "제목", "창 1:1");
+        passage.publish(LocalDate.now().minusDays(1).atStartOfDay());
+        passage = qtPassageRepository.save(passage);
         qtPassageVerseRepository.save(QtPassageVerse.create(passage.getId(), verse.getId(), (short) 1));
         verseExplanationRepository.save(TestEntityFactory.verseExplanation(
                 verse.getId(), VerseExplanationStatus.APPROVED, "ACTIVE", "요약"));
@@ -124,5 +125,27 @@ class QtPassageStudyApiTest {
                         .param("bookCode", "GEN").param("chapter", "1")
                         .param("verseFrom", "1").param("verseTo", "1"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("hidden QT is not exposed as passage-study entry")
+    void hidden_passage_not_exposed_200() throws Exception {
+        BibleVerse verse = seedGenesis1_1();
+        QtPassage passage = QtPassage.create(LocalDate.now().minusDays(1),
+                (short) 1, (short) 1, (short) 1, (short) 1, "제목", "창 1:1");
+        passage.publish(LocalDate.now().minusDays(1).atStartOfDay());
+        passage.hide(LocalDate.now().minusDays(1).atStartOfDay().plusHours(1));
+        passage = qtPassageRepository.save(passage);
+        qtPassageVerseRepository.save(QtPassageVerse.create(passage.getId(), verse.getId(), (short) 1));
+        verseExplanationRepository.save(TestEntityFactory.verseExplanation(
+                verse.getId(), VerseExplanationStatus.APPROVED, "ACTIVE", "요약"));
+
+        mockMvc.perform(get("/api/v1/qt/passage-study")
+                        .param("bookCode", "GEN").param("chapter", "1")
+                        .param("verseFrom", "1").param("verseTo", "1")
+                        .with(user(123L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.hasExplanation").value(false));
     }
 }
