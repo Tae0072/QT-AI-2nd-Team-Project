@@ -48,12 +48,18 @@ class NoteRichTextEditor extends ConsumerStatefulWidget {
   /// 본문 Scrollbar 키(테스트 호환용, 선택).
   final Key? bodyScrollKey;
 
+  /// @멘션으로 구절을 본문에 삽입할 때, 그 절들의 bibleVerseId를 알린다(선택).
+  /// 자유/설교 노트(N-03)는 이를 모아 `note_verses`(verseIds)로 저장한다(§6.4.1).
+  /// QT 에디터는 passage 절을 따로 저장하므로 이 콜백을 쓰지 않는다.
+  final void Function(List<int> verseIds)? onVerseInserted;
+
   const NoteRichTextEditor({
     super.key,
     required this.controller,
     required this.bodyLabel,
     this.bodyFieldKey,
     this.bodyScrollKey,
+    this.onVerseInserted,
   });
 
   @override
@@ -384,6 +390,8 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
         return '${book.koreanName} ${verse.chapterNo}:${verse.verseNo} ${text ?? ''}';
       }).join('\n');
       _replaceMentionWith(lines);
+      // 삽입한 절의 id를 부모에 알려 note_verses(verseIds)로 저장하게 한다(§6.4.1).
+      widget.onVerseInserted?.call(range.verses.map((verse) => verse.id).toList());
     } catch (_) {
       if (!mounted) return;
       _showMessage('구절을 불러오지 못했습니다');

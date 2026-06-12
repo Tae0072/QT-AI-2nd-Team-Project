@@ -68,4 +68,103 @@ void main() {
       expect(result.items, isEmpty);
     });
   });
+
+  group('verseIds 저장 (QA ⑪)', () {
+    test('create는 verseIds를 본문에 포함해 전송한다', () async {
+      // data가 정확히 일치할 때만 매칭 → verseIds가 실려야 잡힌다.
+      dioAdapter.onPost(
+        '/notes',
+        (server) => server.reply(201, {
+          'success': true,
+          'data': {
+            'id': 1,
+            'category': 'SERMON',
+            'status': 'SAVED',
+            'visibility': 'PRIVATE',
+          },
+        }),
+        data: {
+          'category': 'SERMON',
+          'title': '설교',
+          'body': '본문',
+          'verseIds': [101, 102],
+          'status': 'SAVED',
+          'visibility': 'PRIVATE',
+        },
+      );
+
+      final result = await repository.create(
+        category: 'SERMON',
+        title: '설교',
+        body: '본문',
+        verseIds: [101, 102],
+      );
+
+      expect(result.id, 1);
+    });
+
+    test('update는 verseIds를 본문에 포함해 전송한다(보존)', () async {
+      dioAdapter.onPatch(
+        '/notes/7',
+        (server) => server.reply(200, {'success': true, 'data': {}}),
+        data: {
+          'title': '설교',
+          'body': '본문',
+          'verseIds': [500],
+          'status': 'SAVED',
+          'visibility': 'PRIVATE',
+        },
+      );
+
+      await repository.update(7, title: '설교', body: '본문', verseIds: [500]);
+    });
+
+    test('update에 verseIds를 안 주면 키를 생략한다(절 전체 삭제 함정 방지)',
+        () async {
+      // 정확히 이 body(=verseIds 키 없음)일 때만 매칭. update가 빈 배열이라도 보내면
+      // 매칭 실패로 DioException → 테스트 실패. 통과 자체가 "키 생략"을 증명한다.
+      dioAdapter.onPatch(
+        '/notes/7',
+        (server) => server.reply(200, {'success': true, 'data': {}}),
+        data: {
+          'title': '설교',
+          'body': '본문',
+          'status': 'SAVED',
+          'visibility': 'PRIVATE',
+        },
+      );
+
+      await repository.update(7, title: '설교', body: '본문');
+    });
+
+    test('create도 verseIds를 안 주면 키를 생략한다', () async {
+      dioAdapter.onPost(
+        '/notes',
+        (server) => server.reply(201, {
+          'success': true,
+          'data': {
+            'id': 2,
+            'category': 'PRAYER',
+            'status': 'SAVED',
+            'visibility': 'PRIVATE',
+          },
+        }),
+        data: {
+          'category': 'PRAYER',
+          'title': '기도',
+          'body': '본문',
+          'status': 'SAVED',
+          'visibility': 'PRIVATE',
+        },
+      );
+
+      final result = await repository.create(
+        category: 'PRAYER',
+        title: '기도',
+        body: '본문',
+      );
+
+      expect(result.id, 2);
+    });
+  });
 }

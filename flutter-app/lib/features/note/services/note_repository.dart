@@ -52,10 +52,13 @@ class NoteRepository {
   /// 노트 생성 (POST /api/v1/notes).
   ///
   /// 자유 노트(기도, 회개, 감사)는 qtPassageId 없이 저장한다.
+  /// [verseIds]는 본문에 인용한 절(설교 노트·@멘션) — `note_verses` 메타데이터로 저장된다
+  /// (04 §4.3.4·§6.4.1). null이면 키를 생략(인용 절 없음), 빈 배열이면 빈 목록으로 전송한다.
   Future<NoteCreateResponse> create({
     required String category,
     required String title,
     required String body,
+    List<int>? verseIds,
     String status = 'SAVED',
     String visibility = 'PRIVATE',
   }) async {
@@ -63,6 +66,7 @@ class NoteRepository {
       'category': category,
       'title': title,
       'body': body,
+      if (verseIds != null) 'verseIds': verseIds,
       'status': status,
       'visibility': visibility,
     });
@@ -78,16 +82,27 @@ class NoteRepository {
   }
 
   /// 노트 수정 (PATCH /api/v1/notes/{id}).
+  ///
+  /// ⚠️ [verseIds] 시맨틱(04 §4.3.6):
+  /// - `null`(기본): 키를 **생략** → 서버가 기존 `note_verses`를 **건드리지 않음**(안전).
+  /// - `[]`(빈 배열): 인용 절을 **전부 비움**(전체 교체).
+  /// - 값 있음: 그 배열로 **교체**.
+  ///
+  /// 따라서 인용 절이 있는 노트(설교 등)를 수정할 때 절을 보존하려면 호출부가 현재 절
+  /// 목록을 명시적으로 다시 넘겨야 하고, 절을 건드리지 않으려면 아예 넘기지 말아야 한다.
+  /// 기본을 null로 둬서 "verseIds 안 줬는데 전체 삭제되는" 함정을 막는다.
   Future<void> update(
     int noteId, {
     required String title,
     required String body,
+    List<int>? verseIds,
     String status = 'SAVED',
     String visibility = 'PRIVATE',
   }) async {
     await _dio.patch('/notes/$noteId', data: {
       'title': title,
       'body': body,
+      if (verseIds != null) 'verseIds': verseIds,
       'status': status,
       'visibility': visibility,
     });
