@@ -24,7 +24,10 @@ spring:
       devAdminRole: ${DEV_ADMIN_ROLE:OPERATOR}
 
 # dev 전용 보안 우회 토글 (DevSecurityConfig 활성화 조건)
+# - 2026-06-11 결정: 관리자 자체 아이디/비밀번호 로그인 도입으로 dev에서도 정식 JWT 체인을 쓴다.
+#   따라서 dev-bypass=false(정식 SecurityConfig 활성). 개발용 토큰/X-Dev 헤더 우회는 사용하지 않는다.
+#   dev 관리자 계정은 Flyway dev-seed(R__seed_dev_admin_account.sql)로 시드된다: admin / admin1234.
 # - 운영(prod)에서는 절대 true로 두지 않는다 (application-prod.yml에서 false 강제)
 qtai:
   security:
-    dev-bypass: true
+    dev-bypass: false
