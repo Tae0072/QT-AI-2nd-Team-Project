@@ -5,6 +5,9 @@ class SharingPostItem {
   final String titleSnapshot;
   final String category;
   final String bodyPreview;
+
+  // 본문 범위 라벨 스냅샷(예 고전 6:7). 없으면 null. JSON: verseSnapshot.rangeLabel.
+  final String? verseLabel;
   final int likeCount;
   final int commentCount;
   final bool likedByMe;
@@ -16,6 +19,7 @@ class SharingPostItem {
     required this.titleSnapshot,
     required this.category,
     required this.bodyPreview,
+    this.verseLabel,
     required this.likeCount,
     required this.commentCount,
     required this.likedByMe,
@@ -29,6 +33,7 @@ class SharingPostItem {
       titleSnapshot: json['titleSnapshot'] as String? ?? '',
       category: json['category'] as String? ?? '',
       bodyPreview: json['bodyPreview'] as String? ?? '',
+      verseLabel: (json['verseSnapshot'] as Map<String, dynamic>?)?['rangeLabel'] as String?,
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       likedByMe: json['likedByMe'] as bool? ?? false,
@@ -46,6 +51,7 @@ class SharingPostItem {
       titleSnapshot: titleSnapshot,
       category: category,
       bodyPreview: bodyPreview,
+      verseLabel: verseLabel,
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount,
       likedByMe: likedByMe ?? this.likedByMe,
