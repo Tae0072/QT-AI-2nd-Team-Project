@@ -11,13 +11,18 @@
 | `features/note/screens/note_edit_screen.dart` | `NoteEditArgs`에 referenceText·versePreview 추가 + 작성 화면 상단 인용 미리보기 박스 |
 
 ## 검증
-- `flutter analyze lib/features/bible lib/features/note` 무이슈
+- `flutter analyze` 무이슈, `flutter test test/features/bible`(37건)·`test/features/note`(61건) 전부 통과
+- (리뷰 보강) 신규 순수 로직 단위 테스트 추가 `passage_view_logic_test.dart`(포커스 보정·범위 라벨), 본문/목차 위젯 테스트는 새 생성자(chapter+focus)·`getChapterVerses` 흐름에 맞게 갱신
 - (권장) 에뮬레이터 수동 워크스루: 목차 장+절 선택 → 본문 장 전체+포커스, 절 탭-탭 범위, 노트 작성하기 → 설교 노트 본문 동봉
+
+## 리뷰 보강(머지 전, 동일 브랜치)
+- **포커스 스크롤 신뢰성**: lazy 빌드로 먼 절에서 `ensureVisible` 실패 가능 → ListView `cacheExtent`를 키워 장 전체를 미리 빌드.
+- **해설 가용성 1회 조회**: 절 선택마다 `/qt/passage-study` 재호출하던 것을 진입 포커스 기준 고정 ref로 **1회만** 조회하도록 변경.
+- **신규 로직 단위 테스트**: 포커스 보정·범위 라벨을 순수 함수(`passage_view_logic.dart`)로 분리해 테스트 추가.
 
 ## 미해결 / 후속
 - **bible 화면은 이지윤(DevA) 담당 → PR 리뷰 필요.**
-- 해설 버튼 활성화는 승인 해설 데이터 의존 — dev 해설 시드(study/ai)는 별도 분리 작업.
-- 위젯 테스트는 미작성(provider override + 네비게이션 셋업 필요) — 로직(`VerseRangeSelection`)은 기존 모델 재사용. 후속 보강 가능.
+- 해설 버튼 활성화는 승인 해설 데이터 의존 — 해설 DB import는 별도 완료(2026-06-12).
 - 에뮬레이터 실기 확인은 사용자 환경에서 권장(빌드/설치는 미수행 — 현재 에뮬레이터의 다른 브랜치 빌드 보존).
 
 담당: DevD 이승욱

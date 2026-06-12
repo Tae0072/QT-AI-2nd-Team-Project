@@ -10,6 +10,7 @@ import '../../note/models/note_models.dart';
 import '../../note/screens/note_edit_screen.dart';
 import '../../study/screens/qt_study_content_screen.dart';
 import '../models/bible_models.dart';
+import '../models/passage_view_logic.dart';
 import '../models/verse_range_selection.dart';
 import '../providers/bible_providers.dart';
 
@@ -44,6 +45,13 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
   /// 본문에서의 절 범위 선택(탭-탭). 진입 시 포커스 절을 단일 선택으로 시작한다.
   late VerseRangeSelection _selection;
 
+  /// 진입 포커스 절(첫 화면 스크롤 대상 + 해설 가용성 기준).
+  late final int _focusVerseNo;
+
+  /// 해설 가용성 조회용 고정 ref — 진입 포커스 기준으로 **1회만** 조회한다.
+  /// (절 선택마다 재조회하지 않도록 live 선택 _selection이 아닌 고정값을 쓴다.)
+  late final BiblePassageRef _studyRef;
+
   final _scrollController = ScrollController();
   final Map<int, GlobalKey> _verseKeys = {};
 
@@ -54,17 +62,20 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
   void initState() {
     super.initState();
     final verseNos = _verses.map((v) => v.verseNo).toList();
-    final focus = widget.focusVerseNo ??
-        (verseNos.isNotEmpty ? verseNos.first : 1);
-    final clamped = verseNos.contains(focus)
-        ? focus
-        : (verseNos.isNotEmpty ? verseNos.first : 1);
-    _selection = VerseRangeSelection(from: clamped, to: clamped);
+    _focusVerseNo = resolvePassageFocusVerse(verseNos, widget.focusVerseNo);
+    _selection = VerseRangeSelection(from: _focusVerseNo, to: _focusVerseNo);
+    _studyRef = (
+      bookCode: _chapter.book.code,
+      chapter: _chapter.book.chapter,
+      verseFrom: _focusVerseNo,
+      verseTo: _focusVerseNo,
+    );
     for (final v in _verses) {
       _verseKeys[v.verseNo] = GlobalKey();
     }
     // 첫 프레임 후 포커스 절로 스크롤(첫 줄에 보이게).
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToFocus(clamped));
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _scrollToFocus(_focusVerseNo));
   }
 
   @override
@@ -94,29 +105,22 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
       .where((v) => v.verseNo >= _selection.from && v.verseNo <= _selection.to)
       .toList();
 
-  String get _selectionLabel {
-    final from = _selection.from;
-    final to = _selection.to;
-    final book = _chapter.book;
-    final verseLabel = from == to ? '$from' : '$from-$to';
-    return '${book.koreanName} ${book.chapter}:$verseLabel';
-  }
+  String get _selectionLabel =>
+      '${_chapter.book.koreanName} ${_chapter.book.chapter}:'
+      '${passageVerseLabel(_selection.from, _selection.to)}';
 
-  BiblePassageRef get _passageRef => (
-        bookCode: _chapter.book.code,
-        chapter: _chapter.book.chapter,
-        verseFrom: _selection.from,
-        verseTo: _selection.to,
-      );
-
+  /// 해설 진입 — 가용성 조회와 동일하게 진입 포커스 절 기준으로 연다.
   void _openExplanation(int qtPassageId) {
+    final focusVerses =
+        _verses.where((v) => v.verseNo == _focusVerseNo).toList();
     Navigator.of(context).pushNamed(
       AppRouter.qtStudyContent,
       arguments: QtStudyContentArgs(
         qtPassageId: qtPassageId,
-        referenceText: _selectionLabel,
+        referenceText:
+            '${_chapter.book.koreanName} ${_chapter.book.chapter}:$_focusVerseNo',
         verseLabels: {
-          for (final verse in _selectedVerses) verse.id: '${verse.verseNo}',
+          for (final verse in focusVerses) verse.id: '${verse.verseNo}',
         },
       ),
     );
@@ -149,8 +153,8 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
     final l = AppLocalizations.of(context);
     final book = _chapter.book;
 
-    // 해설 가용성 — 현재 선택 범위 기준. 조회 실패/로딩 시 진입점 숨김.
-    final study = ref.watch(biblePassageStudyProvider(_passageRef));
+    // 해설 가용성 — 진입 포커스 기준 1회 조회(절 선택마다 재조회하지 않음).
+    final study = ref.watch(biblePassageStudyProvider(_studyRef));
     final explanation = study.valueOrNull ?? BiblePassageStudy.none;
     final explanationReady = explanation.explanationReady;
 
@@ -164,6 +168,9 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
           Expanded(
             child: ListView(
               controller: _scrollController,
+              // 한 장의 모든 절을 미리 빌드해, 먼 절로의 포커스 스크롤
+              // (Scrollable.ensureVisible)이 지연 빌드로 실패하지 않게 한다.
+              cacheExtent: 100000,
               padding: const EdgeInsets.fromLTRB(
                 AppGap.xl,
                 AppGap.md,
@@ -177,6 +184,7 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     FilledButton.icon(
+                      key: const Key('bible-explanation-button'),
                       onPressed: explanationReady
                           ? () => _openExplanation(explanation.qtPassageId!)
                           : null,
@@ -199,6 +207,15 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
                     color: colors.textMuted,
                   ),
                 ),
+                if (_showEnglish) ...[
+                  const SizedBox(height: AppGap.sm),
+                  Text(
+                    book.englishName,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colors.textMuted,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: AppGap.lg),
                 Divider(color: colors.hairline, height: 1),
                 const SizedBox(height: AppGap.lg),

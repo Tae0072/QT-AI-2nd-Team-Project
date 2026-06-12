@@ -36,7 +36,7 @@ Future<void> _pump(WidgetTester tester, BibleRepository repository) async {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('ko'),
-        home: const BiblePassageScreen(range: _range),
+        home: const BiblePassageScreen(chapter: _range, focusVerseNo: 1),
       ),
     ),
   );
@@ -55,7 +55,8 @@ void main() {
   testWidgets('해설 버튼은 가용성이 없으면 비활성', (tester) async {
     await _pump(tester, _FakeRepo(BiblePassageStudy.none));
 
-    final button = tester.widget<FilledButton>(find.byType(FilledButton));
+    final button = tester.widget<FilledButton>(
+        find.byKey(const Key('bible-explanation-button')));
     expect(button.onPressed, isNull);
   });
 
@@ -65,7 +66,8 @@ void main() {
       _FakeRepo(const BiblePassageStudy(qtPassageId: 42, hasExplanation: true)),
     );
 
-    final button = tester.widget<FilledButton>(find.byType(FilledButton));
+    final button = tester.widget<FilledButton>(
+        find.byKey(const Key('bible-explanation-button')));
     expect(button.onPressed, isNotNull);
   });
 

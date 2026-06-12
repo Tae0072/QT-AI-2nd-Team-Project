@@ -45,10 +45,10 @@ void main() {
     await tester.tap(find.byKey(const Key('bible-selection-bar')));
     await tester.pumpAndSettle();
 
+    // 본문은 장 전체를 부른다(getChapterVerses). 절 from/to는 더 이상 서버로 안 감.
     expect(repository.requestedBookCode, 'GEN');
     expect(repository.requestedChapter, 1);
-    expect(repository.requestedVerseFrom, 2);
-    expect(repository.requestedVerseTo, 2);
+    // 선택한 2절이 포커스로 전달돼 장 전체 중 그 절이 보인다.
     expect(find.text('1:2'), findsOneWidget);
     expect(find.text('테스트 본문 2'), findsOneWidget);
     expect(find.text('Test English body 2'), findsNothing);
@@ -123,11 +123,21 @@ class _FakeBibleRepository extends BibleRepository {
     ];
   }
 
+  int _chapterCalls = 0;
+
   @override
   Future<BibleVerseRange> getChapterVerses({
     required String bookCode,
     required int chapter,
   }) async {
+    // 본문 조회는 이제 장 전체(getChapterVerses)를 부른다.
+    // 첫 호출(initState의 절 수 로드)은 성공, 이후 본문 조회(검색)에서 실패를 주입한다.
+    _chapterCalls++;
+    if (failSearch && _chapterCalls >= 2) {
+      throw StateError('boom');
+    }
+    requestedBookCode = bookCode;
+    requestedChapter = chapter;
     return BibleVerseRange(
       book: BibleVerseBook(
         code: bookCode,
