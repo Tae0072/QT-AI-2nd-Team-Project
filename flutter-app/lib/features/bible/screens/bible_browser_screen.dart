@@ -95,27 +95,28 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
   }
 
   Future<void> _search(String bookCode) async {
-    final verseTo = _verseTo < _verseFrom ? _verseFrom : _verseTo;
-
     setState(() {
       _isSearching = true;
       _error = null;
     });
 
     try {
-      final range = await ref.read(bibleRepositoryProvider).getVerses(
-            bookCode: bookCode,
-            chapter: _selectedChapter,
-            verseFrom: _verseFrom,
-            verseTo: verseTo,
-          );
+      // 본문은 장 전체를 불러오고, 목차에서 고른 절([_verseFrom])을 포커스로 넘긴다.
+      final chapterRange =
+          await ref.read(bibleRepositoryProvider).getChapterVerses(
+                bookCode: bookCode,
+                chapter: _selectedChapter,
+              );
       if (!mounted) {
         return;
       }
-      // 작은 바텀시트 대신 전체 페이지로 본문을 보여준다(해설 진입점 포함).
+      // 작은 바텀시트 대신 전체 페이지로 본문을 보여준다(해설 진입점·노트 작성 포함).
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => BiblePassageScreen(range: range),
+          builder: (_) => BiblePassageScreen(
+            chapter: chapterRange,
+            focusVerseNo: _verseFrom,
+          ),
         ),
       );
     } catch (error) {

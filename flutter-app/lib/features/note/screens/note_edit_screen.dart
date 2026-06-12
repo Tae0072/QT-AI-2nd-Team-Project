@@ -22,7 +22,19 @@ class NoteEditArgs {
   /// note_verses(verseIds)로 저장된다(§6.4.1). 자유노트(N-02)는 비운다.
   final List<int>? verseIds;
 
-  const NoteEditArgs({this.category, this.noteId, this.verseIds});
+  /// 성경 본문에서 진입할 때 보여줄 선택 범위 라벨(예: "고린도전서 7:25-30"). 없으면 미표시.
+  final String? referenceText;
+
+  /// 선택 범위 본문 미리보기(인용). 작성 화면 상단에 읽기 전용으로 보여준다. 없으면 미표시.
+  final String? versePreview;
+
+  const NoteEditArgs({
+    this.category,
+    this.noteId,
+    this.verseIds,
+    this.referenceText,
+    this.versePreview,
+  });
 
   bool get isEdit => noteId != null;
 }
@@ -169,6 +181,55 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  /// 성경 본문에서 진입할 때 선택 범위·인용 본문을 읽기 전용으로 보여준다.
+  /// (설교 노트: 어떤 본문을 보고 쓰는지 화면에 유지 — 오늘의 QT 노트와 동일한 맥락)
+  Widget _versePreview(BuildContext context) {
+    final reference = _args.referenceText;
+    final preview = _args.versePreview;
+    if (reference == null && preview == null) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF4F3F1),
+        borderRadius: BorderRadius.all(Radius.circular(10)),
+        border: Border(left: BorderSide(color: Color(0xFF1F1F1F), width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (reference != null)
+            Row(
+              children: [
+                const Icon(Icons.menu_book_outlined,
+                    size: 15, color: Color(0xFF1F1F1F)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    reference,
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          if (preview != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              preview,
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -225,6 +286,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 12),
+              // 성경 본문에서 진입 시: 선택 범위·인용 본문 미리보기(읽기 전용).
+              _versePreview(context),
               // ✏️ 본문 편집(서식 툴바·@멘션·라이브 프리뷰)은 QT 노트와 공유하는
               // 리치텍스트 에디터에 위임한다(QA ③⑨). 저장 시 _bodyController.text를 읽는다.
               Expanded(
