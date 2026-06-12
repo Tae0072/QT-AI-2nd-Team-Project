@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/calm_paper.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
 import '../widgets/meditation_calendar.dart';
+import '../widgets/note_card.dart';
 import 'note_edit_screen.dart' show NoteEditArgs;
 
 /// 노트 목록 화면 (N-01).
@@ -162,7 +161,7 @@ class _NoteListBody extends ConsumerWidget {
             itemBuilder: (context, index) {
               final item = response.items[index];
               // 항목 탭 → N-04 상세. 수정·삭제 시 그쪽이 invalidate → 돌아오면 최신 반영.
-              return _NoteCard(
+              return NoteCard(
                 item: item,
                 onTap: () => Navigator.of(context).pushNamed(
                   AppRouter.noteDetail,
@@ -174,115 +173,6 @@ class _NoteListBody extends ConsumerWidget {
         );
       },
     );
-  }
-}
-
-/// 노트 카드 (프로토타입 사진처럼): 제목 + 카테고리 배지 + 날짜·범위 메타 + (임시저장)·(나눔) 배지.
-class _NoteCard extends StatelessWidget {
-  final NoteListItem item;
-  final VoidCallback onTap;
-
-  const _NoteCard({required this.item, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.appColors;
-    final l = AppLocalizations.of(context);
-    final title = item.title.isEmpty ? l.noteUntitled : item.title;
-
-    // 메타: 날짜(QT 노트는 qtDate, 그 외 updatedAt) + 범위 라벨.
-    final metaParts = <String>[];
-    final date = item.qtDate != null
-        ? _formatQtDate(item.qtDate!)
-        : (item.updatedAt != null ? _formatDate(item.updatedAt!) : null);
-    if (date != null) metaParts.add(date);
-    if (item.rangeLabel != null && item.rangeLabel!.isNotEmpty) {
-      metaParts.add(item.rangeLabel!);
-    }
-    final meta = metaParts.join(' · ');
-
-    return Container(
-      decoration: BoxDecoration(
-        color: c.bgSunken,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontFamily: 'GowunDodum',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: c.text),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  CpBadge(noteCategoryLabel(item.category)),
-                ],
-              ),
-              if (meta.isNotEmpty ||
-                  item.status == 'DRAFT' ||
-                  item.shared) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontFamily: 'GowunDodum',
-                            fontSize: 13,
-                            color: c.text2),
-                      ),
-                    ),
-                    if (item.status == 'DRAFT')
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Text(l.noteDraft,
-                            style: TextStyle(
-                                fontFamily: 'GowunDodum',
-                                fontSize: 12,
-                                color: c.textMuted)),
-                      ),
-                    if (item.shared)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: CpBadge('나눔', dot: true),
-                      ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime d) => '${d.month}월 ${d.day}일';
-
-  // "2026-06-07" → "6월 7일"
-  String _formatQtDate(String iso) {
-    final parts = iso.split('-');
-    if (parts.length != 3) return iso;
-    final m = int.tryParse(parts[1]);
-    final d = int.tryParse(parts[2]);
-    if (m == null || d == null) return iso;
-    return '$m월 $d일';
   }
 }
 

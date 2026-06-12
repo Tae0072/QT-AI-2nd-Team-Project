@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/calm_paper.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
-import '../models/sharing_post_response.dart';
 import '../providers/sharing_providers.dart';
+import '../widgets/post_card.dart';
 
 /// 나눔 피드 화면 (S-01).
 ///
@@ -77,12 +76,30 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
-                _CategoryChip(label: l.noteFilterAll, value: null, selected: selectedCategory),
-                _CategoryChip(label: l.catMeditation, value: 'MEDITATION', selected: selectedCategory),
-                _CategoryChip(label: l.catSermon, value: 'SERMON', selected: selectedCategory),
-                _CategoryChip(label: l.catPrayer, value: 'PRAYER', selected: selectedCategory),
-                _CategoryChip(label: l.catGratitude, value: 'GRATITUDE', selected: selectedCategory),
-                _CategoryChip(label: l.catRepentance, value: 'REPENTANCE', selected: selectedCategory),
+                _CategoryChip(
+                    label: l.noteFilterAll,
+                    value: null,
+                    selected: selectedCategory),
+                _CategoryChip(
+                    label: l.catMeditation,
+                    value: 'MEDITATION',
+                    selected: selectedCategory),
+                _CategoryChip(
+                    label: l.catSermon,
+                    value: 'SERMON',
+                    selected: selectedCategory),
+                _CategoryChip(
+                    label: l.catPrayer,
+                    value: 'PRAYER',
+                    selected: selectedCategory),
+                _CategoryChip(
+                    label: l.catGratitude,
+                    value: 'GRATITUDE',
+                    selected: selectedCategory),
+                _CategoryChip(
+                    label: l.catRepentance,
+                    value: 'REPENTANCE',
+                    selected: selectedCategory),
               ],
             ),
           ),
@@ -107,10 +124,12 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
                     itemCount: response.items.length,
                     padding: const EdgeInsets.only(bottom: 12),
                     separatorBuilder: (_, __) => Divider(
-                        height: 1, thickness: 1, color: context.appColors.hairline),
+                        height: 1,
+                        thickness: 1,
+                        color: context.appColors.hairline),
                     itemBuilder: (context, index) {
                       final item = response.items[index];
-                      return _PostCard(
+                      return PostCard(
                         item: item,
                         onTap: () => Navigator.of(context).pushNamed(
                           AppRouter.sharingDetail,
@@ -134,7 +153,8 @@ class _CategoryChip extends ConsumerWidget {
   final String? value;
   final String? selected;
 
-  const _CategoryChip({required this.label, required this.value, required this.selected});
+  const _CategoryChip(
+      {required this.label, required this.value, required this.selected});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -149,127 +169,4 @@ class _CategoryChip extends ConsumerWidget {
       ),
     );
   }
-}
-
-/// 나눔 피드 카드 (DESIGN_PROTOTYPE .post): 작성자·카테고리·시간 / 제목 / 본문 미리보기 / 좋아요·댓글.
-class _PostCard extends StatelessWidget {
-  final SharingPostItem item;
-  final VoidCallback onTap;
-
-  const _PostCard({required this.item, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.appColors;
-    final l = AppLocalizations.of(context);
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 작성자 + 카테고리 배지 + 시간
-            Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    item.nicknameSnapshot,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontFamily: 'GowunDodum',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: c.text),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                CpBadge(_categoryLabel(l, item.category)),
-                const SizedBox(width: 8),
-                Text(
-                  _relativeTime(item.publishedAt),
-                  style: TextStyle(
-                      fontFamily: 'GowunDodum', fontSize: 13, color: c.text2),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              item.titleSnapshot,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  fontFamily: 'GowunDodum',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: c.text),
-            ),
-            if (item.bodyPreview.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                item.bodyPreview,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    fontFamily: 'GowunDodum',
-                    fontSize: 14,
-                    height: 1.55,
-                    color: c.text2),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(
-                  item.likedByMe ? Icons.favorite : Icons.favorite_border,
-                  size: 15,
-                  color: item.likedByMe ? c.accentDot : c.text2,
-                ),
-                const SizedBox(width: 4),
-                Text('${item.likeCount}',
-                    style: TextStyle(
-                        fontFamily: 'GowunDodum', fontSize: 13, color: c.text2)),
-                const SizedBox(width: 16),
-                Icon(Icons.chat_bubble_outline, size: 15, color: c.text2),
-                const SizedBox(width: 4),
-                Text('${item.commentCount}',
-                    style: TextStyle(
-                        fontFamily: 'GowunDodum', fontSize: 13, color: c.text2)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 카테고리 코드 → 한글 라벨.
-String _categoryLabel(AppLocalizations l, String code) {
-  switch (code) {
-    case 'MEDITATION':
-      return l.catMeditation;
-    case 'SERMON':
-      return l.catSermon;
-    case 'PRAYER':
-      return l.catPrayer;
-    case 'GRATITUDE':
-      return l.catGratitude;
-    case 'REPENTANCE':
-      return l.catRepentance;
-    default:
-      return code;
-  }
-}
-
-/// 게시 시각 → 상대 시간 ("2시간 전" 등).
-String _relativeTime(DateTime? t) {
-  if (t == null) return '';
-  final d = DateTime.now().difference(t);
-  if (d.inMinutes < 1) return '방금';
-  if (d.inMinutes < 60) return '${d.inMinutes}분 전';
-  if (d.inHours < 24) return '${d.inHours}시간 전';
-  if (d.inDays < 7) return '${d.inDays}일 전';
-  return '${t.year}.${t.month.toString().padLeft(2, '0')}.${t.day.toString().padLeft(2, '0')}';
 }
