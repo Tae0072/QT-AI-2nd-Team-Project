@@ -7,6 +7,7 @@ import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
 import '../widgets/meditation_calendar.dart';
+import '../widgets/note_card.dart';
 import 'note_edit_screen.dart' show NoteEditArgs;
 
 /// 노트 목록 화면 (N-01).
@@ -143,7 +144,6 @@ class _NoteListBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notesAsync = ref.watch(notesProvider);
-    final theme = Theme.of(context);
     final l = AppLocalizations.of(context);
 
     // 로딩/에러/빈 화면은 공통 위젯 whenOrDefault가 처리.
@@ -156,38 +156,13 @@ class _NoteListBody extends ConsumerWidget {
           onRefresh: () async => ref.invalidate(notesProvider),
           child: ListView.separated(
             itemCount: response.items.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final item = response.items[index];
-              return ListTile(
-                title: Text(
-                  item.title.isEmpty ? l.noteUntitled : item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Row(
-                  children: [
-                    Text(
-                      noteCategoryLabel(item.category),
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.primary),
-                    ),
-                    if (item.status == 'DRAFT') ...[
-                      const SizedBox(width: 8),
-                      Text(l.noteDraft,
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: theme.colorScheme.outline)),
-                    ],
-                    const Spacer(),
-                    if (item.updatedAt != null)
-                      Text(
-                        _formatDate(item.updatedAt!),
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.grey),
-                      ),
-                  ],
-                ),
-                // 항목 탭 → N-04 상세. 수정·삭제 시 그쪽이 invalidate → 돌아오면 최신 반영.
+              // 항목 탭 → N-04 상세. 수정·삭제 시 그쪽이 invalidate → 돌아오면 최신 반영.
+              return NoteCard(
+                item: item,
                 onTap: () => Navigator.of(context).pushNamed(
                   AppRouter.noteDetail,
                   arguments: item.id,
@@ -199,10 +174,6 @@ class _NoteListBody extends ConsumerWidget {
       },
     );
   }
-
-  // DateTime을 'yyyy.MM.dd'로만 표시(V1, intl 불필요).
-  String _formatDate(DateTime d) =>
-      '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
 }
 
 /// 카테고리 선택 칩.

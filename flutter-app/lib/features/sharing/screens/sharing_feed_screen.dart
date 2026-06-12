@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../providers/sharing_providers.dart';
+import '../widgets/post_card.dart';
 
 /// 나눔 피드 화면 (S-01).
 ///
@@ -58,13 +60,7 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
               decoration: InputDecoration(
                 hintText: l.sharingSearchHint,
                 prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.grey[100],
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                isDense: true,
               ),
               onSubmitted: (value) {
                 ref.read(sharingQueryProvider.notifier).state =
@@ -80,12 +76,30 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
-                _CategoryChip(label: l.noteFilterAll, value: null, selected: selectedCategory),
-                _CategoryChip(label: l.catMeditation, value: 'MEDITATION', selected: selectedCategory),
-                _CategoryChip(label: l.catSermon, value: 'SERMON', selected: selectedCategory),
-                _CategoryChip(label: l.catPrayer, value: 'PRAYER', selected: selectedCategory),
-                _CategoryChip(label: l.catGratitude, value: 'GRATITUDE', selected: selectedCategory),
-                _CategoryChip(label: l.catRepentance, value: 'REPENTANCE', selected: selectedCategory),
+                _CategoryChip(
+                    label: l.noteFilterAll,
+                    value: null,
+                    selected: selectedCategory),
+                _CategoryChip(
+                    label: l.catMeditation,
+                    value: 'MEDITATION',
+                    selected: selectedCategory),
+                _CategoryChip(
+                    label: l.catSermon,
+                    value: 'SERMON',
+                    selected: selectedCategory),
+                _CategoryChip(
+                    label: l.catPrayer,
+                    value: 'PRAYER',
+                    selected: selectedCategory),
+                _CategoryChip(
+                    label: l.catGratitude,
+                    value: 'GRATITUDE',
+                    selected: selectedCategory),
+                _CategoryChip(
+                    label: l.catRepentance,
+                    value: 'REPENTANCE',
+                    selected: selectedCategory),
               ],
             ),
           ),
@@ -98,7 +112,9 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
               data: (response) {
                 if (response.items.isEmpty) {
                   return Center(
-                    child: Text(l.sharingFeedEmpty, style: const TextStyle(color: Colors.grey)),
+                    child: Text(l.sharingFeedEmpty,
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: theme.colorScheme.outline)),
                   );
                 }
 
@@ -106,39 +122,19 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
                   onRefresh: () async => ref.invalidate(sharingPostsProvider),
                   child: ListView.separated(
                     itemCount: response.items.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    padding: const EdgeInsets.only(bottom: 12),
+                    separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: context.appColors.hairline),
                     itemBuilder: (context, index) {
                       final item = response.items[index];
-                      return ListTile(
-                        title: Text(item.titleSnapshot, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(item.bodyPreview, maxLines: 2, overflow: TextOverflow.ellipsis),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Text(item.nicknameSnapshot,
-                                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
-                                const Spacer(),
-                                Icon(Icons.favorite, size: 14,
-                                    color: item.likedByMe ? Colors.red : Colors.grey),
-                                const SizedBox(width: 2),
-                                Text('${item.likeCount}', style: theme.textTheme.bodySmall),
-                                const SizedBox(width: 8),
-                                const Icon(Icons.chat_bubble_outline, size: 14, color: Colors.grey),
-                                const SizedBox(width: 2),
-                                Text('${item.commentCount}', style: theme.textTheme.bodySmall),
-                              ],
-                            ),
-                          ],
+                      return PostCard(
+                        item: item,
+                        onTap: () => Navigator.of(context).pushNamed(
+                          AppRouter.sharingDetail,
+                          arguments: item.id,
                         ),
-                        onTap: () {
-                          Navigator.of(context).pushNamed(
-                            AppRouter.sharingDetail,
-                            arguments: item.id,
-                          );
-                        },
                       );
                     },
                   ),
@@ -157,7 +153,8 @@ class _CategoryChip extends ConsumerWidget {
   final String? value;
   final String? selected;
 
-  const _CategoryChip({required this.label, required this.value, required this.selected});
+  const _CategoryChip(
+      {required this.label, required this.value, required this.selected});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
