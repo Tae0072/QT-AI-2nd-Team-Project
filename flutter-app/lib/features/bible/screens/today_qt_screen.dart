@@ -225,7 +225,7 @@ class _ActionRow extends StatelessWidget {
                       referenceText: data.reference.displayText,
                       verseLabels: {
                         for (final verse in data.verses)
-                          verse.id: '${verse.chapterNo}:${verse.verseNo}',
+                          verse.id: '${verse.verseNo}',
                       },
                     ),
                   ),

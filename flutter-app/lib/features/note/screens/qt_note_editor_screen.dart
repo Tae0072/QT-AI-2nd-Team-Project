@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -61,11 +62,34 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
       if (!mounted) return;
       _showMessage(status == 'SAVED' ? '저장되었습니다' : '임시저장되었습니다');
       Navigator.of(context).pop();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _logSaveError(error, stackTrace);
       if (!mounted) return;
       setState(() => _saving = false);
       _showMessage('저장에 실패했습니다. 다시 시도해 주세요');
     }
+  }
+
+  void _logSaveError(Object error, StackTrace stackTrace) {
+    if (error is DioException) {
+      final response = error.response;
+      final data = response?.data;
+      final root = data is Map ? data : null;
+      final apiError = root?['error'];
+      final errorBody = apiError is Map ? apiError : root;
+      debugPrint(
+        '[QT_NOTE_SAVE_ERROR] '
+        'status=${response?.statusCode} '
+        'path=${error.requestOptions.path} '
+        'code=${errorBody?['code']} '
+        'message=${errorBody?['message']} '
+        'traceId=${errorBody?['traceId']}',
+      );
+      return;
+    }
+
+    debugPrint('[QT_NOTE_SAVE_ERROR] $error');
+    debugPrintStack(stackTrace: stackTrace);
   }
 
   void _showMessage(String message) {
@@ -88,7 +112,8 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
           child: Column(
             children: [
               Expanded(
-                flex: 5,
+                key: const ValueKey('qt-note-passage-panel'),
+                flex: 3,
                 child: Scrollbar(
                   key: const ValueKey('qt-note-passage-scroll'),
                   controller: _passageScrollController,
@@ -151,31 +176,34 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
               ),
               const Divider(height: 1),
               Expanded(
-                flex: 6,
+                key: const ValueKey('qt-note-editor-panel'),
+                flex: 8,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                   child: Column(
                     children: [
-                      TextField(
-                        controller: _titleController,
-                        hintLocales: const [Locale('ko', 'KR')],
-                        enableSuggestions: false,
-                        autocorrect: false,
-                        enableIMEPersonalizedLearning: false,
-                        smartDashesType: SmartDashesType.disabled,
-                        smartQuotesType: SmartQuotesType.disabled,
-                        decoration: const InputDecoration(
-                          labelText: '제목',
-                          isDense: true,
-                        ),
-                      ),
                       // 본문 편집(툴바·@멘션·서식)은 자유 노트 N-03과 공유하는 위젯에 위임한다.
                       Expanded(
                         child: NoteRichTextEditor(
                           controller: _bodyController,
                           bodyLabel: '노트 작성',
+                          header: TextField(
+                            controller: _titleController,
+                            hintLocales: const [Locale('ko', 'KR')],
+                            enableSuggestions: false,
+                            autocorrect: false,
+                            enableIMEPersonalizedLearning: false,
+                            smartDashesType: SmartDashesType.disabled,
+                            smartQuotesType: SmartQuotesType.disabled,
+                            decoration: const InputDecoration(
+                              labelText: '제목',
+                              isDense: true,
+                            ),
+                          ),
+                          toolbarPlacement: NoteRichTextToolbarPlacement.top,
                           bodyFieldKey: const ValueKey('qt-note-body-input'),
-                          bodyScrollKey: const ValueKey('qt-note-editor-scroll'),
+                          bodyScrollKey:
+                              const ValueKey('qt-note-editor-scroll'),
                         ),
                       ),
                       const SizedBox(height: 10),

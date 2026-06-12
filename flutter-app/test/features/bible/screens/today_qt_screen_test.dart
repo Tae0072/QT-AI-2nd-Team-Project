@@ -2,13 +2,24 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qtai_app/core/config/app_config.dart';
+import 'package:qtai_app/features/auth/providers/auth_providers.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/models/bible_reference.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/screens/today_qt_screen.dart';
 import 'package:qtai_app/features/bible/services/bible_repository.dart';
+import 'package:qtai_app/features/mypage/models/dashboard_response.dart';
+import 'package:qtai_app/features/mypage/providers/mypage_providers.dart';
+import 'package:qtai_app/features/music/providers/music_providers.dart';
+import 'package:qtai_app/features/note/models/note_models.dart';
+import 'package:qtai_app/features/note/providers/note_providers.dart';
 import 'package:qtai_app/features/onboarding/providers/onboarding_providers.dart';
+import 'package:qtai_app/features/sharing/models/sharing_post_response.dart';
+import 'package:qtai_app/features/sharing/providers/sharing_providers.dart';
+import 'package:qtai_app/features/sharing/services/sharing_repository.dart';
+import 'package:qtai_app/main.dart';
 import 'package:qtai_app/features/tts/widgets/qt_tts_button.dart';
 import 'package:qtai_app/routes/app_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -136,6 +147,104 @@ void main() {
     expect(find.byTooltip('구절 삽입'), findsOneWidget);
   });
 
+  testWidgets('QT 노트 첫 입력 중 앱 route 상태가 unknown으로 갱신되어도 노트 화면과 본문 입력을 유지한다',
+      (tester) async {
+    AppConfig.reset();
+    AppConfig.initializeForTest();
+    addTearDown(AppConfig.reset);
+    SharedPreferences.setMockInitialValues({'onboarding_complete': true});
+    final prefs = await SharedPreferences.getInstance();
+    final auth = _FakeAuthNotifier(AuthStatus.authenticated);
+
+    const passage = TodayQtPassage(
+      qtPassageId: 7,
+      passageDate: '2026-06-05',
+      title: '성령으로 깨닫는 하나님의 지혜',
+      hasExplanation: true,
+      reference: BibleReference(
+        koreanBookName: '고린도전서',
+        englishBookName: '1 Corinthians',
+        chapter: 2,
+        verseFrom: 1,
+        verseTo: 16,
+      ),
+      book: BibleVerseBook(
+        code: '1CO',
+        koreanName: '고린도전서',
+        englishName: '1 Corinthians',
+        chapter: 2,
+      ),
+      verses: [
+        BibleVerse(
+          id: 2001,
+          bookCode: '1CO',
+          chapterNo: 2,
+          verseNo: 1,
+          koreanText: '더미 한글 본문 1',
+          englishText: 'Dummy English verse 1',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          authStatusProvider.overrideWith((_) => auth),
+          musicControllerProvider.overrideWith(_FakeMusicController.new),
+          todayQtPassageProvider.overrideWith((ref) async => passage),
+          bibleRepositoryProvider.overrideWithValue(_FakeBibleRepository()),
+          sharingRepositoryProvider.overrideWithValue(_FakeSharingRepository()),
+          notesProvider.overrideWith((ref) async {
+            return NoteListResponse(items: const [], hasNext: false);
+          }),
+          meditationCalendarProvider.overrideWith((ref, month) async {
+            return MeditationCalendar(
+              month: month,
+              days: const [],
+              summary: CalendarSummary(
+                savedDays: 0,
+                savedNoteCount: 0,
+                meditationStreakDays: 0,
+              ),
+            );
+          }),
+          dashboardProvider.overrideWith((ref) async {
+            return const DashboardResponse(
+              profile: ProfileSummary(memberId: 1, nickname: '테스터'),
+            );
+          }),
+        ],
+        child: const QTAIApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester
+        .tap(find.widgetWithIcon(OutlinedButton, Icons.edit_note_outlined));
+    await tester.pumpAndSettle();
+
+    final body = find.byKey(const ValueKey('qt-note-body-input'));
+    await tester.tap(body);
+    await tester.enterText(body, '첫 글자');
+    await tester.pump();
+
+    auth.setUnknown();
+    await tester.pump();
+
+    expect(find.text('QT 노트'), findsOneWidget);
+    expect(find.text('오늘 QT'), findsNothing);
+    expect(body, findsOneWidget);
+
+    final bodyField = tester.widget<TextField>(body);
+    final editable = tester.widget<EditableText>(
+      find.descendant(of: body, matching: find.byType(EditableText)),
+    );
+
+    expect(bodyField.controller!.text, '첫 글자');
+    expect(editable.focusNode.hasFocus, isTrue);
+  });
+
   testWidgets('해설 버튼을 누르면 준비된 해설이 없을 때 빈 상태를 표시한다', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -193,6 +302,83 @@ void main() {
 
     expect(find.text('해설'), findsOneWidget);
     expect(find.text('아직 준비된 해설이 없습니다.'), findsOneWidget);
+  });
+
+  testWidgets('해설 화면은 절 번호만 표시하고 검수해설 문구를 노출하지 않는다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    const passage = TodayQtPassage(
+      qtPassageId: 7,
+      passageDate: '2026-06-05',
+      title: '성령으로 깨닫는 하나님의 지혜',
+      hasExplanation: true,
+      reference: BibleReference(
+        koreanBookName: '고린도전서',
+        englishBookName: '1 Corinthians',
+        chapter: 2,
+        verseFrom: 1,
+        verseTo: 16,
+      ),
+      book: BibleVerseBook(
+        code: '1CO',
+        koreanName: '고린도전서',
+        englishName: '1 Corinthians',
+        chapter: 2,
+      ),
+      verses: [
+        BibleVerse(
+          id: 2001,
+          bookCode: '1CO',
+          chapterNo: 2,
+          verseNo: 1,
+          koreanText: '더미 한글 본문 1',
+          englishText: 'Dummy English verse 1',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          todayQtPassageProvider.overrideWith((ref) async => passage),
+          bibleRepositoryProvider.overrideWithValue(
+            _FakeBibleRepository(
+              content: const QtStudyContent(
+                summary: null,
+                explanations: [
+                  QtStudyExplanation(
+                    verseId: 2001,
+                    summary: '핵심 요약',
+                    explanation: '해설 본문',
+                    sourceLabel: '검수해설',
+                    aiAssetId: 11,
+                  ),
+                ],
+                glossaryTerms: [],
+              ),
+            ),
+          ),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const TodayQtScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('해설'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2:1 해설'), findsNothing);
+    expect(find.text('검수해설'), findsNothing);
+    expect(find.text('해설 본문'), findsOneWidget);
   });
 
   testWidgets('QT 영상 버튼을 누르면 영상 섹션으로 스크롤한다', (tester) async {
@@ -335,14 +521,88 @@ void main() {
 }
 
 class _FakeBibleRepository extends BibleRepository {
-  _FakeBibleRepository() : super(Dio());
+  final QtStudyContent content;
 
-  @override
-  Future<QtStudyContent> getQtStudyContent(int qtPassageId) async {
-    return const QtStudyContent(
+  _FakeBibleRepository({
+    this.content = const QtStudyContent(
       summary: null,
       explanations: [],
       glossaryTerms: [],
+    ),
+  }) : super(Dio());
+
+  @override
+  Future<QtStudyContent> getQtStudyContent(int qtPassageId) async {
+    return content;
+  }
+
+  @override
+  Future<List<BibleBook>> getBooks() async {
+    return const [
+      BibleBook(
+        id: 1,
+        testament: 'OLD',
+        code: 'GEN',
+        koreanName: '창세기',
+        englishName: 'Genesis',
+        displayOrder: 1,
+      ),
+    ];
+  }
+
+  @override
+  Future<BibleVerseRange> getChapterVerses({
+    required String bookCode,
+    required int chapter,
+  }) async {
+    return BibleVerseRange(
+      book: BibleVerseBook(
+        code: bookCode,
+        koreanName: '창세기',
+        englishName: 'Genesis',
+        chapter: chapter,
+      ),
+      verses: const [
+        BibleVerse(
+          id: 1,
+          bookCode: 'GEN',
+          chapterNo: 1,
+          verseNo: 1,
+          koreanText: '더미 한글 본문 1',
+          englishText: 'Dummy English verse 1',
+        ),
+      ],
     );
   }
+}
+
+class _FakeSharingRepository extends SharingRepository {
+  _FakeSharingRepository() : super(Dio());
+
+  @override
+  Future<SharingPostListResponse> getSharingPosts({
+    String? category,
+    String? query,
+    int page = 0,
+  }) async {
+    return SharingPostListResponse(items: const [], hasNext: false);
+  }
+}
+
+class _FakeAuthNotifier extends AuthStatusNotifier {
+  _FakeAuthNotifier(super.status) : super.withInitial();
+
+  void setUnknown() => state = AuthStatus.unknown;
+}
+
+class _FakeMusicController extends MusicController {
+  _FakeMusicController(super.ref);
+
+  @override
+  Future<void> ensureInitialized() async {
+    state = state.copyWith(initialized: true, enabled: false);
+  }
+
+  @override
+  void notifyUserGesture() {}
 }
