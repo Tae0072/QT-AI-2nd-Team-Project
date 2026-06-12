@@ -5,7 +5,7 @@ import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
-import '../widgets/note_format_toolbar.dart';
+import '../widgets/note_rich_text_editor.dart';
 
 /// N-03 라우트 인자.
 ///
@@ -28,6 +28,7 @@ class NoteEditArgs {
 /// - 작성: N-02에서 NoteEditArgs(category)로 진입 → POST
 /// - 수정: N-04에서 NoteEditArgs(noteId)로 진입 → 기존 노트 1회 조회해 폼 채움 → PATCH
 /// - 제목 + 본문 1섹션, 저장/임시저장 버튼 (자동저장 없음)
+/// - 본문은 QT 노트와 공유하는 리치텍스트 에디터(서식·@멘션·라이브 프리뷰) 사용 (QA ③⑨)
 class NoteEditScreen extends ConsumerStatefulWidget {
   const NoteEditScreen({super.key});
 
@@ -37,7 +38,7 @@ class NoteEditScreen extends ConsumerStatefulWidget {
 
 class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
   final _titleController = TextEditingController();
-  final _bodyController = TextEditingController();
+  final _bodyController = NoteRichBodyController();
   bool _saving = false; // 저장 중복 클릭/이중 저장 방지
   bool _initialized = false; // didChangeDependencies 1회 가드
   bool _loading = false; // 편집모드: 기존 노트 불러오는 중
@@ -47,7 +48,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // ✏️ 라우트 인자는 여기서 안전하게 읽을 수 있다. build는 여러 번 불리므로
+    // 라우트 인자는 여기서 안전하게 읽을 수 있다. build는 여러 번 불리므로
     // _initialized 가드로 "1회만" 인자를 읽고 편집 데이터를 불러온다(approach A).
     if (_initialized) return;
     _initialized = true;
@@ -66,7 +67,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     try {
       final detail =
           await ref.read(noteRepositoryProvider).getDetail(_args.noteId!);
-      // ✏️ 컨트롤러는 '한 번만' 채우면 그 뒤는 사용자 입력이 주인이다.
+      // 컨트롤러는 '한 번만' 채우면 그 뒤는 사용자 입력이 주인이다.
       // 자유노트라 본문은 body에 있다(묵상 4섹션은 N-03 편집 대상 아님).
       _titleController.text = detail.title;
       _bodyController.text = detail.body ?? '';
@@ -148,8 +149,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
   }
 
   void _showMessage(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -161,13 +161,15 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     // ✏️ 편집모드에서 기존 노트를 불러오는 동안/실패 시 폼 대신 상태 화면을 보여준다.
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: Text('${l.noteListTitle} $modeLabel'), centerTitle: true),
+        appBar: AppBar(
+            title: Text('${l.noteListTitle} $modeLabel'), centerTitle: true),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     if (_loadError) {
       return Scaffold(
-        appBar: AppBar(title: Text('${l.noteListTitle} $modeLabel'), centerTitle: true),
+        appBar: AppBar(
+            title: Text('${l.noteListTitle} $modeLabel'), centerTitle: true),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -186,7 +188,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${noteCategoryLabel(category)} ${l.noteListTitle} $modeLabel'),
+        title: Text(
+            '${noteCategoryLabel(category)} ${l.noteListTitle} $modeLabel'),
         centerTitle: true,
       ),
       body: AbsorbPointer(
@@ -205,20 +208,12 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 12),
-              // ✏️ 본문 위 마크다운 서식 툴바 — _bodyController에 마커를 삽입한다.
-              NoteFormatToolbar(controller: _bodyController),
-              const SizedBox(height: 4),
+              // ✏️ 본문 편집(서식 툴바·@멘션·라이브 프리뷰)은 QT 노트와 공유하는
+              // 리치텍스트 에디터에 위임한다(QA ③⑨). 저장 시 _bodyController.text를 읽는다.
               Expanded(
-                child: TextField(
+                child: NoteRichTextEditor(
                   controller: _bodyController,
-                  decoration: InputDecoration(
-                    labelText: l.noteEditBodyLabel,
-                    alignLabelWithHint: true,
-                    border: const OutlineInputBorder(),
-                  ),
-                  maxLines: null, // 여러 줄 입력
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
+                  bodyLabel: l.noteEditBodyLabel,
                 ),
               ),
               const SizedBox(height: 12),

@@ -235,27 +235,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notePublishView => 'View';
 
   @override
-  String get fmtBold => 'Bold';
-
-  @override
-  String get fmtItalic => 'Italic';
-
-  @override
-  String get fmtHeading => 'Heading';
-
-  @override
-  String get fmtList => 'List';
-
-  @override
-  String get fmtQuote => 'Quote';
-
-  @override
-  String get fmtCheckbox => 'Checkbox';
-
-  @override
-  String get fmtDivider => 'Divider';
-
-  @override
   String calSavedThisMonth(int days) {
     return 'Saved $days days this month';
   }

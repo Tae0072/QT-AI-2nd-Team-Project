@@ -88,13 +88,6 @@
   "notePublishAlready": "This note is already shared",
   "notePublishView": "View",
 
-  "fmtBold": "Bold",
-  "fmtItalic": "Italic",
-  "fmtHeading": "Heading",
-  "fmtList": "List",
-  "fmtQuote": "Quote",
-  "fmtCheckbox": "Checkbox",
-  "fmtDivider": "Divider",
   "calSavedThisMonth": "Saved {days} days this month",
   "@calSavedThisMonth": {
     "placeholders": { "days": { "type": "int" } }
