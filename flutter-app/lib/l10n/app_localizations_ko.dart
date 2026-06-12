@@ -131,6 +131,41 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteEmpty => '작성한 노트가 없습니다';
 
   @override
+  String get noteEmptyQtHint => 'QT 노트는 오늘의 QT 화면에서 작성해요';
+
+  @override
+  String get noteEmptySermonHint => '설교 노트는 성경 화면에서 작성해요';
+
+  @override
+  String get noteSelect => '선택';
+
+  @override
+  String get noteSelectAll => '전체선택';
+
+  @override
+  String noteSelectedCount(int count) {
+    return '$count개 선택';
+  }
+
+  @override
+  String get noteDeleteSelectedTitle => '선택한 노트 삭제';
+
+  @override
+  String noteDeleteSelectedBody(int count) {
+    return '선택한 $count개 노트를 삭제할까요? 되돌릴 수 없어요.';
+  }
+
+  @override
+  String noteDeletedCount(int count) {
+    return '$count개 삭제했어요';
+  }
+
+  @override
+  String noteDeletePartial(int ok, int failed) {
+    return '$ok개 삭제, $failed개 실패';
+  }
+
+  @override
   String get noteUntitled => '(제목 없음)';
 
   @override

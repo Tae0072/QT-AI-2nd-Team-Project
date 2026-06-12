@@ -167,4 +167,25 @@ void main() {
       expect(result.id, 2);
     });
   });
+
+  group('deleteMany 다중 삭제 (QA ①)', () {
+    test('성공/실패(DioException)를 구분해 실패 id만 반환한다', () async {
+      dioAdapter.onDelete('/notes/1', (server) => server.reply(200, {}));
+      dioAdapter.onDelete(
+          '/notes/2', (server) => server.reply(500, {})); // 5xx → DioException
+
+      final failed = await repository.deleteMany([1, 2]);
+
+      expect(failed, [2]); // 1은 성공, 2만 실패
+    });
+
+    test('전부 성공하면 빈 목록을 반환한다', () async {
+      dioAdapter.onDelete('/notes/1', (server) => server.reply(200, {}));
+      dioAdapter.onDelete('/notes/2', (server) => server.reply(200, {}));
+
+      final failed = await repository.deleteMany([1, 2]);
+
+      expect(failed, isEmpty);
+    });
+  });
 }

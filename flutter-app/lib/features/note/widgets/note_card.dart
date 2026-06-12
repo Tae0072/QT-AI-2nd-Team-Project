@@ -12,7 +12,19 @@ class NoteCard extends StatelessWidget {
   final NoteListItem item;
   final VoidCallback onTap;
 
-  const NoteCard({super.key, required this.item, required this.onTap});
+  /// 다중 선택 모드. true면 좌측 체크박스를 보이고, 탭은 [onToggleSelect]로 간다.
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onToggleSelect;
+
+  const NoteCard({
+    super.key,
+    required this.item,
+    required this.onTap,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onToggleSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -35,67 +47,89 @@ class NoteCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: c.bgSunken,
         borderRadius: BorderRadius.circular(14),
+        // 선택된 카드는 강조 테두리로 구분한다.
+        border: selected ? Border.all(color: c.accent, width: 1.5) : null,
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
+        // 선택 모드면 탭이 선택 토글, 아니면 상세 이동.
+        onTap: selectionMode ? onToggleSelect : onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontFamily: 'GowunDodum',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: c.text),
-                    ),
+              if (selectionMode) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 1, right: 8),
+                  child: Icon(
+                    selected
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 22,
+                    color: selected ? c.accent : c.textMuted,
                   ),
-                  const SizedBox(width: 8),
-                  CpBadge(noteCategoryLabel(item.category)),
-                ],
-              ),
-              if (meta.isNotEmpty ||
-                  item.status == 'DRAFT' ||
-                  item.shared) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontFamily: 'GowunDodum',
-                            fontSize: 13,
-                            color: c.text2),
-                      ),
-                    ),
-                    if (item.status == 'DRAFT')
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Text(l.noteDraft,
-                            style: TextStyle(
-                                fontFamily: 'GowunDodum',
-                                fontSize: 12,
-                                color: c.textMuted)),
-                      ),
-                    if (item.shared)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: CpBadge('나눔', dot: true),
-                      ),
-                  ],
                 ),
               ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontFamily: 'GowunDodum',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: c.text),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        CpBadge(noteCategoryLabel(item.category)),
+                      ],
+                    ),
+                    if (meta.isNotEmpty ||
+                        item.status == 'DRAFT' ||
+                        item.shared) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              meta,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontFamily: 'GowunDodum',
+                                  fontSize: 13,
+                                  color: c.text2),
+                            ),
+                          ),
+                          if (item.status == 'DRAFT')
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(l.noteDraft,
+                                  style: TextStyle(
+                                      fontFamily: 'GowunDodum',
+                                      fontSize: 12,
+                                      color: c.textMuted)),
+                            ),
+                          if (item.shared)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 8),
+                              child: CpBadge('나눔', dot: true),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),
