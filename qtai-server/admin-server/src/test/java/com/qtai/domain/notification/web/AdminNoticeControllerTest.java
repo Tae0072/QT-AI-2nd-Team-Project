@@ -152,6 +152,26 @@ class AdminNoticeControllerTest {
     }
 
     @Test
+    void get_reviewer_403() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), any()))
+                .thenThrow(new BusinessException(ErrorCode.ADMIN_ROLE_INSUFFICIENT));
+
+        mockMvc.perform(get("/api/v1/admin/notices/1"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("AD0003"));
+    }
+
+    @Test
+    void get_notFound_404() throws Exception {
+        when(getAdminNoticeUseCase.getAdminNotice(404L))
+                .thenThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/admin/notices/404"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("C0004"));
+    }
+
+    @Test
     void create_201() throws Exception {
         when(createAdminNoticeUseCase.createNotice(any())).thenReturn(detailResponse("DRAFT"));
 
