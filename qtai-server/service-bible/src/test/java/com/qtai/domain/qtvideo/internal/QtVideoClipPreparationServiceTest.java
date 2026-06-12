@@ -182,6 +182,73 @@ class QtVideoClipPreparationServiceTest {
     }
 
     @Test
+    @DisplayName("Skips clip creation when source video URL is not configured")
+    void prepare_skipsWhenSourceVideoUrlIsUnconfigured() {
+        when(getQtPassageContentContextUseCase.getContentContext(6L))
+                .thenReturn(context(6L, List.of(100L), true));
+        SourceVideo sourceVideo = TestEntityFactory.sourceVideo(
+                1L,
+                (short) 46,
+                "qt-video://unconfigured/1-corinthians-full"
+        );
+        when(qtVideoClipRepository.findByQtPassageIdAndActiveUniqueKey(6L, QtVideoClip.ACTIVE_UNIQUE_KEY))
+                .thenReturn(Optional.empty());
+        when(qtVideoClipRepository.existsByQtPassageIdAndStatus(6L, QtVideoClipStatus.HIDDEN))
+                .thenReturn(false);
+        when(bibleVerseVideoSegmentRepository.findActiveSourceSegmentsByVerseIds(
+                List.of(100L), SourceVideoStatus.ACTIVE, SourceVideo.ACTIVE_UNIQUE_KEY))
+                .thenReturn(List.of(
+                        TestEntityFactory.bibleVerseVideoSegment(100L, sourceVideo, "10.000", "20.000")
+                ));
+
+        assertFalse(service.prepare(6L));
+
+        verify(qtVideoClipRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Skips clip creation when source video URL is blank")
+    void prepare_skipsWhenSourceVideoUrlIsBlank() {
+        when(getQtPassageContentContextUseCase.getContentContext(6L))
+                .thenReturn(context(6L, List.of(100L), true));
+        SourceVideo sourceVideo = TestEntityFactory.sourceVideo(1L, (short) 46, " ");
+        when(qtVideoClipRepository.findByQtPassageIdAndActiveUniqueKey(6L, QtVideoClip.ACTIVE_UNIQUE_KEY))
+                .thenReturn(Optional.empty());
+        when(qtVideoClipRepository.existsByQtPassageIdAndStatus(6L, QtVideoClipStatus.HIDDEN))
+                .thenReturn(false);
+        when(bibleVerseVideoSegmentRepository.findActiveSourceSegmentsByVerseIds(
+                List.of(100L), SourceVideoStatus.ACTIVE, SourceVideo.ACTIVE_UNIQUE_KEY))
+                .thenReturn(List.of(
+                        TestEntityFactory.bibleVerseVideoSegment(100L, sourceVideo, "10.000", "20.000")
+                ));
+
+        assertFalse(service.prepare(6L));
+
+        verify(qtVideoClipRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Skips clip creation when source video URL is null")
+    void prepare_skipsWhenSourceVideoUrlIsNull() {
+        when(getQtPassageContentContextUseCase.getContentContext(6L))
+                .thenReturn(context(6L, List.of(100L), true));
+        SourceVideo sourceVideo = TestEntityFactory.sourceVideo(1L, (short) 46, null);
+        when(qtVideoClipRepository.findByQtPassageIdAndActiveUniqueKey(6L, QtVideoClip.ACTIVE_UNIQUE_KEY))
+                .thenReturn(Optional.empty());
+        when(qtVideoClipRepository.existsByQtPassageIdAndStatus(6L, QtVideoClipStatus.HIDDEN))
+                .thenReturn(false);
+        when(bibleVerseVideoSegmentRepository.findActiveSourceSegmentsByVerseIds(
+                List.of(100L), SourceVideoStatus.ACTIVE, SourceVideo.ACTIVE_UNIQUE_KEY))
+                .thenReturn(List.of(
+                        TestEntityFactory.bibleVerseVideoSegment(100L, sourceVideo, "10.000", "20.000")
+                ));
+
+        assertFalse(service.prepare(6L));
+
+        verify(qtVideoClipRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Skips clip creation when QT passage is not published")
     void prepare_skipsWhenPassageIsUnpublished() {
         when(getQtPassageContentContextUseCase.getContentContext(6L))

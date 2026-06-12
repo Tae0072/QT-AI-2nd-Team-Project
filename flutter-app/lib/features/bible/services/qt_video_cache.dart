@@ -1,10 +1,15 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 class QtVideoCache {
   static const _directoryName = 'qt-video-cache';
   static const _filePrefix = 'qt-video-';
+  static const _maxCacheAge = Duration(hours: 24);
+
+  @visibleForTesting
+  static Directory? debugCacheRootOverride;
 
   static Future<File?> existingFile({
     required String cacheKey,
@@ -21,7 +26,9 @@ class QtVideoCache {
       await _deleteStaleFiles(directory, keepFileName: fileName);
 
       final file = File(_join(directory.path, fileName));
-      if (await file.exists() && await file.length() > 0) {
+      if (await file.exists() &&
+          await file.length() > 0 &&
+          !await _isExpired(file)) {
         return file;
       }
 
@@ -56,7 +63,7 @@ class QtVideoCache {
   }
 
   static Future<Directory> _cacheDirectory() async {
-    final root = await getTemporaryDirectory();
+    final root = debugCacheRootOverride ?? await getTemporaryDirectory();
     final directory = Directory(_join(root.path, _directoryName));
     if (!await directory.exists()) {
       await directory.create(recursive: true);
@@ -72,8 +79,7 @@ class QtVideoCache {
       return;
     }
 
-    final entities = await directory.list().toList();
-    for (final entity in entities) {
+    await for (final entity in directory.list(followLinks: false)) {
       if (entity is! File) {
         continue;
       }
@@ -82,7 +88,7 @@ class QtVideoCache {
       if (!name.startsWith(_filePrefix)) {
         continue;
       }
-      if (name != keepFileName) {
+      if (name != keepFileName || await _isExpired(entity)) {
         await _deleteQuietly(entity);
       }
     }
@@ -125,6 +131,15 @@ class QtVideoCache {
       await file.delete();
     } catch (_) {
       // Cache cleanup should never block playback.
+    }
+  }
+
+  static Future<bool> _isExpired(File file) async {
+    try {
+      final stat = await file.stat();
+      return stat.modified.isBefore(DateTime.now().subtract(_maxCacheAge));
+    } catch (_) {
+      return true;
     }
   }
 

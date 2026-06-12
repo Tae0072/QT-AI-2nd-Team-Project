@@ -194,13 +194,11 @@ class _QtVideoPlayerState extends State<QtVideoPlayer> {
   }
 
   Future<void> _prepareController(int token) async {
-    final cachedFile = _segmentStart == Duration.zero
-        ? await QtVideoCache.existingFile(
-            cacheKey: widget.cacheKey,
-            videoUrl: widget.videoUrl,
-          )
-        : null;
-    if (_segmentStart == Duration.zero && cachedFile == null) {
+    final cachedFile = await QtVideoCache.existingFile(
+      cacheKey: widget.cacheKey,
+      videoUrl: widget.videoUrl,
+    );
+    if (cachedFile == null) {
       unawaited(
         QtVideoCache.download(
           cacheKey: widget.cacheKey,
