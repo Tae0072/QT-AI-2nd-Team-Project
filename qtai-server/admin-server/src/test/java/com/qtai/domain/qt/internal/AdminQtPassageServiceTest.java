@@ -21,12 +21,14 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.cache.annotation.CacheEvict;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -148,6 +150,14 @@ class AdminQtPassageServiceTest {
     }
 
     @Test
+    @DisplayName("todayQt 캐시는 수정/게시/숨김에서 전체 무효화한다")
+    void todayQtCacheEvict_onMutatingMethods() {
+        assertTodayQtCacheEvict("update", Long.class, AdminQtPassageCommand.class);
+        assertTodayQtCacheEvict("publish", Long.class, Long.class);
+        assertTodayQtCacheEvict("hide", Long.class, Long.class);
+    }
+
+    @Test
     @DisplayName("publish rejects invalid status transition")
     void publish_rejectsAlreadyActivePassage() {
         QtPassage passage = passage(20L, LocalDate.of(2026, 6, 12));
@@ -233,5 +243,18 @@ class AdminQtPassageServiceTest {
         );
         ReflectionTestUtils.setField(passage, "id", id);
         return passage;
+    }
+
+    private static void assertTodayQtCacheEvict(String methodName, Class<?>... parameterTypes) {
+        CacheEvict cacheEvict = Arrays.stream(AdminQtPassageService.class.getMethods())
+                .filter(method -> method.getName().equals(methodName))
+                .filter(method -> Arrays.equals(method.getParameterTypes(), parameterTypes))
+                .findFirst()
+                .orElseThrow()
+                .getAnnotation(CacheEvict.class);
+
+        assertThat(cacheEvict).isNotNull();
+        assertThat(cacheEvict.cacheNames()).containsExactly("todayQt");
+        assertThat(cacheEvict.allEntries()).isTrue();
     }
 }
