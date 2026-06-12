@@ -38,6 +38,7 @@ export interface CreatePraiseSongRequest {
   title: string;
   artist: string;
   licenseNote?: string;
+  status: PraiseSongStatus;
 }
 
 // 수정 요청 바디(04 §4.7.6). title·artist·licenseNote 만 허용한다.
@@ -45,14 +46,38 @@ export interface UpdatePraiseSongRequest {
   title: string;
   artist: string;
   licenseNote?: string;
+  status?: PraiseSongStatus;
 }
 
-export function listPraiseSongs(params: PraiseSongListParams = {}) {
-  return unwrap<Page<PraiseSong>>(
-    apiClient.get<ApiResponse<Page<PraiseSong>>>('/admin/praise-songs', {
+interface SpringPage<T> {
+  content?: T[];
+  number?: number;
+  page?: number;
+  size?: number;
+  totalElements?: number;
+  totalPages?: number;
+}
+
+function normalizePage<T>(
+  page: SpringPage<T>,
+  fallback: PageParams,
+): Page<T> {
+  return {
+    content: Array.isArray(page.content) ? page.content : [],
+    page: page.page ?? page.number ?? fallback.page ?? 0,
+    size: page.size ?? fallback.size ?? 20,
+    totalElements: page.totalElements ?? 0,
+    totalPages: page.totalPages ?? 0,
+  };
+}
+
+export async function listPraiseSongs(params: PraiseSongListParams = {}) {
+  const page = await unwrap<SpringPage<PraiseSong>>(
+    apiClient.get<ApiResponse<SpringPage<PraiseSong>>>('/admin/praise-songs', {
       params,
     }),
   );
+  return normalizePage(page, params);
 }
 
 export function createPraiseSong(payload: CreatePraiseSongRequest) {

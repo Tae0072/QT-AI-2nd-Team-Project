@@ -45,15 +45,12 @@ import {
   aiAssetEvaluationSetListParams,
   isAiAssetRegeneratable,
   isAiAssetReviewable,
+  resolveActiveRegenerationJob,
+  type RegenerationJobNotice,
 } from './adminPageContracts';
 
 // ===== AD-03 AI 산출물 검증 =====
 // 목록(메타데이터만, 원문 비노출) + 필터 + 승인/반려/숨김 모달. 권한: REVIEWER / SUPER_ADMIN.
-
-const ASSET_TYPE_OPTIONS = [
-  { label: '해설(EXPLANATION)', value: 'EXPLANATION' },
-  { label: '성경구절(BIBLE_VERSE)', value: 'BIBLE_VERSE' },
-];
 
 const STATUS_LABELS: Record<string, string> = {
   VALIDATING: '검증중(VALIDATING)',
@@ -70,7 +67,6 @@ const STATUS_OPTIONS = AI_ASSET_FILTERABLE_STATUSES.map((value) => ({
 function statusTag(status: string) {
   const map: Record<string, { color: string; text: string }> = {
     VALIDATING: { color: 'blue', text: '검증중' },
-    NEEDS_REVIEW: { color: 'gold', text: '검토필요' },
     APPROVED: { color: 'green', text: '승인' },
     REJECTED: { color: 'red', text: '반려' },
     HIDDEN: { color: 'default', text: '숨김' },
@@ -132,7 +128,6 @@ export default function AiAssetsPage() {
       size: 20,
     });
 
-  const [assetType, setAssetType] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<string | undefined>(undefined);
 
   const [action, setAction] = useState<{
@@ -152,6 +147,9 @@ export default function AiAssetsPage() {
     number | null
   >(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [regenerationJobsByAssetId, setRegenerationJobsByAssetId] = useState<
+    Record<number, RegenerationJobNotice>
+  >({});
 
   // 평가 항목으로 추가(평가 후보 등록) — 상세 산출물을 평가 세트의 케이스로 등록.
   // API 함수는 aiEvaluations.ts(AD-11)가 소유, 여기선 import만 해서 연결한다.
@@ -163,13 +161,11 @@ export default function AiAssetsPage() {
 
   const onSearch = () =>
     applyFilters({
-      assetType: assetType || undefined,
       status: status || undefined,
     });
   const onReset = () => {
-    setAssetType(undefined);
     setStatus(undefined);
-    applyFilters({ assetType: undefined, status: undefined });
+    applyFilters({ status: undefined });
   };
 
   const openAction = (mode: ActionMode, asset: AiAsset) => {
@@ -235,6 +231,10 @@ export default function AiAssetsPage() {
         reason: trimmedReason,
         promptVersionId: regeneratePromptVersionId,
       });
+      setRegenerationJobsByAssetId((prev) => ({
+        ...prev,
+        [selectedAsset.id]: result,
+      }));
       message.success(
         `재생성 작업을 요청했습니다. job #${result.generationJobId} (${result.status})`,
       );
@@ -242,7 +242,21 @@ export default function AiAssetsPage() {
       await loadDetail(selectedAsset.id);
       reload();
     } catch (e) {
-      message.error(e instanceof Error ? e.message : '재생성 요청에 실패했습니다.');
+      const errorMessage =
+        e instanceof Error ? e.message : '재생성 요청에 실패했습니다.';
+      if (
+        errorMessage.includes('진행 중 AI 생성 작업') ||
+        errorMessage.includes('상태 전이를 수행할 수 없습니다')
+      ) {
+        setRegenerationJobsByAssetId((prev) => ({
+          ...prev,
+          [selectedAsset.id]: { status: 'QUEUED/RUNNING' },
+        }));
+        setRegenerateOpen(false);
+        message.info('이미 재생성 작업이 진행 중입니다.');
+      } else {
+        message.error(errorMessage);
+      }
     } finally {
       setRegenerating(false);
     }
@@ -439,6 +453,13 @@ export default function AiAssetsPage() {
       : action?.mode === 'reject'
         ? 'AI 산출물 반려'
         : 'AI 산출물 숨김';
+  const activeRegenerationJob = selectedAsset
+    ? resolveActiveRegenerationJob(
+        regenerationJobsByAssetId[selectedAsset.id],
+        selectedAsset.activeGenerationJob,
+        selectedAsset.generationJob,
+      )
+    : undefined;
 
   return (
     <Card>
@@ -458,14 +479,6 @@ export default function AiAssetsPage() {
         </Typography.Paragraph>
 
         <Space wrap>
-          <Select
-            placeholder="유형"
-            allowClear
-            style={{ width: 200 }}
-            value={assetType}
-            onChange={(v) => setAssetType(v)}
-            options={ASSET_TYPE_OPTIONS}
-          />
           <Select
             placeholder="상태"
             allowClear
@@ -543,15 +556,28 @@ export default function AiAssetsPage() {
           selectedAsset ? (
             <Space>
               <Button onClick={openCandidate}>평가 항목으로 추가</Button>
-              {isAiAssetRegeneratable(selectedAsset.status) && (
-                <Button
-                  icon={<SyncOutlined />}
-                  loading={regenerating}
-                  onClick={openRegenerate}
-                >
-                  재생성
-                </Button>
-              )}
+              {isAiAssetRegeneratable(selectedAsset.status)
+                ? activeRegenerationJob
+                  ? (
+                      <Tag color="processing">
+                        재생성 작업 진행 중
+                        {activeRegenerationJob.generationJobId != null
+                          ? ` · job #${activeRegenerationJob.generationJobId}`
+                          : ''}
+                        {' '}
+                        ({activeRegenerationJob.status})
+                      </Tag>
+                    )
+                  : (
+                      <Button
+                        icon={<SyncOutlined />}
+                        loading={regenerating}
+                        onClick={openRegenerate}
+                      >
+                        재생성
+                      </Button>
+                    )
+                : null}
             </Space>
           ) : null
         }

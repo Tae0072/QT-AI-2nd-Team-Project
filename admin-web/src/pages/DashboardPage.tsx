@@ -28,6 +28,13 @@ import { formatDateTime } from '../utils/datetime';
 // GET /api/v1/admin/dashboard — 운영 요약 지표 + 오늘 QT 상태 + 최근 감사 로그.
 // 백엔드 AdminDashboardResponse(admin-server) 기준 실데이터 렌더.
 
+function actorDetailLabel(log: RecentAuditLog) {
+  if (log.adminUserId != null) return `#${log.adminUserId}`;
+  if (log.actorType === 'ADMIN') return '관리자 정보 없음';
+  if (log.actorType === 'SYSTEM_BATCH') return '시스템';
+  return '-';
+}
+
 const auditColumns: ColumnsType<RecentAuditLog> = [
   {
     title: '시각',
@@ -43,7 +50,7 @@ const auditColumns: ColumnsType<RecentAuditLog> = [
         <Tag color={r.actorType === 'ADMIN' ? 'geekblue' : r.actorType === 'SYSTEM_BATCH' ? 'gold' : 'default'}>
           {r.actorType}
         </Tag>
-        <span>{r.adminUserId != null ? `#${r.adminUserId}` : '-'}</span>
+        <span>{actorDetailLabel(r)}</span>
       </Space>
     ),
   },

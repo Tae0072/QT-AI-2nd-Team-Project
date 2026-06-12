@@ -39,7 +39,7 @@ function test(name, fn) {
   }
 }
 
-test('AI asset status filters use generated asset statuses only', () => {
+test('AI asset status filters use asset statuses only', () => {
   assert.deepEqual(contracts.AI_ASSET_FILTERABLE_STATUSES, [
     'VALIDATING',
     'APPROVED',
@@ -51,11 +51,39 @@ test('AI asset status filters use generated asset statuses only', () => {
 
 test('AI asset action visibility follows review and regeneration contracts', () => {
   assert.equal(contracts.isAiAssetReviewable('VALIDATING'), true);
-  assert.equal(contracts.isAiAssetReviewable('NEEDS_REVIEW'), false);
   assert.equal(contracts.isAiAssetReviewable('APPROVED'), false);
   assert.equal(contracts.isAiAssetRegeneratable('REJECTED'), true);
   assert.equal(contracts.isAiAssetRegeneratable('HIDDEN'), true);
   assert.equal(contracts.isAiAssetRegeneratable('APPROVED'), false);
+});
+
+test('AI asset active regeneration job prefers cached active jobs', () => {
+  assert.deepEqual(
+    contracts.resolveActiveRegenerationJob(
+      { generationJobId: 7, status: 'QUEUED' },
+      { id: 8, status: 'RUNNING' },
+      { id: 9, status: 'SUCCEEDED' },
+    ),
+    { generationJobId: 7, status: 'QUEUED' },
+  );
+
+  assert.deepEqual(
+    contracts.resolveActiveRegenerationJob(
+      undefined,
+      { id: 8, status: 'RUNNING' },
+      { id: 9, status: 'SUCCEEDED' },
+    ),
+    { generationJobId: 8, status: 'RUNNING' },
+  );
+
+  assert.equal(
+    contracts.resolveActiveRegenerationJob(
+      undefined,
+      { id: 8, status: 'SUCCEEDED' },
+      { id: 9, status: 'FAILED' },
+    ),
+    undefined,
+  );
 });
 
 test('AI asset evaluation set params preserve targetType contract', () => {
@@ -69,15 +97,15 @@ test('AI asset evaluation set params preserve targetType contract', () => {
   });
 });
 
-test('praise song create payload remains metadata-only and admin-curated', () => {
+test('praise song payload remains metadata-only', () => {
   assert.deepEqual(contracts.PRAISE_SONG_FILTERABLE_STATUSES, ['ACTIVE', 'HIDDEN']);
 
   const payload = contracts.buildPraiseSongCreatePayload({
     title: 'title',
     artist: 'artist',
     licenseNote: 'license',
+    status: 'ACTIVE',
     sourceType: 'DEVICE',
-    status: 'HIDDEN',
     lyrics: 'blocked',
     youtubeUrl: 'blocked',
   });
@@ -86,29 +114,11 @@ test('praise song create payload remains metadata-only and admin-curated', () =>
     title: 'title',
     artist: 'artist',
     licenseNote: 'license',
+    status: 'ACTIVE',
   });
   assert.equal(hasOwn(payload, 'sourceType'), false);
-  assert.equal(hasOwn(payload, 'status'), false);
   assert.equal(hasOwn(payload, 'lyrics'), false);
   assert.equal(hasOwn(payload, 'youtubeUrl'), false);
-});
-
-test('praise song update payload cannot mutate source or status', () => {
-  const payload = contracts.buildPraiseSongUpdatePayload({
-    title: 'title',
-    artist: 'artist',
-    licenseNote: 'license',
-    sourceType: 'DEVICE',
-    status: 'HIDDEN',
-  });
-
-  assert.deepEqual(payload, {
-    title: 'title',
-    artist: 'artist',
-    licenseNote: 'license',
-  });
-  assert.equal(hasOwn(payload, 'sourceType'), false);
-  assert.equal(hasOwn(payload, 'status'), false);
 });
 
 test('QT passage filters and row actions use operational statuses only', () => {

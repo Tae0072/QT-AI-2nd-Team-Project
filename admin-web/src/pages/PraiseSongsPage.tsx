@@ -123,6 +123,7 @@ export default function PraiseSongsPage() {
       title: record.title,
       artist: record.artist,
       licenseNote: record.licenseNote ?? undefined,
+      status: record.status,
     });
     setEditOpen(true);
   };
@@ -279,7 +280,11 @@ export default function PraiseSongsPage() {
         onCancel={() => setCreateOpen(false)}
         destroyOnClose
       >
-        <Form form={createForm} layout="vertical">
+        <Form
+          form={createForm}
+          layout="vertical"
+          initialValues={{ status: 'ACTIVE' }}
+        >
           <Form.Item
             name="title"
             label="곡명"
@@ -294,6 +299,9 @@ export default function PraiseSongsPage() {
           >
             <Input maxLength={100} placeholder="아티스트명" />
           </Form.Item>
+          <Form.Item label="출처">
+            <Input value="큐레이션(CURATED)" readOnly />
+          </Form.Item>
           <Form.Item name="licenseNote" label="라이선스 메모">
             <Input.TextArea
               rows={2}
@@ -301,10 +309,17 @@ export default function PraiseSongsPage() {
               placeholder="저작권 확인 메모 (가사·음원·URL 저장 금지 — 메타데이터만)"
             />
           </Form.Item>
+          <Form.Item
+            name="status"
+            label="상태"
+            rules={[{ required: true, message: '상태를 선택하세요' }]}
+          >
+            <Select options={STATUS_OPTIONS} />
+          </Form.Item>
         </Form>
       </Modal>
 
-      {/* 수정 모달 — title·artist·licenseNote 만 수정 가능. */}
+      {/* 수정 모달 — sourceType은 고정하고 메타데이터와 노출 상태만 수정. */}
       <Modal
         open={editOpen}
         title="찬양 곡 수정"
@@ -336,6 +351,13 @@ export default function PraiseSongsPage() {
               maxLength={300}
               placeholder="저작권 확인 메모 (가사·음원·URL 저장 금지 — 메타데이터만)"
             />
+          </Form.Item>
+          <Form.Item
+            name="status"
+            label="상태"
+            rules={[{ required: true, message: '상태를 선택하세요' }]}
+          >
+            <Select options={STATUS_OPTIONS} />
           </Form.Item>
         </Form>
       </Modal>
