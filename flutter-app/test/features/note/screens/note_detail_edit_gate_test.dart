@@ -6,13 +6,13 @@ import 'package:qtai_app/features/note/models/note_models.dart';
 import 'package:qtai_app/features/note/providers/note_providers.dart';
 import 'package:qtai_app/features/note/screens/note_detail_screen.dart';
 
-/// N-04 상세에서 [수정] 버튼 노출 규칙(QA ⑫): 자유노트·설교는 수정 가능, QT(묵상)는 제외.
+/// N-04 상세: 전 카테고리가 단일 body라 수정 버튼이 노출되고 body가 표시된다(QA ⑫, QT 단일 body 확정).
 void main() {
   NoteDetail detail(String category) => NoteDetail(
         id: 7,
         category: category,
         title: '노트',
-        body: '본문',
+        body: '오늘의 묵상 기록',
         status: 'SAVED',
         visibility: 'PRIVATE',
         shared: false,
@@ -36,19 +36,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('설교(SERMON) 노트는 수정 버튼이 노출된다', (tester) async {
-    await pump(tester, 'SERMON');
-    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
-  });
+  for (final category in ['SERMON', 'PRAYER', 'MEDITATION']) {
+    testWidgets('$category 노트는 수정 버튼이 노출된다', (tester) async {
+      await pump(tester, category);
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+    });
+  }
 
-  testWidgets('자유노트(기도)는 수정 버튼이 노출된다', (tester) async {
-    await pump(tester, 'PRAYER');
-    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
-  });
-
-  testWidgets('QT(MEDITATION) 노트는 수정 버튼이 없다(4섹션/표시 정리 선행)',
-      (tester) async {
+  testWidgets('QT(MEDITATION) 상세는 4섹션이 아니라 body를 표시한다', (tester) async {
     await pump(tester, 'MEDITATION');
-    expect(find.byIcon(Icons.edit_outlined), findsNothing);
+    // body가 렌더된다(과거엔 빈 4섹션을 표시해 본문이 안 보였음).
+    expect(find.textContaining('오늘의 묵상 기록'), findsWidgets);
   });
 }

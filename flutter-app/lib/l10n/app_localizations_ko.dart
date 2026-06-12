@@ -161,18 +161,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteDeleteFailed => '삭제에 실패했습니다. 다시 시도해 주세요';
 
   @override
-  String get noteSectionFelt => '느낀 점';
-
-  @override
-  String get noteSectionVerse => '기억할 구절';
-
-  @override
-  String get noteSectionApply => '적용할 점';
-
-  @override
-  String get noteSectionPray => '기도';
-
-  @override
   String get noteQuotedVerses => '인용 구절';
 
   @override

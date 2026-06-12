@@ -398,30 +398,6 @@ abstract class AppLocalizations {
   /// **'Failed to delete. Please try again.'**
   String get noteDeleteFailed;
 
-  /// No description provided for @noteSectionFelt.
-  ///
-  /// In en, this message translates to:
-  /// **'Reflections'**
-  String get noteSectionFelt;
-
-  /// No description provided for @noteSectionVerse.
-  ///
-  /// In en, this message translates to:
-  /// **'Verse to remember'**
-  String get noteSectionVerse;
-
-  /// No description provided for @noteSectionApply.
-  ///
-  /// In en, this message translates to:
-  /// **'How to apply'**
-  String get noteSectionApply;
-
-  /// No description provided for @noteSectionPray.
-  ///
-  /// In en, this message translates to:
-  /// **'Prayer'**
-  String get noteSectionPray;
-
   /// No description provided for @noteQuotedVerses.
   ///
   /// In en, this message translates to:

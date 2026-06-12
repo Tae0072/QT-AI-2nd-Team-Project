@@ -126,29 +126,16 @@ class _NoteShareSheetState extends State<_NoteShareSheet> {
     }
   }
 
-  /// 공유용 텍스트 조립. 자유노트는 body, 묵상노트는 4섹션을 이어붙인다.
+  /// 공유용 텍스트 조립. 전 카테고리 단일 body(QT 포함).
   String _buildShareText(NoteDetail d) {
     final buf = StringBuffer();
     if (d.title.isNotEmpty) buf.writeln(d.title);
     buf.writeln();
-    if (d.isFreeNote) {
-      if ((d.body ?? '').isNotEmpty) buf.writeln(d.body);
-    } else {
-      _appendSection(buf, '느낀 점', d.rememberSection);
-      _appendSection(buf, '기억할 구절', d.interpretSection);
-      _appendSection(buf, '적용할 점', d.applySection);
-      _appendSection(buf, '기도', d.praySection);
-    }
+    if ((d.body ?? '').isNotEmpty) buf.writeln(d.body);
     buf.writeln('\n— QT-AI');
     return buf.toString().trim();
   }
 
-  void _appendSection(StringBuffer buf, String label, String? text) {
-    if (text == null || text.isEmpty) return;
-    buf.writeln('[$label]');
-    buf.writeln(text);
-    buf.writeln();
-  }
 }
 
 /// 공유용 미리보기 카드(이미지로 캡처되는 위젯).
@@ -197,15 +184,7 @@ class _ShareCard extends StatelessWidget {
     );
   }
 
-  // 카드에 보여줄 본문 요약 — 자유노트는 body, 묵상은 4섹션을 합친다.
-  String _previewBody(NoteDetail d) {
-    if (d.isFreeNote) return (d.body ?? '').isEmpty ? '(내용 없음)' : d.body!;
-    final parts = [
-      d.rememberSection,
-      d.interpretSection,
-      d.applySection,
-      d.praySection,
-    ].where((e) => e != null && e.isNotEmpty).cast<String>();
-    return parts.isEmpty ? '(내용 없음)' : parts.join('\n\n');
-  }
+  // 카드에 보여줄 본문 요약 — 전 카테고리 단일 body(QT 포함).
+  String _previewBody(NoteDetail d) =>
+      (d.body ?? '').isEmpty ? '(내용 없음)' : d.body!;
 }
