@@ -61,8 +61,7 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
         qtPassageId: qtPassageId,
         referenceText: _referenceText,
         verseLabels: {
-          for (final verse in _range.verses)
-            verse.id: '${verse.chapterNo}:${verse.verseNo}',
+          for (final verse in _range.verses) verse.id: '${verse.verseNo}',
         },
       ),
     );

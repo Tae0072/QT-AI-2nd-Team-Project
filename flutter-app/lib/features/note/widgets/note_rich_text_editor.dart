@@ -30,6 +30,11 @@ class NoteRichBodyController extends TextEditingController {
   }
 }
 
+enum NoteRichTextToolbarPlacement {
+  bottom,
+  top,
+}
+
 /// 리치텍스트 본문 편집 영역 (툴바 + @멘션 구절 삽입 + 본문 입력).
 ///
 /// QT 노트 에디터에서 추출해 자유 노트 N-03과 공유한다(QA ③⑨ A안).
@@ -53,6 +58,13 @@ class NoteRichTextEditor extends ConsumerStatefulWidget {
   /// QT 에디터는 passage 절을 따로 저장하므로 이 콜백을 쓰지 않는다.
   final void Function(List<int> verseIds)? onVerseInserted;
 
+  /// 본문 입력창 위에 함께 배치할 화면별 헤더(예: 제목 입력 박스).
+  final Widget? header;
+
+  /// 서식 수정바 배치 위치. 기본값은 기존 자유 노트 화면과 같은 본문 아래이다.
+  /// [top]은 화면별 header가 있으면 header 아래, 본문 입력창 위에 배치한다.
+  final NoteRichTextToolbarPlacement toolbarPlacement;
+
   const NoteRichTextEditor({
     super.key,
     required this.controller,
@@ -60,6 +72,8 @@ class NoteRichTextEditor extends ConsumerStatefulWidget {
     this.bodyFieldKey,
     this.bodyScrollKey,
     this.onVerseInserted,
+    this.header,
+    this.toolbarPlacement = NoteRichTextToolbarPlacement.bottom,
   });
 
   @override
@@ -73,6 +87,7 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
   static const Color _defaultBackgroundColor = Colors.transparent;
 
   final _editorScrollController = ScrollController();
+  final _bodyFocusNode = FocusNode();
   Future<List<BibleBook>>? _booksFuture;
   String? _mentionQuery;
   TextSelection? _lastSelectedBodyRange;
@@ -101,6 +116,7 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
   @override
   void dispose() {
     _bodyController.removeListener(_handleBodyChanged);
+    _bodyFocusNode.dispose();
     _editorScrollController.dispose();
     super.dispose();
   }
@@ -273,7 +289,7 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
 
   void _wrapSelection(String marker) {
     final text = _bodyController.text;
-    final selection = _bodyController.selection;
+    final selection = _styleTargetSelection();
     final start = selection.start < 0 ? text.length : selection.start;
     final end = selection.end < 0 ? text.length : selection.end;
     final selected = text.substring(start, end);
@@ -416,22 +432,31 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final toolbar = QtNoteFormatToolbar(
+      fontSize: _fontSize,
+      textColor: _textColor,
+      backgroundColor: _backgroundColor,
+      onFontSize: _openFontSizeSheet,
+      onBold: () => _wrapSelection('**'),
+      onTextColor: _openTextColorSheet,
+      onBackgroundColor: _openBackgroundColorSheet,
+      onIndent: () => _prefixCurrentLine('    '),
+      onBullet: () => _prefixCurrentLine('• '),
+      onParenNumber: () => _prefixCurrentLine('(1) '),
+      onPlainNumber: () => _prefixCurrentLine('1) '),
+      onVerseMention: () => _insertAtCursor('@'),
+    );
+
     return Column(
       children: [
-        QtNoteFormatToolbar(
-          fontSize: _fontSize,
-          textColor: _textColor,
-          backgroundColor: _backgroundColor,
-          onFontSize: _openFontSizeSheet,
-          onBold: () => _wrapSelection('**'),
-          onTextColor: _openTextColorSheet,
-          onBackgroundColor: _openBackgroundColorSheet,
-          onIndent: () => _prefixCurrentLine('    '),
-          onBullet: () => _prefixCurrentLine('• '),
-          onParenNumber: () => _prefixCurrentLine('(1) '),
-          onPlainNumber: () => _prefixCurrentLine('1) '),
-          onVerseMention: () => _insertAtCursor('@'),
-        ),
+        if (widget.header != null) ...[
+          widget.header!,
+          const SizedBox(height: 8),
+        ],
+        if (widget.toolbarPlacement == NoteRichTextToolbarPlacement.top) ...[
+          toolbar,
+          const SizedBox(height: 8),
+        ],
         if (_mentionQuery != null)
           _MentionSuggestions(
             query: _mentionQuery!,
@@ -446,6 +471,7 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
             child: TextField(
               key: widget.bodyFieldKey,
               controller: _bodyController,
+              focusNode: _bodyFocusNode,
               scrollController: _editorScrollController,
               hintLocales: const [Locale('ko', 'KR')],
               enableSuggestions: false,
@@ -469,6 +495,8 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
             ),
           ),
         ),
+        if (widget.toolbarPlacement == NoteRichTextToolbarPlacement.bottom)
+          toolbar,
       ],
     );
   }
