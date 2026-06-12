@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +37,56 @@ void main() {
 
     expect(first, same);
     expect(first, isNot(changed));
+  });
+
+  test('QtVideoCache reuses an existing non-expired video file', () async {
+    final root = Directory.systemTemp.createTempSync('qt-video-cache-test-');
+    QtVideoCache.debugCacheRootOverride = root;
+    try {
+      const videoUrl = 'https://cdn.example.com/videos/full.mp4';
+      final cacheKey = qtVideoCacheKey(7, videoUrl);
+      final cacheDir = Directory(_join(root.path, 'qt-video-cache'))
+        ..createSync(recursive: true);
+      final cacheFile = File(_join(cacheDir.path, cacheKey))
+        ..writeAsBytesSync([1, 2, 3]);
+
+      final result = await QtVideoCache.existingFile(
+        cacheKey: cacheKey,
+        videoUrl: videoUrl,
+      );
+
+      expect(result?.path, cacheFile.path);
+    } finally {
+      QtVideoCache.debugCacheRootOverride = null;
+      root.deleteSync(recursive: true);
+    }
+  });
+
+  test('QtVideoCache expires a cached video file after 24 hours', () async {
+    final root = Directory.systemTemp.createTempSync('qt-video-cache-test-');
+    QtVideoCache.debugCacheRootOverride = root;
+    try {
+      const videoUrl = 'https://cdn.example.com/videos/full.mp4';
+      final cacheKey = qtVideoCacheKey(7, videoUrl);
+      final cacheDir = Directory(_join(root.path, 'qt-video-cache'))
+        ..createSync(recursive: true);
+      final cacheFile = File(_join(cacheDir.path, cacheKey))
+        ..writeAsBytesSync([1, 2, 3]);
+      cacheFile.setLastModifiedSync(
+        DateTime.now().subtract(const Duration(hours: 25)),
+      );
+
+      final result = await QtVideoCache.existingFile(
+        cacheKey: cacheKey,
+        videoUrl: videoUrl,
+      );
+
+      expect(result, isNull);
+      expect(cacheFile.existsSync(), isFalse);
+    } finally {
+      QtVideoCache.debugCacheRootOverride = null;
+      root.deleteSync(recursive: true);
+    }
   });
 
   testWidgets(
@@ -90,6 +142,13 @@ void main() {
 
     expect(find.byType(QtVideoPlayer), findsOneWidget);
   });
+}
+
+String _join(String left, String right) {
+  if (left.endsWith(Platform.pathSeparator)) {
+    return '$left$right';
+  }
+  return '$left${Platform.pathSeparator}$right';
 }
 
 Widget _testApp(Widget child) {

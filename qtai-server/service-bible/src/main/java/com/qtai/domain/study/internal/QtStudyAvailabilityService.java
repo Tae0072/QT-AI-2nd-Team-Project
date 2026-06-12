@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase;
 import com.qtai.domain.study.api.dto.QtStudyAvailability;
+import com.qtai.domain.qtvideo.api.GetQtVideoAvailabilityUseCase;
 
 /**
  * Today QT enrich용 가용성 판정 — 승인 콘텐츠 존재 여부만 가볍게 조회한다.
@@ -25,15 +26,12 @@ class QtStudyAvailabilityService implements GetQtStudyAvailabilityUseCase {
     private static final String SIMULATOR_MISSING = "MISSING";
     private static final String ACTIVE_UNIQUE_KEY = "ACTIVE";
 
-    private final SimulatorClipRepository simulatorClipRepository;
+    private final GetQtVideoAvailabilityUseCase getQtVideoAvailabilityUseCase;
     private final VerseExplanationRepository verseExplanationRepository;
 
     @Override
     public QtStudyAvailability getAvailability(Long qtPassageId, List<Long> verseIds) {
-        boolean simulatorReady = qtPassageId != null && simulatorClipRepository
-                .findFirstByQtPassageIdAndStatusOrderByApprovedAtDescIdDesc(
-                        qtPassageId, SimulatorClipStatus.APPROVED)
-                .isPresent();
+        boolean simulatorReady = getQtVideoAvailabilityUseCase.hasReadyVideo(qtPassageId);
 
         boolean hasExplanation = verseIds != null && !verseIds.isEmpty()
                 && !verseExplanationRepository.findByBibleVerseIdInAndStatusAndActiveUniqueKey(
