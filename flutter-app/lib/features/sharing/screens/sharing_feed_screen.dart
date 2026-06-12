@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../providers/sharing_providers.dart';
 import '../widgets/post_card.dart';
+import '../widgets/sharing_feed_palette.dart';
 
-/// 나눔 피드 화면 (S-01).
+/// 나눔 피드 화면 (S-01) — 시안(흰 배경) 기준.
 ///
 /// - 카테고리 필터 (전체/묵상/설교/기도/감사/회개)
 /// - 텍스트 검색
@@ -33,11 +33,12 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
   Widget build(BuildContext context) {
     final postsAsync = ref.watch(sharingPostsProvider);
     final selectedCategory = ref.watch(sharingCategoryFilterProvider);
-    final theme = Theme.of(context);
     final l = AppLocalizations.of(context);
 
     return Scaffold(
+      backgroundColor: SharingFeedPalette.bg,
       appBar: AppBar(
+        backgroundColor: SharingFeedPalette.bg,
         title: Text(l.navShare),
         centerTitle: true,
         actions: [
@@ -57,10 +58,36 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
               controller: _searchController,
+              style: const TextStyle(
+                  fontFamily: 'GowunDodum',
+                  fontSize: 14,
+                  color: SharingFeedPalette.text),
               decoration: InputDecoration(
                 hintText: l.sharingSearchHint,
-                prefixIcon: const Icon(Icons.search),
+                hintStyle: const TextStyle(
+                    fontFamily: 'GowunDodum',
+                    fontSize: 14,
+                    color: SharingFeedPalette.muted),
+                prefixIcon: const Icon(Icons.search,
+                    color: SharingFeedPalette.muted, size: 20),
                 isDense: true,
+                filled: true,
+                fillColor: SharingFeedPalette.fieldBg,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: SharingFeedPalette.text, width: 1),
+                ),
               ),
               onSubmitted: (value) {
                 ref.read(sharingQueryProvider.notifier).state =
@@ -71,40 +98,22 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
 
           // 카테고리 필터
           SizedBox(
-            height: 40,
+            height: 44,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
-                _CategoryChip(
-                    label: l.noteFilterAll,
-                    value: null,
-                    selected: selectedCategory),
-                _CategoryChip(
-                    label: l.catMeditation,
-                    value: 'MEDITATION',
-                    selected: selectedCategory),
-                _CategoryChip(
-                    label: l.catSermon,
-                    value: 'SERMON',
-                    selected: selectedCategory),
-                _CategoryChip(
-                    label: l.catPrayer,
-                    value: 'PRAYER',
-                    selected: selectedCategory),
-                _CategoryChip(
-                    label: l.catGratitude,
-                    value: 'GRATITUDE',
-                    selected: selectedCategory),
-                _CategoryChip(
-                    label: l.catRepentance,
-                    value: 'REPENTANCE',
-                    selected: selectedCategory),
+                _CategoryChip(label: l.noteFilterAll, value: null, selected: selectedCategory),
+                _CategoryChip(label: l.catMeditation, value: 'MEDITATION', selected: selectedCategory),
+                _CategoryChip(label: l.catSermon, value: 'SERMON', selected: selectedCategory),
+                _CategoryChip(label: l.catPrayer, value: 'PRAYER', selected: selectedCategory),
+                _CategoryChip(label: l.catGratitude, value: 'GRATITUDE', selected: selectedCategory),
+                _CategoryChip(label: l.catRepentance, value: 'REPENTANCE', selected: selectedCategory),
               ],
             ),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
 
           // 목록
           Expanded(
@@ -113,8 +122,10 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
                 if (response.items.isEmpty) {
                   return Center(
                     child: Text(l.sharingFeedEmpty,
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: theme.colorScheme.outline)),
+                        style: const TextStyle(
+                            fontFamily: 'GowunDodum',
+                            fontSize: 14,
+                            color: SharingFeedPalette.muted)),
                   );
                 }
 
@@ -123,15 +134,13 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
                   child: ListView.separated(
                     itemCount: response.items.length,
                     padding: const EdgeInsets.only(bottom: 12),
-                    separatorBuilder: (_, __) => Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: context.appColors.hairline),
+                    separatorBuilder: (_, __) => const Divider(
+                        height: 1, thickness: 1, color: SharingFeedPalette.divider),
                     itemBuilder: (context, index) {
                       final item = response.items[index];
                       return PostCard(
                         item: item,
-                        // 낙관적 좋아요: 즉시 갱신, 실패 시 롤백 + 안내(전체 재조회 없음).
+                        // 좋아요 낙관적 업데이트: 즉시 반영, 실패 시 롤백(상태 provider 처리).
                         onLike: () async {
                           final wasLiked = item.likedByMe;
                           try {
@@ -166,6 +175,7 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
   }
 }
 
+/// 카테고리 필터 칩 (시안): 선택=검정 채움+체크, 비선택=흰 배경+회색 테두리.
 class _CategoryChip extends ConsumerWidget {
   final String label;
   final String? value;
@@ -176,14 +186,47 @@ class _CategoryChip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isSelected = selected == value;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: FilterChip(
-        label: Text(label),
-        selected: selected == value,
-        onSelected: (_) {
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () {
           ref.read(sharingCategoryFilterProvider.notifier).state = value;
         },
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isSelected ? SharingFeedPalette.text : Colors.white,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: isSelected
+                    ? SharingFeedPalette.text
+                    : SharingFeedPalette.chipBorder,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isSelected) ...[
+                  const Icon(Icons.check, size: 15, color: Colors.white),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'GowunDodum',
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected ? Colors.white : SharingFeedPalette.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
