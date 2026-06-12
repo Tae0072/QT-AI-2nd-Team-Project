@@ -18,7 +18,7 @@
 - (권장) 에뮬레이터 수동 워크스루: 목차 장+절 선택 → 본문 장 전체+포커스, 절 탭-탭 범위, 노트 작성하기 → 설교 노트 본문 동봉
 
 ## 리뷰 보강(머지 전, 동일 브랜치)
-- **포커스 스크롤 신뢰성**: lazy 빌드로 먼 절에서 `ensureVisible` 실패 가능 → ListView `cacheExtent`를 키워 장 전체를 미리 빌드.
+- **포커스 스크롤 신뢰성**: lazy 빌드로 먼 절에서 `ensureVisible` 실패 가능 → 장 전체를 빌드하는 `SingleChildScrollView`로 구성해 포커스 대상 보장. 최신 Flutter의 `cacheExtent` deprecation에도 영향받지 않음.
 - **해설 가용성 선택 동기화**: 현재 탭-탭 선택 범위로 `/qt/passage-study`를 조회하고, 해설 화면의 참조 라벨·절 라벨도 같은 범위를 전달하도록 통일. 빈 장은 잘못된 `1절` 해설 조회를 만들지 않도록 가드.
 - **신규 로직 단위 테스트**: 포커스 보정·범위 라벨을 순수 함수(`passage_view_logic.dart`)로 분리해 테스트 추가.
 - **인터랙티브 위젯 테스트(REQUEST_CHANGES 2차)**: ① 탭-탭 범위 선택 시 선택 라벨 갱신, ② '노트 작성하기' → 설교 노트(verseIds·참조 동봉) 네비게이션, ③ 인용 미리보기 박스 표시/미표시 위젯 테스트 추가. `VerseRangeSelection` from<=to 불변식 테스트. note 에디터 인용 박스 색을 하드코딩 → Calm Paper 토큰(`context.appColors`)으로 정리.

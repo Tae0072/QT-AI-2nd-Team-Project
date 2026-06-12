@@ -50,10 +50,6 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
   final _scrollController = ScrollController();
   final Map<int, GlobalKey> _verseKeys = {};
 
-  /// 포커스 스크롤(ensureVisible) 신뢰성을 위해 장 전체 절을 미리 빌드하는 캐시 범위(px).
-  /// 한 장은 최대 ~176절(시편 119편)이고 텍스트 위젯이라 전체 선빌드 비용은 허용 범위로 본다.
-  static const double _chapterCacheExtent = 100000;
-
   BibleVerseRange get _chapter => widget.chapter;
   List<BibleVerse> get _verses => _chapter.verses;
 
@@ -174,69 +170,71 @@ class _BiblePassageScreenState extends ConsumerState<BiblePassageScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView(
+            child: SingleChildScrollView(
               controller: _scrollController,
-              // 한 장의 모든 절을 미리 빌드해, 먼 절로의 포커스 스크롤
-              // (Scrollable.ensureVisible)이 지연 빌드로 실패하지 않게 한다.
-              cacheExtent: _chapterCacheExtent,
               padding: const EdgeInsets.fromLTRB(
                 AppGap.xl,
                 AppGap.md,
                 AppGap.xl,
                 AppGap.xxl,
               ),
-              children: [
-                Wrap(
-                  spacing: AppGap.sm,
-                  runSpacing: AppGap.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    FilledButton.icon(
-                      key: const Key('bible-explanation-button'),
-                      onPressed: explanationReady
-                          ? () => _openExplanation(explanation.qtPassageId!)
-                          : null,
-                      icon: const Icon(Icons.menu_book_outlined),
-                      label: Text(l.bibleExplanation),
-                    ),
-                    FilterChip(
-                      key: const Key('bible-browser-english-toggle'),
-                      selected: _showEnglish,
-                      onSelected: (selected) =>
-                          setState(() => _showEnglish = selected),
-                      label: const Text('영어'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppGap.sm),
-                Text(
-                  '절을 탭하면 단일 선택, 한 번 더 다른 절을 탭하면 범위로 지정됩니다.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.textMuted,
+              // 한 장의 모든 절을 한 번에 빌드해 먼 절도 첫 프레임 뒤
+              // Scrollable.ensureVisible 대상으로 사용할 수 있게 한다.
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Wrap(
+                    spacing: AppGap.sm,
+                    runSpacing: AppGap.sm,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      FilledButton.icon(
+                        key: const Key('bible-explanation-button'),
+                        onPressed: explanationReady
+                            ? () => _openExplanation(explanation.qtPassageId!)
+                            : null,
+                        icon: const Icon(Icons.menu_book_outlined),
+                        label: Text(l.bibleExplanation),
+                      ),
+                      FilterChip(
+                        key: const Key('bible-browser-english-toggle'),
+                        selected: _showEnglish,
+                        onSelected: (selected) =>
+                            setState(() => _showEnglish = selected),
+                        label: const Text('영어'),
+                      ),
+                    ],
                   ),
-                ),
-                if (_showEnglish) ...[
                   const SizedBox(height: AppGap.sm),
                   Text(
-                    book.englishName,
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    '절을 탭하면 단일 선택, 한 번 더 다른 절을 탭하면 범위로 지정됩니다.',
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: colors.textMuted,
                     ),
                   ),
+                  if (_showEnglish) ...[
+                    const SizedBox(height: AppGap.sm),
+                    Text(
+                      book.englishName,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.textMuted,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: AppGap.lg),
+                  Divider(color: colors.hairline, height: 1),
+                  const SizedBox(height: AppGap.lg),
+                  for (final verse in _verses)
+                    _PassageVerseTile(
+                      key: _verseKeys[verse.verseNo],
+                      verse: verse,
+                      showEnglish: _showEnglish,
+                      selected: verse.verseNo >= _selection.from &&
+                          verse.verseNo <= _selection.to,
+                      onTap: () => _tapVerse(verse.verseNo),
+                    ),
                 ],
-                const SizedBox(height: AppGap.lg),
-                Divider(color: colors.hairline, height: 1),
-                const SizedBox(height: AppGap.lg),
-                for (final verse in _verses)
-                  _PassageVerseTile(
-                    key: _verseKeys[verse.verseNo],
-                    verse: verse,
-                    showEnglish: _showEnglish,
-                    selected: verse.verseNo >= _selection.from &&
-                        verse.verseNo <= _selection.to,
-                    onTap: () => _tapVerse(verse.verseNo),
-                  ),
-              ],
+              ),
             ),
           ),
           _NoteActionBar(
