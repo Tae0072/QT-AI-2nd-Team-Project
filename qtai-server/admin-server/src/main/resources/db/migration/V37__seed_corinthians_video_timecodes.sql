@@ -3,8 +3,6 @@
 -- The source row stays INACTIVE with an internal placeholder URL until an
 -- approved storage URL is imported/updated by operations.
 
-SET @corinthians_placeholder_url := 'qt-video://unconfigured/1-corinthians-full';
-
 INSERT INTO source_videos (
     bible_book_id,
     title,
@@ -17,15 +15,13 @@ INSERT INTO source_videos (
     46,
     '1 Corinthians full video timecode source',
     'UNCONFIGURED',
-    @corinthians_placeholder_url,
+    'qt-video://unconfigured/1-corinthians-full',
     NULL,
     'INACTIVE',
     'ACTIVE'
 )
 ON DUPLICATE KEY UPDATE
-    id = LAST_INSERT_ID(id);
-
-SET @corinthians_source_video_id := LAST_INSERT_ID();
+    id = id;
 
 INSERT INTO bible_verse_video_segments (
     bible_verse_id,
@@ -35,7 +31,7 @@ INSERT INTO bible_verse_video_segments (
 )
 SELECT
     ordered_verses.bible_verse_id,
-    @corinthians_source_video_id,
+    source_video.id,
     CAST((ordered_verses.verse_index - 1) * 10.000 AS DECIMAL(10, 3)),
     CAST(ordered_verses.verse_index * 10.000 AS DECIMAL(10, 3))
 FROM (
@@ -45,6 +41,10 @@ FROM (
     FROM bible_verses
     WHERE book_id = 46
 ) ordered_verses
+JOIN source_videos source_video
+  ON source_video.bible_book_id = 46
+ AND source_video.active_unique_key = 'ACTIVE'
+ AND source_video.video_url = 'qt-video://unconfigured/1-corinthians-full'
 ON DUPLICATE KEY UPDATE
     start_time_sec = VALUES(start_time_sec),
     end_time_sec = VALUES(end_time_sec),
