@@ -1725,7 +1725,7 @@
 
 - **상세 조회:** 관리자 공지 편집 화면에서 전체 본문을 다시 채우기 위해 `bodyPreview`가 아니라 전체 `body`를 반환한다. 관리자 권한을 가진 운영자는 `DRAFT`, `PUBLISHED`, `HIDDEN` 상태 공지를 모두 조회할 수 있다.
 - **입력 검증:** `title`은 1~100자, `body`는 1~10,000자이며 공지 본문은 plain text로만 저장한다. HTML/script 삽입을 막기 위해 `<`, `>` 문자는 허용하지 않는다. 생성 시 `status`는 생략하거나 `DRAFT`만 허용한다. 수정 요청에는 `status`를 포함하지 않는다.
-- **상태 전이:** 수정과 발행은 `DRAFT` 상태에서만 가능하다. 숨김은 `DRAFT → HIDDEN`, `PUBLISHED → HIDDEN` 전이를 허용하고, 이미 `HIDDEN`인 공지는 `409 C0007 INVALID_STATUS_TRANSITION`으로 거부한다.
+- **상태 전이:** 수정과 발행은 `DRAFT` 상태에서만 가능하다. `PUBLISHED` 또는 `HIDDEN` 상태에서 수정/발행을 시도하면 `409 C0007 INVALID_STATUS_TRANSITION`을 반환한다. 숨김은 `DRAFT → HIDDEN`, `PUBLISHED → HIDDEN` 전이를 허용하고, 이미 `HIDDEN`인 공지는 `409 C0007 INVALID_STATUS_TRANSITION`으로 거부한다.
 
 발행 응답:
 
@@ -1743,7 +1743,7 @@
 ```
 
 - **발행 정책:** `PUBLISHED` 전환 시 대상 회원에게 `notifications.type=NOTICE`, `notifications.notice_id=notices.id`를 생성한다. 알림 생성이 일부 실패하면 공지 상태는 `PUBLISHED`로 유지하고 `notificationResult.failedCount`와 감사 로그에 실패를 기록한다.
-- **숨김 처리:** `POST /api/v1/admin/notices/{id}/hide`는 `notices.status=HIDDEN`으로 변경한다. 이미 생성된 알림은 삭제하지 않지만 링크 이동 시 숨김 안내를 반환한다.
+- **숨김 처리:** `POST /api/v1/admin/notices/{id}/hide`는 `notices.status=HIDDEN`으로 변경하고 본문 없이 `204 No Content`를 반환한다. 클라이언트가 변경된 `status=HIDDEN` 값을 화면에 반영하려면 목록 또는 상세를 재조회한다. 이미 생성된 알림은 삭제하지 않지만 링크 이동 시 숨김 안내를 반환한다.
 - **성공 코드:** 목록/상세/수정/발행 `200 OK`, 생성 `201 Created`, 숨김 `204 No Content`
 - **실패 코드:** `400 VALIDATION_ERROR` 또는 `C0002 INVALID_INPUT`(생성/수정 입력값 오류), `401 M0002 UNAUTHORIZED`, `403 M0003 FORBIDDEN`(ADMIN 아님), `403 AD0003 ADMIN_ROLE_INSUFFICIENT`(세부 관리자 권한 부족), `404 C0004 RESOURCE_NOT_FOUND`(없는 공지), `409 C0007 INVALID_STATUS_TRANSITION`, `500 C0001 INTERNAL_ERROR`
 
