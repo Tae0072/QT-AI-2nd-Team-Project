@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../../routes/app_router.dart';
+import '../../note/providers/note_providers.dart';
 import '../models/bible_chapter_counts.dart';
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
@@ -356,6 +358,31 @@ class _BibleTocHeader extends StatelessWidget {
                   ),
                 ),
               ),
+              // 노트 버튼 — 클릭 시 기록(노트) 화면으로 이동(설교 노트 맥락).
+              // 실제 기록은 기록 화면이 담당. (이전 #505에 있던 진입점 복원)
+              Consumer(
+                builder: (context, ref, _) => TextButton.icon(
+                  onPressed: () {
+                    ref.read(noteCategoryFilterProvider.notifier).state =
+                        'SERMON';
+                    Navigator.of(context).pushNamed(AppRouter.noteList);
+                  },
+                  icon: Icon(Icons.edit_note_outlined,
+                      size: 18, color: colors.text),
+                  label: Text('노트',
+                      style: TextStyle(
+                          color: colors.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: colors.text,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
             ],
           ),
         ),
