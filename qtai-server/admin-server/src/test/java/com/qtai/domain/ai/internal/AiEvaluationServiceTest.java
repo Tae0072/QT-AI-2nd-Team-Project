@@ -358,6 +358,25 @@ class AiEvaluationServiceTest {
         assertThat(saved.getTargetType()).isEqualTo(AiTargetType.QA_REQUEST);
         assertThat(saved.getTargetId()).isEqualTo(700L);
         assertThat(saved.getInputJson()).contains("\"reportId\":789").contains("\"reason\":\"FACT_ERROR\"");
+        ArgumentCaptor<AuditLogWriteRequest> auditCaptor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
+        verify(auditLogUseCase).write(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().actionType()).isEqualTo("EVAL_CASE_REPORT_CANDIDATE");
+        assertThat(auditCaptor.getValue().targetType()).isEqualTo("AI_EVALUATION_CASE");
+        assertThat(auditCaptor.getValue().targetId()).isEqualTo(305L);
+    }
+
+    @Test
+    void createReportCandidateDuplicateGuardRejects() {
+        when(setRepository.findById(20L)).thenReturn(Optional.of(evaluationSet()));
+        when(getReportUseCase.getReportForEvaluation(789L)).thenReturn(
+                new ReportForEvaluation(789L, "AI_QA_REQUEST", 700L, "FACT_ERROR", "RECEIVED", 999L));
+        when(caseRepository.existsBySourceTypeAndSourceId(AiEvaluationSourceType.USER_REPORT, 789L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.createReportCandidate(new CreateAiEvaluationReportCandidateCommand(
+                7L, "ADMIN", "REVIEWER", 20L, 789L, null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
     }
 
     @Test

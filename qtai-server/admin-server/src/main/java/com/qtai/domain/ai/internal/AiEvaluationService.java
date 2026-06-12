@@ -305,6 +305,11 @@ public class AiEvaluationService implements
             throw new BusinessException(ErrorCode.INVALID_INPUT, "report target type does not match evaluation set");
         }
 
+        if (caseRepository.existsBySourceTypeAndSourceId(AiEvaluationSourceType.USER_REPORT, command.reportId())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE,
+                    "report " + command.reportId() + " is already registered as an evaluation candidate");
+        }
+
         AiEvaluationCase saved = caseRepository.save(AiEvaluationCase.create(
                 set.getId(),
                 derivedTargetType,
@@ -316,6 +321,7 @@ public class AiEvaluationService implements
                 normalizeOptionalJson(command.expectedPolicyJson(), "expectedPolicyJson"),
                 OffsetDateTime.now(clock)
         ));
+        writeCaseAudit(command.adminId(), "EVAL_CASE_REPORT_CANDIDATE", saved.getId(), null, toJson(snapshot));
         return toCaseResponse(saved);
     }
 

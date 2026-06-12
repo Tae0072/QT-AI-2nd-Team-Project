@@ -209,6 +209,60 @@ class AdminAiEvaluationControllerTest {
                 .andExpect(jsonPath("$.data.status").value("CANDIDATE"));
     }
 
+    @Test
+    void reportCandidateEndpointReturnsCreated() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("REVIEWER", "CONTENT_CREATOR"))))
+                .thenReturn(new AdminUserInfo(100L, 7L, "REVIEWER"));
+        when(reportCandidateUseCase.createReportCandidate(any())).thenReturn(caseResponse("CANDIDATE"));
+
+        mockMvc.perform(post("/api/v1/admin/ai/reports/789/evaluation-candidates")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "evaluationSetId":20,
+                                  "expectedPolicyJson":{"expectedResult":"REJECTED"}
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").value(301))
+                .andExpect(jsonPath("$.data.status").value("CANDIDATE"));
+    }
+
+    @Test
+    void manualCaseIdentifierOnlySucceeds() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("REVIEWER", "CONTENT_CREATOR"))))
+                .thenReturn(new AdminUserInfo(100L, 7L, "CONTENT_CREATOR"));
+        when(createCaseUseCase.createEvaluationCase(any())).thenReturn(caseResponse("CANDIDATE"));
+
+        mockMvc.perform(post("/api/v1/admin/ai/evaluation-sets/20/cases")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetType":"QA_REQUEST",
+                                  "targetId":1001,
+                                  "sourceType":"ADMIN_CREATED"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").value(301));
+    }
+
+    @Test
+    void manualCaseMissingTargetIdReturns400() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/ai/evaluation-sets/20/cases")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetType":"QA_REQUEST",
+                                  "sourceType":"ADMIN_CREATED"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
     private static Authentication authentication(String authority) {
         TestingAuthenticationToken authentication = new TestingAuthenticationToken("7", "n/a", authority);
         authentication.setAuthenticated(true);
