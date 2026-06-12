@@ -16,6 +16,11 @@ import com.qtai.domain.ai.api.admin.asset.dto.ListAdminAiAssetsQuery;
 @Repository
 public class AdminAiAssetQueryRepository {
 
+    private static final List<AiGenerationJobStatus> ACTIVE_GENERATION_STATUSES = List.of(
+            AiGenerationJobStatus.QUEUED,
+            AiGenerationJobStatus.RUNNING
+    );
+
     private static final String LATEST_VALIDATION_JOIN = """
             left join AiValidationLog latestValidation
               on latestValidation.id = (
@@ -36,13 +41,29 @@ public class AdminAiAssetQueryRepository {
             join AiPromptVersion promptVersion on promptVersion.id = job.promptVersionId
             """ + LATEST_VALIDATION_JOIN;
 
-    private static final String LIST_WHERE = """
+    private static final String COUNT_FROM = """
+            from AiGeneratedAsset asset
+            join AiGenerationJob job on job.id = asset.generationJobId
+            """;
+
+    private static final String BASE_WHERE = """
             where (:assetType is null or asset.assetType = :assetType)
               and (:targetType is null or asset.targetType = :targetType)
               and (:status is null or asset.status = :status)
               and (:promptVersionId is null or job.promptVersionId = :promptVersionId)
+            """;
+
+    private static final String LIST_WHERE = BASE_WHERE + """
               and (:checklistVersionId is null or latestValidation.checklistVersionId = :checklistVersionId)
             """;
+
+    private static final String CHECKLIST_VERSION_WHERE = """
+              and latestValidation.checklistVersionId = :checklistVersionId
+            """;
+
+    private static final String COUNT_FROM_WITH_LATEST_VALIDATION = COUNT_FROM + LATEST_VALIDATION_JOIN;
+
+    private static final String COUNT_WHERE_WITH_CHECKLIST_VERSION = BASE_WHERE + CHECKLIST_VERSION_WHERE;
 
     private final EntityManager entityManager;
 
@@ -51,6 +72,10 @@ public class AdminAiAssetQueryRepository {
     }
 
     public AdminAiAssetPage findAll(ListAdminAiAssetsQuery query, Pageable pageable) {
+        AiGeneratedAssetType assetType = parseEnum(AiGeneratedAssetType.class, query.assetType(), "assetType");
+        AiTargetType targetType = parseEnum(AiTargetType.class, query.targetType(), "targetType");
+        AiGeneratedAssetStatus status = parseEnum(AiGeneratedAssetStatus.class, query.status(), "status");
+
         List<Object[]> rows = entityManager.createQuery("""
                         select asset.id,
                                asset.assetType,
@@ -68,28 +93,40 @@ public class AdminAiAssetQueryRepository {
                         """ + LIST_FROM + LIST_WHERE + """
                         order by asset.createdAt desc, asset.id desc
                         """, Object[].class)
-                .setParameter("assetType", parseEnum(AiGeneratedAssetType.class, query.assetType(), "assetType"))
-                .setParameter("targetType", parseEnum(AiTargetType.class, query.targetType(), "targetType"))
-                .setParameter("status", parseEnum(AiGeneratedAssetStatus.class, query.status(), "status"))
+                .setParameter("assetType", assetType)
+                .setParameter("targetType", targetType)
+                .setParameter("status", status)
                 .setParameter("promptVersionId", query.promptVersionId())
                 .setParameter("checklistVersionId", query.checklistVersionId())
                 .setFirstResult((int) pageable.getOffset())
                 .setMaxResults(pageable.getPageSize())
                 .getResultList();
 
-        Long totalElements = entityManager.createQuery("""
+        boolean hasChecklistVersionFilter = query.checklistVersionId() != null;
+        String countQueryString = """
                         select count(asset.id)
-                        """ + LIST_FROM + LIST_WHERE, Long.class)
-                .setParameter("assetType", parseEnum(AiGeneratedAssetType.class, query.assetType(), "assetType"))
-                .setParameter("targetType", parseEnum(AiTargetType.class, query.targetType(), "targetType"))
-                .setParameter("status", parseEnum(AiGeneratedAssetStatus.class, query.status(), "status"))
-                .setParameter("promptVersionId", query.promptVersionId())
-                .setParameter("checklistVersionId", query.checklistVersionId())
-                .getSingleResult();
+                        """ + countFrom(hasChecklistVersionFilter) + countWhere(hasChecklistVersionFilter);
+        var countQuery = entityManager.createQuery(countQueryString, Long.class)
+                .setParameter("assetType", assetType)
+                .setParameter("targetType", targetType)
+                .setParameter("status", status)
+                .setParameter("promptVersionId", query.promptVersionId());
+        if (hasChecklistVersionFilter) {
+            countQuery.setParameter("checklistVersionId", query.checklistVersionId());
+        }
+        Long totalElements = countQuery.getSingleResult();
 
         return new AdminAiAssetPage(rows.stream()
                 .map(AdminAiAssetListRow::from)
                 .toList(), totalElements);
+    }
+
+    private static String countFrom(boolean hasChecklistVersionFilter) {
+        return hasChecklistVersionFilter ? COUNT_FROM_WITH_LATEST_VALIDATION : COUNT_FROM;
+    }
+
+    private static String countWhere(boolean hasChecklistVersionFilter) {
+        return hasChecklistVersionFilter ? COUNT_WHERE_WITH_CHECKLIST_VERSION : BASE_WHERE;
     }
 
     public Optional<AdminAiAssetDetailRow> findDetail(Long assetId) {
@@ -128,6 +165,41 @@ public class AdminAiAssetQueryRepository {
             return Optional.empty();
         }
         return Optional.of(AdminAiAssetDetailRow.from(rows.get(0)));
+    }
+
+    public Optional<AdminAiGenerationJobRow> findActiveGenerationJob(
+            AiGenerationJobType jobType,
+            AiTargetType targetType,
+            Long targetId
+    ) {
+        List<Object[]> rows = entityManager.createQuery("""
+                        select job.id,
+                               job.jobType,
+                               job.targetType,
+                               job.targetId,
+                               job.promptVersionId,
+                               job.status,
+                               job.createdAt,
+                               job.startedAt,
+                               job.finishedAt,
+                               job.errorMessage
+                        from AiGenerationJob job
+                        where job.jobType = :jobType
+                          and job.targetType = :targetType
+                          and job.targetId = :targetId
+                          and job.status in :statuses
+                        order by job.createdAt desc, job.id desc
+                        """, Object[].class)
+                .setParameter("jobType", jobType)
+                .setParameter("targetType", targetType)
+                .setParameter("targetId", targetId)
+                .setParameter("statuses", ACTIVE_GENERATION_STATUSES)
+                .setMaxResults(1)
+                .getResultList();
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(AdminAiGenerationJobRow.from(rows.get(0)));
     }
 
     public List<AdminAiValidationLogRow> findValidationLogs(Long assetId) {
@@ -254,6 +326,35 @@ public class AdminAiAssetQueryRepository {
                     (AiPromptType) row[20],
                     (String) row[21],
                     (AiPromptVersionStatus) row[22]
+            );
+        }
+    }
+
+    public record AdminAiGenerationJobRow(
+            Long id,
+            AiGenerationJobType jobType,
+            AiTargetType targetType,
+            Long targetId,
+            Long promptVersionId,
+            AiGenerationJobStatus status,
+            OffsetDateTime createdAt,
+            OffsetDateTime startedAt,
+            OffsetDateTime finishedAt,
+            String errorMessage
+    ) {
+
+        private static AdminAiGenerationJobRow from(Object[] row) {
+            return new AdminAiGenerationJobRow(
+                    (Long) row[0],
+                    (AiGenerationJobType) row[1],
+                    (AiTargetType) row[2],
+                    (Long) row[3],
+                    (Long) row[4],
+                    (AiGenerationJobStatus) row[5],
+                    (OffsetDateTime) row[6],
+                    (OffsetDateTime) row[7],
+                    (OffsetDateTime) row[8],
+                    (String) row[9]
             );
         }
     }
