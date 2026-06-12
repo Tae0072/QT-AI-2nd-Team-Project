@@ -146,6 +146,28 @@ void main() {
     expect(repo.updatedNoteId, 7);
     expect(repo.updatedVerseIds, [500]);
   });
+
+  testWidgets('성경 본문 진입 시 인용 미리보기(참조·본문)를 읽기 전용으로 보여준다',
+      (tester) async {
+    await pump(
+      tester,
+      args: const NoteEditArgs(
+        category: 'SERMON',
+        verseIds: [101],
+        referenceText: '창세기 1:1-2',
+        versePreview: '태초에 하나님이 천지를 창조하시니라',
+      ),
+    );
+
+    expect(find.text('창세기 1:1-2'), findsOneWidget);
+    expect(find.text('태초에 하나님이 천지를 창조하시니라'), findsOneWidget);
+  });
+
+  testWidgets('인용 정보가 없으면 미리보기 박스를 그리지 않는다', (tester) async {
+    await pump(tester, args: const NoteEditArgs(category: 'PRAYER'));
+
+    expect(find.byIcon(Icons.menu_book_outlined), findsNothing);
+  });
 }
 
 NoteDetail _sermonDetail() => NoteDetail(

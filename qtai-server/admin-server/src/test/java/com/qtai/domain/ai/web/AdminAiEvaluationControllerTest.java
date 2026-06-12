@@ -22,6 +22,7 @@ import com.qtai.domain.ai.api.admin.evaluation.ActivateAiEvaluationSetUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.ApproveAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationAssetCandidateUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationCaseUseCase;
+import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationReportCandidateUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationSetUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationSetUseCase;
@@ -71,6 +72,8 @@ class AdminAiEvaluationControllerTest {
     @Mock
     private CreateAiEvaluationAssetCandidateUseCase assetCandidateUseCase;
     @Mock
+    private CreateAiEvaluationReportCandidateUseCase reportCandidateUseCase;
+    @Mock
     private VerifyAdminRoleUseCase verifyAdminRoleUseCase;
 
     private MockMvc mockMvc;
@@ -93,6 +96,7 @@ class AdminAiEvaluationControllerTest {
                 approveCaseUseCase,
                 rejectCaseUseCase,
                 assetCandidateUseCase,
+                reportCandidateUseCase,
                 authentication,
                 objectMapper,
                 Clock.systemDefaultZone()
@@ -203,6 +207,60 @@ class AdminAiEvaluationControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.id").value(301))
                 .andExpect(jsonPath("$.data.status").value("CANDIDATE"));
+    }
+
+    @Test
+    void reportCandidateEndpointReturnsCreated() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("REVIEWER", "CONTENT_CREATOR"))))
+                .thenReturn(new AdminUserInfo(100L, 7L, "REVIEWER"));
+        when(reportCandidateUseCase.createReportCandidate(any())).thenReturn(caseResponse("CANDIDATE"));
+
+        mockMvc.perform(post("/api/v1/admin/ai/reports/789/evaluation-candidates")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "evaluationSetId":20,
+                                  "expectedPolicyJson":{"expectedResult":"REJECTED"}
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").value(301))
+                .andExpect(jsonPath("$.data.status").value("CANDIDATE"));
+    }
+
+    @Test
+    void manualCaseIdentifierOnlySucceeds() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("REVIEWER", "CONTENT_CREATOR"))))
+                .thenReturn(new AdminUserInfo(100L, 7L, "CONTENT_CREATOR"));
+        when(createCaseUseCase.createEvaluationCase(any())).thenReturn(caseResponse("CANDIDATE"));
+
+        mockMvc.perform(post("/api/v1/admin/ai/evaluation-sets/20/cases")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetType":"QA_REQUEST",
+                                  "targetId":1001,
+                                  "sourceType":"ADMIN_CREATED"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").value(301));
+    }
+
+    @Test
+    void manualCaseMissingTargetIdReturns400() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/ai/evaluation-sets/20/cases")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetType":"QA_REQUEST",
+                                  "sourceType":"ADMIN_CREATED"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
     }
 
     private static Authentication authentication(String authority) {

@@ -21,6 +21,7 @@ import com.qtai.domain.ai.api.admin.evaluation.ActivateAiEvaluationSetUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.ApproveAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationAssetCandidateUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationCaseUseCase;
+import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationReportCandidateUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationSetUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationSetUseCase;
@@ -37,6 +38,7 @@ import com.qtai.domain.ai.api.admin.evaluation.dto.ChangeAiEvaluationCaseStatusC
 import com.qtai.domain.ai.api.admin.evaluation.dto.ChangeAiEvaluationSetStatusCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationAssetCandidateCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationCaseCommand;
+import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationReportCandidateCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationSetCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.GetAiEvaluationCaseQuery;
 import com.qtai.domain.ai.api.admin.evaluation.dto.GetAiEvaluationSetQuery;
@@ -44,6 +46,8 @@ import com.qtai.domain.ai.api.admin.evaluation.dto.ListAiEvaluationCasesQuery;
 import com.qtai.domain.ai.api.admin.evaluation.dto.ListAiEvaluationSetsQuery;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
+import com.qtai.domain.report.api.GetReportUseCase;
+import com.qtai.domain.report.api.dto.ReportForEvaluation;
 
 @Service
 public class AiEvaluationService implements
@@ -57,7 +61,8 @@ public class AiEvaluationService implements
         GetAiEvaluationCaseUseCase,
         ApproveAiEvaluationCaseUseCase,
         RejectAiEvaluationCaseUseCase,
-        CreateAiEvaluationAssetCandidateUseCase {
+        CreateAiEvaluationAssetCandidateUseCase,
+        CreateAiEvaluationReportCandidateUseCase {
 
     private static final int MAX_PAGE_SIZE = 100;
     private static final int MIN_APPROVED_CASES_TO_ACTIVATE = 10;
@@ -69,6 +74,7 @@ public class AiEvaluationService implements
     private final AiEvaluationCaseRepository caseRepository;
     private final AiGeneratedAssetRepository assetRepository;
     private final WriteAuditLogUseCase auditLogUseCase;
+    private final GetReportUseCase getReportUseCase;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
@@ -78,9 +84,11 @@ public class AiEvaluationService implements
             AiEvaluationCaseRepository caseRepository,
             AiGeneratedAssetRepository assetRepository,
             WriteAuditLogUseCase auditLogUseCase,
+            GetReportUseCase getReportUseCase,
             ObjectMapper objectMapper
     ) {
-        this(setRepository, caseRepository, assetRepository, auditLogUseCase, objectMapper, Clock.systemDefaultZone());
+        this(setRepository, caseRepository, assetRepository, auditLogUseCase, getReportUseCase, objectMapper,
+                Clock.systemDefaultZone());
     }
 
     AiEvaluationService(
@@ -88,6 +96,7 @@ public class AiEvaluationService implements
             AiEvaluationCaseRepository caseRepository,
             AiGeneratedAssetRepository assetRepository,
             WriteAuditLogUseCase auditLogUseCase,
+            GetReportUseCase getReportUseCase,
             ObjectMapper objectMapper,
             Clock clock
     ) {
@@ -95,6 +104,7 @@ public class AiEvaluationService implements
         this.caseRepository = caseRepository;
         this.assetRepository = assetRepository;
         this.auditLogUseCase = auditLogUseCase;
+        this.getReportUseCase = getReportUseCase;
         this.objectMapper = objectMapper;
         this.clock = clock;
     }
@@ -202,14 +212,18 @@ public class AiEvaluationService implements
     public AiEvaluationCaseResponse createEvaluationCase(CreateAiEvaluationCaseCommand command) {
         requireValidCreateCase(command);
         findSet(command.evaluationSetId());
+        AiTargetType targetType = parseEnumRequired(AiTargetType.class, command.targetType(), "targetType");
+        AiEvaluationSourceType sourceType = parseEnumRequired(AiEvaluationSourceType.class, command.sourceType(), "sourceType");
+        // 수동 추가도 식별자·메타만 저장한다 — 자유 텍스트(원문/프롬프트/민감정보)는 받지도 저장하지도 않는다(§7).
+        String inputJson = toJson(manualCaseSnapshot(targetType, command.targetId(), sourceType));
         AiEvaluationCase saved = caseRepository.save(AiEvaluationCase.create(
                 command.evaluationSetId(),
-                parseEnumRequired(AiTargetType.class, command.targetType(), "targetType"),
+                targetType,
                 command.targetId(),
-                parseEnumRequired(AiEvaluationSourceType.class, command.sourceType(), "sourceType"),
-                command.sourceId(),
-                normalizeRequiredJson(command.inputJson(), "inputJson"),
-                normalizeOptionalJson(command.expectedOutputJson(), "expectedOutputJson"),
+                sourceType,
+                null,
+                inputJson,
+                null,
                 normalizeOptionalJson(command.expectedPolicyJson(), "expectedPolicyJson"),
                 OffsetDateTime.now(clock)
         ));
@@ -257,6 +271,57 @@ public class AiEvaluationService implements
                 normalizeOptionalJson(command.expectedPolicyJson(), "expectedPolicyJson"),
                 OffsetDateTime.now(clock)
         ));
+        return toCaseResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public AiEvaluationCaseResponse createReportCandidate(CreateAiEvaluationReportCandidateCommand command) {
+        requireValidReportCandidate(command);
+        AiEvaluationSet set = findSet(command.evaluationSetId());
+        ReportForEvaluation report = getReportUseCase.getReportForEvaluation(command.reportId());
+
+        // 신고 대상 유형 → 평가 대상 유형 파생(AI 신고만 허용). FE는 판단값만 보내고 백엔드가 메타로 inputJson 조립.
+        final AiTargetType derivedTargetType;
+        final Long derivedTargetId;
+        final Map<String, Object> snapshot;
+        String reportTargetType = report.targetType();
+        if ("AI_QA_REQUEST".equals(reportTargetType)) {
+            derivedTargetType = AiTargetType.QA_REQUEST;
+            derivedTargetId = report.targetId();
+            snapshot = reportCandidateSnapshot(report, null);
+        } else if ("AI_ASSET".equals(reportTargetType)) {
+            AiGeneratedAsset asset = assetRepository.findById(report.targetId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.AI_ASSET_NOT_FOUND));
+            derivedTargetType = asset.getTargetType();
+            derivedTargetId = asset.getTargetId();
+            snapshot = reportCandidateSnapshot(report, asset);
+        } else {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "only AI reports (AI_QA_REQUEST/AI_ASSET) can be registered as evaluation candidates");
+        }
+
+        if (derivedTargetType != set.getTargetType()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "report target type does not match evaluation set");
+        }
+
+        if (caseRepository.existsBySourceTypeAndSourceId(AiEvaluationSourceType.USER_REPORT, command.reportId())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE,
+                    "report " + command.reportId() + " is already registered as an evaluation candidate");
+        }
+
+        AiEvaluationCase saved = caseRepository.save(AiEvaluationCase.create(
+                set.getId(),
+                derivedTargetType,
+                derivedTargetId,
+                AiEvaluationSourceType.USER_REPORT,
+                report.id(),
+                toJson(snapshot),
+                null,
+                normalizeOptionalJson(command.expectedPolicyJson(), "expectedPolicyJson"),
+                OffsetDateTime.now(clock)
+        ));
+        writeCaseAudit(command.adminId(), "EVAL_CASE_REPORT_CANDIDATE", saved.getId(), null, toJson(snapshot));
         return toCaseResponse(saved);
     }
 
@@ -364,6 +429,37 @@ public class AiEvaluationService implements
         return payload;
     }
 
+    /**
+     * 신고 후보 inputJson — 식별자·메타데이터만 담는다. 신고 원문/상세(detail)·프롬프트·민감정보는 저장하지 않는다(§7).
+     * AI_ASSET 신고면 연결 산출물 메타를 보강한다.
+     */
+    private Map<String, Object> reportCandidateSnapshot(ReportForEvaluation report, AiGeneratedAsset asset) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("reportId", report.id());
+        payload.put("reportTargetType", report.targetType());
+        payload.put("reportTargetId", report.targetId());
+        payload.put("reason", report.reason());
+        payload.put("reportStatus", report.status());
+        payload.put("reporterMemberId", report.reporterMemberId());
+        if (asset != null) {
+            payload.put("linkedAssetId", asset.getId());
+            payload.put("linkedAssetType", asset.getAssetType().name());
+            payload.put("linkedAssetTargetType", asset.getTargetType().name());
+            payload.put("linkedAssetTargetId", asset.getTargetId());
+            payload.put("linkedAssetSourceLabel", asset.getSourceLabel());
+        }
+        return payload;
+    }
+
+    /** 수동 추가 inputJson — 식별자·메타만 담는다(자유 텍스트/원문/프롬프트 미저장, §7). */
+    private Map<String, Object> manualCaseSnapshot(AiTargetType targetType, Long targetId, AiEvaluationSourceType sourceType) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("targetType", targetType.name());
+        payload.put("targetId", targetId);
+        payload.put("sourceType", sourceType.name());
+        return payload;
+    }
+
     private String caseAuditSnapshot(AiEvaluationCase evaluationCase, String reviewReason) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("id", evaluationCase.getId());
@@ -391,11 +487,6 @@ public class AiEvaluationService implements
                 beforeJson,
                 afterJson
         ));
-    }
-
-    private String normalizeRequiredJson(String value, String fieldName) {
-        requireText(value, fieldName);
-        return normalizeOptionalJson(value, fieldName);
     }
 
     private String normalizeOptionalJson(String value, String fieldName) {
@@ -442,8 +533,8 @@ public class AiEvaluationService implements
         requireValidActor(command.adminId(), command.memberRole(), command.adminRole());
         requirePositive(command.evaluationSetId(), "evaluationSetId");
         requireText(command.targetType(), "targetType");
+        requirePositive(command.targetId(), "targetId");
         requireText(command.sourceType(), "sourceType");
-        requireText(command.inputJson(), "inputJson");
         if (command.status() != null && !command.status().isBlank()
                 && !AiEvaluationCaseStatus.CANDIDATE.name().equals(command.status())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "status must be CANDIDATE when provided");
@@ -457,6 +548,15 @@ public class AiEvaluationService implements
         requireValidActor(command.adminId(), command.memberRole(), command.adminRole());
         requirePositive(command.evaluationSetId(), "evaluationSetId");
         requirePositive(command.assetId(), "assetId");
+    }
+
+    private static void requireValidReportCandidate(CreateAiEvaluationReportCandidateCommand command) {
+        if (command == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        requireValidActor(command.adminId(), command.memberRole(), command.adminRole());
+        requirePositive(command.evaluationSetId(), "evaluationSetId");
+        requirePositive(command.reportId(), "reportId");
     }
 
     private static void requireValidPageQuery(Long adminId, String memberRole, String adminRole, int page, int size) {

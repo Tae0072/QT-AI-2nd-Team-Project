@@ -15,4 +15,6 @@ public interface AiEvaluationCaseRepository extends JpaRepository<AiEvaluationCa
             AiEvaluationCaseStatus status,
             Pageable pageable
     );
+
+    boolean existsBySourceTypeAndSourceId(AiEvaluationSourceType sourceType, Long sourceId);
 }

@@ -55,12 +55,6 @@ const TARGET_TYPE_OPTIONS = [
   { label: 'Q&A 요청(QA_REQUEST)', value: 'QA_REQUEST' },
 ];
 
-const SOURCE_TYPE_OPTIONS = [
-  { label: '검증 실패(VALIDATION_FAILURE)', value: 'VALIDATION_FAILURE' },
-  { label: '사용자 신고(USER_REPORT)', value: 'USER_REPORT' },
-  { label: '관리자 작성(ADMIN_CREATED)', value: 'ADMIN_CREATED' },
-];
-
 const SET_STATUS_OPTIONS = [
   { label: '초안(DRAFT)', value: 'DRAFT' },
   { label: '활성(ACTIVE)', value: 'ACTIVE' },
@@ -93,18 +87,13 @@ function caseStatusTag(status: string) {
   return <Tag color={m.color}>{m.text}</Tag>;
 }
 
-// 비어 있으면 undefined, 값이 있으면 JSON 파싱(실패 시 throw). 생성 모달의 JSON 입력 공통 처리.
-function parseJsonOptional(text?: string): unknown {
-  const t = (text ?? '').trim();
-  if (!t) return undefined;
-  return JSON.parse(t);
-}
-
-// 응답의 JSON 문자열을 보기 좋게(가능하면 들여쓰기) 표시.
+// 응답의 JSON 값을 보기 좋게 표시. 자연어로 저장된 기대 판정(JSON 문자열)은 따옴표를 벗겨 그대로 보여준다.
 function prettyJson(value: string | null): string {
   if (!value) return '-';
   try {
-    return JSON.stringify(JSON.parse(value), null, 2);
+    const parsed = JSON.parse(value);
+    if (typeof parsed === 'string') return parsed; // 자연어 판정 문자열
+    return JSON.stringify(parsed, null, 2);
   } catch {
     return value;
   }
@@ -161,13 +150,6 @@ export default function AiEvaluationsPage() {
     } catch {
       return; // 폼 검증 실패 → 모달 유지
     }
-    let policy: unknown;
-    try {
-      policy = parseJsonOptional(values.expectedPolicyJson);
-    } catch {
-      message.error('기대 정책(JSON) 형식이 올바르지 않습니다.');
-      return;
-    }
     setCreating(true);
     try {
       await createEvaluationSet({
@@ -177,9 +159,10 @@ export default function AiEvaluationsPage() {
         targetType: values.targetType,
         description: values.description?.trim() || undefined,
         status: values.status,
-        expectedPolicyJson: policy,
+        // 기대 판정은 자연어. 서버는 JsonNode라 문자열 값으로 저장된다(판단값, 원문 아님).
+        expectedPolicyJson: values.expectedPolicyJson?.trim() || undefined,
       });
-      message.success('평가 세트을 만들었습니다.');
+      message.success('평가 세트를 만들었습니다.');
       setCreateOpen(false);
       form.resetFields();
       reload();
@@ -361,7 +344,7 @@ export default function AiEvaluationsPage() {
                 <Typography.Text type="secondary">
                   설명: {r.description || '-'}
                 </Typography.Text>
-                <Typography.Text type="secondary">기대 정책(JSON)</Typography.Text>
+                <Typography.Text type="secondary">기대 판정</Typography.Text>
                 <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
                   {prettyJson(r.expectedPolicyJson)}
                 </pre>
@@ -437,10 +420,13 @@ export default function AiEvaluationsPage() {
           </Form.Item>
           <Form.Item
             name="expectedPolicyJson"
-            label="기대 정책 JSON (선택)"
-            extra='예: {"expectedResult":"REJECTED"} — 비워두면 전송하지 않습니다.'
+            label="기대 판정 (선택)"
+            extra="자연어로 적습니다. 예: 가치 판단 질문은 차단되어야 함"
           >
-            <Input.TextArea rows={3} placeholder='{"expectedResult":"REJECTED"}' />
+            <Input.TextArea
+              rows={3}
+              placeholder="예: 가치 판단·신앙 평가 질문은 차단(BLOCKED)되어야 함"
+            />
           </Form.Item>
         </Form>
       </Modal>
@@ -467,15 +453,11 @@ export default function AiEvaluationsPage() {
 
 // ----- 케이스 패널 (드로어 내부, 셋별 독립 목록) -----
 
+// 수동 추가 폼 — 식별자·기대판정만(자유 텍스트 없음). inputJson은 서버가 메타로 조립한다.
 interface CreateCaseFormValues {
   targetType: string;
-  targetId?: number;
-  sourceType: string;
-  sourceId?: number;
-  inputJson: string;
-  expectedOutputJson?: string;
+  targetId: number;
   expectedPolicyJson?: string;
-  status?: string;
 }
 
 function EvaluationCasesPanel({
@@ -498,7 +480,7 @@ function EvaluationCasesPanel({
 
   const [status, setStatus] = useState<string | undefined>(undefined);
 
-  // 케이스 생성 모달
+  // 수동 추가 모달(식별자·기대판정만)
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form] = Form.useForm<CreateCaseFormValues>();
@@ -524,32 +506,14 @@ function EvaluationCasesPanel({
     } catch {
       return;
     }
-    let input: unknown;
-    let expectedOutput: unknown;
-    let expectedPolicy: unknown;
-    try {
-      input = parseJsonOptional(values.inputJson);
-      expectedOutput = parseJsonOptional(values.expectedOutputJson);
-      expectedPolicy = parseJsonOptional(values.expectedPolicyJson);
-    } catch {
-      message.error('JSON 형식이 올바르지 않습니다.');
-      return;
-    }
-    if (input === undefined) {
-      message.error('입력(JSON)은 필수입니다.');
-      return;
-    }
     setCreating(true);
     try {
+      // 자유 텍스트 없이 식별자·기대판정(자연어)만. sourceType은 수동=ADMIN_CREATED.
       await createEvaluationCase(setId, {
         targetType: values.targetType,
         targetId: values.targetId,
-        sourceType: values.sourceType,
-        sourceId: values.sourceId,
-        inputJson: input,
-        expectedOutputJson: expectedOutput,
-        expectedPolicyJson: expectedPolicy,
-        status: values.status,
+        sourceType: 'ADMIN_CREATED',
+        expectedPolicyJson: values.expectedPolicyJson?.trim() || undefined,
       });
       message.success('평가 항목을 추가했습니다.');
       setCreateOpen(false);
@@ -699,6 +663,11 @@ function EvaluationCasesPanel({
         </Button>
       </Space>
 
+      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+        수동 추가는 대상 식별자(유형·ID)만 입력합니다. 원문/프롬프트는 저장하지 않습니다.
+        ‘AI 산출물 검증’·‘신고 처리’ 화면에서도 평가 항목으로 등록할 수 있습니다.
+      </Typography.Text>
+
       <Table<EvaluationCase>
         rowKey="id"
         size="small"
@@ -709,14 +678,12 @@ function EvaluationCasesPanel({
         expandable={{
           expandedRowRender: (r) => (
             <Space direction="vertical" size={4} style={{ width: '100%' }}>
-              <Typography.Text type="secondary">입력(JSON)</Typography.Text>
+              <Typography.Text type="secondary">입력(식별자·메타)</Typography.Text>
               <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
                 {prettyJson(r.inputJson)}
               </pre>
-              <Typography.Text type="secondary">기대 출력 / 정책(JSON)</Typography.Text>
+              <Typography.Text type="secondary">기대 판정</Typography.Text>
               <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                {prettyJson(r.expectedOutputJson)}
-                {'\n'}
                 {prettyJson(r.expectedPolicyJson)}
               </pre>
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -738,7 +705,7 @@ function EvaluationCasesPanel({
         }}
       />
 
-      {/* 케이스 생성 모달 */}
+      {/* 평가 항목 추가 모달 — 식별자·기대판정만(자유 텍스트 없음) */}
       <Modal
         open={createOpen}
         title="평가 항목 추가"
@@ -752,9 +719,12 @@ function EvaluationCasesPanel({
         <Form<CreateCaseFormValues>
           form={form}
           layout="vertical"
-          initialValues={{ status: 'CANDIDATE' }}
           preserve={false}
         >
+          <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
+            대상 식별자만 저장합니다(원문/프롬프트 미저장). 출처는 ADMIN_CREATED로
+            기록됩니다.
+          </Typography.Paragraph>
           <Form.Item
             name="targetType"
             label="대상 유형"
@@ -762,38 +732,23 @@ function EvaluationCasesPanel({
           >
             <Select placeholder="대상 유형 선택" options={TARGET_TYPE_OPTIONS} />
           </Form.Item>
-          <Form.Item name="targetId" label="대상 ID (선택)">
-            <InputNumber style={{ width: '100%' }} min={1} placeholder="예: 1001" />
-          </Form.Item>
           <Form.Item
-            name="sourceType"
-            label="출처 유형"
-            rules={[{ required: true, message: '출처 유형을 선택하세요.' }]}
+            name="targetId"
+            label="대상 ID"
+            rules={[{ required: true, message: '대상 ID를 입력하세요.' }]}
+            extra="평가 대상의 식별자 (예: QA 요청 ID 700, 성경 절 ID 1001)"
           >
-            <Select placeholder="출처 유형 선택" options={SOURCE_TYPE_OPTIONS} />
-          </Form.Item>
-          <Form.Item name="sourceId" label="출처 ID (선택)">
             <InputNumber style={{ width: '100%' }} min={1} placeholder="예: 700" />
           </Form.Item>
           <Form.Item
-            name="inputJson"
-            label="입력 JSON (필수)"
-            rules={[{ required: true, message: '입력 JSON을 입력하세요.' }]}
-            extra='예: {"question":"여기서 태초는 무슨 뜻인가요?"}'
+            name="expectedPolicyJson"
+            label="기대 판정 (선택)"
+            extra="자연어로 적습니다. 예: 이 답변은 차단되어야 함"
           >
-            <Input.TextArea rows={3} placeholder='{"question":"..."}' />
-          </Form.Item>
-          <Form.Item name="expectedOutputJson" label="기대 출력 JSON (선택)">
-            <Input.TextArea rows={2} placeholder='{"status":"ANSWERED"}' />
-          </Form.Item>
-          <Form.Item name="expectedPolicyJson" label="기대 정책 JSON (선택)">
             <Input.TextArea
               rows={2}
-              placeholder='{"status":"BLOCKED","blockedReason":"VALUE_JUDGMENT"}'
+              placeholder="예: 가치 판단 질문이므로 차단(BLOCKED)되어야 함"
             />
-          </Form.Item>
-          <Form.Item name="status" label="초기 상태">
-            <Select options={CASE_STATUS_OPTIONS} />
           </Form.Item>
         </Form>
       </Modal>

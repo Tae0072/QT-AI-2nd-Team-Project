@@ -45,10 +45,10 @@ void main() {
     await tester.tap(find.byKey(const Key('bible-selection-bar')));
     await tester.pumpAndSettle();
 
+    // 본문은 장 전체를 부른다(getChapterVerses). 절 from/to는 더 이상 서버로 안 감.
     expect(repository.requestedBookCode, 'GEN');
     expect(repository.requestedChapter, 1);
-    expect(repository.requestedVerseFrom, 2);
-    expect(repository.requestedVerseTo, 2);
+    // 선택한 2절이 포커스로 전달돼 장 전체 중 그 절이 보인다.
     expect(find.text('1:2'), findsOneWidget);
     expect(find.text('테스트 본문 2'), findsOneWidget);
     expect(find.text('Test English body 2'), findsNothing);
@@ -62,7 +62,7 @@ void main() {
 
   testWidgets('BibleBrowserScreen shows safe message when search fails',
       (tester) async {
-    final repository = _FakeBibleRepository(failSearch: true);
+    final repository = _FakeBibleRepository();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -79,6 +79,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    repository.failChapterRequests = true;
     await tester.tap(find.byKey(const Key('bible-selection-bar')));
     await tester.pump();
 
@@ -93,11 +94,9 @@ void main() {
 class _FakeBibleRepository extends BibleRepository {
   String? requestedBookCode;
   int? requestedChapter;
-  int? requestedVerseFrom;
-  int? requestedVerseTo;
-  final bool failSearch;
+  bool failChapterRequests = false;
 
-  _FakeBibleRepository({this.failSearch = false}) : super(Dio());
+  _FakeBibleRepository() : super(Dio());
 
   @override
   Future<BiblePassageStudy> getBiblePassageStudy({
@@ -128,6 +127,12 @@ class _FakeBibleRepository extends BibleRepository {
     required String bookCode,
     required int chapter,
   }) async {
+    // 본문 조회는 이제 장 전체(getChapterVerses)를 부른다.
+    if (failChapterRequests) {
+      throw StateError('boom');
+    }
+    requestedBookCode = bookCode;
+    requestedChapter = chapter;
     return BibleVerseRange(
       book: BibleVerseBook(
         code: bookCode,
@@ -163,30 +168,6 @@ class _FakeBibleRepository extends BibleRepository {
     required int verseFrom,
     required int verseTo,
   }) async {
-    if (failSearch) {
-      throw StateError('boom');
-    }
-    requestedBookCode = bookCode;
-    requestedChapter = chapter;
-    requestedVerseFrom = verseFrom;
-    requestedVerseTo = verseTo;
-    return BibleVerseRange(
-      book: BibleVerseBook(
-        code: bookCode,
-        koreanName: '창세기',
-        englishName: 'Genesis',
-        chapter: chapter,
-      ),
-      verses: [
-        BibleVerse(
-          id: 1000 + verseFrom,
-          bookCode: bookCode,
-          chapterNo: chapter,
-          verseNo: verseFrom,
-          koreanText: '테스트 본문 $verseFrom',
-          englishText: 'Test English body $verseFrom',
-        ),
-      ],
-    );
+    throw StateError('장 전체 화면은 getVerses를 호출하면 안 됩니다.');
   }
 }

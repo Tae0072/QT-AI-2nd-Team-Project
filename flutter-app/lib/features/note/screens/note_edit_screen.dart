@@ -2,30 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
 import '../widgets/note_rich_text_editor.dart';
 
-/// N-03 라우트 인자.
-///
-/// - 작성(N-02→N-03): category만 채워 보냄 (noteId=null)
-/// - 수정(N-04→N-03): noteId를 채워 보냄 → 편집 모드
-///
-/// 왜 클래스로 받냐면: 문자열/숫자 타입으로 모드를 구분하면 헷갈리고 깨지기 쉬워,
-/// "무엇을 넘기는지"가 코드에 드러나는 전용 인자 객체로 받는다.
-class NoteEditArgs {
-  final String? category; // 작성 모드에서 필수
-  final int? noteId; // 수정 모드에서 필수 (null이면 작성)
-
-  /// 작성 진입 시 미리 동봉하는 인용 절(설교 노트 ②: 성경 화면에서 선택한 절).
-  /// note_verses(verseIds)로 저장된다(§6.4.1). 자유노트(N-02)는 비운다.
-  final List<int>? verseIds;
-
-  const NoteEditArgs({this.category, this.noteId, this.verseIds});
-
-  bool get isEdit => noteId != null;
-}
+// N-03 라우트 인자 NoteEditArgs는 화면 간 계약이라 모델(note_models.dart)에 둔다.
+// 기존 import 경로(이 화면)와의 호환을 위해 re-export한다.
+export '../models/note_models.dart' show NoteEditArgs;
 
 /// 개인 노트 작성/수정 화면 (N-03).
 ///
@@ -169,6 +154,55 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  /// 성경 본문에서 진입할 때 선택 범위·인용 본문을 읽기 전용으로 보여준다.
+  /// (설교 노트: 어떤 본문을 보고 쓰는지 화면에 유지 — 오늘의 QT 노트와 동일한 맥락)
+  Widget _versePreview(BuildContext context) {
+    final reference = _args.referenceText;
+    final preview = _args.versePreview;
+    if (reference == null && preview == null) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.bgSunken,
+        borderRadius: BorderRadius.circular(10),
+        border: Border(left: BorderSide(color: colors.text, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (reference != null)
+            Row(
+              children: [
+                Icon(Icons.menu_book_outlined, size: 15, color: colors.text),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    reference,
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          if (preview != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              preview,
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -225,6 +259,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 12),
+              // 성경 본문에서 진입 시: 선택 범위·인용 본문 미리보기(읽기 전용).
+              _versePreview(context),
               // ✏️ 본문 편집(서식 툴바·@멘션·라이브 프리뷰)은 QT 노트와 공유하는
               // 리치텍스트 에디터에 위임한다(QA ③⑨). 저장 시 _bodyController.text를 읽는다.
               Expanded(
