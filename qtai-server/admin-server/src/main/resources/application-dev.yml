@@ -31,3 +31,9 @@ spring:
 qtai:
   security:
     dev-bypass: false
+
+# 관리자 웹(admin-web) 로컬 dev 오리진 허용 (SecurityConfig CORS).
+# admin-web vite dev 서버는 5173에서 뜨고, 프록시가 Origin: http://localhost:5173 을 그대로 전달한다.
+# 기본값(localhost:3000)만으로는 "Invalid CORS request" 403이 나므로 5173을 허용한다.
+cors:
+  allowed-origins: http://localhost:5173,http://localhost:3000

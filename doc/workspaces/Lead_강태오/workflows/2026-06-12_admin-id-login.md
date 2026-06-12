@@ -14,6 +14,7 @@
 - 보안: `SecurityConfig`에 두 경로 `permitAll`(`/api/v1/admin/**` hasRole보다 먼저). `PasswordEncoderConfig`(BCrypt) 빈 신설.
 - 에러코드: `ADMIN_LOGIN_FAILED("AD0004", 401)` 추가.
 - 시드/프로파일: `R__seed_dev_admin_account.sql`에 `username='admin'` + BCrypt 해시(평문 admin1234) 추가. `application-dev.yml`의 `qtai.security.dev-bypass: false`로 전환(정식 JWT 체인 활성 → 실토큰 로그인 일원화).
+- CORS: dev-bypass=false로 정식 SecurityConfig가 켜지면서 CORS 허용 오리진 기본값(`localhost:3000`)이 적용돼, admin-web(5173)에서 브라우저 요청이 `403 "Invalid CORS request"`로 거부됐다(서버→서버 curl은 Origin 헤더가 없어 통과 → 브라우저만 실패). `application-dev.yml`에 `cors.allowed-origins: http://localhost:5173,http://localhost:3000` 추가로 해소(브라우저 컨텍스트 fetch 200 확인).
 
 ## 변경 — 프런트 (admin-web)
 - `adminAuth.ts`: `loginAdminWithKakao` → `loginAdminWithPassword(username, password)` (`POST /admin/auth/login`).
