@@ -122,7 +122,7 @@ class _CurationTab extends ConsumerWidget {
                   onPressed: () async {
                     try {
                       final repository = ref.read(myPageRepositoryProvider);
-                      await repository.saveMyPraiseSong(song.id);
+                      await repository.saveMyPraiseSong(song.id, song.title);
                       ref.invalidate(myPraiseSongsProvider);
                       ref.invalidate(dashboardProvider);
                       if (context.mounted) {

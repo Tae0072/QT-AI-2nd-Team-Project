@@ -19,6 +19,7 @@ import { ReloadOutlined, PlusOutlined } from '@ant-design/icons';
 import type { PageParams } from '../api/types';
 import {
   listNotices,
+  getNotice,
   createNotice,
   updateNotice,
   publishNotice,
@@ -55,7 +56,7 @@ export default function NoticesPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Notice | null>(null);
-  const [editingBody, setEditingBody] = useState(''); // 목록엔 bodyPreview만 있어 수정 시 본문 미리 확보 불가 → 빈 값에서 편집
+  const [editLoading, setEditLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [form] = Form.useForm<NoticeRequest>();
@@ -66,12 +67,20 @@ export default function NoticesPage() {
     setOpen(true);
   };
 
-  const openEdit = (r: Notice) => {
+  const openEdit = async (r: Notice) => {
     setEditing(r);
-    // 목록 응답엔 bodyPreview만 있음 → 제목은 채우고 본문은 사용자가 다시 입력(상세 GET 부재)
     form.setFieldsValue({ title: r.title, body: '' });
-    setEditingBody(r.bodyPreview);
     setOpen(true);
+    setEditLoading(true);
+    try {
+      const detail = await getNotice(r.id);
+      form.setFieldsValue({ title: detail.title, body: detail.body });
+    } catch (e) {
+      message.error(errMessage(e, '공지 본문을 불러오지 못했습니다'));
+      setOpen(false);
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   const onSubmit = async () => {
@@ -240,21 +249,13 @@ export default function NoticesPage() {
         open={open}
         onOk={onSubmit}
         onCancel={() => setOpen(false)}
-        confirmLoading={saving}
+        confirmLoading={saving || editLoading}
+        okButtonProps={{ disabled: editLoading }}
         okText={editing ? '수정' : '등록'}
         cancelText="취소"
         forceRender
       >
-        {editing && (
-          <Alert
-            type="warning"
-            showIcon
-            style={{ marginBottom: 12 }}
-            message="본문 전체를 불러올 수 없습니다 (상세 GET 미제공)"
-            description={`수정하려면 본문을 다시 입력해 주세요. 기존 미리보기: ${editingBody || '(없음)'}`}
-          />
-        )}
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" disabled={editLoading}>
           <Form.Item
             label="제목"
             name="title"

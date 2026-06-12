@@ -7,6 +7,7 @@ import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../../sharing/providers/sharing_providers.dart';
 import '../models/note_models.dart';
+import '../models/qt_note_rich_text.dart';
 import '../providers/note_providers.dart';
 import '../widgets/note_publish_sheet.dart';
 import '../widgets/note_share_sheet.dart';
@@ -75,16 +76,13 @@ class _Actions extends ConsumerWidget {
           icon: const Icon(Icons.ios_share),
           onPressed: () => showNoteShareSheet(context, detail),
         ),
-        // 수정은 '본문만 있는 자유노트(기도/회개/감사)'에만 노출.
-        // - 묵상(4섹션)·설교(인용 절 보유)는 N-03 단일본문 편집이 데이터를 손상시킨다:
-        //   설교노트를 PATCH하면 verseIds 미전송으로 note_verses가 비워짐(04 §4.3.6).
-        // TODO(v2): 묵상은 QT 4섹션 화면, 설교는 절 선택 화면(B-03)이 생기면 연결.
-        if (writableNoteCategories.contains(detail.category))
-          IconButton(
-            tooltip: l.commonEdit,
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => _goEdit(context, ref),
-          ),
+        // 모든 노트는 단일 body라 N-03에서 수정 가능하다(작성=각 탭, 수정·삭제=기록).
+        // QT·설교의 인용 절(verseIds)은 편집 시 seed→PATCH로 보존된다(QA ⑪, 04 §4.3.6).
+        IconButton(
+          tooltip: l.commonEdit,
+          icon: const Icon(Icons.edit_outlined),
+          onPressed: () => _goEdit(context, ref),
+        ),
         IconButton(
           tooltip: l.commonDelete,
           icon: const Icon(Icons.delete_outline),
@@ -254,18 +252,10 @@ class _DetailBody extends StatelessWidget {
         ),
         const Divider(height: 24),
 
-        //   카테고리 분기: 묵상은 4섹션, 그 외(자유노트)는 body 한 덩이.
-        if (detail.isFreeNote)
-          Text(
-            (detail.body?.isNotEmpty ?? false) ? detail.body! : l.noteNoContent,
-            style: theme.textTheme.bodyLarge,
-          )
-        else ...[
-          _Section(label: l.noteSectionFelt, text: detail.rememberSection),
-          _Section(label: l.noteSectionVerse, text: detail.interpretSection),
-          _Section(label: l.noteSectionApply, text: detail.applySection),
-          _Section(label: l.noteSectionPray, text: detail.praySection),
-        ],
+        //   전 카테고리 단일 body(QT 포함). 마커는 편집기와 동일 파서로 렌더.
+        (detail.body?.isNotEmpty ?? false)
+            ? _RichNoteText(text: detail.body!, style: theme.textTheme.bodyLarge)
+            : Text(l.noteNoContent, style: theme.textTheme.bodyLarge),
 
         // 인용 절(있을 때만 표시) — V1은 보기 전용
         if (detail.verses.isNotEmpty) ...[
@@ -281,28 +271,24 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
-/// 묵상 노트 한 섹션(라벨 + 내용). 내용이 비면 표시하지 않는다.
-class _Section extends StatelessWidget {
-  final String label;
-  final String? text;
+/// 저장된 노트 본문을 편집기와 동일한 마크업(굵게 `**`, 하이라이트 `==`,
+/// 글자색·배경·크기 `[fg|bg|fs=..]`)으로 렌더한다.
+///
+/// 편집기는 [QtNoteRichTextParser]로 라이브 렌더하지만 상세 보기는 평문 [Text]라
+/// `**굵게**` 마커가 그대로 노출되던 버그를 수정한다(편집기와 동일 파서 사용).
+class _RichNoteText extends StatelessWidget {
+  final String text;
+  final TextStyle? style;
 
-  const _Section({required this.label, required this.text});
+  /// 이모지 클러스터 크기 — 편집기 `_defaultEmojiFontSize`와 동일.
+  static const double _emojiFontSize = 16;
+
+  const _RichNoteText({required this.text, required this.style});
 
   @override
   Widget build(BuildContext context) {
-    //   빈 섹션은 굳이 자리 차지하지 않게 숨긴다(일부 섹션만 작성 가능, 07 F-03).
-    if (text == null || text!.isEmpty) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: theme.textTheme.titleSmall),
-          const SizedBox(height: 4),
-          Text(text!, style: theme.textTheme.bodyLarge),
-        ],
-      ),
+    return Text.rich(
+      QtNoteRichTextParser.parse(text, style, emojiFontSize: _emojiFontSize),
     );
   }
 }

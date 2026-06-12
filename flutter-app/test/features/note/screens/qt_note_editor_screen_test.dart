@@ -6,7 +6,9 @@ import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/models/bible_reference.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/services/bible_repository.dart';
+import 'package:qtai_app/features/note/providers/note_providers.dart';
 import 'package:qtai_app/features/note/screens/qt_note_editor_screen.dart';
+import 'package:qtai_app/features/note/services/note_repository.dart';
 
 void main() {
   testWidgets('QT 노트 작성 화면은 본문과 작성 영역을 분리하고 이모티콘 입력을 유지한다', (tester) async {
@@ -65,6 +67,129 @@ void main() {
     expect(find.text('오늘 적용 🙂'), findsOneWidget);
   });
 
+  testWidgets('본문 입력 중에는 QT 본문 영역으로 튀지 않고 작성 영역과 입력값을 유지한다', (tester) async {
+    const args = QtNoteEditorArgs(
+      passage: TodayQtPassage(
+        qtPassageId: 3,
+        passageDate: '2026-06-05',
+        title: '성령으로 깨닫는 하나님의 지혜',
+        reference: BibleReference(
+          koreanBookName: '고린도전서',
+          englishBookName: '1 Corinthians',
+          chapter: 2,
+          verseFrom: 1,
+          verseTo: 16,
+        ),
+        book: BibleVerseBook(
+          code: '1CO',
+          koreanName: '고린도전서',
+          englishName: '1 Corinthians',
+          chapter: 2,
+        ),
+        verses: [
+          BibleVerse(
+            id: 2001,
+            bookCode: '1CO',
+            chapterNo: 2,
+            verseNo: 1,
+            koreanText: '더미 한글 본문 1',
+            englishText: 'Dummy English verse 1',
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(home: QtNoteEditorScreen(args: args)),
+      ),
+    );
+
+    final body = find.byKey(const ValueKey('qt-note-body-input'));
+    await tester.tap(body);
+    await tester.enterText(body, '첫 입력');
+    await tester.pump();
+
+    expect(find.text('QT 노트'), findsOneWidget);
+    expect(find.text('첫 입력'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('qt-note-passage-scroll')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('qt-note-editor-scroll')),
+      findsOneWidget,
+    );
+    expect(body.hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('키보드 inset 변화 후에도 본문 입력값과 포커스를 유지한다', (tester) async {
+    const args = QtNoteEditorArgs(
+      passage: TodayQtPassage(
+        qtPassageId: 3,
+        passageDate: '2026-06-05',
+        title: '성령으로 깨닫는 하나님의 지혜',
+        reference: BibleReference(
+          koreanBookName: '고린도전서',
+          englishBookName: '1 Corinthians',
+          chapter: 2,
+          verseFrom: 1,
+          verseTo: 16,
+        ),
+        book: BibleVerseBook(
+          code: '1CO',
+          koreanName: '고린도전서',
+          englishName: '1 Corinthians',
+          chapter: 2,
+        ),
+        verses: [
+          BibleVerse(
+            id: 2001,
+            bookCode: '1CO',
+            chapterNo: 2,
+            verseNo: 1,
+            koreanText: '더미 한글 본문 1',
+            englishText: 'Dummy English verse 1',
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(home: QtNoteEditorScreen(args: args)),
+      ),
+    );
+
+    final body = find.byKey(const ValueKey('qt-note-body-input'));
+    await tester.tap(body);
+    await tester.enterText(body, '첫 글자');
+    await tester.pump();
+
+    final beforeField = tester.widget<TextField>(body);
+    final beforeEditable = tester.widget<EditableText>(
+      find.descendant(of: body, matching: find.byType(EditableText)),
+    );
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pump();
+
+    final afterField = tester.widget<TextField>(body);
+    final afterEditable = tester.widget<EditableText>(
+      find.descendant(of: body, matching: find.byType(EditableText)),
+    );
+
+    expect(find.text('QT 노트'), findsOneWidget);
+    expect(afterField.controller, same(beforeField.controller));
+    expect(afterField.controller!.text, '첫 글자');
+    expect(afterEditable.focusNode, same(beforeEditable.focusNode));
+    expect(afterEditable.focusNode.hasFocus, isTrue);
+    expect(
+        find.byKey(const ValueKey('qt-note-passage-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('qt-note-editor-scroll')), findsOneWidget);
+  });
+
   testWidgets('작은 화면에서도 구절 삽입 버튼을 바로 누를 수 있다', (tester) async {
     tester.view.physicalSize = const Size(393, 852);
     tester.view.devicePixelRatio = 1;
@@ -109,6 +234,67 @@ void main() {
     );
 
     expect(find.byTooltip('구절 삽입').hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('서식 수정바는 제목 입력 박스와 본문 입력창 사이에 배치된다',
+      (tester) async {
+    const args = QtNoteEditorArgs(
+      passage: TodayQtPassage(
+        qtPassageId: 3,
+        passageDate: '2026-06-05',
+        title: '성령으로 깨닫는 하나님의 지혜',
+        reference: BibleReference(
+          koreanBookName: '고린도전서',
+          englishBookName: '1 Corinthians',
+          chapter: 2,
+          verseFrom: 1,
+          verseTo: 16,
+        ),
+        book: BibleVerseBook(
+          code: '1CO',
+          koreanName: '고린도전서',
+          englishName: '1 Corinthians',
+          chapter: 2,
+        ),
+        verses: [
+          BibleVerse(
+            id: 2001,
+            bookCode: '1CO',
+            chapterNo: 2,
+            verseNo: 1,
+            koreanText: '더미 한글 본문 1',
+            englishText: 'Dummy English verse 1',
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(home: QtNoteEditorScreen(args: args)),
+      ),
+    );
+
+    final titleBottom = tester.getBottomLeft(find.bySemanticsLabel('제목')).dy;
+    final boldTop = tester.getTopLeft(find.byTooltip('굵게')).dy;
+    final boldBottom = tester.getBottomLeft(find.byTooltip('굵게')).dy;
+    final bodyTop = tester
+        .getTopLeft(find.byKey(const ValueKey('qt-note-body-input')))
+        .dy;
+
+    expect(titleBottom, lessThanOrEqualTo(boldTop));
+    expect(boldBottom, lessThanOrEqualTo(bodyTop));
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pump();
+
+    expect(find.byTooltip('굵게').hitTestable(), findsOneWidget);
+    expect(find.byTooltip('텍스트 색상').hitTestable(), findsOneWidget);
+    expect(find.byTooltip('배경 색상').hitTestable(), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('qt-note-passage-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('qt-note-editor-scroll')), findsOneWidget);
   });
 
   testWidgets('@Ge 영어 입력으로 창세기 추천을 표시한다', (tester) async {
@@ -497,6 +683,62 @@ void main() {
     );
   });
 
+  testWidgets('굵게 버튼은 최근 선택 범위를 잃지 않고 선택 텍스트에 적용된다', (tester) async {
+    const args = QtNoteEditorArgs(
+      passage: TodayQtPassage(
+        qtPassageId: 3,
+        passageDate: '2026-06-05',
+        title: '성령으로 깨닫는 하나님의 지혜',
+        reference: BibleReference(
+          koreanBookName: '고린도전서',
+          englishBookName: '1 Corinthians',
+          chapter: 2,
+          verseFrom: 1,
+          verseTo: 16,
+        ),
+        book: BibleVerseBook(
+          code: '1CO',
+          koreanName: '고린도전서',
+          englishName: '1 Corinthians',
+          chapter: 2,
+        ),
+        verses: [
+          BibleVerse(
+            id: 2001,
+            bookCode: '1CO',
+            chapterNo: 2,
+            verseNo: 1,
+            koreanText: '더미 한글 본문 1',
+            englishText: 'Dummy English verse 1',
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(home: QtNoteEditorScreen(args: args)),
+      ),
+    );
+
+    final body = find.byKey(const ValueKey('qt-note-body-input'));
+    await tester.enterText(body, '강조');
+
+    final textField = tester.widget<TextField>(body);
+    textField.controller!.selection = const TextSelection(
+      baseOffset: 0,
+      extentOffset: 2,
+    );
+    await tester.pump();
+    textField.controller!.selection = const TextSelection.collapsed(offset: 2);
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('굵게'));
+    await tester.pump();
+
+    expect(textField.controller!.text, '**강조**');
+  });
+
   testWidgets('본문 입력창은 한국어 입력 힌트를 기본으로 쓰고 입력기 보조 UI를 최소화한다', (tester) async {
     const args = QtNoteEditorArgs(
       passage: TodayQtPassage(
@@ -663,6 +905,144 @@ void main() {
         findsOneWidget);
     expect(insertButton.onPressed, isNull);
   });
+
+  testWidgets('draft button sends DRAFT QT note payload', (tester) async {
+    final repository = _FakeNoteRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          noteRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: QtNoteEditorScreen(args: _saveArgs)),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).first, 'draft title');
+    await tester.enterText(
+      find.byKey(const ValueKey('qt-note-body-input')),
+      'draft body',
+    );
+    await tester.tap(find.widgetWithText(OutlinedButton, '임시저장'));
+    await tester.pump();
+
+    expect(repository.createQtNoteCalls, hasLength(1));
+    final call = repository.createQtNoteCalls.single;
+    expect(call.qtPassageId, 77);
+    expect(call.title, 'draft title');
+    expect(call.body, 'draft body');
+    expect(call.status, 'DRAFT');
+    expect(call.verseIds, [7001, 7002]);
+  });
+
+  testWidgets('save button sends SAVED QT note payload', (tester) async {
+    final repository = _FakeNoteRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          noteRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: QtNoteEditorScreen(args: _saveArgs)),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).first, 'saved title');
+    await tester.enterText(
+      find.byKey(const ValueKey('qt-note-body-input')),
+      'saved body',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '저장'));
+    await tester.pump();
+
+    expect(repository.createQtNoteCalls, hasLength(1));
+    final call = repository.createQtNoteCalls.single;
+    expect(call.qtPassageId, 77);
+    expect(call.title, 'saved title');
+    expect(call.body, 'saved body');
+    expect(call.status, 'SAVED');
+    expect(call.verseIds, [7001, 7002]);
+  });
+}
+
+const _saveArgs = QtNoteEditorArgs(
+  passage: TodayQtPassage(
+    qtPassageId: 77,
+    passageDate: '2026-06-12',
+    title: 'save test passage',
+    reference: BibleReference(
+      koreanBookName: 'Genesis',
+      englishBookName: 'Genesis',
+      chapter: 1,
+      verseFrom: 1,
+      verseTo: 2,
+    ),
+    book: BibleVerseBook(
+      code: 'GEN',
+      koreanName: 'Genesis',
+      englishName: 'Genesis',
+      chapter: 1,
+    ),
+    verses: [
+      BibleVerse(
+        id: 7001,
+        bookCode: 'GEN',
+        chapterNo: 1,
+        verseNo: 1,
+        koreanText: 'body 1',
+        englishText: 'body 1',
+      ),
+      BibleVerse(
+        id: 7002,
+        bookCode: 'GEN',
+        chapterNo: 1,
+        verseNo: 2,
+        koreanText: 'body 2',
+        englishText: 'body 2',
+      ),
+    ],
+  ),
+);
+
+class _CapturedCreateQtNote {
+  final int? qtPassageId;
+  final String title;
+  final String body;
+  final List<int> verseIds;
+  final String status;
+
+  const _CapturedCreateQtNote({
+    required this.qtPassageId,
+    required this.title,
+    required this.body,
+    required this.verseIds,
+    required this.status,
+  });
+}
+
+class _FakeNoteRepository extends NoteRepository {
+  final createQtNoteCalls = <_CapturedCreateQtNote>[];
+
+  _FakeNoteRepository() : super(Dio());
+
+  @override
+  Future<void> createQtNote({
+    required int? qtPassageId,
+    required String title,
+    required String body,
+    required List<int> verseIds,
+    String status = 'SAVED',
+  }) async {
+    createQtNoteCalls.add(
+      _CapturedCreateQtNote(
+        qtPassageId: qtPassageId,
+        title: title,
+        body: body,
+        verseIds: List<int>.of(verseIds),
+        status: status,
+      ),
+    );
+  }
 }
 
 class _FakeBibleRepository extends BibleRepository {

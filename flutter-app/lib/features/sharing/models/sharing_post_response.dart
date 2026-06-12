@@ -5,6 +5,9 @@ class SharingPostItem {
   final String titleSnapshot;
   final String category;
   final String bodyPreview;
+
+  // 본문 범위 라벨 스냅샷(예 고전 6:7). 없으면 null. JSON: verseSnapshot.rangeLabel.
+  final String? verseLabel;
   final int likeCount;
   final int commentCount;
   final bool likedByMe;
@@ -16,6 +19,7 @@ class SharingPostItem {
     required this.titleSnapshot,
     required this.category,
     required this.bodyPreview,
+    this.verseLabel,
     required this.likeCount,
     required this.commentCount,
     required this.likedByMe,
@@ -29,12 +33,29 @@ class SharingPostItem {
       titleSnapshot: json['titleSnapshot'] as String? ?? '',
       category: json['category'] as String? ?? '',
       bodyPreview: json['bodyPreview'] as String? ?? '',
+      verseLabel: _parseVerseLabel(json['verseSnapshot']),
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       likedByMe: json['likedByMe'] as bool? ?? false,
       publishedAt: json['publishedAt'] != null
           ? DateTime.parse(json['publishedAt'] as String)
           : null,
+    );
+  }
+
+  /// 낙관적 좋아요 업데이트용 — 좋아요 상태/수만 바꾼 복제본.
+  SharingPostItem copyWith({int? likeCount, bool? likedByMe}) {
+    return SharingPostItem(
+      id: id,
+      nicknameSnapshot: nicknameSnapshot,
+      titleSnapshot: titleSnapshot,
+      category: category,
+      bodyPreview: bodyPreview,
+      verseLabel: verseLabel,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount,
+      likedByMe: likedByMe ?? this.likedByMe,
+      publishedAt: publishedAt,
     );
   }
 }
@@ -201,4 +222,33 @@ class SharingPostDetail {
           : null,
     );
   }
+
+  /// 낙관적 좋아요 업데이트용 — 좋아요 상태/수만 바꾼 복제본.
+  SharingPostDetail copyWith({int? likeCount, bool? likedByMe}) {
+    return SharingPostDetail(
+      id: id,
+      noteId: noteId,
+      memberId: memberId,
+      nicknameSnapshot: nicknameSnapshot,
+      titleSnapshot: titleSnapshot,
+      bodySnapshot: bodySnapshot,
+      category: category,
+      commentsEnabled: commentsEnabled,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount,
+      likedByMe: likedByMe ?? this.likedByMe,
+      ownedByMe: ownedByMe,
+      publishedAt: publishedAt,
+    );
+  }
+}
+
+/// verseSnapshot.rangeLabel 을 안전하게 추출한다.
+/// Map 이 아니거나 rangeLabel 이 없거나(또는 null) 공백뿐이면 null, 아니면 트림한 값.
+String? _parseVerseLabel(dynamic verseSnapshot) {
+  if (verseSnapshot is! Map) return null;
+  final raw = verseSnapshot['rangeLabel'];
+  if (raw is! String) return null;
+  final trimmed = raw.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }

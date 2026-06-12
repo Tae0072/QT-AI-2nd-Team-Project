@@ -5,6 +5,7 @@ import {
   Form,
   Input,
   Modal,
+  Popconfirm,
   Select,
   Space,
   Table,
@@ -14,22 +15,24 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import {
   createPraiseSong,
+  deletePraiseSong,
   listPraiseSongs,
+  updatePraiseSong,
   type CreatePraiseSongRequest,
   type PraiseSong,
   type PraiseSongListParams,
   type PraiseSongStatus,
+  type UpdatePraiseSongRequest,
 } from '../api/praiseSongs';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
 
 // ===== AD-05 찬양 큐레이션 =====
-// 곡 메타데이터 목록 + 상태 필터 + 서버 페이지네이션 + 등록 모달. 권한: OPERATOR / SUPER_ADMIN.
+// 곡 메타데이터 목록 + 상태 필터 + 서버 페이지네이션 + 등록·수정·삭제. 권한: OPERATOR / SUPER_ADMIN.
 // 🚫 가사·음원 파일·외부 재생 URL 은 저장하지 않는다(메타데이터만, CLAUDE.md §8 / F-09).
-// 수정/숨김(PATCH·hide)은 백엔드 미구현이라 이번 범위 제외.
 
 const STATUS_OPTIONS = [
   { label: '노출(ACTIVE)', value: 'ACTIVE' },
@@ -66,8 +69,14 @@ export default function PraiseSongsPage() {
 
   // 등록 모달
   const [createOpen, setCreateOpen] = useState(false);
-  const [form] = Form.useForm<CreatePraiseSongRequest>();
+  const [createForm] = Form.useForm<CreatePraiseSongRequest>();
   const [submitting, setSubmitting] = useState(false);
+
+  // 수정 모달
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<PraiseSong | null>(null);
+  const [editForm] = Form.useForm<UpdatePraiseSongRequest>();
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   const onSearch = () =>
     applyFilters({ status: (status as PraiseSongStatus) || undefined });
@@ -78,16 +87,16 @@ export default function PraiseSongsPage() {
   };
 
   const openCreate = () => {
-    form.resetFields();
+    createForm.resetFields();
     setCreateOpen(true);
   };
 
   const submitCreate = async () => {
     let values: CreatePraiseSongRequest;
     try {
-      values = await form.validateFields();
+      values = await createForm.validateFields();
     } catch {
-      return; // 검증 실패 시 모달 유지
+      return;
     }
     setSubmitting(true);
     try {
@@ -99,6 +108,47 @@ export default function PraiseSongsPage() {
       message.error(e instanceof Error ? e.message : '등록에 실패했습니다.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openEdit = (record: PraiseSong) => {
+    setEditTarget(record);
+    editForm.setFieldsValue({
+      title: record.title,
+      artist: record.artist,
+      licenseNote: record.licenseNote ?? undefined,
+    });
+    setEditOpen(true);
+  };
+
+  const submitEdit = async () => {
+    if (!editTarget) return;
+    let values: UpdatePraiseSongRequest;
+    try {
+      values = await editForm.validateFields();
+    } catch {
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      await updatePraiseSong(editTarget.id, values);
+      message.success('찬양 곡을 수정했습니다.');
+      setEditOpen(false);
+      reload();
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '수정에 실패했습니다.');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deletePraiseSong(id);
+      message.success('찬양 곡을 삭제했습니다.');
+      reload();
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '삭제에 실패했습니다.');
     }
   };
 
@@ -128,6 +178,34 @@ export default function PraiseSongsPage() {
       dataIndex: 'createdAt',
       width: 160,
       render: (v: string) => formatDateTime(v),
+    },
+    {
+      title: '작업',
+      key: 'actions',
+      width: 100,
+      render: (_: unknown, record: PraiseSong) => (
+        <Space>
+          <Tooltip title="수정">
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => openEdit(record)}
+            />
+          </Tooltip>
+          <Popconfirm
+            title="삭제 확인"
+            description="이 찬양 곡을 삭제하시겠습니까?"
+            okText="삭제"
+            cancelText="취소"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => handleDelete(record.id)}
+          >
+            <Tooltip title="삭제">
+              <Button size="small" icon={<DeleteOutlined />} danger />
+            </Tooltip>
+          </Popconfirm>
+        </Space>
+      ),
     },
   ];
 
@@ -196,7 +274,7 @@ export default function PraiseSongsPage() {
         destroyOnClose
       >
         <Form
-          form={form}
+          form={createForm}
           layout="vertical"
           initialValues={{ sourceType: 'CURATED', status: 'ACTIVE' }}
         >
@@ -224,7 +302,7 @@ export default function PraiseSongsPage() {
           <Form.Item name="licenseNote" label="라이선스 메모">
             <Input.TextArea
               rows={2}
-              maxLength={200}
+              maxLength={300}
               placeholder="저작권 확인 메모 (가사·음원·URL 저장 금지 — 메타데이터만)"
             />
           </Form.Item>
@@ -234,6 +312,42 @@ export default function PraiseSongsPage() {
             rules={[{ required: true, message: '상태를 선택하세요' }]}
           >
             <Select options={STATUS_OPTIONS} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 수정 모달 — title·artist·licenseNote 만 수정 가능. */}
+      <Modal
+        open={editOpen}
+        title="찬양 곡 수정"
+        okText="저장"
+        cancelText="취소"
+        confirmLoading={editSubmitting}
+        onOk={submitEdit}
+        onCancel={() => setEditOpen(false)}
+        destroyOnClose
+      >
+        <Form form={editForm} layout="vertical">
+          <Form.Item
+            name="title"
+            label="곡명"
+            rules={[{ required: true, message: '곡명을 입력하세요' }]}
+          >
+            <Input maxLength={100} placeholder="곡명" />
+          </Form.Item>
+          <Form.Item
+            name="artist"
+            label="아티스트"
+            rules={[{ required: true, message: '아티스트를 입력하세요' }]}
+          >
+            <Input maxLength={100} placeholder="아티스트명" />
+          </Form.Item>
+          <Form.Item name="licenseNote" label="라이선스 메모">
+            <Input.TextArea
+              rows={2}
+              maxLength={300}
+              placeholder="저작권 확인 메모 (가사·음원·URL 저장 금지 — 메타데이터만)"
+            />
           </Form.Item>
         </Form>
       </Modal>

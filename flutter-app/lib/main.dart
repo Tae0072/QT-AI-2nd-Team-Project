@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/config/app_config.dart';
 import 'core/dev/web_dev_access.dart'; // [WEB_DEV_ACCESS] 개발 종료 시 삭제
 import 'core/theme/app_theme.dart';
+import 'core/theme/font_scale_provider.dart';
 import 'core/theme/theme_providers.dart';
 import 'features/auth/providers/auth_providers.dart';
 import 'features/onboarding/providers/onboarding_providers.dart';
@@ -34,22 +35,35 @@ void main() async {
   );
 }
 
-class QTAIApp extends ConsumerWidget {
+class QTAIApp extends ConsumerStatefulWidget {
   const QTAIApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<QTAIApp> createState() => _QTAIAppState();
+}
+
+class _QTAIAppState extends ConsumerState<QTAIApp> {
+  bool _mainAppStarted = false;
+
+  @override
+  Widget build(BuildContext context) {
     final onboardingComplete = ref.watch(onboardingCompleteProvider);
     final authStatus = ref.watch(authStatusProvider);
     // 다크 모드 — 마이페이지 설정 토글만 따른다(시스템 설정 비추종, theme_providers.dart).
     final themeMode = ref.watch(themeModeProvider);
+    // 폰트 크기 — 설정 화면의 SMALL/MEDIUM/LARGE를 앱 전역 글자 배율로 적용한다.
+    // OS 글자 크기는 추종하지 않고(다크 모드와 같은 철학) 앱 설정이 단일 진실이다.
+    final fontScale = fontScaleOf(ref.watch(fontSizeProvider));
     // [WEB_DEV_ACCESS] 웹 개발용 로그인 우회 (개발 종료 시 이 두 줄과 web_dev_access.dart 삭제)
     final webBypass = webDevNoLogin;
     final forceHome = (AppConfig.instance.isDev && _devForceHome) || webBypass;
 
-    // 인증 상태 확인 중이면 스플래시(로딩) 표시
-    if (authStatus == AuthStatus.unknown && !forceHome) {
+    // 인증 상태 확인 중이면 최초 진입에서만 스플래시(로딩)를 표시한다.
+    // main app이 한 번 시작된 뒤에는 refresh/auth 상태가 잠깐 unknown으로
+    // 흔들려도 Navigator를 새로 만들지 않아 push된 화면을 유지한다.
+    if (!_mainAppStarted && authStatus == AuthStatus.unknown && !forceHome) {
       return MaterialApp(
+        key: const ValueKey('qtai-splash-app'),
         title: 'QT AI',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
@@ -88,8 +102,7 @@ class QTAIApp extends ConsumerWidget {
                     const SizedBox(height: 14),
                     Text(
                       AppLocalizations.of(context).splashSubtitle,
-                      style:
-                          TextStyle(fontSize: 17, color: colors.textMuted),
+                      style: TextStyle(fontSize: 17, color: colors.textMuted),
                     ),
                   ],
                 ),
@@ -100,6 +113,8 @@ class QTAIApp extends ConsumerWidget {
       );
     }
 
+    _mainAppStarted = true;
+
     // 라우트 분기: 온보딩 미완료 → 온보딩, 토큰 있음 → 홈, 토큰 없음 → 로그인
     final initialRoute = resolveInitialRoute(
       onboardingComplete: onboardingComplete,
@@ -109,8 +124,9 @@ class QTAIApp extends ConsumerWidget {
     );
 
     return MaterialApp(
-      // key를 initialRoute에 연동 — authStatus 변경 시 Navigator를 새로 생성
-      key: ValueKey(initialRoute),
+      // splash → main 전환 때만 Navigator를 새로 만들고,
+      // main app 내부에서는 auth/initialRoute 변화로 push된 화면을 잃지 않는다.
+      key: const ValueKey('qtai-main-app'),
       title: 'QT AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
@@ -120,6 +136,15 @@ class QTAIApp extends ConsumerWidget {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('ko'),
+      // 폰트 크기 설정을 앱 전역에 적용 — 모든 화면의 텍스트 배율을 한 번에 덮어쓴다.
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(fontScale),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       initialRoute: initialRoute,
       // 초기 스택을 단일 라우트로 생성한다.
       // 기본 동작은 '/home' → ['/', '/home'] 2단 스택을 만들어 루트 탭 화면에도

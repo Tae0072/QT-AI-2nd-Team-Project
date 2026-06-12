@@ -12,17 +12,31 @@ final noteRepositoryProvider = Provider<NoteRepository>((ref) {
 /// 선택된 카테고리 필터 상태 (null = 전체).
 final noteCategoryFilterProvider = StateProvider<String?>((ref) => null);
 
+/// 선택된 상태 필터 (null = 전체, 'DRAFT' = 임시저장, 'SAVED' = 저장).
+/// 서버 notes.status 값(04 §8.2)을 그대로 쓴다. DELETED는 목록에서 빠지므로 대상 아님.
+///
+/// DRAFT를 목록에 노출하는 것은 "자동저장 금지" 정책과 무관하다 — DRAFT는 사용자가
+/// 명시적으로 [임시저장] 버튼을 눌러 만든 상태이지 자동 생성물이 아니다(07 §6.4 저장 정책).
+final noteStatusFilterProvider = StateProvider<String?>((ref) => null);
+
 /// 노트 목록.
 ///
 /// 왜 이렇게 짰냐면:
-/// 카테고리 필터(noteCategoryFilterProvider)를 watch 하므로
-/// 사용자가 탭을 바꾸면 이 provider가 자동으로 다시 조회한다.
+/// 카테고리·상태 필터를 watch 하므로 사용자가 칩/상태를 바꾸면
+/// 이 provider가 자동으로 다시 조회한다.
 /// autoDispose = 화면을 떠나면 캐시를 비워 메모리/낡은 데이터를 정리한다.
 final notesProvider = FutureProvider.autoDispose<NoteListResponse>((ref) {
   final repository = ref.watch(noteRepositoryProvider);
   final category = ref.watch(noteCategoryFilterProvider);
-  return repository.getNotes(category: category);
+  final status = ref.watch(noteStatusFilterProvider);
+  return repository.getNotes(category: category, status: status);
 });
+
+/// 목록 다중 선택 모드 on/off. AppBar 햄버거(선택) 토글로 켜고, ✕로 끈다.
+final noteSelectionModeProvider = StateProvider<bool>((ref) => false);
+
+/// 선택 모드에서 체크된 노트 id 집합. 선택 모드를 끄면 비운다.
+final noteSelectedIdsProvider = StateProvider<Set<int>>((ref) => <int>{});
 
 /// 노트 상세 (id별).
 ///
@@ -34,10 +48,6 @@ final noteDetailProvider =
     FutureProvider.autoDispose.family<NoteDetail, int>((ref, noteId) {
   return ref.watch(noteRepositoryProvider).getDetail(noteId);
 });
-
-/// N-01 화면 보기 모드 (false=목록, true=달력). AppBar 아이콘으로 토글.
-/// 기본값 true = 노트 탭 진입 시 달력이 첫 화면(요구사항 2026-06-08). 버튼으로 목록 전환.
-final noteCalendarViewProvider = StateProvider<bool>((ref) => true);
 
 /// 묵상 달력 (월별).
 ///

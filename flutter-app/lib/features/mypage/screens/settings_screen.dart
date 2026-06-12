@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/theme/font_scale_provider.dart';
 import '../../../core/theme/theme_providers.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
@@ -19,6 +20,14 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsAsync = ref.watch(settingsProvider);
     final l = AppLocalizations.of(context);
+
+    // 서버 설정값이 도착하면 로컬 폰트 크기 provider에 동기화한다(다른 기기에서
+    // 바꾼 값 반영). set()은 같은 값이면 무시하므로 루프가 생기지 않는다.
+    ref.listen(settingsProvider, (prev, next) {
+      next.whenData(
+        (s) => ref.read(fontSizeProvider.notifier).set(s.fontSize),
+      );
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -59,8 +68,9 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 title: Text(l.settingsFontSize),
                 subtitle: Text(l.settingsFontSizeDesc),
+                // 즉시 반영을 위해 렌더링 값은 로컬 provider를 따른다(서버 응답 대기 X).
                 trailing: DropdownButton<String>(
-                  value: settings.fontSize,
+                  value: ref.watch(fontSizeProvider),
                   underline: const SizedBox.shrink(),
                   items: [
                     DropdownMenuItem(value: 'SMALL', child: Text(l.settingsFontSmall)),
@@ -69,9 +79,10 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                   onChanged: (value) async {
                     if (value == null) return;
+                    // 1) 로컬 즉시 반영, 2) 서버에도 저장(다른 기기 동기화).
+                    await ref.read(fontSizeProvider.notifier).set(value);
                     final repository = ref.read(myPageRepositoryProvider);
                     await repository.updateSettings(fontSize: value);
-                    ref.invalidate(settingsProvider);
                   },
                 ),
               ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/calm_paper.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../../note/screens/qt_note_editor_screen.dart';
@@ -223,7 +225,7 @@ class _ActionRow extends StatelessWidget {
                       referenceText: data.reference.displayText,
                       verseLabels: {
                         for (final verse in data.verses)
-                          verse.id: '${verse.chapterNo}:${verse.verseNo}',
+                          verse.id: '${verse.verseNo}',
                       },
                     ),
                   ),
@@ -267,38 +269,65 @@ class _VerseTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final c = context.appColors;
     final koreanText = verse.koreanText?.trim();
     final englishText = verse.englishText?.trim();
 
+    // 프로토타입 .verse 패턴: 좌측 절 번호(회색) + 본문, 영어는 sunken sub-box로 분리.
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${verse.chapterNo}:${verse.verseNo}',
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          if (koreanText != null && koreanText.isNotEmpty)
-            Text(
-              koreanText,
-              style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
-            ),
-          if (showEnglish && englishText != null && englishText.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              englishText,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                height: 1.5,
-                color: theme.colorScheme.onSurfaceVariant,
+          SizedBox(
+            width: 34,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${verse.chapterNo}:${verse.verseNo}',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontFamily: 'GowunDodum',
+                  fontSize: 13,
+                  height: 1.2,
+                  color: c.text2,
+                ),
               ),
             ),
-          ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (koreanText != null && koreanText.isNotEmpty)
+                  Text(
+                    koreanText,
+                    style: TextStyle(
+                      fontFamily: 'GowunDodum',
+                      fontSize: 16,
+                      height: 1.65,
+                      color: c.text,
+                    ),
+                  ),
+                if (showEnglish &&
+                    englishText != null &&
+                    englishText.isNotEmpty)
+                  CpSubBox(
+                    margin: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      englishText,
+                      style: TextStyle(
+                        fontFamily: 'GowunDodum',
+                        fontSize: 14,
+                        height: 1.55,
+                        color: c.text2,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );

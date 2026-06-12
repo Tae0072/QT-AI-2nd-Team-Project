@@ -12,7 +12,9 @@ public record PraiseResponse(
         String title,
         String artist,
         String sourceType,
+        String licenseNote,
         String status,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
 ) {
 }

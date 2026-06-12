@@ -124,7 +124,7 @@ final class QtNoteRichTextParser {
     required Color? backgroundColor,
   }) {
     return baseStyle?.copyWith(
-      fontWeight: bold ? FontWeight.w700 : baseStyle.fontWeight,
+      fontWeight: bold ? FontWeight.w800 : baseStyle.fontWeight,
       fontSize: fontSize ?? baseStyle.fontSize,
       color: foregroundColor ?? baseStyle.color,
       backgroundColor: backgroundColor,

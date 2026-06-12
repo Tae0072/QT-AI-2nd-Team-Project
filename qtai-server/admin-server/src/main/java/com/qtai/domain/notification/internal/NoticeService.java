@@ -4,6 +4,7 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.ListActiveMemberIdsUseCase;
 import com.qtai.domain.notification.api.CreateAdminNoticeUseCase;
+import com.qtai.domain.notification.api.GetAdminNoticeUseCase;
 import com.qtai.domain.notification.api.HideAdminNoticeUseCase;
 import com.qtai.domain.notification.api.ListAdminNoticesUseCase;
 import com.qtai.domain.notification.api.PublishAdminNoticeUseCase;
@@ -25,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNoticeUseCase, UpdateAdminNoticeUseCase,
-        PublishAdminNoticeUseCase, HideAdminNoticeUseCase {
+        PublishAdminNoticeUseCase, HideAdminNoticeUseCase, GetAdminNoticeUseCase {
 
     private static final String DEFAULT_SORT = "createdAt,desc";
 
@@ -50,6 +51,11 @@ public class NoticeService implements ListAdminNoticesUseCase, CreateAdminNotice
                 notices.isLast(),
                 DEFAULT_SORT
         );
+    }
+
+    @Override
+    public AdminNoticeDetailResponse getAdminNotice(Long noticeId) {
+        return toDetail(findNotice(noticeId));
     }
 
     @Override

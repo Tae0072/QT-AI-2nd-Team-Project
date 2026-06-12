@@ -34,3 +34,21 @@ final qtVideoClipProvider =
   final repository = ref.watch(bibleRepositoryProvider);
   return repository.getQtVideo(qtPassageId);
 });
+
+/// 성경 본문 범위의 해설 진입점 가용성 (전체 페이지의 '해설' 버튼 활성 기준).
+typedef BiblePassageRef = ({
+  String bookCode,
+  int chapter,
+  int verseFrom,
+  int verseTo,
+});
+
+final biblePassageStudyProvider = FutureProvider.autoDispose
+    .family<BiblePassageStudy, BiblePassageRef>((ref, range) {
+  return ref.read(bibleRepositoryProvider).getBiblePassageStudy(
+        bookCode: range.bookCode,
+        chapter: range.chapter,
+        verseFrom: range.verseFrom,
+        verseTo: range.verseTo,
+      );
+});
