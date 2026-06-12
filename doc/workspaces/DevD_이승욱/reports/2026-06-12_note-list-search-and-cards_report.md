@@ -18,9 +18,13 @@
 | `flutter-app/lib/l10n/app_*.arb` | noteSearchHint/noteSearchEmpty |
 
 ## 검증
-- `flutter analyze lib` 무이슈, 관련 테스트 21건 통과(date util·note_card·note_list_screen, q 연동 테스트 포함).
-- 백엔드 `:service-note:compileJava` 성공, service-note docker 재빌드·healthy.
+- `flutter analyze lib` 무이슈, 관련 Flutter 테스트(date util·note_card·note_list_screen, q 연동·다중선택·빈상태 포함) 통과.
+- 백엔드 `NoteBodyPreviewTest` 7케이스 통과(`:service-note:test`), service-note docker 재빌드·healthy.
 - 에뮬레이터에서 카드·검색바 확인(T 확인).
+
+## 리뷰 반영 (REQUEST_CHANGES → 대응)
+- "신규 백엔드 로직(buildBodyPreview) 단위 테스트 0건" 지적: 미리보기 로직을 정적·패키지 가시성 `previewOf`로 분리하고 `NoteBodyPreviewTest` 7케이스 추가.
+- WARN 보강: 서로게이트 페어(이모지) 경계 truncate 보호 추가.
 
 ## 미해결 / 후속
 - 좌측 세로선·배지 accent 색은 카테고리별 고정 톤. 디자인 토큰화는 후속 가능.
