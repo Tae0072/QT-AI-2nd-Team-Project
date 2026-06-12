@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -47,26 +46,30 @@ public class AdminQtPassageService implements
     private final WriteAuditLogUseCase auditLogUseCase;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final TodayQtCacheEvictor todayQtCacheEvictor;
 
     @Autowired
     public AdminQtPassageService(
             QtPassageRepository qtPassageRepository,
             WriteAuditLogUseCase auditLogUseCase,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            TodayQtCacheEvictor todayQtCacheEvictor
     ) {
-        this(qtPassageRepository, auditLogUseCase, objectMapper, Clock.systemDefaultZone());
+        this(qtPassageRepository, auditLogUseCase, objectMapper, Clock.systemDefaultZone(), todayQtCacheEvictor);
     }
 
     AdminQtPassageService(
             QtPassageRepository qtPassageRepository,
             WriteAuditLogUseCase auditLogUseCase,
             ObjectMapper objectMapper,
-            Clock clock
+            Clock clock,
+            TodayQtCacheEvictor todayQtCacheEvictor
     ) {
         this.qtPassageRepository = qtPassageRepository;
         this.auditLogUseCase = auditLogUseCase;
         this.objectMapper = objectMapper;
         this.clock = clock;
+        this.todayQtCacheEvictor = todayQtCacheEvictor;
     }
 
     @Override
@@ -112,7 +115,6 @@ public class AdminQtPassageService implements
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = "todayQt", allEntries = true)
     public AdminQtPassageResponse update(Long qtPassageId, AdminQtPassageCommand command) {
         validateId(qtPassageId);
         validateCommand(command);
@@ -131,12 +133,12 @@ public class AdminQtPassageService implements
                 normalized(command.mainVerseRef())
         );
         writeAudit(command.adminId(), "QT_PASSAGE_UPDATE", passage.getId(), beforeJson, snapshot(passage));
+        todayQtCacheEvictor.evictAfterCommit();
         return toResponse(passage);
     }
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = "todayQt", allEntries = true)
     public AdminQtPassageResponse publish(Long adminId, Long qtPassageId) {
         validateAdminId(adminId);
         validateId(qtPassageId);
@@ -144,12 +146,12 @@ public class AdminQtPassageService implements
         String beforeJson = snapshot(passage);
         passage.publish(LocalDateTime.now(clock));
         writeAudit(adminId, "QT_PASSAGE_PUBLISH", passage.getId(), beforeJson, snapshot(passage));
+        todayQtCacheEvictor.evictAfterCommit();
         return toResponse(passage);
     }
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = "todayQt", allEntries = true)
     public AdminQtPassageResponse hide(Long adminId, Long qtPassageId) {
         validateAdminId(adminId);
         validateId(qtPassageId);
@@ -157,6 +159,7 @@ public class AdminQtPassageService implements
         String beforeJson = snapshot(passage);
         passage.hide(LocalDateTime.now(clock));
         writeAudit(adminId, "QT_PASSAGE_HIDE", passage.getId(), beforeJson, snapshot(passage));
+        todayQtCacheEvictor.evictAfterCommit();
         return toResponse(passage);
     }
 
