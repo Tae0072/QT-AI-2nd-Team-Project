@@ -95,7 +95,7 @@ services:
       # 서비스 간 시스템 호출 서명/검증용 공유 HS256 시크릿(미설정 시 시스템 호출 401)
       SECURITY_JWT_SYSTEM_SECRET: ${SECURITY_JWT_SYSTEM_SECRET:-}
       KAKAO_USER_INFO_URL: ${KAKAO_USER_INFO_URL:-https://kapi.kakao.com/v2/user/me}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
     ports:
       - "${USER_SERVICE_PORT:-8081}:8081"
     healthcheck:
@@ -245,6 +245,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
       # admin-server(모놀리식 복사본)는 개인키+공개키 모두 필요
       JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
@@ -288,7 +289,7 @@ services:
       - service-ai
       - service-admin
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 10
