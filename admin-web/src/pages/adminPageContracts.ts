@@ -16,6 +16,8 @@ export const AI_ASSET_FILTERABLE_STATUSES = [
 
 export type AiAssetFilterableStatus = (typeof AI_ASSET_FILTERABLE_STATUSES)[number];
 
+export const AI_ASSET_DEFAULT_STATUS: AiAssetFilterableStatus = 'VALIDATING';
+
 export type RegenerationJobNotice = {
   generationJobId?: number;
   status: string;

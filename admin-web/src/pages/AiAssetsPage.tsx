@@ -42,6 +42,7 @@ import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
 import {
   AI_ASSET_FILTERABLE_STATUSES,
+  AI_ASSET_DEFAULT_STATUS,
   aiAssetEvaluationSetListParams,
   isAiAssetRegeneratable,
   isAiAssetReviewable,
@@ -126,10 +127,10 @@ export default function AiAssetsPage() {
     usePagedList<AiAsset, AiAssetListParams>(listAiAssets, {
       page: 0,
       size: 20,
-      status: 'VALIDATING',
+      status: AI_ASSET_DEFAULT_STATUS,
     });
 
-  const [status, setStatus] = useState<string | undefined>('VALIDATING');
+  const [status, setStatus] = useState<string | undefined>(AI_ASSET_DEFAULT_STATUS);
 
   const [action, setAction] = useState<{
     mode: ActionMode;
@@ -165,8 +166,8 @@ export default function AiAssetsPage() {
       status: status || undefined,
     });
   const onReset = () => {
-    setStatus('VALIDATING');
-    applyFilters({ status: 'VALIDATING' });
+    setStatus(AI_ASSET_DEFAULT_STATUS);
+    applyFilters({ status: AI_ASSET_DEFAULT_STATUS });
   };
 
   const openAction = (mode: ActionMode, asset: AiAsset) => {

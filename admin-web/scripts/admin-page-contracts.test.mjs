@@ -8,6 +8,7 @@ import ts from 'typescript';
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourcePath = path.join(rootDir, 'src', 'pages', 'adminPageContracts.ts');
 const source = fs.readFileSync(sourcePath, 'utf8');
+const pagesDir = path.join(rootDir, 'src', 'pages');
 
 const transpiled = ts.transpileModule(source, {
   compilerOptions: {
@@ -47,6 +48,39 @@ test('AI asset status filters use asset statuses only', () => {
     'HIDDEN',
   ]);
   assert.equal(contracts.AI_ASSET_FILTERABLE_STATUSES.includes('NEEDS_REVIEW'), false);
+  assert.equal(contracts.AI_ASSET_DEFAULT_STATUS, 'VALIDATING');
+  assert.equal(
+    contracts.AI_ASSET_FILTERABLE_STATUSES.includes(contracts.AI_ASSET_DEFAULT_STATUS),
+    true,
+  );
+});
+
+test('AI assets page starts and resets with the validating status filter', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiAssetsPage.tsx'), 'utf8');
+
+  assert.match(page, /status:\s*AI_ASSET_DEFAULT_STATUS/);
+  assert.match(
+    page,
+    /useState<string \| undefined>\(AI_ASSET_DEFAULT_STATUS\)/,
+  );
+  assert.match(page, /setStatus\(AI_ASSET_DEFAULT_STATUS\)/);
+  assert.match(page, /applyFilters\(\{\s*status:\s*AI_ASSET_DEFAULT_STATUS\s*\}\)/);
+});
+
+test('admin page modals use destroyOnHidden instead of deprecated destroyOnClose', () => {
+  const modalPages = [
+    ['AiAssetsPage.tsx', 4],
+    ['AiChecklistsPage.tsx', 1],
+    ['AiEvaluationsPage.tsx', 4],
+    ['PraiseSongsPage.tsx', 2],
+    ['ReportsPage.tsx', 2],
+  ];
+
+  for (const [fileName, expectedCount] of modalPages) {
+    const page = fs.readFileSync(path.join(pagesDir, fileName), 'utf8');
+    assert.equal(page.includes('destroyOnClose'), false, fileName);
+    assert.equal((page.match(/\bdestroyOnHidden\b/g) ?? []).length, expectedCount, fileName);
+  }
 });
 
 test('AI asset action visibility follows review and regeneration contracts', () => {
