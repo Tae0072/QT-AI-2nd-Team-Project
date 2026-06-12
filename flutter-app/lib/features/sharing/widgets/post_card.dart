@@ -12,7 +12,15 @@ class PostCard extends StatelessWidget {
   final SharingPostItem item;
   final VoidCallback onTap;
 
-  const PostCard({super.key, required this.item, required this.onTap});
+  /// 좋아요(하트) 탭 콜백. null이면 하트는 표시 전용(탭 불가).
+  final VoidCallback? onLike;
+
+  const PostCard({
+    super.key,
+    required this.item,
+    required this.onTap,
+    this.onLike,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -85,16 +93,34 @@ class PostCard extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(
-                  item.likedByMe ? Icons.favorite : Icons.favorite_border,
-                  size: 15,
-                  color: item.likedByMe ? c.accentDot : c.text2,
+                // 하트는 카드 탭(상세 이동)과 별개로 동작 — InkWell이 자기 영역 탭을 가져간다.
+                InkWell(
+                  onTap: onLike,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          item.likedByMe
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          size: 15,
+                          color: item.likedByMe ? c.accentDot : c.text2,
+                        ),
+                        const SizedBox(width: 4),
+                        Text('${item.likeCount}',
+                            style: TextStyle(
+                                fontFamily: 'GowunDodum',
+                                fontSize: 13,
+                                color: c.text2)),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 4),
-                Text('${item.likeCount}',
-                    style: TextStyle(
-                        fontFamily: 'GowunDodum', fontSize: 13, color: c.text2)),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Icon(Icons.chat_bubble_outline, size: 15, color: c.text2),
                 const SizedBox(width: 4),
                 Text('${item.commentCount}',
