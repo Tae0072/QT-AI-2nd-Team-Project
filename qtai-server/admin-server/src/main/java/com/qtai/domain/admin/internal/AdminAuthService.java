@@ -74,8 +74,10 @@ public class AdminAuthService implements AdminAuthUseCase {
         }
 
         // 회전·재사용 검증: 저장된 현재 refresh token과 일치해야 한다(옛/탈취·재사용 토큰 거부).
+        // 불일치(재사용/탈취 의심) 시 저장된 현재 토큰까지 무효화해 활성 세션을 강제 종료한다(재사용 탐지 대응).
         if (!refreshTokenStore.matches(memberId, refreshToken)) {
-            log.warn("관리자 토큰 갱신 실패 — 회전/재사용된 refresh token (memberId={})", memberId);
+            refreshTokenStore.delete(memberId);
+            log.warn("관리자 토큰 갱신 실패 — 회전/재사용 탐지, 현재 토큰 무효화 (memberId={})", memberId);
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
         }
 

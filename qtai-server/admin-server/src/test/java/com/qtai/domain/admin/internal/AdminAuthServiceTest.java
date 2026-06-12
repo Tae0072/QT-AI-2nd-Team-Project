@@ -3,6 +3,7 @@ package com.qtai.domain.admin.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.qtai.common.exception.BusinessException;
@@ -81,6 +82,8 @@ class AdminAuthServiceTest {
         assertThat(result.admin().role()).isEqualTo("ADMIN");
         assertThat(result.admin().adminRole()).isEqualTo("OPERATOR");
         assertThat(result.admin().status()).isEqualTo("ACTIVE");
+        // 회전: 발급된 새 refresh token이 저장된다.
+        verify(refreshTokenStore).save(10L, "refresh-token");
     }
 
     @Test
@@ -161,6 +164,8 @@ class AdminAuthServiceTest {
         assertThatThrownBy(() -> adminAuthService.refresh("old-token"))
                 .isInstanceOfSatisfying(BusinessException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ADMIN_LOGIN_FAILED));
+        // 재사용 탐지 시 저장된 현재 토큰까지 무효화한다.
+        verify(refreshTokenStore).delete(10L);
     }
 
     @Test
