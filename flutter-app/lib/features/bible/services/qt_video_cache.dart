@@ -79,8 +79,7 @@ class QtVideoCache {
       return;
     }
 
-    final entities = await directory.list().toList();
-    for (final entity in entities) {
+    await for (final entity in directory.list(followLinks: false)) {
       if (entity is! File) {
         continue;
       }
