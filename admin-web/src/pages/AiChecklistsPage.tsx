@@ -312,7 +312,7 @@ export default function AiChecklistsPage() {
         confirmLoading={creating}
         onOk={submitCreate}
         onCancel={() => setCreateOpen(false)}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form<CreateFormValues>
           form={form}

@@ -375,7 +375,7 @@ export default function AiEvaluationsPage() {
         confirmLoading={creating}
         onOk={submitCreate}
         onCancel={() => setCreateOpen(false)}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form<CreateSetFormValues>
           form={form}
@@ -441,7 +441,7 @@ export default function AiEvaluationsPage() {
         }
         width={760}
         onClose={() => setSelectedSet(null)}
-        destroyOnClose
+        destroyOnHidden
       >
         {selectedSet && (
           <EvaluationCasesPanel setId={selectedSet.id} canReview={canReview} />
@@ -714,7 +714,7 @@ function EvaluationCasesPanel({
         confirmLoading={creating}
         onOk={submitCreate}
         onCancel={() => setCreateOpen(false)}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form<CreateCaseFormValues>
           form={form}
@@ -763,7 +763,7 @@ function EvaluationCasesPanel({
         confirmLoading={submitting}
         onOk={submitAction}
         onCancel={() => setAction(null)}
-        destroyOnClose
+        destroyOnHidden
       >
         {action && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
