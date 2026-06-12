@@ -148,15 +148,22 @@ class AdminQtPassageCacheEvictTest {
         }
 
         @Bean
+        TodayQtCacheEvictor todayQtCacheEvictor(CacheManager cacheManager) {
+            return new TodayQtCacheEvictor(cacheManager);
+        }
+
+        @Bean
         AdminQtPassageService adminQtPassageService(
                 QtPassageRepository repository,
-                WriteAuditLogUseCase auditLogUseCase
+                WriteAuditLogUseCase auditLogUseCase,
+                TodayQtCacheEvictor todayQtCacheEvictor
         ) {
             return new AdminQtPassageService(
                     repository,
                     auditLogUseCase,
                     new ObjectMapper().findAndRegisterModules(),
-                    CLOCK
+                    CLOCK,
+                    todayQtCacheEvictor
             );
         }
     }
