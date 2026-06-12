@@ -36,18 +36,20 @@ public class AdminAuthService implements AdminAuthUseCase {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final GetMemberUseCase getMemberUseCase;
+    private final AdminLoginAttemptGuard loginAttemptGuard;
+    private final AdminRefreshTokenStore refreshTokenStore;
 
     @Override
     public AdminLoginResult login(String username, String rawPassword) {
-        AdminUser adminUser = adminUserRepository.findByUsername(username)
-                .orElseThrow(() -> {
-                    log.warn("관리자 로그인 실패 — 존재하지 않는 username");
-                    return new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
-                });
+        // 브루트포스 방어: 연속 실패로 잠긴 계정은 시도 자체를 차단(429).
+        loginAttemptGuard.assertNotLocked(username);
 
-        if (!StringUtils.hasText(adminUser.getPasswordHash())
+        AdminUser adminUser = adminUserRepository.findByUsername(username).orElse(null);
+        if (adminUser == null
+                || !StringUtils.hasText(adminUser.getPasswordHash())
                 || !passwordEncoder.matches(rawPassword, adminUser.getPasswordHash())) {
-            log.warn("관리자 로그인 실패 — 비밀번호 불일치 (adminUserId={})", adminUser.getId());
+            log.warn("관리자 로그인 실패 — 자격 불일치");
+            loginAttemptGuard.recordFailure(username);
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
         }
 
@@ -57,6 +59,7 @@ public class AdminAuthService implements AdminAuthUseCase {
             throw new BusinessException(ErrorCode.ADMIN_USER_DISABLED);
         }
 
+        loginAttemptGuard.reset(username);
         return issueFor(adminUser);
     }
 
@@ -67,6 +70,14 @@ public class AdminAuthService implements AdminAuthUseCase {
             memberId = jwtProvider.validateRefreshToken(refreshToken);
         } catch (JwtException | IllegalArgumentException e) {
             log.warn("관리자 토큰 갱신 실패 — 유효하지 않은 refresh token");
+            throw new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
+        }
+
+        // 회전·재사용 검증: 저장된 현재 refresh token과 일치해야 한다(옛/탈취·재사용 토큰 거부).
+        // 불일치(재사용/탈취 의심) 시 저장된 현재 토큰까지 무효화해 활성 세션을 강제 종료한다(재사용 탐지 대응).
+        if (!refreshTokenStore.matches(memberId, refreshToken)) {
+            refreshTokenStore.delete(memberId);
+            log.warn("관리자 토큰 갱신 실패 — 회전/재사용 탐지, 현재 토큰 무효화 (memberId={})", memberId);
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
         }
 
@@ -86,6 +97,8 @@ public class AdminAuthService implements AdminAuthUseCase {
 
         String accessToken = jwtProvider.issueAccessToken(memberId, ROLE_ADMIN);
         String refreshToken = jwtProvider.issueRefreshToken(memberId);
+        // 새 refresh token 저장 → 기존 토큰 자동 무효화(회전).
+        refreshTokenStore.save(memberId, refreshToken);
 
         return new AdminLoginResult(
                 accessToken,
