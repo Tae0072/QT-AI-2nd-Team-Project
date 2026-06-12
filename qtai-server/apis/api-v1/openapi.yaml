@@ -3979,6 +3979,7 @@ components:
         - createdAt
         - reviewedAt
         - generationJob
+        - activeGenerationJob
         - promptVersion
         - validationLogs
       properties:
@@ -4010,6 +4011,11 @@ components:
           nullable: true
         generationJob:
           $ref: "#/components/schemas/AdminAiGenerationJobSummary"
+        activeGenerationJob:
+          allOf:
+            - $ref: "#/components/schemas/AdminAiGenerationJobSummary"
+          nullable: true
+          description: 같은 대상에 대해 현재 진행 중인 최신 AI 생성 job. 없으면 null.
         promptVersion:
           $ref: "#/components/schemas/AdminAiPromptVersionSummary"
         validationLogs:

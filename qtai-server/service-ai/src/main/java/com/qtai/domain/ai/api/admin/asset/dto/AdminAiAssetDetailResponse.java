@@ -16,6 +16,7 @@ public record AdminAiAssetDetailResponse(
         OffsetDateTime createdAt,
         OffsetDateTime reviewedAt,
         GenerationJobSummary generationJob,
+        GenerationJobSummary activeGenerationJob,
         PromptVersionSummary promptVersion,
         List<AdminAiValidationLogItem> validationLogs
 ) {
