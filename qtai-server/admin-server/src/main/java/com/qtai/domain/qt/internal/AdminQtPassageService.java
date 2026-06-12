@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -111,6 +112,7 @@ public class AdminQtPassageService implements
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "todayQt", allEntries = true)
     public AdminQtPassageResponse update(Long qtPassageId, AdminQtPassageCommand command) {
         validateId(qtPassageId);
         validateCommand(command);
@@ -134,6 +136,7 @@ public class AdminQtPassageService implements
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "todayQt", allEntries = true)
     public AdminQtPassageResponse publish(Long adminId, Long qtPassageId) {
         validateAdminId(adminId);
         validateId(qtPassageId);
@@ -146,6 +149,7 @@ public class AdminQtPassageService implements
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "todayQt", allEntries = true)
     public AdminQtPassageResponse hide(Long adminId, Long qtPassageId) {
         validateAdminId(adminId);
         validateId(qtPassageId);

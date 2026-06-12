@@ -64,12 +64,12 @@ class QtPassageLookup {
         boolean isBeforeBatch = nowKst.toLocalTime().isBefore(BATCH_COMPLETE_TIME);
 
         if (isBeforeBatch) {
-            return qtPassageRepository.findByQtDate(today.minusDays(1))
+            return qtPassageRepository.findByQtDateAndStatus(today.minusDays(1), QtPassageStatus.ACTIVE)
                     .map(passage -> toResponse(passage, "STALE_FALLBACK"))
                     .orElse(emptyResponse());
         }
 
-        return qtPassageRepository.findByQtDate(today)
+        return qtPassageRepository.findByQtDateAndStatus(today, QtPassageStatus.ACTIVE)
                 .map(passage -> toResponse(passage, "HIT"))
                 .orElseGet(() -> {
                     log.warn("오늘의 QT 본문이 없습니다. date={}, 배치 상태를 확인해 주세요.", today);

@@ -19,6 +19,8 @@ public interface QtPassageRepository extends JpaRepository<QtPassage, Long>, Jpa
     /** 특정 날짜의 QT 본문 조회 (qt_date UNIQUE). */
     Optional<QtPassage> findByQtDate(LocalDate qtDate);
 
+    Optional<QtPassage> findByQtDateAndStatus(LocalDate qtDate, QtPassageStatus status);
+
     boolean existsByQtDate(LocalDate qtDate);
 
     boolean existsByQtDateAndIdNot(LocalDate qtDate, Long id);
