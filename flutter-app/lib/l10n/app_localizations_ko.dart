@@ -230,27 +230,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notePublishView => '보기';
 
   @override
-  String get fmtBold => '굵게';
-
-  @override
-  String get fmtItalic => '기울임';
-
-  @override
-  String get fmtHeading => '제목';
-
-  @override
-  String get fmtList => '목록';
-
-  @override
-  String get fmtQuote => '인용';
-
-  @override
-  String get fmtCheckbox => '체크박스';
-
-  @override
-  String get fmtDivider => '구분선';
-
-  @override
   String calSavedThisMonth(int days) {
     return '이번 달 $days일 저장';
   }

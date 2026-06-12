@@ -82,13 +82,6 @@
   "notePublishAlready": "이미 나눔에 공개된 노트예요",
   "notePublishView": "보기",
 
-  "fmtBold": "굵게",
-  "fmtItalic": "기울임",
-  "fmtHeading": "제목",
-  "fmtList": "목록",
-  "fmtQuote": "인용",
-  "fmtCheckbox": "체크박스",
-  "fmtDivider": "구분선",
   "calSavedThisMonth": "이번 달 {days}일 저장",
   "calNoteCount": "노트 {count}개",
   "calDayChecklistTitle": "이 날 작성한 노트",

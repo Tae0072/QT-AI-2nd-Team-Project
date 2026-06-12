@@ -536,48 +536,6 @@ abstract class AppLocalizations {
   /// **'View'**
   String get notePublishView;
 
-  /// No description provided for @fmtBold.
-  ///
-  /// In en, this message translates to:
-  /// **'Bold'**
-  String get fmtBold;
-
-  /// No description provided for @fmtItalic.
-  ///
-  /// In en, this message translates to:
-  /// **'Italic'**
-  String get fmtItalic;
-
-  /// No description provided for @fmtHeading.
-  ///
-  /// In en, this message translates to:
-  /// **'Heading'**
-  String get fmtHeading;
-
-  /// No description provided for @fmtList.
-  ///
-  /// In en, this message translates to:
-  /// **'List'**
-  String get fmtList;
-
-  /// No description provided for @fmtQuote.
-  ///
-  /// In en, this message translates to:
-  /// **'Quote'**
-  String get fmtQuote;
-
-  /// No description provided for @fmtCheckbox.
-  ///
-  /// In en, this message translates to:
-  /// **'Checkbox'**
-  String get fmtCheckbox;
-
-  /// No description provided for @fmtDivider.
-  ///
-  /// In en, this message translates to:
-  /// **'Divider'**
-  String get fmtDivider;
-
   /// No description provided for @calSavedThisMonth.
   ///
   /// In en, this message translates to:
