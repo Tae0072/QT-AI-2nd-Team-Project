@@ -8,6 +8,7 @@ import '../../../routes/app_router.dart';
 import '../../note/providers/note_providers.dart';
 import '../models/bible_chapter_counts.dart';
 import '../models/bible_models.dart';
+import '../models/verse_range_selection.dart';
 import '../providers/bible_providers.dart';
 import 'bible_passage_screen.dart';
 
@@ -165,20 +166,15 @@ class _BibleBrowserScreenState extends ConsumerState<BibleBrowserScreen> {
   // 첫 탭: 그 절로 단일 선택(범위 시작 앵커). 둘째 탭: 범위 끝 지정(앞/뒤 자동 정렬).
   // 셋째 탭: 다시 새 단일 선택으로 시작. → "탭-탭"으로 범위, "탭" 한 번이면 단일.
   void _selectVerse(int verse) {
+    final next = VerseRangeSelection(
+      from: _verseFrom,
+      to: _verseTo,
+      anchored: _verseRangeAnchored,
+    ).tap(verse);
     setState(() {
-      if (!_verseRangeAnchored) {
-        _verseFrom = verse;
-        _verseTo = verse;
-        _verseRangeAnchored = true;
-      } else {
-        if (verse >= _verseFrom) {
-          _verseTo = verse;
-        } else {
-          _verseTo = _verseFrom;
-          _verseFrom = verse;
-        }
-        _verseRangeAnchored = false;
-      }
+      _verseFrom = next.from;
+      _verseTo = next.to;
+      _verseRangeAnchored = next.anchored;
       _error = null;
     });
   }
