@@ -14,6 +14,7 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
 import com.qtai.domain.admin.api.dto.AdminUserInfo;
 import com.qtai.domain.notification.api.CreateAdminNoticeUseCase;
+import com.qtai.domain.notification.api.GetAdminNoticeUseCase;
 import com.qtai.domain.notification.api.HideAdminNoticeUseCase;
 import com.qtai.domain.notification.api.ListAdminNoticesUseCase;
 import com.qtai.domain.notification.api.PublishAdminNoticeUseCase;
@@ -48,6 +49,8 @@ class AdminNoticeControllerTest {
     JwtAuthenticationFilter jwtAuthenticationFilter;
     @MockBean
     ListAdminNoticesUseCase listAdminNoticesUseCase;
+    @MockBean
+    GetAdminNoticeUseCase getAdminNoticeUseCase;
     @MockBean
     CreateAdminNoticeUseCase createAdminNoticeUseCase;
     @MockBean
@@ -136,6 +139,16 @@ class AdminNoticeControllerTest {
         mockMvc.perform(get("/api/v1/admin/notices"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("M0002"));
+    }
+
+    @Test
+    void get_200() throws Exception {
+        when(getAdminNoticeUseCase.getAdminNotice(1L)).thenReturn(detailResponse("DRAFT"));
+
+        mockMvc.perform(get("/api/v1/admin/notices/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.body").value("본문"));
     }
 
     @Test
