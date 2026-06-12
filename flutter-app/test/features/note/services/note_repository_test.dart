@@ -68,4 +68,55 @@ void main() {
       expect(result.items, isEmpty);
     });
   });
+
+  group('verseIds 저장 (QA ⑪)', () {
+    test('create는 verseIds를 본문에 포함해 전송한다', () async {
+      // data가 정확히 일치할 때만 매칭 → verseIds가 실려야 잡힌다.
+      dioAdapter.onPost(
+        '/notes',
+        (server) => server.reply(201, {
+          'success': true,
+          'data': {
+            'id': 1,
+            'category': 'SERMON',
+            'status': 'SAVED',
+            'visibility': 'PRIVATE',
+          },
+        }),
+        data: {
+          'category': 'SERMON',
+          'title': '설교',
+          'body': '본문',
+          'verseIds': [101, 102],
+          'status': 'SAVED',
+          'visibility': 'PRIVATE',
+        },
+      );
+
+      final result = await repository.create(
+        category: 'SERMON',
+        title: '설교',
+        body: '본문',
+        verseIds: [101, 102],
+      );
+
+      expect(result.id, 1);
+    });
+
+    test('update는 verseIds를 본문에 포함해 전송한다(보존)', () async {
+      dioAdapter.onPatch(
+        '/notes/7',
+        (server) => server.reply(200, {'success': true, 'data': {}}),
+        data: {
+          'title': '설교',
+          'body': '본문',
+          'verseIds': [500],
+          'status': 'SAVED',
+          'visibility': 'PRIVATE',
+        },
+      );
+
+      await repository.update(7, title: '설교', body: '본문', verseIds: [500]);
+    });
+  });
 }

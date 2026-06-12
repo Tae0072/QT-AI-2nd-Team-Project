@@ -50,6 +50,11 @@ class NoteDetailScreen extends ConsumerWidget {
   }
 }
 
+/// 단일 본문 편집(N-03)으로 수정 가능한 카테고리.
+/// 자유노트(기도/회개/감사) + 설교(SERMON, verseIds 보존 PATCH). QT(MEDITATION)는 제외.
+bool _isEditable(String category) =>
+    writableNoteCategories.contains(category) || category == 'SERMON';
+
 /// AppBar 우측 [수정]/[삭제] 버튼 묶음.
 class _Actions extends ConsumerWidget {
   final int noteId;
@@ -76,11 +81,11 @@ class _Actions extends ConsumerWidget {
           icon: const Icon(Icons.ios_share),
           onPressed: () => showNoteShareSheet(context, detail),
         ),
-        // 수정은 '본문만 있는 자유노트(기도/회개/감사)'에만 노출.
-        // - 묵상(4섹션)·설교(인용 절 보유)는 N-03 단일본문 편집이 데이터를 손상시킨다:
-        //   설교노트를 PATCH하면 verseIds 미전송으로 note_verses가 비워짐(04 §4.3.6).
-        // TODO(v2): 묵상은 QT 4섹션 화면, 설교는 절 선택 화면(B-03)이 생기면 연결.
-        if (writableNoteCategories.contains(detail.category))
+        // 수정은 단일 본문 노트(기도/회개/감사 + 설교)에 노출한다.
+        // - 설교: 인용 절을 가지지만 N-03이 편집 시 기존 verseIds를 seed→PATCH로 그대로
+        //   다시 보내 보존하므로(QA ⑪, 04 §4.3.6) 더 이상 절 참조가 비지 않는다.
+        // - QT(묵상)는 제외: QT 노트 본문 표시/모델 정리(4섹션 데드코드)가 선행되어야 한다.
+        if (_isEditable(detail.category))
           IconButton(
             tooltip: l.commonEdit,
             icon: const Icon(Icons.edit_outlined),

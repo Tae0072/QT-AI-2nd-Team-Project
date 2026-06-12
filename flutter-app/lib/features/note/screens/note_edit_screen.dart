@@ -18,7 +18,11 @@ class NoteEditArgs {
   final String? category; // 작성 모드에서 필수
   final int? noteId; // 수정 모드에서 필수 (null이면 작성)
 
-  const NoteEditArgs({this.category, this.noteId});
+  /// 작성 진입 시 미리 동봉하는 인용 절(설교 노트 ②: 성경 화면에서 선택한 절).
+  /// note_verses(verseIds)로 저장된다(§6.4.1). 자유노트(N-02)는 비운다.
+  final List<int>? verseIds;
+
+  const NoteEditArgs({this.category, this.noteId, this.verseIds});
 
   bool get isEdit => noteId != null;
 }
@@ -45,6 +49,11 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
   bool _loadError = false; // 편집모드: 불러오기 실패
   NoteEditArgs _args = const NoteEditArgs(category: 'PRAYER');
 
+  /// 저장 시 함께 보낼 인용 절(verseIds) — note_verses 메타데이터(§6.4.1).
+  /// 작성=args.verseIds 시드, 편집=기존 detail.verses 시드, + @멘션 삽입분 누적.
+  /// 중복 없이 보존하기 위해 Set으로 모은다.
+  final Set<int> _verseIds = <int>{};
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -55,6 +64,10 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is NoteEditArgs) {
       _args = args;
+    }
+    // 작성 진입 시 동봉된 인용 절(설교 ②)을 시드로 모은다.
+    if (_args.verseIds != null) {
+      _verseIds.addAll(_args.verseIds!);
     }
     if (_args.isEdit) {
       _loadForEdit();
@@ -71,6 +84,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
       // 자유노트라 본문은 body에 있다(묵상 4섹션은 N-03 편집 대상 아님).
       _titleController.text = detail.title;
       _bodyController.text = detail.body ?? '';
+      // 편집 시작 시 기존 인용 절을 시드로 모은다 → PATCH에 그대로 다시 보내 보존(04 §4.3.6).
+      _verseIds.addAll(detail.verses.map((v) => v.bibleVerseId));
       if (!mounted) return;
       setState(() => _loading = false);
     } catch (e) {
@@ -117,6 +132,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
           _args.noteId!,
           title: title,
           body: body,
+          verseIds: _verseIds.toList(),
           status: status,
         );
         ref.invalidate(notesProvider);
@@ -130,6 +146,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
           category: _args.category ?? 'PRAYER',
           title: title,
           body: body,
+          verseIds: _verseIds.toList(),
           status: status,
         );
         ref.invalidate(notesProvider);
@@ -214,6 +231,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
                 child: NoteRichTextEditor(
                   controller: _bodyController,
                   bodyLabel: l.noteEditBodyLabel,
+                  // @멘션으로 삽입한 절을 verseIds로 모아 저장(§6.4.1).
+                  onVerseInserted: (ids) => _verseIds.addAll(ids),
                 ),
               ),
               const SizedBox(height: 12),
