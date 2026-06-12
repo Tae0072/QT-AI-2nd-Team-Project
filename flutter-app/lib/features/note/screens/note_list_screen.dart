@@ -42,7 +42,14 @@ class NoteListScreen extends ConsumerWidget {
   /// 선택한 노트들을 확인 후 삭제. 부분 실패는 안내한다.
   Future<void> _deleteSelected(BuildContext context, WidgetRef ref) async {
     final l = AppLocalizations.of(context);
-    final ids = ref.read(noteSelectedIdsProvider).toList();
+    // 안전장치: 현재 목록(필터 적용된 화면)에 보이는 노트만 삭제 대상으로 삼는다.
+    // 필터가 바뀌어 선택 집합에 안 보이는 노트가 남아 있어도 의도치 않게 삭제되지 않게 한다.
+    final visibleIds = ref.read(notesProvider).valueOrNull?.items
+            .map((e) => e.id)
+            .toSet() ??
+        <int>{};
+    final ids =
+        ref.read(noteSelectedIdsProvider).where(visibleIds.contains).toList();
     if (ids.isEmpty) return;
 
     final ok = await showDialog<bool>(
@@ -81,6 +88,15 @@ class NoteListScreen extends ConsumerWidget {
     final selectionMode = ref.watch(noteSelectionModeProvider);
     final selectedIds = ref.watch(noteSelectedIdsProvider);
     final l = AppLocalizations.of(context);
+
+    // 필터(카테고리·상태)가 바뀌면 보이지 않는 노트가 선택에 남는 누수를 막기 위해
+    // 선택을 초기화한다(선택은 항상 현재 화면 기준).
+    ref.listen(noteCategoryFilterProvider, (prev, next) {
+      if (prev != next) _exitSelection(ref);
+    });
+    ref.listen(noteStatusFilterProvider, (prev, next) {
+      if (prev != next) _exitSelection(ref);
+    });
 
     // 기도/회개/감사 칩이 선택됐을 때만 작성 단축이 가능하다(칩 컨텍스트 작성).
     // QT·설교는 각자 QT/성경 화면에서 작성하므로 여기서 작성 진입을 두지 않는다.
