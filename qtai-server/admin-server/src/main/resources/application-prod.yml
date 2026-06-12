@@ -23,10 +23,7 @@ security:
     access-expiry-ms: ${JWT_ACCESS_EXPIRY_MS:1800000}
     refresh-expiry-ms: ${JWT_REFRESH_EXPIRY_MS:1209600000}
 
-# 운영 환경 — DevSecurityConfig 활성화 절대 금지
 qtai:
-  security:
-    dev-bypass: false
   # 탈퇴 회원 보존기간(2년) 만료 정리 배치 활성화 — admin 검증 통합 완료 후 운영에서 켠다(매일 03:00 KST hard delete).
   retention:
     purge:
