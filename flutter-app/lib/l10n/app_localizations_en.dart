@@ -165,18 +165,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteDeleteFailed => 'Failed to delete. Please try again.';
 
   @override
-  String get noteSectionFelt => 'Reflections';
-
-  @override
-  String get noteSectionVerse => 'Verse to remember';
-
-  @override
-  String get noteSectionApply => 'How to apply';
-
-  @override
-  String get noteSectionPray => 'Prayer';
-
-  @override
   String get noteQuotedVerses => 'Quoted verses';
 
   @override
