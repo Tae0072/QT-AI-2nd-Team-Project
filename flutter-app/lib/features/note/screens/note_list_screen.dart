@@ -19,13 +19,45 @@ import 'note_edit_screen.dart' show NoteEditArgs;
 /// - 기도/회개/감사 칩 선택 시 "+ {카테고리} 작성"으로 N-02 생략하고 N-03 직행 = ⑤ 빠른 작성
 /// - 우하단 FAB → N-02 카테고리 선택 → N-03 작성(전체/QT/설교 맥락)
 /// - GET /api/v1/notes 연동, 빈/에러는 공통 위젯으로 처리, 항목 탭 시 N-04 상세
-class NoteListScreen extends ConsumerWidget {
+class NoteListScreen extends ConsumerStatefulWidget {
   const NoteListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NoteListScreen> createState() => _NoteListScreenState();
+}
+
+class _NoteListScreenState extends ConsumerState<NoteListScreen> {
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // 화면을 다시 그릴 때 기존 검색어와 입력칸을 맞춘다(provider가 단일 진실).
+    final q = ref.read(noteSearchQueryProvider);
+    if (q != null) _searchController.text = q;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _submitSearch(String value) {
+    final q = value.trim();
+    ref.read(noteSearchQueryProvider.notifier).state = q.isEmpty ? null : q;
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    ref.read(noteSearchQueryProvider.notifier).state = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final selectedCategory = ref.watch(noteCategoryFilterProvider);
     final selectedStatus = ref.watch(noteStatusFilterProvider);
+    final hasQuery = ref.watch(noteSearchQueryProvider) != null;
     final l = AppLocalizations.of(context);
 
     // 기도/회개/감사 칩이 선택됐을 때만 작성 단축이 가능하다(칩 컨텍스트 작성).
@@ -123,8 +155,27 @@ class NoteListScreen extends ConsumerWidget {
             ),
           ),
           const Divider(height: 1),
-          // 구분선과 목록 사이 숨통(디자인 간격).
-          const SizedBox(height: 8),
+          // 검색바 — 제목·본문을 서버에서 검색(GET /notes?q=). 엔터로 제출.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: TextField(
+              controller: _searchController,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: l.noteSearchHint,
+                prefixIcon: const Icon(Icons.search),
+                isDense: true,
+                suffixIcon: hasQuery
+                    ? IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: l.commonClose,
+                        onPressed: _clearSearch,
+                      )
+                    : null,
+              ),
+              onSubmitted: _submitSearch,
+            ),
+          ),
           const Expanded(child: _NoteListBody()),
         ],
       ),
@@ -144,13 +195,15 @@ class _NoteListBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notesAsync = ref.watch(notesProvider);
+    final hasQuery = ref.watch(noteSearchQueryProvider) != null;
     final l = AppLocalizations.of(context);
 
     // 로딩/에러/빈 화면은 공통 위젯 whenOrDefault가 처리.
     return notesAsync.whenOrDefault(
       data: (response) {
         if (response.items.isEmpty) {
-          return EmptyView(message: l.noteEmpty);
+          // 검색 중이면 "검색 결과 없음", 아니면 "노트 없음".
+          return EmptyView(message: hasQuery ? l.noteSearchEmpty : l.noteEmpty);
         }
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(notesProvider),

@@ -22,6 +22,45 @@ void main() {
     });
   });
 
+  group('dateDotLabel', () {
+    test('yyyy.MM.dd로 0패딩 표시한다', () {
+      expect(dateDotLabel(DateTime(2026, 6, 7)), '2026.06.07');
+      expect(dateDotLabel(DateTime(2026, 12, 25)), '2026.12.25');
+    });
+  });
+
+  group('dateDotFromIso', () {
+    test('yyyy-MM-dd를 yyyy.MM.dd로 변환한다', () {
+      expect(dateDotFromIso('2026-06-07'), '2026.06.07');
+    });
+
+    test('형식이 맞지 않으면 원문을 그대로 반환한다', () {
+      expect(dateDotFromIso('2026/06/07'), '2026/06/07');
+      expect(dateDotFromIso('bad'), 'bad');
+    });
+  });
+
+  group('clockLabel', () {
+    test('12시간제 AM/PM 0패딩', () {
+      expect(clockLabel(DateTime(2026, 6, 7, 7, 0)), '07:00 AM');
+      expect(clockLabel(DateTime(2026, 6, 7, 20, 30)), '08:30 PM');
+    });
+
+    test('자정/정오 경계', () {
+      expect(clockLabel(DateTime(2026, 6, 7, 0, 5)), '12:05 AM');
+      expect(clockLabel(DateTime(2026, 6, 7, 12, 0)), '12:00 PM');
+    });
+  });
+
+  group('amPmKoLabel', () {
+    test('정오 전은 오전, 정오부터 오후', () {
+      expect(amPmKoLabel(DateTime(2026, 6, 7, 0, 0)), '오전');
+      expect(amPmKoLabel(DateTime(2026, 6, 7, 11, 59)), '오전');
+      expect(amPmKoLabel(DateTime(2026, 6, 7, 12, 0)), '오후');
+      expect(amPmKoLabel(DateTime(2026, 6, 7, 20, 30)), '오후');
+    });
+  });
+
   group('relativeTimeLabel', () {
     final now = DateTime(2026, 6, 12, 12, 0, 0);
 

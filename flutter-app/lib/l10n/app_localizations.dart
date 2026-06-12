@@ -338,6 +338,18 @@ abstract class AppLocalizations {
   /// **'No notes yet'**
   String get noteEmpty;
 
+  /// No description provided for @noteSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search records'**
+  String get noteSearchHint;
+
+  /// No description provided for @noteSearchEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching records'**
+  String get noteSearchEmpty;
+
   /// No description provided for @noteUntitled.
   ///
   /// In en, this message translates to:

@@ -16,14 +16,16 @@ class _FakeNoteRepository extends NoteRepository {
 
   String? lastCategory;
   String? lastStatus;
+  String? lastQ;
   int getNotesCallCount = 0;
 
   @override
   Future<NoteListResponse> getNotes(
-      {String? category, String? status, int page = 0}) async {
+      {String? category, String? status, String? q, int page = 0}) async {
     getNotesCallCount++;
     lastCategory = category;
     lastStatus = status;
+    lastQ = q;
     return NoteListResponse(items: const [], hasNext: false);
   }
 
@@ -64,6 +66,21 @@ void main() {
       expect(fake.lastCategory, 'PRAYER');
       expect(fake.lastStatus, 'DRAFT');
     });
+
+    test('검색어를 바꾸면 getNotes(q:)로 다시 조회한다', () async {
+      final fake = _FakeNoteRepository();
+      final container = ProviderContainer(
+        overrides: [noteRepositoryProvider.overrideWithValue(fake)],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(notesProvider.future);
+      expect(fake.lastQ, isNull);
+
+      container.read(noteSearchQueryProvider.notifier).state = '은혜';
+      await container.read(notesProvider.future);
+      expect(fake.lastQ, '은혜');
+    });
   });
 
   group('NoteListScreen — 맥락형 FAB', () {
@@ -71,6 +88,12 @@ void main() {
     late Object? pushedArgs;
 
     Future<void> pump(WidgetTester tester) async {
+      // 달력+칩+검색바가 모두 보이도록 실제 폰 크기 뷰포트로 키운다(기본 600px는 짧음).
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       pushedRoute = null;
       pushedArgs = null;
       await tester.pumpWidget(

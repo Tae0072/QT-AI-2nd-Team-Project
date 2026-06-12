@@ -131,6 +131,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteEmpty => '작성한 노트가 없습니다';
 
   @override
+  String get noteSearchHint => '기록 검색';
+
+  @override
+  String get noteSearchEmpty => '검색 결과가 없습니다';
+
+  @override
   String get noteUntitled => '(제목 없음)';
 
   @override

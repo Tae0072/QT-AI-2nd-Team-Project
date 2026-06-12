@@ -19,17 +19,22 @@ final noteCategoryFilterProvider = StateProvider<String?>((ref) => null);
 /// 명시적으로 [임시저장] 버튼을 눌러 만든 상태이지 자동 생성물이 아니다(07 §6.4 저장 정책).
 final noteStatusFilterProvider = StateProvider<String?>((ref) => null);
 
+/// 검색어 (null = 검색 안 함). 검색바 제출 시 설정한다.
+/// 서버 `GET /notes?q=`(제목·본문 LIKE)로 전달된다.
+final noteSearchQueryProvider = StateProvider<String?>((ref) => null);
+
 /// 노트 목록.
 ///
 /// 왜 이렇게 짰냐면:
-/// 카테고리·상태 필터를 watch 하므로 사용자가 칩/상태를 바꾸면
+/// 카테고리·상태·검색어를 watch 하므로 사용자가 칩/상태/검색을 바꾸면
 /// 이 provider가 자동으로 다시 조회한다.
 /// autoDispose = 화면을 떠나면 캐시를 비워 메모리/낡은 데이터를 정리한다.
 final notesProvider = FutureProvider.autoDispose<NoteListResponse>((ref) {
   final repository = ref.watch(noteRepositoryProvider);
   final category = ref.watch(noteCategoryFilterProvider);
   final status = ref.watch(noteStatusFilterProvider);
-  return repository.getNotes(category: category, status: status);
+  final q = ref.watch(noteSearchQueryProvider);
+  return repository.getNotes(category: category, status: status, q: q);
 });
 
 /// 노트 상세 (id별).

@@ -48,6 +48,8 @@
     }
   },
   "noteEmpty": "작성한 노트가 없습니다",
+  "noteSearchHint": "기록 검색",
+  "noteSearchEmpty": "검색 결과가 없습니다",
   "noteUntitled": "(제목 없음)",
   "noteDraft": "임시저장",
   "noteModeWrite": "작성",

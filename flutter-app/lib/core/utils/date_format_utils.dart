@@ -17,6 +17,31 @@ String monthDayFromIso(String iso) {
   return '$m월 $d일';
 }
 
+/// DateTime → "yyyy.MM.dd" (기록 카드 상단 날짜).
+String dateDotLabel(DateTime d) =>
+    '${d.year}.${d.month.toString().padLeft(2, '0')}.'
+    '${d.day.toString().padLeft(2, '0')}';
+
+/// "yyyy-MM-dd" → "yyyy.MM.dd". 형식이 아니면 원문을 그대로 돌려준다.
+String dateDotFromIso(String iso) {
+  final parts = iso.split('-');
+  if (parts.length != 3) return iso;
+  return '${parts[0]}.${parts[1]}.${parts[2]}';
+}
+
+/// DateTime → 12시간제 시각 "hh:mm AM/PM" (예: "07:00 AM", "08:30 PM").
+String clockLabel(DateTime d) {
+  final isPm = d.hour >= 12;
+  var h = d.hour % 12;
+  if (h == 0) h = 12;
+  final hh = h.toString().padLeft(2, '0');
+  final mm = d.minute.toString().padLeft(2, '0');
+  return '$hh:$mm ${isPm ? 'PM' : 'AM'}';
+}
+
+/// DateTime → 시간대 한글 라벨("오전"/"오후"). 기록 카드 배지용.
+String amPmKoLabel(DateTime d) => d.hour < 12 ? '오전' : '오후';
+
 /// 게시 시각 → 상대 시간 라벨.
 /// - 1분 미만: "방금"
 /// - 1시간 미만: "N분 전"

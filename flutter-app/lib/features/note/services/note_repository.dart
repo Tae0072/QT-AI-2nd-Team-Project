@@ -34,14 +34,18 @@ class NoteRepository {
   /// 노트 목록 조회 (GET /api/v1/notes).
   ///
   /// [status]는 서버 `notes.status`(DRAFT/SAVED) 필터. null이면 전체(04 §4.3.1).
+  /// [q]는 제목·본문 포함 검색어(서버 LIKE 검색, 04 §4.3.1). null/빈 문자열이면 미적용.
   Future<NoteListResponse> getNotes({
     String? category,
     String? status,
+    String? q,
     int page = 0,
   }) async {
+    final keyword = q?.trim();
     final response = await _dio.get('/notes', queryParameters: {
       if (category != null) 'category': category,
       if (status != null) 'status': status,
+      if (keyword != null && keyword.isNotEmpty) 'q': keyword,
       'page': page,
       'size': 20,
     });
