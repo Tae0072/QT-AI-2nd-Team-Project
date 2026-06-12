@@ -111,12 +111,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteListTitle => '노트';
 
   @override
-  String get noteViewList => '목록 보기';
-
-  @override
-  String get noteViewCalendar => '달력 보기';
-
-  @override
   String get noteFilterAll => '전체';
 
   @override

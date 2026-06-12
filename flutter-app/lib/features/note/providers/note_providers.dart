@@ -14,6 +14,9 @@ final noteCategoryFilterProvider = StateProvider<String?>((ref) => null);
 
 /// 선택된 상태 필터 (null = 전체, 'DRAFT' = 임시저장, 'SAVED' = 저장).
 /// 서버 notes.status 값(04 §8.2)을 그대로 쓴다. DELETED는 목록에서 빠지므로 대상 아님.
+///
+/// DRAFT를 목록에 노출하는 것은 "자동저장 금지" 정책과 무관하다 — DRAFT는 사용자가
+/// 명시적으로 [임시저장] 버튼을 눌러 만든 상태이지 자동 생성물이 아니다(07 §6.4 저장 정책).
 final noteStatusFilterProvider = StateProvider<String?>((ref) => null);
 
 /// 노트 목록.

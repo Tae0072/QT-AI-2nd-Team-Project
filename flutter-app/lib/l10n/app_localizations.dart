@@ -302,18 +302,6 @@ abstract class AppLocalizations {
   /// **'Notes'**
   String get noteListTitle;
 
-  /// No description provided for @noteViewList.
-  ///
-  /// In en, this message translates to:
-  /// **'List view'**
-  String get noteViewList;
-
-  /// No description provided for @noteViewCalendar.
-  ///
-  /// In en, this message translates to:
-  /// **'Calendar view'**
-  String get noteViewCalendar;
-
   /// No description provided for @noteFilterAll.
   ///
   /// In en, this message translates to:

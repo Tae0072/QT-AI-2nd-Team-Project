@@ -115,12 +115,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteListTitle => 'Notes';
 
   @override
-  String get noteViewList => 'List view';
-
-  @override
-  String get noteViewCalendar => 'Calendar view';
-
-  @override
   String get noteFilterAll => 'All';
 
   @override

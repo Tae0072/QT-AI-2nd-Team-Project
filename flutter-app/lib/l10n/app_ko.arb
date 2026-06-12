@@ -37,8 +37,6 @@
   "noteNewTitle": "새 노트",
   "noteCategoryPrompt": "어떤 노트를 작성할까요?",
   "noteListTitle": "노트",
-  "noteViewList": "목록 보기",
-  "noteViewCalendar": "달력 보기",
   "noteFilterAll": "전체",
   "noteStatusAll": "전체",
   "noteStatusDraft": "임시저장",
