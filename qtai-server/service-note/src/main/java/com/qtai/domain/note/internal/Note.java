@@ -125,6 +125,16 @@ public class Note extends BaseEntity {
         transitionTo(status, now);
     }
 
+    /** 나눔 공개 시 노트를 SHARED로 표시한다(목록의 shared 플래그 근거). */
+    public void markShared() {
+        this.visibility = NoteVisibility.SHARED;
+    }
+
+    /** 나눔 공개 중단(삭제) 시 노트를 다시 PRIVATE로 되돌린다. */
+    public void markUnshared() {
+        this.visibility = NoteVisibility.PRIVATE;
+    }
+
     public void delete(LocalDateTime now) {
         this.status = NoteStatus.DELETED;
         this.savedAt = null;

@@ -4,6 +4,7 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.note.api.GetNoteUseCase;
+import com.qtai.domain.note.api.MarkNoteSharedUseCase;
 import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.notification.api.SendNotificationUseCase;
@@ -66,6 +67,8 @@ public class SharingPostService
     private final PostLikeRepository postLikeRepository;
     // 다른 도메인은 api 포트로만 호출(CLAUDE.md §4). 노트 본문 조회·작성자 닉네임 조회용.
     private final GetNoteUseCase getNoteUseCase;
+    // 공개/공개중단 시 원본 노트를 SHARED/PRIVATE로 표시(목록 shared 플래그 근거).
+    private final MarkNoteSharedUseCase markNoteSharedUseCase;
     private final GetMemberUseCase getMemberUseCase;
     // 좋아요 알림 발송용(P1-13).
     private final SendNotificationUseCase sendNotificationUseCase;
@@ -209,6 +212,9 @@ public class SharingPostService
                 commentsEnabled);
         SharingPost saved = sharingPostRepository.save(post);
 
+        // 원본 노트를 SHARED로 표시 → 기록 목록의 shared 플래그가 실제 공유 상태를 반영한다.
+        markNoteSharedUseCase.markShared(memberId, noteId);
+
         // 방금 내가 만든 글이므로 likedByMe=false, ownedByMe=true.
         return toDetail(saved, false, true);
     }
@@ -279,6 +285,8 @@ public class SharingPostService
             return; // 이미 삭제됨 — 멱등
         }
         post.delete(LocalDateTime.now(clock));
+        // 공개 중단 → 원본 노트를 다시 PRIVATE로 되돌린다(노트가 이미 삭제됐으면 멱등 무시).
+        markNoteSharedUseCase.markUnshared(memberId, post.getNoteId());
     }
 
     /**

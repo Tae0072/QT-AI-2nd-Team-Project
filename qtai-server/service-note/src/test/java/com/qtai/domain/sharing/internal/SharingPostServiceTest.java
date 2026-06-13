@@ -4,6 +4,7 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.note.api.GetNoteUseCase;
+import com.qtai.domain.note.api.MarkNoteSharedUseCase;
 import com.qtai.domain.notification.api.SendNotificationUseCase;
 import com.qtai.domain.sharing.api.dto.PublishNoteRequest;
 import org.junit.jupiter.api.Test;
@@ -38,12 +39,13 @@ class SharingPostServiceTest {
     @Mock private SharingPostRepository sharingPostRepository;
     @Mock private PostLikeRepository postLikeRepository;
     @Mock private GetNoteUseCase getNoteUseCase;
+    @Mock private MarkNoteSharedUseCase markNoteSharedUseCase;
     @Mock private GetMemberUseCase getMemberUseCase;
     @Mock private SendNotificationUseCase sendNotificationUseCase;
 
     private SharingPostService service() {
         return new SharingPostService(sharingPostRepository, postLikeRepository,
-                getNoteUseCase, getMemberUseCase, sendNotificationUseCase, CLOCK);
+                getNoteUseCase, markNoteSharedUseCase, getMemberUseCase, sendNotificationUseCase, CLOCK);
     }
 
     private static SharingPost publishedPost(long ownerId) {
@@ -126,6 +128,8 @@ class SharingPostServiceTest {
 
         assertThat(post.getStatus()).isEqualTo(SharingPostStatus.DELETED);
         assertThat(post.getDeletedAt()).isNotNull();
+        // 공개 중단 → 원본 노트를 PRIVATE로 되돌린다.
+        verify(markNoteSharedUseCase).markUnshared(1L, 10L);
     }
 
     @Test

@@ -11,6 +11,7 @@ import com.qtai.domain.note.api.JournalChangedEvent;
 import com.qtai.domain.note.api.JournalEventType;
 import com.qtai.domain.note.api.ListNoteCategoriesUseCase;
 import com.qtai.domain.note.api.ListNotesUseCase;
+import com.qtai.domain.note.api.MarkNoteSharedUseCase;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.NoteVisibility;
@@ -49,7 +50,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNoteUseCase,
-        UpdateNoteUseCase, DeleteNoteUseCase, ListNoteCategoriesUseCase {
+        UpdateNoteUseCase, DeleteNoteUseCase, ListNoteCategoriesUseCase, MarkNoteSharedUseCase {
 
     private static final String DEFAULT_SORT = "updatedAt,desc";
 
@@ -324,6 +325,20 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 note.getUpdatedAt(),
                 verseItems
         );
+    }
+
+    @Override
+    @Transactional
+    public void markShared(Long memberId, Long noteId) {
+        noteRepository.findActiveByIdAndMemberId(noteId, memberId)
+                .ifPresent(Note::markShared);
+    }
+
+    @Override
+    @Transactional
+    public void markUnshared(Long memberId, Long noteId) {
+        noteRepository.findActiveByIdAndMemberId(noteId, memberId)
+                .ifPresent(Note::markUnshared);
     }
 
     private NoteListItem toListItem(Note note) {
