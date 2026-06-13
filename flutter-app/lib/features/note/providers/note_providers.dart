@@ -2,11 +2,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../models/note_models.dart';
+import '../services/note_canvas_store.dart';
 import '../services/note_repository.dart';
 
 /// 노트 Repository 주입.
 final noteRepositoryProvider = Provider<NoteRepository>((ref) {
   return NoteRepository(ref.watch(dioProvider));
+});
+
+/// 노트 페이지 모드·손그림을 이 기기에 저장하는 로컬 저장소 주입.
+final noteCanvasStoreProvider = Provider<NoteCanvasStore>((ref) {
+  return NoteCanvasStore();
 });
 
 /// 선택된 카테고리 필터 상태 (null = 전체).

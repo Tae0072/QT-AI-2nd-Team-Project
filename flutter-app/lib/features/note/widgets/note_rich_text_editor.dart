@@ -6,7 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../bible/models/bible_chapter_counts.dart';
 import '../../bible/models/bible_models.dart';
 import '../../bible/providers/bible_providers.dart';
+import '../models/note_drawing.dart';
 import '../models/note_markup_quill_codec.dart';
+import 'note_drawing_layer.dart';
 import 'qt_note_format_toolbar.dart';
 
 /// 노트 본문 컨트롤러 — 내부는 flutter_quill의 [QuillController]지만, 저장 형식은
@@ -83,6 +85,14 @@ class NoteRichTextEditor extends ConsumerStatefulWidget {
   /// [top]은 header 아래/본문 위, [bottom]은 본문 아래에 가로로 배치한다.
   final NoteRichTextToolbarPlacement toolbarPlacement;
 
+  /// 페이지 표시 모드(일반/원고). [onPageModeChanged]가 있으면 토글 버튼을 보여준다.
+  final NotePageMode pageMode;
+  final ValueChanged<NotePageMode>? onPageModeChanged;
+
+  /// 손그림 획. [onStrokesChanged]가 있으면 펜/지우기 도구를 보여준다.
+  final List<DrawingStroke> strokes;
+  final ValueChanged<List<DrawingStroke>>? onStrokesChanged;
+
   const NoteRichTextEditor({
     super.key,
     required this.controller,
@@ -92,6 +102,10 @@ class NoteRichTextEditor extends ConsumerStatefulWidget {
     this.onVerseInserted,
     this.header,
     this.toolbarPlacement = NoteRichTextToolbarPlacement.left,
+    this.pageMode = NotePageMode.plain,
+    this.onPageModeChanged,
+    this.strokes = const <DrawingStroke>[],
+    this.onStrokesChanged,
   });
 
   @override
@@ -131,6 +145,10 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
   final Map<int, Offset> _activePointers = <int, Offset>{};
   double? _pinchStartDistance;
   double _pinchStartFontSize = 16;
+
+  // 펜(손그림) 모드 on/off. on이면 본문 위에서 그리기, 텍스트 입력/핀치는 잠시 멈춘다.
+  bool _penEnabled = false;
+  static const double _penStrokeWidth = 3;
 
   Color _textColor = _defaultTextColor;
   Color _backgroundColor = _defaultBackgroundColor;
@@ -373,8 +391,29 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
       ));
   }
 
+  bool get _canDraw => widget.onStrokesChanged != null;
+  bool get _isManuscript => widget.pageMode == NotePageMode.manuscript;
+
+  void _toggleManuscript() {
+    final next =
+        _isManuscript ? NotePageMode.plain : NotePageMode.manuscript;
+    widget.onPageModeChanged?.call(next);
+  }
+
+  void _undoStroke() {
+    if (widget.strokes.isEmpty) return;
+    final next = List<DrawingStroke>.of(widget.strokes)..removeLast();
+    widget.onStrokesChanged?.call(next);
+  }
+
+  void _clearStrokes() {
+    if (widget.strokes.isEmpty) return;
+    widget.onStrokesChanged?.call(const <DrawingStroke>[]);
+  }
+
   // ── 두 손가락 핀치로 에디터 기본 글자 크기 조절 ───────────────────────────
   void _onEditorPointerDown(PointerDownEvent event) {
+    if (_penEnabled) return; // 펜 모드에선 핀치 줌 끔(그리기와 충돌 방지).
     _activePointers[event.pointer] = event.position;
     if (_activePointers.length == 2) {
       final points = _activePointers.values.toList();
@@ -462,6 +501,17 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
       onParenNumber: () => _insertLinePrefix('(1) '),
       onPlainNumber: () => _insertLinePrefix('1) '),
       onVerseMention: () => _insertAtCursor('@'),
+      // 페이지 모드 토글(콜백이 있을 때만 버튼 노출).
+      manuscriptActive: _isManuscript,
+      onToggleManuscript:
+          widget.onPageModeChanged != null ? _toggleManuscript : null,
+      // 손그림 도구(콜백이 있을 때만 버튼 노출).
+      penActive: _penEnabled,
+      onTogglePen: _canDraw
+          ? () => setState(() => _penEnabled = !_penEnabled)
+          : null,
+      onUndoStroke: _canDraw ? _undoStroke : null,
+      onClearStrokes: _canDraw ? _clearStrokes : null,
     );
 
     final mention = (_mentionQuery != null && _booksFuture != null)
@@ -472,6 +522,21 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
           )
         : null;
 
+    final colorScheme = Theme.of(context).colorScheme;
+    final quillEditor = QuillEditor(
+      key: widget.bodyFieldKey,
+      focusNode: _bodyFocusNode,
+      scrollController: _editorScrollController,
+      controller: _quill,
+      config: QuillEditorConfig(
+        placeholder: widget.bodyLabel,
+        padding: const EdgeInsets.all(12),
+        expands: true,
+        scrollable: true,
+        customStyles: _quillStyles(),
+      ),
+    );
+
     final editor = Listener(
       behavior: HitTestBehavior.deferToChild,
       onPointerDown: _onEditorPointerDown,
@@ -481,20 +546,36 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
       child: Container(
         key: widget.bodyScrollKey,
         decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).colorScheme.outline),
+          border: Border.all(color: colorScheme.outline),
           borderRadius: BorderRadius.circular(4),
         ),
-        child: QuillEditor(
-          key: widget.bodyFieldKey,
-          focusNode: _bodyFocusNode,
-          scrollController: _editorScrollController,
-          controller: _quill,
-          config: QuillEditorConfig(
-            placeholder: widget.bodyLabel,
-            padding: const EdgeInsets.all(12),
-            expands: true,
-            scrollable: true,
-            customStyles: _quillStyles(),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Stack(
+            children: [
+              // 원고 모드: 공책 줄 배경(에디터 뒤).
+              if (_isManuscript)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: RuledLinesPainter(
+                      lineColor: colorScheme.outlineVariant.withValues(alpha: 0.6),
+                      marginColor: colorScheme.error.withValues(alpha: 0.35),
+                    ),
+                  ),
+                ),
+              quillEditor,
+              // 손그림 오버레이: 펜 켜졌거나 기존 획이 있으면 표시.
+              if (_canDraw && (_penEnabled || widget.strokes.isNotEmpty))
+                Positioned.fill(
+                  child: NoteDrawingLayer(
+                    strokes: widget.strokes,
+                    enabled: _penEnabled,
+                    colorValue: _textColor.toARGB32(),
+                    strokeWidth: _penStrokeWidth,
+                    onStrokesChanged: widget.onStrokesChanged!,
+                  ),
+                ),
+            ],
           ),
         ),
       ),

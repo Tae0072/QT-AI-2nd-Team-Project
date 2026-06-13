@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../routes/app_router.dart';
+import '../models/note_drawing.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
 import '../widgets/note_rich_text_editor.dart';
@@ -42,6 +45,40 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
   /// 중복 없이 보존하기 위해 Set으로 모은다.
   final Set<int> _verseIds = <int>{};
 
+  // 페이지 모드(일반/원고)·손그림 — 이 기기에만 로컬 저장한다.
+  NotePageMode _pageMode = NotePageMode.plain;
+  List<DrawingStroke> _strokes = const <DrawingStroke>[];
+  int? _createdNoteId; // 작성(POST) 후 부여된 id — 로컬 저장 키로 쓴다.
+
+  /// 손그림/모드 로컬 저장 키. 노트 id가 있어야(편집이거나 저장 후) 키가 생긴다.
+  String? get _canvasKey {
+    final id = _args.noteId ?? _createdNoteId;
+    return id == null ? null : 'note:$id';
+  }
+
+  /// 이 노트에 저장해 둔 페이지 모드·손그림(로컬)을 불러온다(있을 때).
+  Future<void> _loadCanvas() async {
+    final key = _canvasKey;
+    if (key == null) return;
+    final store = ref.read(noteCanvasStoreProvider);
+    final mode = await store.loadMode(key);
+    final strokes = await store.loadStrokes(key);
+    if (!mounted) return;
+    setState(() {
+      _pageMode = mode;
+      _strokes = strokes;
+    });
+  }
+
+  /// 현재 모드·손그림을 로컬에 저장(키가 없으면 노트 저장 후로 미룬다).
+  void _persistCanvas() {
+    final key = _canvasKey;
+    if (key == null) return;
+    final store = ref.read(noteCanvasStoreProvider);
+    store.saveMode(key, _pageMode);
+    store.saveStrokes(key, _strokes);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -78,6 +115,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
       _verseIds.addAll(detail.verses.map((v) => v.bibleVerseId));
       if (!mounted) return;
       setState(() => _loading = false);
+      // 페이지 모드·손그림(로컬)은 본문 로딩 스피너와 분리해 비동기로 불러온다.
+      unawaited(_loadCanvas());
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -127,6 +166,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
           verseIds: _verseIds.toList(),
           status: status,
         );
+        // 페이지 모드·손그림(로컬)을 이 노트 키로 저장한다.
+        _persistCanvas();
         ref.invalidate(notesProvider);
         // 작성/수정 시 묵상 달력 체크리스트가 자동 ✓ 되도록 달력도 무효화(모든 월).
         ref.invalidate(meditationCalendarProvider);
@@ -134,13 +175,16 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
         Navigator.of(context).pop();
       } else {
         // ✏️ 작성: POST 후 목록을 무효화하고 N-02를 건너뛰어 목록까지 돌아간다.
-        await repository.create(
+        final created = await repository.create(
           category: _args.category ?? 'PRAYER',
           title: title,
           body: body,
           verseIds: _verseIds.toList(),
           status: status,
         );
+        // 새로 부여된 id로 페이지 모드·손그림(로컬)을 저장한다.
+        _createdNoteId = created.id;
+        _persistCanvas();
         ref.invalidate(notesProvider);
         ref.invalidate(meditationCalendarProvider);
         if (!mounted) return;
@@ -284,6 +328,17 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
                     bodyLabel: l.noteEditBodyLabel,
                     // @멘션으로 삽입한 절을 verseIds로 모아 저장(§6.4.1).
                     onVerseInserted: (ids) => _verseIds.addAll(ids),
+                    // 페이지 모드·손그림(로컬 저장).
+                    pageMode: _pageMode,
+                    onPageModeChanged: (mode) {
+                      setState(() => _pageMode = mode);
+                      _persistCanvas();
+                    },
+                    strokes: _strokes,
+                    onStrokesChanged: (strokes) {
+                      setState(() => _strokes = strokes);
+                      _persistCanvas();
+                    },
                   ),
                 ),
                 const SizedBox(height: 12),
