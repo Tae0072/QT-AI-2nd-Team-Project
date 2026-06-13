@@ -27,9 +27,24 @@ class QtNoteFormatToolbar extends StatelessWidget {
   /// 툴바 진행 방향. [Axis.horizontal]=가로(기존), [Axis.vertical]=왼쪽 세로 패널.
   final Axis axis;
 
+  // ── 손그림/페이지 모드(선택) ─────────────────────────────────────────────
+  // 콜백이 주어지면 해당 버튼을 그린다. 없으면(기존 호출부) 버튼을 숨겨 호환 유지.
+  final bool penActive;
+  final bool manuscriptActive;
+  final VoidCallback? onTogglePen;
+  final VoidCallback? onUndoStroke;
+  final VoidCallback? onClearStrokes;
+  final VoidCallback? onToggleManuscript;
+
   const QtNoteFormatToolbar({
     super.key,
     this.axis = Axis.horizontal,
+    this.penActive = false,
+    this.manuscriptActive = false,
+    this.onTogglePen,
+    this.onUndoStroke,
+    this.onClearStrokes,
+    this.onToggleManuscript,
     required this.fontSize,
     required this.textColor,
     required this.backgroundColor,
@@ -83,6 +98,17 @@ class QtNoteFormatToolbar extends StatelessWidget {
       _button(Icons.format_list_bulleted, '동그라미 목록', onBullet),
       _textButton('(1)', '(1) 목록', onParenNumber),
       _textButton('1)', '1) 목록', onPlainNumber),
+      // 손그림/페이지 모드 도구(콜백이 있을 때만).
+      if (onTogglePen != null || onToggleManuscript != null) _divider(vertical),
+      if (onToggleManuscript != null)
+        _button(Icons.horizontal_rule, '원고/일반 전환', onToggleManuscript!,
+            active: manuscriptActive),
+      if (onTogglePen != null)
+        _button(Icons.draw, '펜으로 그리기', onTogglePen!, active: penActive),
+      if (onUndoStroke != null)
+        _button(Icons.undo, '획 실행취소', onUndoStroke!),
+      if (onClearStrokes != null)
+        _button(Icons.delete_outline, '그림 전체 지우기', onClearStrokes!),
     ];
 
     // 세로(왼쪽 패널): 좁은 고정폭. SingleChildScrollView+Column으로 모든 버튼을
@@ -106,6 +132,19 @@ class QtNoteFormatToolbar extends StatelessWidget {
         children: children,
       ),
     );
+  }
+
+  /// 서식 버튼과 그림 도구를 구분하는 얇은 구분선.
+  Widget _divider(bool vertical) {
+    return vertical
+        ? const Padding(
+            padding: EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+            child: Divider(height: 1, thickness: 1),
+          )
+        : const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: VerticalDivider(width: 1, thickness: 1),
+          );
   }
 
   Widget _button(

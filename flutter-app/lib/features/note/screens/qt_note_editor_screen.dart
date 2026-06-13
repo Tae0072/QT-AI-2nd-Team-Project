@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../bible/models/bible_models.dart';
+import '../models/note_drawing.dart';
 import '../providers/note_providers.dart';
 import '../widgets/note_rich_text_editor.dart';
 
@@ -30,7 +31,20 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
   int _previewFlex = 30;
   bool _saving = false;
 
+  // 페이지 모드(일반/원고)·손그림 — 이 기기에만 로컬 저장한다.
+  NotePageMode _pageMode = NotePageMode.plain;
+  List<DrawingStroke> _strokes = const <DrawingStroke>[];
+
   TodayQtPassage get _passage => widget.args.passage;
+
+  // QT 노트는 해당 QT 본문(qtPassageId)을 키로 로컬 저장한다.
+  String get _canvasKey => 'qt:${_passage.qtPassageId}';
+
+  void _persistCanvas() {
+    final store = ref.read(noteCanvasStoreProvider);
+    store.saveMode(_canvasKey, _pageMode);
+    store.saveStrokes(_canvasKey, _strokes);
+  }
 
   @override
   void initState() {
@@ -41,6 +55,19 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
     if (draftId != null) {
       Future.microtask(() => _loadDraft(draftId));
     }
+    // 이 QT에 저장해 둔 페이지 모드·손그림(로컬)을 불러온다.
+    Future.microtask(_loadCanvas);
+  }
+
+  Future<void> _loadCanvas() async {
+    final store = ref.read(noteCanvasStoreProvider);
+    final mode = await store.loadMode(_canvasKey);
+    final strokes = await store.loadStrokes(_canvasKey);
+    if (!mounted) return;
+    setState(() {
+      _pageMode = mode;
+      _strokes = strokes;
+    });
   }
 
   Future<void> _loadDraft(int noteId) async {
@@ -98,6 +125,8 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
           verseIds: verseIds,
         );
       }
+      // 페이지 모드·손그림(로컬)을 이 QT 키로 저장한다.
+      _persistCanvas();
       if (!mounted) return;
       _showMessage(status == 'SAVED' ? '저장되었습니다' : '임시저장되었습니다');
       Navigator.of(context).pop();
@@ -310,6 +339,16 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
                         child: NoteRichTextEditor(
                           controller: _bodyController,
                           bodyLabel: '노트 작성',
+                          pageMode: _pageMode,
+                          onPageModeChanged: (mode) {
+                            setState(() => _pageMode = mode);
+                            _persistCanvas();
+                          },
+                          strokes: _strokes,
+                          onStrokesChanged: (strokes) {
+                            setState(() => _strokes = strokes);
+                            _persistCanvas();
+                          },
                           header: TextField(
                             controller: _titleController,
                             hintLocales: const [Locale('ko', 'KR')],
