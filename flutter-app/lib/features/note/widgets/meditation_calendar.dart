@@ -147,8 +147,8 @@ class _MeditationCalendarViewState
       padding: const EdgeInsets.fromLTRB(12, 6, 4, 0),
       child: Row(
         children: [
-          // 년월 — 왼쪽. 좁은 화면에서 넘치지 않도록 Flexible + 줄임표.
-          Flexible(
+          // 년월 — 왼쪽. Expanded로 남은 폭을 모두 차지해 버튼 묶음을 오른쪽 끝으로 민다.
+          Expanded(
             child: Padding(
               padding: const EdgeInsets.only(right: 6),
               child: Text(
@@ -162,7 +162,6 @@ class _MeditationCalendarViewState
               ),
             ),
           ),
-          const Spacer(),
           // ── 오른쪽 조작 버튼 묶음: 오늘 · week · 이전달 · 다음달 ──
           // 오늘로 이동.
           TextButton.icon(
