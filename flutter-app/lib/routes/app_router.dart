@@ -20,6 +20,7 @@ import '../features/note/screens/note_list_screen.dart';
 import '../features/note/screens/qt_note_editor_screen.dart';
 import '../features/onboarding/providers/onboarding_providers.dart';
 import '../features/onboarding/screens/onboarding_screen.dart';
+import '../features/dev/dev_mode_screen.dart'; // [DEV_MODE]
 import '../features/sharing/screens/my_sharing_screen.dart';
 import '../features/sharing/screens/sharing_detail_screen.dart';
 import '../features/sharing/screens/sharing_feed_screen.dart';
@@ -48,6 +49,7 @@ class AppRouter {
   static const String noteDetail = '/notes/detail';
   static const String qtNoteEditor = '/notes/qt-editor';
   static const String qtStudyContent = '/qt/study-content';
+  static const String devMode = '/dev-mode'; // [DEV_MODE]
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -67,6 +69,11 @@ class AppRouter {
       case login:
         return MaterialPageRoute(
           builder: (_) => const LoginScreen(),
+        );
+      // [DEV_MODE] 개발자 모드 화면
+      case devMode:
+        return MaterialPageRoute(
+          builder: (_) => const DevModeScreen(),
         );
       case nicknameSetup:
         return MaterialPageRoute(

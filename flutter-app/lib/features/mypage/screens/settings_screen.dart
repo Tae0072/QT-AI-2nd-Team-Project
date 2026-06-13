@@ -7,6 +7,8 @@ import '../../../core/theme/theme_providers.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../providers/mypage_providers.dart';
+// [DEV_MODE] 버전 정보 타일(5탭 → 개발자 모드). 개발 종료 시 이 import와 아래 타일 제거.
+import '../../dev/dev_mode_screen.dart';
 
 /// 설정 화면 (M-06).
 ///
@@ -110,6 +112,8 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () =>
                     Navigator.of(context).pushNamed(AppRouter.musicSettings),
               ),
+              // [DEV_MODE] 버전 정보 — 5번 연속 탭 시 비밀번호 후 개발자 모드 진입
+              const DevVersionTile(),
             ],
           );
         },

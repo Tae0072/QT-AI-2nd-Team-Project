@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
+import '../../../core/dev/dev_mode.dart'; // [DEV_MODE]
 import '../../../core/storage/secure_storage.dart';
 import 'kakao_auth_client.dart';
 
@@ -27,39 +28,47 @@ class AuthRepository {
     // 탈퇴 직후 첫 로그인은 Prompt.login으로 카카오 계정 재인증(이메일/비번 입력)을
     // 강제한다 — '완전히 새로 가입하는' 경험 제공 (2026-06-05 Lead 결정).
     final forceRelogin = await SecureStorage.getForceKakaoRelogin();
-    String kakaoAccessToken;
-    if (forceRelogin) {
-      kakaoAccessToken =
-          await _kakao.loginWithKakaoAccount(prompts: [Prompt.login]);
-    } else if (await _kakao.isKakaoTalkAvailable()) {
-      kakaoAccessToken = await _kakao.loginWithKakaoTalk();
-    } else {
-      kakaoAccessToken = await _kakao.loginWithKakaoAccount();
+    KakaoLoginLog.add('카카오 로그인 시작 (forceRelogin=$forceRelogin)'); // [DEV_MODE]
+    try {
+      String kakaoAccessToken;
+      if (forceRelogin) {
+        kakaoAccessToken =
+            await _kakao.loginWithKakaoAccount(prompts: [Prompt.login]);
+      } else if (await _kakao.isKakaoTalkAvailable()) {
+        kakaoAccessToken = await _kakao.loginWithKakaoTalk();
+      } else {
+        kakaoAccessToken = await _kakao.loginWithKakaoAccount();
+      }
+      KakaoLoginLog.add('카카오 액세스 토큰 획득'); // [DEV_MODE]
+
+      // 2) 서버에 카카오 토큰 전달 → JWT 발급
+      final response = await _dio.post(
+        '/auth/kakao',
+        data: {'kakaoAccessToken': kakaoAccessToken},
+      );
+
+      final data = response.data['data'] as Map<String, dynamic>;
+      final accessToken = data['accessToken'] as String;
+      final refreshToken = data['refreshToken'] as String;
+      // 서버 응답: member.onboardingRequired (닉네임 미설정 시 true)
+      final member = data['member'] as Map<String, dynamic>?;
+      final isNewMember = member?['onboardingRequired'] as bool? ?? false;
+      KakaoLoginLog.add('서버 로그인 성공 (isNewMember=$isNewMember)'); // [DEV_MODE]
+
+      // 3) 토큰 저장 + 재인증 강제 플래그 해제(1회성)
+      await SecureStorage.setAccessToken(accessToken);
+      await SecureStorage.setRefreshToken(refreshToken);
+      await SecureStorage.clearForceKakaoRelogin();
+
+      return LoginResult(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        isNewMember: isNewMember,
+      );
+    } catch (e) {
+      KakaoLoginLog.add('카카오 로그인 실패: $e'); // [DEV_MODE]
+      rethrow;
     }
-
-    // 2) 서버에 카카오 토큰 전달 → JWT 발급
-    final response = await _dio.post(
-      '/auth/kakao',
-      data: {'kakaoAccessToken': kakaoAccessToken},
-    );
-
-    final data = response.data['data'] as Map<String, dynamic>;
-    final accessToken = data['accessToken'] as String;
-    final refreshToken = data['refreshToken'] as String;
-    // 서버 응답: member.onboardingRequired (닉네임 미설정 시 true)
-    final member = data['member'] as Map<String, dynamic>?;
-    final isNewMember = member?['onboardingRequired'] as bool? ?? false;
-
-    // 3) 토큰 저장 + 재인증 강제 플래그 해제(1회성)
-    await SecureStorage.setAccessToken(accessToken);
-    await SecureStorage.setRefreshToken(refreshToken);
-    await SecureStorage.clearForceKakaoRelogin();
-
-    return LoginResult(
-      accessToken: accessToken,
-      refreshToken: refreshToken,
-      isNewMember: isNewMember,
-    );
   }
 
   /// 로그아웃 — 서버 폐기를 먼저 시도하고, 어떤 경우에도 로컬 토큰을 삭제한다.
