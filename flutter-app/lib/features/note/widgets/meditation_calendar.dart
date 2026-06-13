@@ -138,7 +138,7 @@ class _MeditationCalendarViewState
     );
   }
 
-  /// 커스텀 달력 헤더 — '오늘' 버튼을 week 토글 왼쪽에 배치한다.
+  /// 커스텀 달력 헤더 — 년월은 왼쪽, 조작 버튼(오늘·week·이전/다음)은 모두 오른쪽에 묶는다.
   /// (table_calendar 기본 헤더에는 버튼을 끼워넣을 슬롯이 없어 직접 그린다.)
   Widget _buildHeader(BuildContext context) {
     final c = context.appColors;
@@ -147,21 +147,10 @@ class _MeditationCalendarViewState
       padding: const EdgeInsets.fromLTRB(12, 6, 4, 0),
       child: Row(
         children: [
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () => setState(() {
-              _focusedDay = isWeek
-                  ? _focusedDay.subtract(const Duration(days: 7))
-                  : DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
-            }),
-          ),
-          // 좁은 화면에서 월 텍스트가 넘치지 않도록 Flexible + 줄임표.
+          // 년월 — 왼쪽. 좁은 화면에서 넘치지 않도록 Flexible + 줄임표.
           Flexible(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
+              padding: const EdgeInsets.only(right: 6),
               child: Text(
                 '${_focusedDay.year}년 ${_focusedDay.month}월',
                 overflow: TextOverflow.ellipsis,
@@ -174,7 +163,8 @@ class _MeditationCalendarViewState
             ),
           ),
           const Spacer(),
-          // 오늘로 이동 — week 토글 왼쪽.
+          // ── 오른쪽 조작 버튼 묶음: 오늘 · week · 이전달 · 다음달 ──
+          // 오늘로 이동.
           TextButton.icon(
             onPressed: () => setState(() {
               final now = DateTime.now();
@@ -204,6 +194,19 @@ class _MeditationCalendarViewState
             ),
             child: Text(isWeek ? 'month' : 'week'),
           ),
+          // 이전달(또는 이전주).
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: const Icon(Icons.chevron_left),
+            onPressed: () => setState(() {
+              _focusedDay = isWeek
+                  ? _focusedDay.subtract(const Duration(days: 7))
+                  : DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
+            }),
+          ),
+          // 다음달(또는 다음주).
           IconButton(
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
