@@ -82,6 +82,8 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
         // 이미 만들어진 노트(임시저장)는 새로 만들지 않고 수정한다 → 본문당 1개 제약(N0002) 회피.
         await repository.update(
           draftNoteId,
+          category: 'MEDITATION',
+          qtPassageId: _passage.qtPassageId,
           title: title,
           body: body,
           verseIds: verseIds,
@@ -321,7 +323,7 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
                               isDense: true,
                             ),
                           ),
-                          toolbarPlacement: NoteRichTextToolbarPlacement.top,
+                          toolbarPlacement: NoteRichTextToolbarPlacement.left,
                           bodyFieldKey: const ValueKey('qt-note-body-input'),
                           bodyScrollKey:
                               const ValueKey('qt-note-editor-scroll'),

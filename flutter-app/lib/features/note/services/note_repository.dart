@@ -97,13 +97,18 @@ class NoteRepository {
   /// 기본을 null로 둬서 "verseIds 안 줬는데 전체 삭제되는" 함정을 막는다.
   Future<void> update(
     int noteId, {
+    required String category,
+    int? qtPassageId,
     required String title,
     required String body,
     List<int>? verseIds,
     String status = 'SAVED',
     String visibility = 'PRIVATE',
   }) async {
+    // PATCH지만 서버가 category(+MEDITATION이면 qtPassageId)를 필수로 요구하므로 함께 보낸다.
     await _dio.patch('/notes/$noteId', data: {
+      'category': category,
+      if (qtPassageId != null) 'qtPassageId': qtPassageId,
       'title': title,
       'body': body,
       if (verseIds != null) 'verseIds': verseIds,

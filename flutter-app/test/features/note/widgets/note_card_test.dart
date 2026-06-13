@@ -37,7 +37,7 @@ void main() {
     expect(find.text('2026.06.10'), findsOneWidget);
     expect(find.text('12:00 AM'), findsOneWidget);
     expect(find.text('오전'), findsOneWidget); // 시간대 배지
-    expect(find.text('나눔'), findsOneWidget); // shared 배지
+    expect(find.text('나눔공개'), findsOneWidget); // shared 배지
     expect(find.text('오늘 묵상하며 마음에 남은 것을 적었다.'), findsOneWidget); // 미리보기
     // 더 이상 카테고리 아이콘은 없다.
     expect(find.byIcon(Icons.wb_sunny_outlined), findsNothing);
@@ -67,6 +67,6 @@ void main() {
     expect(find.text('02:05 PM'), findsOneWidget);
     expect(find.text('오후'), findsOneWidget); // 시간대 배지
     expect(find.text('임시저장'), findsOneWidget); // DRAFT 라벨
-    expect(find.text('나눔'), findsNothing); // 미공개
+    expect(find.text('나눔공개'), findsNothing); // 미공개
   });
 }

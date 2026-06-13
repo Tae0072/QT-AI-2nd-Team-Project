@@ -108,6 +108,7 @@ void main() {
         '/notes/7',
         (server) => server.reply(200, {'success': true, 'data': {}}),
         data: {
+          'category': 'PRAYER',
           'title': '설교',
           'body': '본문',
           'verseIds': [500],
@@ -116,7 +117,8 @@ void main() {
         },
       );
 
-      await repository.update(7, title: '설교', body: '본문', verseIds: [500]);
+      await repository.update(7,
+          category: 'PRAYER', title: '설교', body: '본문', verseIds: [500]);
     });
 
     test('update에 verseIds를 안 주면 키를 생략한다(절 전체 삭제 함정 방지)',
@@ -127,6 +129,7 @@ void main() {
         '/notes/7',
         (server) => server.reply(200, {'success': true, 'data': {}}),
         data: {
+          'category': 'PRAYER',
           'title': '설교',
           'body': '본문',
           'status': 'SAVED',
@@ -134,7 +137,7 @@ void main() {
         },
       );
 
-      await repository.update(7, title: '설교', body: '본문');
+      await repository.update(7, category: 'PRAYER', title: '설교', body: '본문');
     });
 
     test('create도 verseIds를 안 주면 키를 생략한다', () async {

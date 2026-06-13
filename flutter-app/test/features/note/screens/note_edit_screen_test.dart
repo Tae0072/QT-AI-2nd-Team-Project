@@ -139,6 +139,8 @@ void main() {
 
     expect(repo.updatedNoteId, 7);
     expect(repo.updatedVerseIds, [500]);
+    // 수정 PATCH는 불러온 노트의 category를 그대로 다시 보낸다(서버 필수값).
+    expect(repo.updatedCategory, 'SERMON');
   });
 
   testWidgets('성경 본문 진입 시 인용 미리보기(참조·본문)를 읽기 전용으로 보여준다',
@@ -285,9 +287,14 @@ class _FakeNoteRepository extends NoteRepository {
     );
   }
 
+  String? updatedCategory;
+  int? updatedQtPassageId;
+
   @override
   Future<void> update(
     int noteId, {
+    required String category,
+    int? qtPassageId,
     required String title,
     required String body,
     List<int>? verseIds,
@@ -295,6 +302,8 @@ class _FakeNoteRepository extends NoteRepository {
     String visibility = 'PRIVATE',
   }) async {
     updatedNoteId = noteId;
+    updatedCategory = category;
+    updatedQtPassageId = qtPassageId;
     updatedVerseIds = verseIds;
   }
 }
