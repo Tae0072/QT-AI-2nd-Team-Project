@@ -1,16 +1,17 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/services/bible_repository.dart';
+import 'package:qtai_app/features/note/models/note_markup_quill_codec.dart';
 import 'package:qtai_app/features/note/models/note_models.dart';
 import 'package:qtai_app/features/note/providers/note_providers.dart';
 import 'package:qtai_app/features/note/screens/note_edit_screen.dart';
 import 'package:qtai_app/features/note/services/note_repository.dart';
-import 'package:qtai_app/features/note/widgets/note_rich_text_editor.dart';
 
 /// N-03이 QT와 공유하는 리치텍스트 에디터(서식·@멘션) + 인용 절(verseIds) 저장(QA ③⑨·⑪)을 검증한다.
 void main() {
@@ -51,9 +52,6 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder bodyField() => find.byWidgetPredicate(
-        (w) => w is TextField && w.decoration?.labelText == '본문',
-      );
   // 저장 버튼(FilledButton). 임시저장은 OutlinedButton이라 구분된다.
   Finder saveButton() => find.byType(FilledButton);
 
@@ -64,21 +62,18 @@ void main() {
     expect(find.byTooltip('굵게'), findsOneWidget);
     expect(find.byTooltip('구절 삽입'), findsOneWidget);
 
-    await tester.enterText(bodyField(), '강조');
-    final controller = tester.widget<TextField>(bodyField()).controller!;
-    controller.selection =
-        const TextSelection(baseOffset: 0, extentOffset: 2);
-
+    _enterBody(tester, '강조');
+    _selectBody(tester, 0, 2); // '강조' 선택
     await tester.tap(find.byTooltip('굵게'));
     await tester.pump();
 
-    expect(controller.text, '**강조**');
+    expect(_bodyMarkers(tester), '**강조**');
   });
 
   testWidgets('@Ge 입력으로 창세기 구절 멘션 추천이 뜬다', (tester) async {
     await pump(tester);
 
-    await tester.enterText(bodyField(), '@Ge');
+    _enterBody(tester, '@Ge');
     await tester.pumpAndSettle();
 
     expect(find.text('창세기'), findsOneWidget);
@@ -93,9 +88,8 @@ void main() {
       noteRepository: _FakeNoteRepository(detail: _sermonDetail()),
     );
 
-    final controller = tester.widget<TextField>(bodyField()).controller!;
-    expect(controller, isA<NoteRichBodyController>());
-    expect(controller.text, '**굵게** 설교 본문');
+    // 기존 마커 본문이 저장 형식 그대로 에디터에 불러와진다.
+    expect(_bodyMarkers(tester), '**굵게** 설교 본문');
   });
 
   testWidgets('작성 진입 인자(verseIds)를 저장 시 그대로 보낸다 (설교 ②)',
@@ -107,7 +101,7 @@ void main() {
       noteRepository: repo,
     );
 
-    await tester.enterText(bodyField(), '설교 메모');
+    _enterBody(tester, '설교 메모');
     await tester.tap(saveButton());
     await tester.pumpAndSettle();
 
@@ -120,7 +114,7 @@ void main() {
     final repo = _FakeNoteRepository();
     await pump(tester, noteRepository: repo);
 
-    await tester.enterText(bodyField(), '@창 1:1');
+    _enterBody(tester, '@창 1:1');
     await tester.pumpAndSettle();
     await tester.tap(find.text('창세기 1:1 삽입'));
     await tester.pumpAndSettle();
@@ -168,6 +162,31 @@ void main() {
 
     expect(find.byIcon(Icons.menu_book_outlined), findsNothing);
   });
+}
+
+// 본문은 flutter_quill 에디터(키 없음, 화면에 하나)다. enterText가 안 통하므로 컨트롤러를 직접 조작.
+QuillController _bodyQuill(WidgetTester tester) =>
+    tester.widget<QuillEditor>(find.byType(QuillEditor)).controller;
+
+void _enterBody(WidgetTester tester, String text) {
+  final controller = _bodyQuill(tester);
+  final length = controller.document.length;
+  controller.replaceText(
+    0,
+    length <= 1 ? 0 : length - 1,
+    text,
+    TextSelection.collapsed(offset: text.length),
+  );
+}
+
+String _bodyMarkers(WidgetTester tester) =>
+    NoteMarkupQuillCodec.deltaToMarkers(_bodyQuill(tester).document.toDelta());
+
+void _selectBody(WidgetTester tester, int base, int extent) {
+  _bodyQuill(tester).updateSelection(
+    TextSelection(baseOffset: base, extentOffset: extent),
+    ChangeSource.local,
+  );
 }
 
 NoteDetail _sermonDetail() => NoteDetail(

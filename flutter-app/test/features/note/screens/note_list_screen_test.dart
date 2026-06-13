@@ -88,6 +88,40 @@ void main() {
       expect(fake.lastStatus, 'DRAFT');
     });
 
+    test('나눔 필터는 status 없이 조회하고 공유한 노트만 남긴다', () async {
+      final fake = _FakeNoteRepository(items: [
+        NoteListItem(
+          id: 1,
+          category: 'PRAYER',
+          title: '비공개',
+          status: 'SAVED',
+          visibility: 'PRIVATE',
+          shared: false,
+        ),
+        NoteListItem(
+          id: 2,
+          category: 'GRATITUDE',
+          title: '나눔공개',
+          status: 'SAVED',
+          visibility: 'PUBLIC',
+          shared: true,
+        ),
+      ]);
+      final container = ProviderContainer(
+        overrides: [noteRepositoryProvider.overrideWithValue(fake)],
+      );
+      addTearDown(container.dispose);
+
+      container.read(noteStatusFilterProvider.notifier).state =
+          kNoteSharedFilter;
+      final response = await container.read(notesProvider.future);
+
+      // '나눔'은 서버 status로 안 보낸다(공유 여부로 거름).
+      expect(fake.lastStatus, isNull);
+      // 공유한 노트만 남는다.
+      expect(response.items.map((e) => e.id), [2]);
+    });
+
     test('검색어를 바꾸면 getNotes(q:)로 다시 조회한다', () async {
       final fake = _FakeNoteRepository();
       final container = ProviderContainer(
@@ -147,8 +181,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('전체 선택 시 작은 + FAB이고, 누르면 N-02(카테고리 선택)로 간다',
-        (tester) async {
+    testWidgets('전체 선택 시 작은 + FAB이고, 누르면 N-02(카테고리 선택)로 간다', (tester) async {
       await pump(tester);
 
       // 작성 단축 알약 없음, 일반 FAB 존재
@@ -164,7 +197,13 @@ void main() {
         (tester) async {
       await pump(tester);
 
-      // 카테고리 칩 '기도' 선택 → FAB이 알약으로 변신
+      // 카테고리 칩 '기도' 선택 → FAB이 알약으로 변신.
+      // 좁은 폭(360dp)에선 가로 칩 리스트에서 '기도'가 화면 밖일 수 있어 먼저 스크롤해 노출.
+      await tester.dragUntilVisible(
+        find.text('기도'),
+        find.byKey(const ValueKey('note-category-chip-list')),
+        const Offset(-80, 0),
+      );
       await tester.tap(find.text('기도'));
       await tester.pumpAndSettle();
 
@@ -245,7 +284,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 선택 모드 진입(햄버거)
-      await tester.tap(find.byIcon(Icons.menu));
+      await tester.tap(find.text('선택'));
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(2));
 
@@ -264,8 +303,7 @@ void main() {
       expect(repo.deletedIds, [1]);
     });
 
-    testWidgets('삭제 다이얼로그에서 취소하면 deleteMany를 호출하지 않는다',
-        (tester) async {
+    testWidgets('삭제 다이얼로그에서 취소하면 deleteMany를 호출하지 않는다', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -285,7 +323,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.menu));
+      await tester.tap(find.text('선택'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(NoteCard).first);
       await tester.pumpAndSettle();
@@ -322,7 +360,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.menu));
+      await tester.tap(find.text('선택'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(NoteCard).first);
       await tester.pumpAndSettle();
@@ -345,7 +383,8 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           noteRepositoryProvider.overrideWithValue(
-            _FakeNoteRepository(items: [_item(1, 'PRAYER'), _item(2, 'GRATITUDE')]),
+            _FakeNoteRepository(
+                items: [_item(1, 'PRAYER'), _item(2, 'GRATITUDE')]),
           ),
         ],
       );
@@ -365,7 +404,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.menu));
+      await tester.tap(find.text('선택'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('전체선택'));
       await tester.pumpAndSettle();
@@ -376,8 +415,7 @@ void main() {
       expect(container.read(noteSelectedIdsProvider), isEmpty);
     });
 
-    testWidgets('선택 모드 중 카테고리 필터를 바꾸면 선택이 초기화된다(누수 방지)',
-        (tester) async {
+    testWidgets('선택 모드 중 카테고리 필터를 바꾸면 선택이 초기화된다(누수 방지)', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -405,7 +443,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.menu));
+      await tester.tap(find.text('선택'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(NoteCard).first);
       await tester.pumpAndSettle();

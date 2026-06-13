@@ -1,9 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qtai_app/core/config/app_config.dart';
 import 'package:qtai_app/features/auth/providers/auth_providers.dart';
+import 'package:qtai_app/features/note/models/note_markup_quill_codec.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/models/bible_reference.dart';
@@ -224,9 +226,15 @@ void main() {
         .tap(find.widgetWithIcon(OutlinedButton, Icons.edit_note_outlined));
     await tester.pumpAndSettle();
 
+    // 본문은 flutter_quill 에디터다(enterText 불가) → 컨트롤러로 직접 입력.
     final body = find.byKey(const ValueKey('qt-note-body-input'));
-    await tester.tap(body);
-    await tester.enterText(body, '첫 글자');
+    final beforeQuill = tester.widget<QuillEditor>(body).controller;
+    beforeQuill.replaceText(
+      0,
+      beforeQuill.document.length <= 1 ? 0 : beforeQuill.document.length - 1,
+      '첫 글자',
+      const TextSelection.collapsed(offset: 3),
+    );
     await tester.pump();
 
     auth.setUnknown();
@@ -236,13 +244,13 @@ void main() {
     expect(find.text('오늘 QT'), findsNothing);
     expect(body, findsOneWidget);
 
-    final bodyField = tester.widget<TextField>(body);
-    final editable = tester.widget<EditableText>(
-      find.descendant(of: body, matching: find.byType(EditableText)),
+    // route 상태가 바뀌어도 같은 컨트롤러·입력값이 유지된다.
+    final afterQuill = tester.widget<QuillEditor>(body).controller;
+    expect(afterQuill, same(beforeQuill));
+    expect(
+      NoteMarkupQuillCodec.deltaToMarkers(afterQuill.document.toDelta()).trim(),
+      '첫 글자',
     );
-
-    expect(bodyField.controller!.text, '첫 글자');
-    expect(editable.focusNode.hasFocus, isTrue);
   });
 
   testWidgets('해설 버튼을 누르면 준비된 해설이 없을 때 빈 상태를 표시한다', (tester) async {

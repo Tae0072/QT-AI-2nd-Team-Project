@@ -1,33 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../bible/models/bible_chapter_counts.dart';
 import '../../bible/models/bible_models.dart';
 import '../../bible/providers/bible_providers.dart';
-import '../models/qt_note_rich_text.dart';
+import '../models/note_markup_quill_codec.dart';
 import 'qt_note_format_toolbar.dart';
 
-/// 노트 본문 컨트롤러 — 마크업(`**`·`==`·`[fs/fg/bg=]`)을 라이브 프리뷰로 렌더한다.
+/// 노트 본문 컨트롤러 — 내부는 flutter_quill의 [QuillController]지만, 저장 형식은
+/// 기존 "마커 평문"(`**`·`//`·`__`·`~~`·`[fs/fg/bg=]`)을 그대로 유지한다.
 ///
-/// QT 노트 에디터와 자유 노트(N-03) 에디터가 공유한다(QA ③⑨). 저장 본문은 마커가
-/// 섞인 평문이고, N-04 상세도 같은 [QtNoteRichTextParser]로 렌더한다.
-class NoteRichBodyController extends TextEditingController {
+/// 부모 화면은 예전처럼 `controller.text`로 마커 평문을 읽고 쓰며(저장·불러오기),
+/// 편집은 Quill이 네이티브로 처리한다. 변환은 [NoteMarkupQuillCodec]가 담당한다.
+class NoteRichBodyController {
+  /// 이모지 표시용 기준 폰트(에디터 기본 글자 크기 초기값으로 쓴다).
   final double emojiFontSize;
+  final QuillController quill;
 
-  NoteRichBodyController({this.emojiFontSize = 16, super.text});
+  NoteRichBodyController({this.emojiFontSize = 16, String text = ''})
+      : quill = QuillController(
+          document: _docFromMarkers(text),
+          selection: const TextSelection.collapsed(offset: 0),
+        );
 
-  @override
-  TextSpan buildTextSpan({
-    required BuildContext context,
-    TextStyle? style,
-    required bool withComposing,
-  }) {
-    return QtNoteRichTextParser.parse(
-      text,
-      style,
-      emojiFontSize: emojiFontSize,
+  static Document _docFromMarkers(String markers) {
+    if (markers.isEmpty) return Document();
+    return Document.fromDelta(NoteMarkupQuillCodec.markersToDelta(markers));
+  }
+
+  /// 저장 형식(마커 평문) 읽기.
+  String get text =>
+      NoteMarkupQuillCodec.deltaToMarkers(quill.document.toDelta());
+
+  /// 저장 형식(마커 평문)으로 본문 교체(불러오기).
+  set text(String markers) {
+    quill.document = _docFromMarkers(markers);
+    quill.updateSelection(
+      const TextSelection.collapsed(offset: 0),
+      ChangeSource.local,
     );
   }
+
+  void dispose() => quill.dispose();
 }
 
 enum NoteRichTextToolbarPlacement {
@@ -47,10 +63,10 @@ class NoteRichTextEditor extends ConsumerStatefulWidget {
   /// 본문 입력창 labelText. QT='노트 작성', N-03=카테고리별 본문 라벨.
   final String bodyLabel;
 
-  /// 본문 TextField 키(테스트 호환용, 선택).
+  /// 본문 입력 영역 키(테스트 호환용, 선택).
   final Key? bodyFieldKey;
 
-  /// 본문 Scrollbar 키(테스트 호환용, 선택).
+  /// 본문 스크롤 영역 키(테스트 호환용, 선택).
   final Key? bodyScrollKey;
 
   /// @멘션으로 구절을 본문에 삽입할 때, 그 절들의 bibleVerseId를 알린다(선택).
@@ -83,18 +99,37 @@ class NoteRichTextEditor extends ConsumerStatefulWidget {
 class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
   static const double _minFontSize = 10;
   static const double _maxFontSize = 32;
+  // 핀치 줌으로 조절하는 에디터 기본 글자 크기 허용 범위.
+  static const double _minEditorFontSize = 10;
+  static const double _maxEditorFontSize = 48;
   static const Color _defaultTextColor = Color(0xFF111827);
   static const Color _defaultBackgroundColor = Colors.transparent;
 
+  static const String _defaultFontFamilyLabel = '기본서체';
+  static const List<String> _fontFamilyOptions = <String>[
+    _defaultFontFamilyLabel,
+    '나눔고딕',
+    '나눔명조',
+    '손글씨',
+  ];
+
   final _editorScrollController = ScrollController();
   final _bodyFocusNode = FocusNode();
+
   Future<List<BibleBook>>? _booksFuture;
   String? _mentionQuery;
-  TextSelection? _lastSelectedBodyRange;
-  String? _lastSelectedBodySnapshot;
-  String _lastBody = '';
-  bool _applyingAutoPrefix = false;
+
+  // 툴바의 글씨 크기 숫자(마지막 선택/핀치 값).
   double _fontSize = 16;
+  // 에디터 기본 표시 글자 크기(핀치 줌으로 조절).
+  double _editorFontSize = 16;
+  String _fontFamilyLabel = _defaultFontFamilyLabel;
+
+  // 두 손가락 핀치 추적.
+  final Map<int, Offset> _activePointers = <int, Offset>{};
+  double? _pinchStartDistance;
+  double _pinchStartFontSize = 16;
+
   Color _textColor = _defaultTextColor;
   Color _backgroundColor = _defaultBackgroundColor;
   final List<Color> _recentColors = <Color>[
@@ -104,131 +139,61 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
     Color(0xFF2563EB),
   ];
 
-  NoteRichBodyController get _bodyController => widget.controller;
+  QuillController get _quill => widget.controller.quill;
 
   @override
   void initState() {
     super.initState();
-    _lastBody = _bodyController.text;
-    _bodyController.addListener(_handleBodyChanged);
+    _editorFontSize = widget.controller.emojiFontSize;
+    // 커서 이동·텍스트 변경마다 @멘션 감지와 툴바 활성 표시를 갱신한다.
+    _quill.addListener(_onQuillChanged);
   }
 
   @override
   void dispose() {
-    _bodyController.removeListener(_handleBodyChanged);
+    _quill.removeListener(_onQuillChanged);
     _bodyFocusNode.dispose();
     _editorScrollController.dispose();
     super.dispose();
   }
 
-  void _handleBodyChanged() {
-    if (_applyingAutoPrefix) {
-      _lastBody = _bodyController.text;
-      return;
+  void _onQuillChanged() {
+    final text = _quill.document.toPlainText();
+    final selection = _quill.selection;
+    final cursor = selection.isValid ? selection.baseOffset : text.length;
+    final nextQuery = _computeMentionQuery(text, cursor);
+    if (nextQuery != null) {
+      _booksFuture ??= ref.read(bibleRepositoryProvider).getBooks();
     }
-
-    final text = _bodyController.text;
-    final selection = _bodyController.selection;
-    if (selection.isValid && !selection.isCollapsed) {
-      _lastSelectedBodyRange = selection;
-      _lastSelectedBodySnapshot = text;
-    } else if (_lastSelectedBodySnapshot != null &&
-        _lastSelectedBodySnapshot != text) {
-      _lastSelectedBodyRange = null;
-      _lastSelectedBodySnapshot = null;
-    }
-    _updateMentionQuery(text, selection.start);
-
-    if (_removeUnusedNumberPrefixOnSpace(text, selection.start)) {
-      return;
-    }
-
-    if (text.length == _lastBody.length + 1 &&
-        selection.start > 0 &&
-        text[selection.start - 1] == '\n') {
-      final prefix = _nextLinePrefix(text, selection.start);
-      if (prefix.isNotEmpty) {
-        _insertAtCursor(prefix);
-      }
-    }
-    _lastBody = _bodyController.text;
+    if (!mounted) return;
+    setState(() => _mentionQuery = nextQuery);
   }
 
-  void _updateMentionQuery(String text, int cursor) {
-    if (cursor < 0 || cursor > text.length) {
-      setState(() => _mentionQuery = null);
-      return;
-    }
-    final beforeCursor = text.substring(0, cursor);
-    final at = beforeCursor.lastIndexOf('@');
-    final token = at < 0 ? '' : beforeCursor.substring(at);
-    final blockedByWhitespace =
-        at < 0 || token.contains('\n') || token.length > 32;
-    final nextQuery =
-        blockedByWhitespace ? null : beforeCursor.substring(at + 1);
-    if (nextQuery != _mentionQuery) {
-      setState(() {
-        _mentionQuery = nextQuery;
-        if (nextQuery != null) {
-          _booksFuture ??= ref.read(bibleRepositoryProvider).getBooks();
-        }
-      });
-    }
+  /// 커서 앞의 `@질의`를 찾아 멘션 질의를 만든다(공백/줄바꿈/길이 제한).
+  String? _computeMentionQuery(String text, int cursor) {
+    if (cursor < 0 || cursor > text.length) return null;
+    final before = text.substring(0, cursor);
+    final at = before.lastIndexOf('@');
+    if (at < 0) return null;
+    final token = before.substring(at);
+    if (token.contains('\n') || token.length > 32) return null;
+    return before.substring(at + 1);
   }
 
-  String _nextLinePrefix(String text, int cursor) {
-    final previousLineEnd = cursor - 2;
-    if (previousLineEnd < 0) return '';
-    final previousLineStart = text.lastIndexOf('\n', previousLineEnd) + 1;
-    final previousLine = text.substring(previousLineStart, previousLineEnd + 1);
-    final match =
-        RegExp(r'^(\s*)(• |\((\d+)\) |(\d+)\) )').firstMatch(previousLine);
-    if (match == null) return '';
-    final indent = match.group(1) ?? '';
-    final paren = match.group(3);
-    final plain = match.group(4);
-    if (paren != null) return '$indent(${int.parse(paren) + 1}) ';
-    if (plain != null) return '$indent${int.parse(plain) + 1}) ';
-    return '$indent• ';
+  /// 서식 적용 후 입력 포커스를 유지한다.
+  void _refocus() {
+    if (!_bodyFocusNode.hasFocus) _bodyFocusNode.requestFocus();
   }
 
-  bool _removeUnusedNumberPrefixOnSpace(String text, int cursor) {
-    if (text.length != _lastBody.length + 1 ||
-        cursor < 1 ||
-        text[cursor - 1] != ' ') {
-      return false;
-    }
-    final lineStart = text.lastIndexOf('\n', cursor - 1) + 1;
-    final line = text.substring(lineStart, cursor);
-    final match = RegExp(r'^(\s*)((\(\d+\)|\d+\))\s{2})$').firstMatch(line);
-    if (match == null) {
-      return false;
-    }
-    final indent = match.group(1) ?? '';
-    final newText = text.replaceRange(lineStart, cursor, indent);
-    _applyText(newText, lineStart + indent.length);
-    return true;
-  }
-
-  TextSelection _styleTargetSelection() {
-    final current = _bodyController.selection;
-    if (current.isValid && !current.isCollapsed) {
-      return current;
-    }
-    final last = _lastSelectedBodyRange;
-    if (last != null &&
-        last.isValid &&
-        !last.isCollapsed &&
-        _lastSelectedBodySnapshot == _bodyController.text &&
-        last.start >= 0 &&
-        last.end <= _bodyController.text.length) {
-      return last;
-    }
-    return current;
+  /// 인라인 토글 서식(굵게/기울임/밑줄/취소선)을 켜고 끈다.
+  void _toggleInline(Attribute<dynamic> attribute) {
+    final isOn =
+        _quill.getSelectionStyle().attributes.containsKey(attribute.key);
+    _quill.formatSelection(isOn ? Attribute.clone(attribute, null) : attribute);
+    _refocus();
   }
 
   Future<void> _openFontSizeSheet() async {
-    final targetSelection = _styleTargetSelection();
     final result = await showModalBottomSheet<double>(
       context: context,
       showDragHandle: true,
@@ -238,36 +203,38 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
         maxFontSize: _maxFontSize,
       ),
     );
-    if (result == null) {
-      return;
-    }
-    _applyFontSize(result, targetSelection: targetSelection);
+    if (result == null) return;
+    _applyFontSize(result);
+  }
+
+  void _applyFontSize(double fontSize) {
+    final size = fontSize.round().clamp(
+          _minFontSize.round(),
+          _maxFontSize.round(),
+        );
+    setState(() => _fontSize = size.toDouble());
+    _quill.formatSelection(SizeAttribute('$size'));
+    _refocus();
   }
 
   Future<void> _openTextColorSheet() async {
-    final targetSelection = _styleTargetSelection();
     final color = await _openColorSheet(
       title: '텍스트 색상',
       selectedColor: _textColor,
       colors: _textColors,
     );
-    if (color == null) {
-      return;
-    }
-    _applyColor(color, isBackground: false, targetSelection: targetSelection);
+    if (color == null) return;
+    _applyColor(color, isBackground: false);
   }
 
   Future<void> _openBackgroundColorSheet() async {
-    final targetSelection = _styleTargetSelection();
     final color = await _openColorSheet(
       title: '배경 색상',
       selectedColor: _backgroundColor,
       colors: _backgroundColors,
     );
-    if (color == null) {
-      return;
-    }
-    _applyColor(color, isBackground: true, targetSelection: targetSelection);
+    if (color == null) return;
+    _applyColor(color, isBackground: true);
   }
 
   Future<Color?> _openColorSheet({
@@ -287,32 +254,7 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
     );
   }
 
-  void _wrapSelection(String marker) {
-    final text = _bodyController.text;
-    final selection = _styleTargetSelection();
-    final start = selection.start < 0 ? text.length : selection.start;
-    final end = selection.end < 0 ? text.length : selection.end;
-    final selected = text.substring(start, end);
-    final newText = text.replaceRange(start, end, '$marker$selected$marker');
-    final cursor =
-        selected.isEmpty ? start + marker.length : end + marker.length * 2;
-    _applyText(newText, cursor);
-  }
-
-  void _applyFontSize(double fontSize, {TextSelection? targetSelection}) {
-    final size = fontSize.round().clamp(
-          _minFontSize.round(),
-          _maxFontSize.round(),
-        );
-    setState(() => _fontSize = size.toDouble());
-    _applyScopedMarker('[fs=$size]', '[fs=]', targetSelection: targetSelection);
-  }
-
-  void _applyColor(
-    Color color, {
-    required bool isBackground,
-    TextSelection? targetSelection,
-  }) {
+  void _applyColor(Color color, {required bool isBackground}) {
     setState(() {
       if (isBackground) {
         _backgroundColor = color;
@@ -327,32 +269,19 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
         }
       }
     });
-    final markerType = isBackground ? 'bg' : 'fg';
-    final value = color == Colors.transparent ? '' : _hexColor(color);
-    _applyScopedMarker(
-      '[$markerType=$value]',
-      '[$markerType=]',
-      targetSelection: targetSelection,
-    );
-  }
-
-  void _applyScopedMarker(
-    String openMarker,
-    String closeMarker, {
-    TextSelection? targetSelection,
-  }) {
-    final text = _bodyController.text;
-    final selection = targetSelection ?? _bodyController.selection;
-    final start = selection.start < 0 ? text.length : selection.start;
-    final end = selection.end < 0 ? start : selection.end;
-    final edit = QtNoteRichTextMarkup.applyScopedMarker(
-      text: text,
-      start: start,
-      end: end,
-      openMarker: openMarker,
-      closeMarker: closeMarker,
-    );
-    _applyText(edit.text, edit.cursor);
+    final clear = color == Colors.transparent;
+    final Attribute<dynamic> attribute;
+    if (isBackground) {
+      attribute = clear
+          ? Attribute.clone(Attribute.background, null)
+          : BackgroundAttribute(_hexColor(color));
+    } else {
+      attribute = clear
+          ? Attribute.clone(Attribute.color, null)
+          : ColorAttribute(_hexColor(color));
+    }
+    _quill.formatSelection(attribute);
+    _refocus();
   }
 
   String _hexColor(Color color) {
@@ -360,34 +289,35 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
     return '#${value.toRadixString(16).padLeft(6, '0').toUpperCase()}';
   }
 
-  void _prefixCurrentLine(String prefix) {
-    final text = _bodyController.text;
-    final selection = _bodyController.selection;
-    final pos = selection.start < 0 ? text.length : selection.start;
-    final lineStart = text.lastIndexOf('\n', pos - 1) + 1;
-    final newText = text.replaceRange(lineStart, lineStart, prefix);
-    _applyText(newText, pos + prefix.length);
-  }
-
-  void _insertAtCursor(String value) {
-    final text = _bodyController.text;
-    final selection = _bodyController.selection;
-    final pos = selection.start < 0 ? text.length : selection.start;
-    _applyText(text.replaceRange(pos, pos, value), pos + value.length);
-  }
-
-  void _applyText(String text, int cursor) {
-    final nextCursor = cursor.clamp(0, text.length);
-    _applyingAutoPrefix = true;
-    _bodyController.value = TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: nextCursor),
+  /// 현재 줄 맨 앞에 글머리표/번호/들여쓰기 접두어를 넣는다(저장 형식상 일반 글자).
+  void _insertLinePrefix(String prefix) {
+    final text = _quill.document.toPlainText();
+    final selection = _quill.selection;
+    final pos = (selection.isValid ? selection.baseOffset : text.length)
+        .clamp(0, text.length);
+    final lineStart = pos == 0 ? 0 : text.lastIndexOf('\n', pos - 1) + 1;
+    _quill.replaceText(
+      lineStart,
+      0,
+      prefix,
+      TextSelection.collapsed(offset: pos + prefix.length),
     );
-    _lastBody = text;
-    _lastSelectedBodyRange = null;
-    _lastSelectedBodySnapshot = null;
-    _applyingAutoPrefix = false;
-    _updateMentionQuery(text, nextCursor);
+    _refocus();
+  }
+
+  /// 커서 위치에 문자열을 삽입한다(@ 멘션 시작 등).
+  void _insertAtCursor(String value) {
+    final selection = _quill.selection;
+    final docLength = _quill.document.length;
+    final pos = (selection.isValid ? selection.baseOffset : docLength - 1)
+        .clamp(0, docLength - 1);
+    _quill.replaceText(
+      pos,
+      0,
+      value,
+      TextSelection.collapsed(offset: pos + value.length),
+    );
+    _refocus();
   }
 
   Future<void> _insertMentionVerse(
@@ -407,7 +337,8 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
       }).join('\n');
       _replaceMentionWith(lines);
       // 삽입한 절의 id를 부모에 알려 note_verses(verseIds)로 저장하게 한다(§6.4.1).
-      widget.onVerseInserted?.call(range.verses.map((verse) => verse.id).toList());
+      widget.onVerseInserted
+          ?.call(range.verses.map((verse) => verse.id).toList());
     } catch (_) {
       if (!mounted) return;
       _showMessage('구절을 불러오지 못했습니다');
@@ -415,35 +346,117 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
   }
 
   void _replaceMentionWith(String value) {
-    final text = _bodyController.text;
-    final cursor = _bodyController.selection.start;
+    final text = _quill.document.toPlainText();
+    final selection = _quill.selection;
+    final cursor = selection.isValid ? selection.baseOffset : text.length;
     final before = cursor < 0 ? text.length : cursor;
     final at = text.substring(0, before).lastIndexOf('@');
     final start = at < 0 ? before : at;
-    final newText = text.replaceRange(start, before, value);
-    _applyText(newText, start + value.length);
+    _quill.replaceText(
+      start,
+      before - start,
+      value,
+      TextSelection.collapsed(offset: start + value.length),
+    );
     setState(() => _mentionQuery = null);
+    _refocus();
   }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+      ));
+  }
+
+  // ── 두 손가락 핀치로 에디터 기본 글자 크기 조절 ───────────────────────────
+  void _onEditorPointerDown(PointerDownEvent event) {
+    _activePointers[event.pointer] = event.position;
+    if (_activePointers.length == 2) {
+      final points = _activePointers.values.toList();
+      _pinchStartDistance = (points[0] - points[1]).distance;
+      _pinchStartFontSize = _editorFontSize;
+    }
+  }
+
+  void _onEditorPointerMove(PointerMoveEvent event) {
+    if (!_activePointers.containsKey(event.pointer)) return;
+    _activePointers[event.pointer] = event.position;
+    final startDistance = _pinchStartDistance;
+    if (_activePointers.length != 2 ||
+        startDistance == null ||
+        startDistance <= 0) {
+      return;
+    }
+    final points = _activePointers.values.toList();
+    final distance = (points[0] - points[1]).distance;
+    final next = (_pinchStartFontSize * (distance / startDistance))
+        .clamp(_minEditorFontSize, _maxEditorFontSize);
+    if (next != _editorFontSize) {
+      setState(() {
+        _editorFontSize = next.toDouble();
+        _fontSize = next.toDouble();
+      });
+    }
+  }
+
+  void _onEditorPointerUp(int pointer) {
+    _activePointers.remove(pointer);
+    _pinchStartDistance = null;
+  }
+
+  /// 에디터 기본 단락 스타일(글꼴/크기). 핀치·서체 선택을 반영한다.
+  DefaultStyles _quillStyles() {
+    final base = TextStyle(
+      fontSize: _editorFontSize,
+      height: 1.55,
+      leadingDistribution: TextLeadingDistribution.even,
+      color: _defaultTextColor,
+    );
+    final styled = switch (_fontFamilyLabel) {
+      '나눔고딕' => GoogleFonts.nanumGothic(textStyle: base),
+      '나눔명조' => GoogleFonts.nanumMyeongjo(textStyle: base),
+      '손글씨' => GoogleFonts.gaegu(textStyle: base),
+      _ => GoogleFonts.notoSansKr(textStyle: base),
+    };
+    return DefaultStyles(
+      paragraph: DefaultTextBlockStyle(
+        styled,
+        const HorizontalSpacing(0, 0),
+        const VerticalSpacing(6, 0),
+        const VerticalSpacing(0, 0),
+        null,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final attributes = _quill.getSelectionStyle().attributes;
     final toolbar = QtNoteFormatToolbar(
       fontSize: _fontSize,
       textColor: _textColor,
       backgroundColor: _backgroundColor,
+      fontFamilyLabel: _fontFamilyLabel,
+      fontFamilyOptions: _fontFamilyOptions,
+      onFontFamily: (label) => setState(() => _fontFamilyLabel = label),
       onFontSize: _openFontSizeSheet,
-      onBold: () => _wrapSelection('**'),
+      boldActive: attributes.containsKey(Attribute.bold.key),
+      italicActive: attributes.containsKey(Attribute.italic.key),
+      underlineActive: attributes.containsKey(Attribute.underline.key),
+      strikethroughActive: attributes.containsKey(Attribute.strikeThrough.key),
+      onBold: () => _toggleInline(Attribute.bold),
+      onItalic: () => _toggleInline(Attribute.italic),
+      onUnderline: () => _toggleInline(Attribute.underline),
+      onStrikethrough: () => _toggleInline(Attribute.strikeThrough),
       onTextColor: _openTextColorSheet,
       onBackgroundColor: _openBackgroundColorSheet,
-      onIndent: () => _prefixCurrentLine('    '),
-      onBullet: () => _prefixCurrentLine('• '),
-      onParenNumber: () => _prefixCurrentLine('(1) '),
-      onPlainNumber: () => _prefixCurrentLine('1) '),
+      onIndent: () => _insertLinePrefix('    '),
+      onBullet: () => _insertLinePrefix('• '),
+      onParenNumber: () => _insertLinePrefix('(1) '),
+      onPlainNumber: () => _insertLinePrefix('1) '),
       onVerseMention: () => _insertAtCursor('@'),
     );
 
@@ -457,41 +470,38 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
           toolbar,
           const SizedBox(height: 8),
         ],
-        if (_mentionQuery != null)
+        if (_mentionQuery != null && _booksFuture != null)
           _MentionSuggestions(
             query: _mentionQuery!,
             booksFuture: _booksFuture!,
             onInsertVerse: _insertMentionVerse,
           ),
         Expanded(
-          child: Scrollbar(
-            key: widget.bodyScrollKey,
-            controller: _editorScrollController,
-            thumbVisibility: true,
-            child: TextField(
-              key: widget.bodyFieldKey,
-              controller: _bodyController,
-              focusNode: _bodyFocusNode,
-              scrollController: _editorScrollController,
-              hintLocales: const [Locale('ko', 'KR')],
-              enableSuggestions: false,
-              autocorrect: false,
-              enableIMEPersonalizedLearning: false,
-              smartDashesType: SmartDashesType.disabled,
-              smartQuotesType: SmartQuotesType.disabled,
-              decoration: InputDecoration(
-                labelText: widget.bodyLabel,
-                alignLabelWithHint: true,
-                border: const OutlineInputBorder(),
+          child: Listener(
+            behavior: HitTestBehavior.deferToChild,
+            onPointerDown: _onEditorPointerDown,
+            onPointerMove: _onEditorPointerMove,
+            onPointerUp: (e) => _onEditorPointerUp(e.pointer),
+            onPointerCancel: (e) => _onEditorPointerUp(e.pointer),
+            child: Container(
+              key: widget.bodyScrollKey,
+              decoration: BoxDecoration(
+                border: Border.all(color: Theme.of(context).colorScheme.outline),
+                borderRadius: BorderRadius.circular(4),
               ),
-              style: TextStyle(
-                fontSize: widget.controller.emojiFontSize,
-                height: 1.55,
+              child: QuillEditor(
+                key: widget.bodyFieldKey,
+                focusNode: _bodyFocusNode,
+                scrollController: _editorScrollController,
+                controller: _quill,
+                config: QuillEditorConfig(
+                  placeholder: widget.bodyLabel,
+                  padding: const EdgeInsets.all(12),
+                  expands: true,
+                  scrollable: true,
+                  customStyles: _quillStyles(),
+                ),
               ),
-              maxLines: null,
-              expands: true,
-              textAlignVertical: TextAlignVertical.top,
-              keyboardType: TextInputType.multiline,
             ),
           ),
         ),
@@ -797,7 +807,8 @@ class _MentionSuggestionsState extends ConsumerState<_MentionSuggestions> {
         return Container(
           key: const ValueKey('qt-note-mention-suggestions'),
           margin: const EdgeInsets.only(bottom: 8),
-          constraints: const BoxConstraints(maxHeight: 112),
+          // 책 목록·휠 picker가 약 2.5개 보이도록 박스를 키운다.
+          constraints: const BoxConstraints(maxHeight: 168),
           decoration: BoxDecoration(
             border: Border.all(color: theme.colorScheme.outlineVariant),
             borderRadius: BorderRadius.circular(8),
@@ -926,7 +937,8 @@ class _MentionRangePicker extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            height: 50,
+            // 휠을 키워 가운데 선택 숫자 + 위·아래 이전/다음 숫자가 반쯤 보이도록(약 2.5개).
+            height: 84,
             child: Row(
               children: [
                 Expanded(
@@ -997,8 +1009,8 @@ class _MentionRangePicker extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                 ),
                 icon: const Icon(Icons.add),
-                label: Text(
-                  '$displayText 삽입',
+                label: const Text(
+                  '문구 삽입',
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -1152,13 +1164,13 @@ const _textColors = [
 
 const _backgroundColors = [
   Colors.transparent,
-  Color(0xFFF1F5F9),
-  Color(0xFFE0F2FE),
-  Color(0xFFFFEDD5),
-  Color(0xFFFEF3C7),
-  Color(0xFFDCFCE7),
-  Color(0xFFDBEAFE),
-  Color(0xFFEDE9FE),
-  Color(0xFFFCE7F3),
-  Color(0xFFFEE2E2),
+  Color(0xFFFEF08A), // 노랑(형광)
+  Color(0xFFBBF7D0), // 초록
+  Color(0xFFBFDBFE), // 파랑
+  Color(0xFFFBCFE8), // 분홍
+  Color(0xFFFED7AA), // 주황
+  Color(0xFFDDD6FE), // 보라
+  Color(0xFF99F6E4), // 청록
+  Color(0xFFFECACA), // 빨강
+  Color(0xFFE5E7EB), // 회색
 ];

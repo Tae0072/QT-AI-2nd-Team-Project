@@ -110,7 +110,11 @@ class _Actions extends ConsumerWidget {
     //   시트를 띄우기 전에 안내만 하고 멈춘다(04 §4.3.8: 저장 확정 전 공유 불가).
     if (detail.status != 'SAVED') {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.notePublishNeedSave)));
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(l.notePublishNeedSave),
+          duration: const Duration(seconds: 2),
+        ));
       return;
     }
     // 시트 반환: 댓글 허용 여부(true/false) = 공개 확정, null = 취소.
@@ -129,15 +133,19 @@ class _Actions extends ConsumerWidget {
       if (!context.mounted) return;
       //   성공 스낵바에 "보기"를 달아 원하는 사람만 나눔 피드로 가게 한다(강제 이동 X).
       //   "조용한 나눔" 철학에 맞춰 기본은 상세에 머물고, 즉시 확인 경로만 제공.
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l.notePublishSuccess),
-          action: SnackBarAction(
-            label: l.notePublishView,
-            onPressed: () => Navigator.of(context).pushNamed(AppRouter.sharing),
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(l.notePublishSuccess),
+            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: l.notePublishView,
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRouter.sharing),
+            ),
           ),
-        ),
-      );
+        );
     } catch (e) {
       if (!context.mounted) return;
       //   409(DUPLICATE_SHARING_POST) = 이미 공개된 노트 → 실패가 아니라 "이미 했음" 안내.
@@ -145,12 +153,15 @@ class _Actions extends ConsumerWidget {
       //   안내로 바꿔 "버그처럼 보이는" 회귀를 막는다(백엔드 visibility 갱신은 후속 PR).
       final isAlreadyShared =
           e is DioException && e.response?.statusCode == 409;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              isAlreadyShared ? l.notePublishAlready : l.notePublishFailed),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+                isAlreadyShared ? l.notePublishAlready : l.notePublishFailed),
+            duration: const Duration(seconds: 2),
+          ),
+        );
     }
   }
 
@@ -185,12 +196,20 @@ class _Actions extends ConsumerWidget {
       if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.noteDeleted)));
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(l.noteDeleted),
+          duration: const Duration(seconds: 2),
+        ));
     } catch (e) {
       //   실패 시 화면 유지 + 안내(되돌리기 어려운 동작이라 실패를 명확히 알림).
       if (!context.mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.noteDeleteFailed)));
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(l.noteDeleteFailed),
+          duration: const Duration(seconds: 2),
+        ));
     }
   }
 }

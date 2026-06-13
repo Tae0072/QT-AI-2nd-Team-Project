@@ -74,10 +74,9 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
     final l = AppLocalizations.of(context);
     // 안전장치: 현재 목록(필터 적용된 화면)에 보이는 노트만 삭제 대상으로 삼는다.
     // 필터가 바뀌어 선택 집합에 안 보이는 노트가 남아 있어도 의도치 않게 삭제되지 않게 한다.
-    final visibleIds = ref.read(notesProvider).valueOrNull?.items
-            .map((e) => e.id)
-            .toSet() ??
-        <int>{};
+    final visibleIds =
+        ref.read(notesProvider).valueOrNull?.items.map((e) => e.id).toSet() ??
+            <int>{};
     final ids =
         ref.read(noteSelectedIdsProvider).where(visibleIds.contains).toList();
     if (ids.isEmpty) return;
@@ -105,12 +104,15 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
     _exitSelection(ref);
     if (!context.mounted) return;
     final okCount = ids.length - failed.length;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      // 부분 성공도 정확히: 성공 n개 + 실패 m개를 함께 안내.
-      content: Text(failed.isEmpty
-          ? l.noteDeletedCount(okCount)
-          : l.noteDeletePartial(okCount, failed.length)),
-    ));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        // 부분 성공도 정확히: 성공 n개 + 실패 m개를 함께 안내.
+        content: Text(failed.isEmpty
+            ? l.noteDeletedCount(okCount)
+            : l.noteDeletePartial(okCount, failed.length)),
+        duration: const Duration(seconds: 2),
+      ));
   }
 
   @override
@@ -138,39 +140,20 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
             ? selectedCategory
             : null;
     // ② 기록에서 작성하지 않는 맥락(QT·설교)·선택 모드에서는 작성 FAB을 숨긴다.
-    final showFab = !selectionMode &&
-        !tabAuthoredCategories.contains(selectedCategory);
+    final showFab =
+        !selectionMode && !tabAuthoredCategories.contains(selectedCategory);
 
     return Scaffold(
       // 선택 모드면 AppBar가 ✕ + "n개 선택" + 전체선택으로 바뀐다.
       appBar: selectionMode
           ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.close),
-                tooltip: l.commonCancel,
-                onPressed: () => _exitSelection(ref),
-              ),
               title: Text(l.noteSelectedCount(selectedIds.length)),
               centerTitle: true,
-              actions: [
-                TextButton(
-                  onPressed: () => _selectAll(ref),
-                  child: Text(l.noteSelectAll),
-                ),
-              ],
+              // ✕/전체선택/선택취소는 모두 칩 줄 오른쪽으로 내렸다.
             )
           : AppBar(
               title: Text(l.navRecord),
               centerTitle: true,
-              actions: [
-                // ☰ 선택 — 누르면 목록 다중 선택 모드로 진입.
-                IconButton(
-                  icon: const Icon(Icons.menu),
-                  tooltip: l.noteSelect,
-                  onPressed: () =>
-                      ref.read(noteSelectionModeProvider.notifier).state = true,
-                ),
-              ],
             ),
       // ✏️ 작성 진입은 Material 관례대로 우하단 FAB 하나로 모은다(항상 노출 → 발견성).
       // 기도/회개/감사 칩 선택 시에는 FAB가 "+ {카테고리} 작성" 확장 버튼으로 바뀌어
@@ -235,31 +218,67 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
           // 상단 달력(항상 표시). 월/2주 토글·색점은 meditation_calendar.dart(④⑥⑦)가 담당.
           const MeditationCalendarView(),
           const Divider(height: 1),
-          // 상태 필터(전체/임시저장/저장) — 카테고리 칩 위, 우측 한 줄.
-          Padding(
-            padding: const EdgeInsets.only(right: 8, top: 4, bottom: 8),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: _StatusFilterDropdown(selected: selectedStatus),
-            ),
-          ),
-          // 카테고리 칩 (전체 + 5종) — 풀폭 가로 스크롤.
+          // 카테고리 칩(전체 + 5종, 가로 스크롤) + 우측 상태 필터 드롭다운 — 한 줄에 배치.
           SizedBox(
             height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
               children: [
-                _CategoryChip(
-                    label: l.noteFilterAll,
-                    value: null,
-                    selected: selectedCategory),
-                for (final entry in noteCategoryLabels.entries)
-                  _CategoryChip(
-                    label: entry.value,
-                    value: entry.key,
-                    selected: selectedCategory,
+                Expanded(
+                  child: ListView(
+                    key: const ValueKey('note-category-chip-list'),
+                    scrollDirection: Axis.horizontal,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    children: [
+                      _CategoryChip(
+                          label: l.noteFilterAll,
+                          value: null,
+                          selected: selectedCategory),
+                      for (final entry in noteCategoryLabels.entries)
+                        _CategoryChip(
+                          label: entry.value,
+                          value: entry.key,
+                          selected: selectedCategory,
+                        ),
+                    ],
                   ),
+                ),
+                // 칩 줄 오른쪽:
+                //  · 비선택 = [전체 상태 드롭다운] [☰ 선택 진입]
+                //  · 선택 모드 = [전체선택(드롭다운 자리)] [선택취소(☰ 자리)]
+                if (!selectionMode) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: _StatusFilterDropdown(selected: selectedStatus),
+                  ),
+                  TextButton(
+                    onPressed: () => ref
+                        .read(noteSelectionModeProvider.notifier)
+                        .state = true,
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: Text(l.noteSelect),
+                  ),
+                ] else ...[
+                  TextButton(
+                    onPressed: () => _selectAll(ref),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: Text(l.noteSelectAll),
+                  ),
+                  TextButton(
+                    onPressed: () => _exitSelection(ref),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: const Text('선택취소'),
+                  ),
+                ],
               ],
             ),
           ),
@@ -429,6 +448,8 @@ class _StatusFilterDropdown extends ConsumerWidget {
       null: l.noteStatusAll,
       'DRAFT': l.noteStatusDraft,
       'SAVED': l.noteStatusSaved,
+      // '나눔' — 나눔 페이지에 공개한 노트만(서버 status가 아닌 공유 여부로 거름).
+      kNoteSharedFilter: '나눔',
     };
     return DropdownButtonHideUnderline(
       child: DropdownButton<String?>(

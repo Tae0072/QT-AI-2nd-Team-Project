@@ -118,9 +118,12 @@ class _NoteShareSheetState extends State<_NoteShareSheet> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).noteShareImageFailed)),
-      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(AppLocalizations.of(context).noteShareImageFailed),
+          duration: const Duration(seconds: 2),
+        ));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
