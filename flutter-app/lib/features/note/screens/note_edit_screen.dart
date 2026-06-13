@@ -33,6 +33,9 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
   bool _loading = false; // 편집모드: 기존 노트 불러오는 중
   bool _loadError = false; // 편집모드: 불러오기 실패
   NoteEditArgs _args = const NoteEditArgs(category: 'PRAYER');
+  // 편집 시 PATCH에 그대로 다시 보낼 원본 값(서버가 category·qtPassageId를 필수로 요구).
+  String? _editCategory;
+  int? _editQtPassageId;
 
   /// 저장 시 함께 보낼 인용 절(verseIds) — note_verses 메타데이터(§6.4.1).
   /// 작성=args.verseIds 시드, 편집=기존 detail.verses 시드, + @멘션 삽입분 누적.
@@ -69,6 +72,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
       // 자유노트라 본문은 body에 있다(묵상 4섹션은 N-03 편집 대상 아님).
       _titleController.text = detail.title;
       _bodyController.text = detail.body ?? '';
+      _editCategory = detail.category;
+      _editQtPassageId = detail.qtPassageId;
       // 편집 시작 시 기존 인용 절을 시드로 모은다 → PATCH에 그대로 다시 보내 보존(04 §4.3.6).
       _verseIds.addAll(detail.verses.map((v) => v.bibleVerseId));
       if (!mounted) return;
@@ -115,6 +120,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
         // 상세화면(N-04)으로 복귀한다 → 상세가 돌아오며 스스로 최신으로 재조회한다.
         await repository.update(
           _args.noteId!,
+          category: _editCategory ?? _args.category ?? 'PRAYER',
+          qtPassageId: _editQtPassageId,
           title: title,
           body: body,
           verseIds: _verseIds.toList(),
@@ -250,57 +257,62 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
       ),
       body: AbsorbPointer(
         absorbing: _saving, // 저장 중엔 입력 막기
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _titleController,
-                decoration: InputDecoration(
-                  labelText: l.noteEditTitleLabel,
-                  border: const OutlineInputBorder(),
-                ),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 12),
-              // 성경 본문에서 진입 시: 선택 범위·인용 본문 미리보기(읽기 전용).
-              _versePreview(context),
-              // ✏️ 본문 편집(서식 툴바·@멘션·라이브 프리뷰)은 QT 노트와 공유하는
-              // 리치텍스트 에디터에 위임한다(QA ③⑨). 저장 시 _bodyController.text를 읽는다.
-              Expanded(
-                child: NoteRichTextEditor(
-                  controller: _bodyController,
-                  bodyLabel: l.noteEditBodyLabel,
-                  // @멘션으로 삽입한 절을 verseIds로 모아 저장(§6.4.1).
-                  onVerseInserted: (ids) => _verseIds.addAll(ids),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _saving ? null : () => _save('DRAFT'),
-                      child: Text(l.noteDraft),
-                    ),
+        // SafeArea(bottom): 태블릿 시스템 네비게이션 바에 저장/임시저장 버튼이 묻히지 않게 한다.
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _titleController,
+                  decoration: InputDecoration(
+                    labelText: l.noteEditTitleLabel,
+                    border: const OutlineInputBorder(),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _saving ? null : () => _save('SAVED'),
-                      child: _saving
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(l.commonSave),
-                    ),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 12),
+                // 성경 본문에서 진입 시: 선택 범위·인용 본문 미리보기(읽기 전용).
+                _versePreview(context),
+                // ✏️ 본문 편집(서식 툴바·@멘션·라이브 프리뷰)은 QT 노트와 공유하는
+                // 리치텍스트 에디터에 위임한다(QA ③⑨). 저장 시 _bodyController.text를 읽는다.
+                Expanded(
+                  child: NoteRichTextEditor(
+                    controller: _bodyController,
+                    bodyLabel: l.noteEditBodyLabel,
+                    // @멘션으로 삽입한 절을 verseIds로 모아 저장(§6.4.1).
+                    onVerseInserted: (ids) => _verseIds.addAll(ids),
                   ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _saving ? null : () => _save('DRAFT'),
+                        child: Text(l.noteDraft),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _saving ? null : () => _save('SAVED'),
+                        child: _saving
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(l.commonSave),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

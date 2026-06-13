@@ -126,7 +126,7 @@ class NoteCard extends StatelessWidget {
                                             color: c.textMuted),
                                       if (item.shared)
                                         _Chip(
-                                            label: '나눔',
+                                            label: '나눔공개',
                                             color: accent,
                                             tinted: true),
                                     ],

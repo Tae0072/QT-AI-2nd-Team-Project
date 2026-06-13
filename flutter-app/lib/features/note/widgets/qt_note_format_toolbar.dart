@@ -24,8 +24,12 @@ class QtNoteFormatToolbar extends StatelessWidget {
   final VoidCallback onPlainNumber;
   final VoidCallback onVerseMention;
 
+  /// 툴바 진행 방향. [Axis.horizontal]=가로(기존), [Axis.vertical]=왼쪽 세로 패널.
+  final Axis axis;
+
   const QtNoteFormatToolbar({
     super.key,
+    this.axis = Axis.horizontal,
     required this.fontSize,
     required this.textColor,
     required this.backgroundColor,
@@ -52,37 +56,54 @@ class QtNoteFormatToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final vertical = axis == Axis.vertical;
+    final children = <Widget>[
+      _fontFamilyButton(vertical),
+      _fontSizeButton(fontSize, onFontSize, vertical),
+      _button(Icons.alternate_email, '구절 삽입', onVerseMention),
+      _button(Icons.format_bold, '굵게', onBold, active: boldActive),
+      _button(Icons.format_italic, '기울임', onItalic, active: italicActive),
+      _button(Icons.format_underlined, '밑줄', onUnderline,
+          active: underlineActive),
+      _button(Icons.format_strikethrough, '취소선', onStrikethrough,
+          active: strikethroughActive),
+      _colorButton(
+        icon: Icons.format_color_text,
+        tooltip: '텍스트 색상',
+        color: textColor,
+        onPressed: onTextColor,
+      ),
+      _colorButton(
+        icon: Icons.format_color_fill,
+        tooltip: '배경 색상',
+        color: backgroundColor,
+        onPressed: onBackgroundColor,
+      ),
+      _button(Icons.format_indent_increase, '들여쓰기', onIndent),
+      _button(Icons.format_list_bulleted, '동그라미 목록', onBullet),
+      _textButton('(1)', '(1) 목록', onParenNumber),
+      _textButton('1)', '1) 목록', onPlainNumber),
+    ];
+
+    // 세로(왼쪽 패널): 좁은 고정폭. SingleChildScrollView+Column으로 모든 버튼을
+    // 즉시 생성한다(ListView는 화면 밖 버튼을 지연 생성해 접근이 어렵다). 길면 스크롤된다.
+    if (vertical) {
+      return SizedBox(
+        width: 52,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: children,
+          ),
+        ),
+      );
+    }
     return SizedBox(
       height: 46,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        children: [
-          _fontFamilyButton(),
-          _fontSizeButton(fontSize, onFontSize),
-          _button(Icons.alternate_email, '구절 삽입', onVerseMention),
-          _button(Icons.format_bold, '굵게', onBold, active: boldActive),
-          _button(Icons.format_italic, '기울임', onItalic, active: italicActive),
-          _button(Icons.format_underlined, '밑줄', onUnderline,
-              active: underlineActive),
-          _button(Icons.format_strikethrough, '취소선', onStrikethrough,
-              active: strikethroughActive),
-          _colorButton(
-            icon: Icons.format_color_text,
-            tooltip: '텍스트 색상',
-            color: textColor,
-            onPressed: onTextColor,
-          ),
-          _colorButton(
-            icon: Icons.format_color_fill,
-            tooltip: '배경 색상',
-            color: backgroundColor,
-            onPressed: onBackgroundColor,
-          ),
-          _button(Icons.format_indent_increase, '들여쓰기', onIndent),
-          _button(Icons.format_list_bulleted, '동그라미 목록', onBullet),
-          _textButton('(1)', '(1) 목록', onParenNumber),
-          _textButton('1)', '1) 목록', onPlainNumber),
-        ],
+        children: children,
       ),
     );
   }
@@ -109,7 +130,8 @@ class QtNoteFormatToolbar extends StatelessWidget {
   }
 
   /// 서체(글꼴) 선택 드롭다운. 현재 선택 라벨을 보여주고 누르면 목록이 뜬다.
-  Widget _fontFamilyButton() {
+  /// 세로 패널([vertical])에선 폭이 좁아 글꼴 아이콘만 보여준다.
+  Widget _fontFamilyButton(bool vertical) {
     return Tooltip(
       message: '서체',
       child: PopupMenuButton<String>(
@@ -130,21 +152,49 @@ class QtNoteFormatToolbar extends StatelessWidget {
               ),
             ),
         ],
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(fontFamilyLabel),
-              const Icon(Icons.arrow_drop_down, size: 20),
-            ],
-          ),
-        ),
+        child: vertical
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: Icon(Icons.font_download_outlined, size: 22),
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(fontFamilyLabel),
+                    const Icon(Icons.arrow_drop_down, size: 20),
+                  ],
+                ),
+              ),
       ),
     );
   }
 
-  Widget _fontSizeButton(double fontSize, VoidCallback onPressed) {
+  Widget _fontSizeButton(double fontSize, VoidCallback onPressed, bool vertical) {
+    // 세로 패널에선 아이콘 위·숫자 아래로 좁게 쌓는다.
+    if (vertical) {
+      return Tooltip(
+        message: '글씨 크기',
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.format_size, size: 20),
+                Text(
+                  fontSize.round().toString(),
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Tooltip(
       message: '글씨 크기',
       child: TextButton.icon(

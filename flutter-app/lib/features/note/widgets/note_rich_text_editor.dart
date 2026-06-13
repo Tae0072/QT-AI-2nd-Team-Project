@@ -49,6 +49,8 @@ class NoteRichBodyController {
 enum NoteRichTextToolbarPlacement {
   bottom,
   top,
+  // 본문 왼쪽에 세로 패널로 둔다(모든 노트 기본).
+  left,
 }
 
 /// 리치텍스트 본문 편집 영역 (툴바 + @멘션 구절 삽입 + 본문 입력).
@@ -77,8 +79,8 @@ class NoteRichTextEditor extends ConsumerStatefulWidget {
   /// 본문 입력창 위에 함께 배치할 화면별 헤더(예: 제목 입력 박스).
   final Widget? header;
 
-  /// 서식 수정바 배치 위치. 기본값은 기존 자유 노트 화면과 같은 본문 아래이다.
-  /// [top]은 화면별 header가 있으면 header 아래, 본문 입력창 위에 배치한다.
+  /// 서식 수정바 배치 위치. 기본값은 본문 왼쪽 세로 패널([left])이다.
+  /// [top]은 header 아래/본문 위, [bottom]은 본문 아래에 가로로 배치한다.
   final NoteRichTextToolbarPlacement toolbarPlacement;
 
   const NoteRichTextEditor({
@@ -89,7 +91,7 @@ class NoteRichTextEditor extends ConsumerStatefulWidget {
     this.bodyScrollKey,
     this.onVerseInserted,
     this.header,
-    this.toolbarPlacement = NoteRichTextToolbarPlacement.bottom,
+    this.toolbarPlacement = NoteRichTextToolbarPlacement.left,
   });
 
   @override
@@ -435,7 +437,9 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
   @override
   Widget build(BuildContext context) {
     final attributes = _quill.getSelectionStyle().attributes;
+    final isLeft = widget.toolbarPlacement == NoteRichTextToolbarPlacement.left;
     final toolbar = QtNoteFormatToolbar(
+      axis: isLeft ? Axis.vertical : Axis.horizontal,
       fontSize: _fontSize,
       textColor: _textColor,
       backgroundColor: _backgroundColor,
@@ -460,6 +464,72 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
       onVerseMention: () => _insertAtCursor('@'),
     );
 
+    final mention = (_mentionQuery != null && _booksFuture != null)
+        ? _MentionSuggestions(
+            query: _mentionQuery!,
+            booksFuture: _booksFuture!,
+            onInsertVerse: _insertMentionVerse,
+          )
+        : null;
+
+    final editor = Listener(
+      behavior: HitTestBehavior.deferToChild,
+      onPointerDown: _onEditorPointerDown,
+      onPointerMove: _onEditorPointerMove,
+      onPointerUp: (e) => _onEditorPointerUp(e.pointer),
+      onPointerCancel: (e) => _onEditorPointerUp(e.pointer),
+      child: Container(
+        key: widget.bodyScrollKey,
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).colorScheme.outline),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: QuillEditor(
+          key: widget.bodyFieldKey,
+          focusNode: _bodyFocusNode,
+          scrollController: _editorScrollController,
+          controller: _quill,
+          config: QuillEditorConfig(
+            placeholder: widget.bodyLabel,
+            padding: const EdgeInsets.all(12),
+            expands: true,
+            scrollable: true,
+            customStyles: _quillStyles(),
+          ),
+        ),
+      ),
+    );
+
+    // 왼쪽 세로 패널: [세로 툴바][본문]을 가로로 나란히 둔다(모든 노트 기본).
+    if (isLeft) {
+      return Column(
+        children: [
+          if (widget.header != null) ...[
+            widget.header!,
+            const SizedBox(height: 8),
+          ],
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                toolbar,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    children: [
+                      if (mention != null) mention,
+                      Expanded(child: editor),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // top/bottom: 기존 가로 툴바 레이아웃.
     return Column(
       children: [
         if (widget.header != null) ...[
@@ -470,41 +540,8 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
           toolbar,
           const SizedBox(height: 8),
         ],
-        if (_mentionQuery != null && _booksFuture != null)
-          _MentionSuggestions(
-            query: _mentionQuery!,
-            booksFuture: _booksFuture!,
-            onInsertVerse: _insertMentionVerse,
-          ),
-        Expanded(
-          child: Listener(
-            behavior: HitTestBehavior.deferToChild,
-            onPointerDown: _onEditorPointerDown,
-            onPointerMove: _onEditorPointerMove,
-            onPointerUp: (e) => _onEditorPointerUp(e.pointer),
-            onPointerCancel: (e) => _onEditorPointerUp(e.pointer),
-            child: Container(
-              key: widget.bodyScrollKey,
-              decoration: BoxDecoration(
-                border: Border.all(color: Theme.of(context).colorScheme.outline),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: QuillEditor(
-                key: widget.bodyFieldKey,
-                focusNode: _bodyFocusNode,
-                scrollController: _editorScrollController,
-                controller: _quill,
-                config: QuillEditorConfig(
-                  placeholder: widget.bodyLabel,
-                  padding: const EdgeInsets.all(12),
-                  expands: true,
-                  scrollable: true,
-                  customStyles: _quillStyles(),
-                ),
-              ),
-            ),
-          ),
-        ),
+        if (mention != null) mention,
+        Expanded(child: editor),
         if (widget.toolbarPlacement == NoteRichTextToolbarPlacement.bottom)
           toolbar,
       ],

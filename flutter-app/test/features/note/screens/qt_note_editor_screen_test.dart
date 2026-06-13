@@ -266,7 +266,7 @@ void main() {
     expect(find.byTooltip('구절 삽입').hitTestable(), findsOneWidget);
   });
 
-  testWidgets('서식 수정바는 제목 입력 박스와 본문 입력창 사이에 배치된다',
+  testWidgets('서식 수정바는 본문 입력창 왼쪽 세로 패널에 배치된다',
       (tester) async {
     const args = QtNoteEditorArgs(
       passage: TodayQtPassage(
@@ -305,23 +305,22 @@ void main() {
       ),
     );
 
-    final titleBottom = tester.getBottomLeft(find.bySemanticsLabel('제목')).dy;
-    final boldTop = tester.getTopLeft(find.byTooltip('굵게')).dy;
-    final boldBottom = tester.getBottomLeft(find.byTooltip('굵게')).dy;
-    final bodyTop = tester
+    // 세로 패널은 본문 입력창 왼쪽에 둔다 → 툴바(굵게) 오른쪽 끝이 본문 왼쪽 끝보다 앞.
+    final boldRight = tester.getBottomRight(find.byTooltip('굵게')).dx;
+    final bodyLeft = tester
         .getTopLeft(find.byKey(const ValueKey('qt-note-body-input')))
-        .dy;
+        .dx;
 
-    expect(titleBottom, lessThanOrEqualTo(boldTop));
-    expect(boldBottom, lessThanOrEqualTo(bodyTop));
+    expect(boldRight, lessThanOrEqualTo(bodyLeft));
 
     tester.view.viewInsets = const FakeViewPadding(bottom: 320);
     addTearDown(tester.view.resetViewInsets);
     await tester.pump();
 
-    expect(find.byTooltip('굵게').hitTestable(), findsOneWidget);
-    expect(find.byTooltip('텍스트 색상').hitTestable(), findsOneWidget);
-    expect(find.byTooltip('배경 색상').hitTestable(), findsOneWidget);
+    // 키보드 inset 후에도 세로 패널 버튼은 그대로 남아 스크롤로 접근할 수 있다.
+    expect(find.byTooltip('굵게'), findsOneWidget);
+    expect(find.byTooltip('텍스트 색상'), findsOneWidget);
+    expect(find.byTooltip('배경 색상'), findsOneWidget);
     expect(
         find.byKey(const ValueKey('qt-note-passage-scroll')), findsOneWidget);
     expect(find.byKey(const ValueKey('qt-note-editor-scroll')), findsOneWidget);
@@ -645,6 +644,9 @@ void main() {
     _enterBody(tester, '강조');
     _selectBody(tester, 0, 2); // '강조' 선택
 
+    // 세로 패널에서 아래쪽에 있을 수 있어 먼저 보이게 스크롤한다.
+    await tester.ensureVisible(find.byTooltip('배경 색상'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('배경 색상'));
     await tester.pumpAndSettle();
     await tester.tap(
@@ -793,11 +795,16 @@ void main() {
     _enterBody(tester, '내용');
     await tester.pump();
 
+    // 세로 패널 아래쪽 버튼이라 먼저 보이게 스크롤한 뒤 누른다.
+    await tester.ensureVisible(find.byTooltip('(1) 목록'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('(1) 목록'));
     await tester.pump();
     // 번호 접두어가 현재 줄 맨 앞에 들어간다.
     expect(_bodyMarkers(tester).trim(), '(1) 내용');
 
+    await tester.ensureVisible(find.byTooltip('동그라미 목록'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('동그라미 목록'));
     await tester.pump();
     // 글머리표 접두어도 줄 앞에 추가된다.
