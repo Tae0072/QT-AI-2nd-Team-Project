@@ -15,6 +15,9 @@ import '../widgets/note_rich_text_editor.dart';
 // 기존 import 경로(이 화면)와의 호환을 위해 re-export한다.
 export '../models/note_models.dart' show NoteEditArgs;
 
+/// 본문 없이 손그림만 저장할 때 서버에 보낼 안내용 본문(본문 필수 조건 충족).
+const String _kDrawingOnlyBody = '그림 노트';
+
 /// 개인 노트 작성/수정 화면 (N-03).
 ///
 /// - 작성: N-02에서 NoteEditArgs(category)로 진입 → POST
@@ -138,18 +141,23 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     final l = AppLocalizations.of(context);
     final title = _titleController.text.trim();
     final body = _bodyController.text.trim();
+    // 손그림만 있어도 저장/임시저장이 되도록 그림 유무를 함께 본다.
+    final hasDrawing = _strokes.isNotEmpty;
 
     // ✏️ 왜 이렇게 짰냐면:
-    // 저장(SAVED)은 04 명세상 본문이 필수라 비면 막는다.
-    // 임시저장(DRAFT)은 작성 중 보관이 목적이라, 제목·본문 둘 다 빈 경우만 막는다.
-    if (status == 'SAVED' && body.isEmpty) {
+    // 저장(SAVED)은 본문이 필요하지만, 손그림만 있어도 저장할 수 있게 허용한다.
+    // 임시저장(DRAFT)은 제목·본문·그림이 모두 빈 경우에만 막는다.
+    if (status == 'SAVED' && body.isEmpty && !hasDrawing) {
       _showMessage(l.noteEditBodyRequired);
       return;
     }
-    if (status == 'DRAFT' && title.isEmpty && body.isEmpty) {
+    if (status == 'DRAFT' && title.isEmpty && body.isEmpty && !hasDrawing) {
       _showMessage(l.noteEditTitleOrBodyRequired);
       return;
     }
+
+    // 본문이 비고 그림만 있으면, 서버 본문 필수 조건을 위해 안내용 본문을 넣는다.
+    final effectiveBody = body.isEmpty && hasDrawing ? _kDrawingOnlyBody : body;
 
     setState(() => _saving = true);
     try {
@@ -162,7 +170,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
           category: _editCategory ?? _args.category ?? 'PRAYER',
           qtPassageId: _editQtPassageId,
           title: title,
-          body: body,
+          body: effectiveBody,
           verseIds: _verseIds.toList(),
           status: status,
         );
@@ -178,7 +186,7 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
         final created = await repository.create(
           category: _args.category ?? 'PRAYER',
           title: title,
-          body: body,
+          body: effectiveBody,
           verseIds: _verseIds.toList(),
           status: status,
         );

@@ -220,7 +220,7 @@ void main() {
     });
   });
 
-  group('NoteListScreen — ② QT/설교 칩 FAB 숨김', () {
+  group('NoteListScreen — ② QT/설교 칩에서도 작성 FAB 유지', () {
     Future<void> pump(WidgetTester tester) async {
       // 달력+칩+검색바가 모두 보이도록 실제 폰 크기 뷰포트로 키운다(기본 600px는 짧음).
       tester.view.physicalSize = const Size(1080, 2400);
@@ -244,18 +244,20 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('QT 칩 선택 시 작성 FAB이 사라진다(설교도 동일)', (tester) async {
+    testWidgets('QT·설교 칩에서도 작성 FAB이 계속 보인다',
+        (tester) async {
       await pump(tester);
       // 전체: FAB 보임
       expect(find.byType(FloatingActionButton), findsOneWidget);
 
+      // QT 칩에서도 작성 버튼은 사라지지 않는다(어느 카테고리든 작성 가능).
       await tester.tap(find.text('QT'));
       await tester.pumpAndSettle();
-      expect(find.byType(FloatingActionButton), findsNothing);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
 
       await tester.tap(find.text('설교'));
       await tester.pumpAndSettle();
-      expect(find.byType(FloatingActionButton), findsNothing);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
     });
   });
 
