@@ -1250,6 +1250,36 @@ abstract class AppLocalizations {
   /// **'Use the dark theme'**
   String get settingsDarkModeDesc;
 
+  /// No description provided for @settingsThemeMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get settingsThemeMode;
+
+  /// No description provided for @settingsThemeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get settingsThemeLight;
+
+  /// No description provided for @settingsThemeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get settingsThemeDark;
+
+  /// No description provided for @settingsThemeSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow system'**
+  String get settingsThemeSystem;
+
+  /// No description provided for @settingsThemeSystemDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches light/dark automatically based on device settings'**
+  String get settingsThemeSystemDesc;
+
   /// No description provided for @settingsFontSize.
   ///
   /// In en, this message translates to:

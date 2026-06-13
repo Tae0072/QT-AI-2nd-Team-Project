@@ -614,6 +614,21 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsDarkModeDesc => '어두운 테마를 사용합니다';
 
   @override
+  String get settingsThemeMode => '화면 테마';
+
+  @override
+  String get settingsThemeLight => '라이트 모드';
+
+  @override
+  String get settingsThemeDark => '다크 모드';
+
+  @override
+  String get settingsThemeSystem => '시스템 설정 따름';
+
+  @override
+  String get settingsThemeSystemDesc => '기기 설정에 따라 라이트/다크를 자동 전환합니다';
+
+  @override
   String get settingsFontSize => '폰트 크기';
 
   @override
