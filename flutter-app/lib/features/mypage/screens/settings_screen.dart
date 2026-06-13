@@ -139,24 +139,26 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final mode in const [
-              ThemeMode.light,
-              ThemeMode.dark,
-              ThemeMode.system,
-            ])
-              RadioListTile<ThemeMode>(
-                value: mode,
-                groupValue: current,
-                title: Text(_themeModeLabel(l, mode)),
-                subtitle: mode == ThemeMode.system
-                    ? Text(l.settingsThemeSystemDesc)
-                    : null,
-                onChanged: (value) => Navigator.of(ctx).pop(value),
-              ),
-          ],
+        child: RadioGroup<ThemeMode>(
+          groupValue: current,
+          onChanged: (value) => Navigator.of(ctx).pop(value),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final mode in const [
+                ThemeMode.light,
+                ThemeMode.dark,
+                ThemeMode.system,
+              ])
+                RadioListTile<ThemeMode>(
+                  value: mode,
+                  title: Text(_themeModeLabel(l, mode)),
+                  subtitle: mode == ThemeMode.system
+                      ? Text(l.settingsThemeSystemDesc)
+                      : null,
+                ),
+            ],
+          ),
         ),
       ),
     );
