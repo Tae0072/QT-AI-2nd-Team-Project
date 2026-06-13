@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/dev/dev_mode.dart';
+import '../../core/notifications/local_notification_service.dart';
 import '../../routes/app_router.dart';
 
 /// [DEV_MODE] 설정 화면 하단의 "버전 정보" 타일.
@@ -106,6 +107,19 @@ class DevModeScreen extends StatelessWidget {
             onTap: () => Navigator.of(context).pushNamed(AppRouter.onboarding),
           ),
           const Divider(height: 32),
+          // ── 알림 보내기(테스트) ──────────────────────────────────────────
+          // 내 기기에 OS 알림(상단 알림 표시줄)이 실제로 오는지 바로 확인하는 버튼들.
+          const Text('알림 보내기 (테스트)',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          const Text(
+            '버튼을 누르면 이 기기로 알림을 보냅니다. 좋아요·댓글·돌파 알림이 실제로 오는지 확인하세요. '
+            '(Android 13+/iOS는 처음에 알림 권한 허용이 필요합니다)',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 8),
+          const _NotificationTestButtons(),
+          const Divider(height: 32),
           Row(
             children: [
               const Text('카카오 로그인 로그',
@@ -147,6 +161,66 @@ class DevModeScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+/// [DEV_MODE] 알림 테스트 버튼 묶음 — 누르면 이 기기로 OS 알림을 보낸다.
+class _NotificationTestButtons extends StatelessWidget {
+  const _NotificationTestButtons();
+
+  Future<void> _send(BuildContext context, Future<bool> Function() action) async {
+    final ok = await action();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(ok
+            ? '알림을 보냈어요. 상단 알림 표시줄을 확인하세요.'
+            : '알림을 보내지 못했어요. 알림 권한을 확인하세요.'),
+        duration: const Duration(seconds: 2),
+      ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final service = LocalNotificationService.instance;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: () => _send(context, () => service.showLike()),
+          icon: const Icon(Icons.favorite_border, size: 18),
+          label: const Text('좋아요 알림'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => _send(context, () => service.showComment()),
+          icon: const Icon(Icons.mode_comment_outlined, size: 18),
+          label: const Text('댓글 알림'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => _send(context, () => service.showMilestone(count: 100)),
+          icon: const Icon(Icons.emoji_events_outlined, size: 18),
+          label: const Text('100개 돌파'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () =>
+              _send(context, () => service.showMilestone(count: 1000)),
+          icon: const Icon(Icons.emoji_events, size: 18),
+          label: const Text('1000개 돌파'),
+        ),
+        FilledButton.icon(
+          onPressed: () => _send(
+            context,
+            () => service.show(
+              title: 'QT-AI 테스트 알림',
+              body: '이 알림이 보이면 기기 알림이 정상 동작합니다.',
+            ),
+          ),
+          icon: const Icon(Icons.notifications_active_outlined, size: 18),
+          label: const Text('테스트 알림 보내기'),
+        ),
+      ],
     );
   }
 }
