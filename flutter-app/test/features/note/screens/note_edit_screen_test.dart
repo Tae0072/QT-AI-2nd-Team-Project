@@ -12,6 +12,7 @@ import 'package:qtai_app/features/note/models/note_models.dart';
 import 'package:qtai_app/features/note/providers/note_providers.dart';
 import 'package:qtai_app/features/note/screens/note_edit_screen.dart';
 import 'package:qtai_app/features/note/services/note_repository.dart';
+import 'package:qtai_app/features/note/widgets/note_drawing_layer.dart';
 
 /// N-03이 QT와 공유하는 리치텍스트 에디터(서식·@멘션) + 인용 절(verseIds) 저장(QA ③⑨·⑪)을 검증한다.
 void main() {
@@ -123,6 +124,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repo.createdVerseIds, contains(1001001));
+  });
+
+  testWidgets('본문 없이 그림만 그려도 저장된다(create 호출)', (tester) async {
+    final repo = _FakeNoteRepository();
+    await pump(tester, noteRepository: repo); // 작성 모드(PRAYER)
+
+    // 펜을 켜고 한 획 긋는다(본문은 비워 둠).
+    await tester.ensureVisible(find.byTooltip('펜으로 그리기'));
+    await tester.tap(find.byTooltip('펜으로 그리기'));
+    await tester.pumpAndSettle();
+
+    final layer = find.byType(NoteDrawingLayer);
+    final center = tester.getCenter(layer);
+    final gesture = await tester.startGesture(center);
+    await gesture.moveBy(const Offset(15, 10));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // 본문이 비어도 그림이 있으면 저장이 막히지 않고 create가 호출된다.
+    await tester.tap(saveButton());
+    await tester.pumpAndSettle();
+
+    expect(repo.createdCategory, 'PRAYER');
   });
 
   testWidgets('편집 모드는 기존 인용 절을 seed해 수정 저장 시 보존한다',

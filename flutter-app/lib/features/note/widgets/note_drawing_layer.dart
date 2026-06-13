@@ -44,7 +44,12 @@ class RuledLinesPainter extends CustomPainter {
 /// - 좌표는 비율(0~1)로 저장/복원해 크기 변화에도 위치가 유지된다.
 class NoteDrawingLayer extends StatefulWidget {
   final List<DrawingStroke> strokes;
+
+  /// 펜 모드(그리기). [eraserEnabled]와 동시에 true가 되지 않게 부모가 보장한다.
   final bool enabled;
+
+  /// 지우개 모드(닿은 획 지우기).
+  final bool eraserEnabled;
   final int colorValue;
   final double strokeWidth;
   final ValueChanged<List<DrawingStroke>> onStrokesChanged;
@@ -53,6 +58,7 @@ class NoteDrawingLayer extends StatefulWidget {
     super.key,
     required this.strokes,
     required this.enabled,
+    this.eraserEnabled = false,
     required this.colorValue,
     required this.strokeWidth,
     required this.onStrokesChanged,
@@ -98,8 +104,28 @@ class _NoteDrawingLayerState extends State<NoteDrawingLayer> {
     setState(_current.clear);
   }
 
+  /// 지우개: 터치 지점 가까이를 지나는 획을 지운다(닿은 획 단위 삭제).
+  void _erase(Offset local, Size size) {
+    const eraseRadius = 18.0; // 손/펜 끝 굵기를 고려한 지우개 반경(px).
+    final remaining = <DrawingStroke>[];
+    var removed = false;
+    for (final stroke in widget.strokes) {
+      final hit = stroke.points.any((p) {
+        final actual = Offset(p.dx * size.width, p.dy * size.height);
+        return (actual - local).distance <= eraseRadius + stroke.width / 2;
+      });
+      if (hit) {
+        removed = true;
+      } else {
+        remaining.add(stroke);
+      }
+    }
+    if (removed) widget.onStrokesChanged(remaining);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final interactive = widget.enabled || widget.eraserEnabled;
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
@@ -112,9 +138,17 @@ class _NoteDrawingLayerState extends State<NoteDrawingLayer> {
             currentWidth: widget.strokeWidth,
           ),
         );
-        if (!widget.enabled) {
-          // 펜 꺼짐: 입력은 통과(텍스트 편집), 그림은 계속 표시.
+        if (!interactive) {
+          // 펜·지우개 모두 꺼짐: 입력은 통과(텍스트 편집), 그림은 계속 표시.
           return IgnorePointer(child: canvas);
+        }
+        if (widget.eraserEnabled) {
+          return Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: (e) => _erase(e.localPosition, size),
+            onPointerMove: (e) => _erase(e.localPosition, size),
+            child: canvas,
+          );
         }
         return Listener(
           behavior: HitTestBehavior.opaque,

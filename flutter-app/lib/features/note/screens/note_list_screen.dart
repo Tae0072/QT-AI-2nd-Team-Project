@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../models/note_models.dart';
@@ -139,9 +140,9 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
         writableNoteCategories.contains(selectedCategory)
             ? selectedCategory
             : null;
-    // ② 기록에서 작성하지 않는 맥락(QT·설교)·선택 모드에서는 작성 FAB을 숨긴다.
-    final showFab =
-        !selectionMode && !tabAuthoredCategories.contains(selectedCategory);
+    // 작성 버튼은 선택 모드만 아니면 항상 보인다(어느 카테고리에서도 노트 작성 가능).
+    // QT·설교 칩에서도 일반 작성 흐름(N-02 카테고리 선택)으로 진입한다.
+    final showFab = !selectionMode;
 
     return Scaffold(
       // 선택 모드면 AppBar가 ✕ + "n개 선택" + 전체선택으로 바뀐다.
@@ -197,14 +198,15 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
                     ),
                   ),
                 )
-              : FloatingActionButton.small(
+              // AI 챗봇 런처처럼 둥글게 떠 있는 액센트 + 버튼(노트 작성 진입).
+              : FloatingActionButton(
+                  heroTag: 'note-create-fab',
                   onPressed: () => Navigator.of(context)
                       .pushNamed(AppRouter.noteCategorySelect),
-                  backgroundColor: _kFabBg,
-                  foregroundColor: _kFabFg,
-                  elevation: 0,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  child: const Icon(Icons.add, size: 22),
+                  backgroundColor: context.appColors.accentDot,
+                  foregroundColor: Colors.white,
+                  shape: const CircleBorder(),
+                  child: const Icon(Icons.add, size: 28),
                 ),
       // 선택 모드 하단 삭제 바.
       bottomNavigationBar: selectionMode

@@ -94,10 +94,14 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
 
   Future<void> _save(String status) async {
     final body = _bodyController.text.trim();
-    if (body.isEmpty) {
+    // 손그림만 있어도 저장/임시저장이 되도록 그림 유무를 함께 본다.
+    final hasDrawing = _strokes.isNotEmpty;
+    if (body.isEmpty && !hasDrawing) {
       _showMessage('노트 내용을 입력해 주세요');
       return;
     }
+    // 본문이 비고 그림만 있으면, 서버 본문 필수 조건을 위해 안내용 본문을 넣는다.
+    final effectiveBody = body.isEmpty && hasDrawing ? '그림 노트' : body;
 
     setState(() => _saving = true);
     final repository = ref.read(noteRepositoryProvider);
@@ -112,7 +116,7 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
           category: 'MEDITATION',
           qtPassageId: _passage.qtPassageId,
           title: title,
-          body: body,
+          body: effectiveBody,
           verseIds: verseIds,
           status: status,
         );
@@ -120,7 +124,7 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
         await repository.createQtNote(
           qtPassageId: _passage.qtPassageId,
           title: title,
-          body: body,
+          body: effectiveBody,
           status: status,
           verseIds: verseIds,
         );

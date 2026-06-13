@@ -148,6 +148,8 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
 
   // 펜(손그림) 모드 on/off. on이면 본문 위에서 그리기, 텍스트 입력/핀치는 잠시 멈춘다.
   bool _penEnabled = false;
+  // 지우개 모드 on/off. 펜과 동시에 켜지지 않는다(상호 배타).
+  bool _eraserEnabled = false;
   static const double _penStrokeWidth = 3;
 
   Color _textColor = _defaultTextColor;
@@ -411,9 +413,24 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
     widget.onStrokesChanged?.call(const <DrawingStroke>[]);
   }
 
+  // 펜/지우개는 상호 배타로 켠다(한쪽을 켜면 다른 쪽은 끈다).
+  void _togglePen() {
+    setState(() {
+      _penEnabled = !_penEnabled;
+      if (_penEnabled) _eraserEnabled = false;
+    });
+  }
+
+  void _toggleEraser() {
+    setState(() {
+      _eraserEnabled = !_eraserEnabled;
+      if (_eraserEnabled) _penEnabled = false;
+    });
+  }
+
   // ── 두 손가락 핀치로 에디터 기본 글자 크기 조절 ───────────────────────────
   void _onEditorPointerDown(PointerDownEvent event) {
-    if (_penEnabled) return; // 펜 모드에선 핀치 줌 끔(그리기와 충돌 방지).
+    if (_penEnabled || _eraserEnabled) return; // 그리기/지우기 중엔 핀치 줌 끔.
     _activePointers[event.pointer] = event.position;
     if (_activePointers.length == 2) {
       final points = _activePointers.values.toList();
@@ -507,9 +524,9 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
           widget.onPageModeChanged != null ? _toggleManuscript : null,
       // 손그림 도구(콜백이 있을 때만 버튼 노출).
       penActive: _penEnabled,
-      onTogglePen: _canDraw
-          ? () => setState(() => _penEnabled = !_penEnabled)
-          : null,
+      eraserActive: _eraserEnabled,
+      onTogglePen: _canDraw ? _togglePen : null,
+      onToggleEraser: _canDraw ? _toggleEraser : null,
       onUndoStroke: _canDraw ? _undoStroke : null,
       onClearStrokes: _canDraw ? _clearStrokes : null,
     );
@@ -564,12 +581,14 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
                   ),
                 ),
               quillEditor,
-              // 손그림 오버레이: 펜 켜졌거나 기존 획이 있으면 표시.
-              if (_canDraw && (_penEnabled || widget.strokes.isNotEmpty))
+              // 손그림 오버레이: 펜/지우개가 켜졌거나 기존 획이 있으면 표시.
+              if (_canDraw &&
+                  (_penEnabled || _eraserEnabled || widget.strokes.isNotEmpty))
                 Positioned.fill(
                   child: NoteDrawingLayer(
                     strokes: widget.strokes,
                     enabled: _penEnabled,
+                    eraserEnabled: _eraserEnabled,
                     colorValue: _textColor.toARGB32(),
                     strokeWidth: _penStrokeWidth,
                     onStrokesChanged: widget.onStrokesChanged!,

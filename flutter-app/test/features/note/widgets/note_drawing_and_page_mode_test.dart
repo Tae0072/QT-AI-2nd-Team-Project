@@ -142,6 +142,51 @@ void main() {
       expect(strokes.first.points.length, greaterThanOrEqualTo(2));
     });
 
+    testWidgets('지우개로 획 위를 지나가면 그 획이 지워진다', (tester) async {
+      // 가운데(0.5,0.5)를 지나는 획 하나로 시작 → 레이어 중앙을 지우면 사라진다.
+      var strokes = <DrawingStroke>[
+        const DrawingStroke(
+          // 가운데 점(0.5,0.5)을 포함 → 레이어 중앙을 지우면 닿는다.
+          points: [Offset(0.45, 0.5), Offset(0.5, 0.5), Offset(0.55, 0.5)],
+          colorValue: 0xFF111827,
+          width: 3,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: StatefulBuilder(
+              builder: (context, setState) => Scaffold(
+                body: NoteRichTextEditor(
+                  controller: NoteRichBodyController(),
+                  bodyLabel: '본문',
+                  pageMode: NotePageMode.plain,
+                  onPageModeChanged: (_) {},
+                  strokes: strokes,
+                  onStrokesChanged: (s) => setState(() => strokes = s),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byTooltip('지우개'));
+      await tester.tap(find.byTooltip('지우개'));
+      await tester.pumpAndSettle();
+
+      final layer = find.byType(NoteDrawingLayer);
+      final center = tester.getCenter(layer);
+      final gesture = await tester.startGesture(center);
+      await gesture.moveBy(const Offset(2, 0));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(strokes, isEmpty);
+    });
+
     testWidgets('기존 손그림이 있으면 펜을 켜지 않아도 그림 레이어가 보인다',
         (tester) async {
       await pumpEditor(

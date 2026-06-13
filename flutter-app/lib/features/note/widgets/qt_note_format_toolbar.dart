@@ -30,8 +30,10 @@ class QtNoteFormatToolbar extends StatelessWidget {
   // ── 손그림/페이지 모드(선택) ─────────────────────────────────────────────
   // 콜백이 주어지면 해당 버튼을 그린다. 없으면(기존 호출부) 버튼을 숨겨 호환 유지.
   final bool penActive;
+  final bool eraserActive;
   final bool manuscriptActive;
   final VoidCallback? onTogglePen;
+  final VoidCallback? onToggleEraser;
   final VoidCallback? onUndoStroke;
   final VoidCallback? onClearStrokes;
   final VoidCallback? onToggleManuscript;
@@ -40,8 +42,10 @@ class QtNoteFormatToolbar extends StatelessWidget {
     super.key,
     this.axis = Axis.horizontal,
     this.penActive = false,
+    this.eraserActive = false,
     this.manuscriptActive = false,
     this.onTogglePen,
+    this.onToggleEraser,
     this.onUndoStroke,
     this.onClearStrokes,
     this.onToggleManuscript,
@@ -105,6 +109,9 @@ class QtNoteFormatToolbar extends StatelessWidget {
             active: manuscriptActive),
       if (onTogglePen != null)
         _button(Icons.draw, '펜으로 그리기', onTogglePen!, active: penActive),
+      if (onToggleEraser != null)
+        _button(Icons.auto_fix_normal, '지우개', onToggleEraser!,
+            active: eraserActive),
       if (onUndoStroke != null)
         _button(Icons.undo, '획 실행취소', onUndoStroke!),
       if (onClearStrokes != null)
