@@ -55,13 +55,13 @@ class SettingsScreen extends ConsumerWidget {
 
               const Divider(),
 
-              // 다크 모드 — 이 토글이 단일 진실(시스템 설정 비추종), 기기 로컬 저장.
-              SwitchListTile(
-                title: Text(l.settingsDarkMode),
-                subtitle: Text(l.settingsDarkModeDesc),
-                value: ref.watch(themeModeProvider) == ThemeMode.dark,
-                onChanged: (value) =>
-                    ref.read(themeModeProvider.notifier).setDark(value),
+              // 화면 테마 — 라이트/다크/시스템 중 선택(기기 로컬 저장).
+              ListTile(
+                leading: const Icon(Icons.brightness_6_outlined),
+                title: Text(l.settingsThemeMode),
+                subtitle: Text(_themeModeLabel(l, ref.watch(themeModeProvider))),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showThemeModeSheet(context, ref, l),
               ),
 
               const Divider(),
@@ -119,5 +119,48 @@ class SettingsScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  /// 현재 테마 모드의 표시 라벨.
+  String _themeModeLabel(AppLocalizations l, ThemeMode mode) => switch (mode) {
+        ThemeMode.light => l.settingsThemeLight,
+        ThemeMode.dark => l.settingsThemeDark,
+        ThemeMode.system => l.settingsThemeSystem,
+      };
+
+  /// 라이트/다크/시스템 중 하나를 고르는 바텀시트.
+  Future<void> _showThemeModeSheet(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l,
+  ) async {
+    final current = ref.read(themeModeProvider);
+    final selected = await showModalBottomSheet<ThemeMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final mode in const [
+              ThemeMode.light,
+              ThemeMode.dark,
+              ThemeMode.system,
+            ])
+              RadioListTile<ThemeMode>(
+                value: mode,
+                groupValue: current,
+                title: Text(_themeModeLabel(l, mode)),
+                subtitle: mode == ThemeMode.system
+                    ? Text(l.settingsThemeSystemDesc)
+                    : null,
+                onChanged: (value) => Navigator.of(ctx).pop(value),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null) return;
+    await ref.read(themeModeProvider.notifier).setMode(selected);
   }
 }

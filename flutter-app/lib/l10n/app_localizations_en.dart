@@ -623,6 +623,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsDarkModeDesc => 'Use the dark theme';
 
   @override
+  String get settingsThemeMode => 'Theme';
+
+  @override
+  String get settingsThemeLight => 'Light';
+
+  @override
+  String get settingsThemeDark => 'Dark';
+
+  @override
+  String get settingsThemeSystem => 'Follow system';
+
+  @override
+  String get settingsThemeSystemDesc =>
+      'Switches light/dark automatically based on device settings';
+
+  @override
   String get settingsFontSize => 'Font size';
 
   @override

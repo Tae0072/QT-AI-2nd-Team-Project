@@ -5,28 +5,43 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/onboarding/providers/onboarding_providers.dart'
     show sharedPreferencesProvider;
 
-/// 다크 모드 상태 — **마이페이지 설정 화면에서만** 변경한다(2026-06-11 T 결정).
+/// 테마 모드 — **마이페이지 설정 화면에서** 라이트/다크/시스템 중 선택한다.
 ///
-/// 시스템 다크 모드 설정은 추종하지 않는다(`ThemeMode.system` 미사용) —
-/// 기기 설정과 무관하게 앱 안의 토글이 단일 진실이다.
-/// 값은 SharedPreferences(`dark_mode`)에 기기 로컬로 저장한다(서버 설정 아님).
+/// - light: 항상 라이트, dark: 항상 다크, system: 기기 설정을 따라간다.
+/// - 값은 SharedPreferences(`theme_mode`)에 기기 로컬로 저장한다(서버 설정 아님).
+/// - 구버전 bool(`dark_mode`) 저장값이 있으면 1회 마이그레이션한다.
 final themeModeProvider =
     StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
   return ThemeModeNotifier(ref.watch(sharedPreferencesProvider));
 });
 
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier(this._prefs)
-      : super((_prefs.getBool(_key) ?? false) ? ThemeMode.dark : ThemeMode.light);
+  ThemeModeNotifier(this._prefs) : super(_initial(_prefs));
 
-  static const String _key = 'dark_mode';
+  static const String _key = 'theme_mode';
+  static const String _legacyKey = 'dark_mode'; // 구버전 on/off 토글
   final SharedPreferences _prefs;
+
+  static ThemeMode _initial(SharedPreferences prefs) {
+    final saved = prefs.getString(_key);
+    if (saved != null) return _parse(saved);
+    // 구버전 bool 토글 마이그레이션(true=다크, false=라이트). 없으면 시스템 따름.
+    final legacy = prefs.getBool(_legacyKey);
+    if (legacy != null) return legacy ? ThemeMode.dark : ThemeMode.light;
+    return ThemeMode.system;
+  }
+
+  static ThemeMode _parse(String value) => switch (value) {
+        'dark' => ThemeMode.dark,
+        'light' => ThemeMode.light,
+        _ => ThemeMode.system,
+      };
 
   bool get isDark => state == ThemeMode.dark;
 
-  /// 다크 모드 켜기/끄기 — 즉시 반영 후 로컬 저장.
-  Future<void> setDark(bool value) async {
-    state = value ? ThemeMode.dark : ThemeMode.light;
-    await _prefs.setBool(_key, value);
+  /// 테마 모드 선택 — 즉시 반영 후 로컬 저장.
+  Future<void> setMode(ThemeMode mode) async {
+    state = mode;
+    await _prefs.setString(_key, mode.name);
   }
 }
