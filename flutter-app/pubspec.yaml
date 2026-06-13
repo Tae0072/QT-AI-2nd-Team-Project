@@ -41,6 +41,7 @@ dependencies:
   # TTS 오디오 재생
   just_audio: ^0.9.42
   video_player: ^2.9.2
+  flutter_quill: ^11.5.1
   # (path_provider는 위 공유 기능과 공용 — 중복 선언 제거)
 
 dev_dependencies:

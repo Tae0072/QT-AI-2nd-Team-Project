@@ -56,6 +56,9 @@ final class QtNoteRichTextParser {
     final children = <TextSpan>[];
     var index = 0;
     var bold = false;
+    var italic = false;
+    var underline = false;
+    var strikethrough = false;
     double? fontSize;
     Color? foregroundColor;
     Color? backgroundColor;
@@ -64,6 +67,27 @@ final class QtNoteRichTextParser {
       if (text.startsWith('**', index)) {
         _addHiddenMarker(children, baseStyle, '**');
         bold = !bold;
+        index += 2;
+        continue;
+      }
+
+      if (text.startsWith('//', index)) {
+        _addHiddenMarker(children, baseStyle, '//');
+        italic = !italic;
+        index += 2;
+        continue;
+      }
+
+      if (text.startsWith('__', index)) {
+        _addHiddenMarker(children, baseStyle, '__');
+        underline = !underline;
+        index += 2;
+        continue;
+      }
+
+      if (text.startsWith('~~', index)) {
+        _addHiddenMarker(children, baseStyle, '~~');
+        strikethrough = !strikethrough;
         index += 2;
         continue;
       }
@@ -102,6 +126,9 @@ final class QtNoteRichTextParser {
         _mergeStyle(
           baseStyle,
           bold: bold,
+          italic: italic,
+          underline: underline,
+          strikethrough: strikethrough,
           fontSize: fontSize,
           foregroundColor: foregroundColor,
           backgroundColor: backgroundColor,
@@ -119,12 +146,23 @@ final class QtNoteRichTextParser {
   static TextStyle? _mergeStyle(
     TextStyle? baseStyle, {
     required bool bold,
+    required bool italic,
+    required bool underline,
+    required bool strikethrough,
     required double? fontSize,
     required Color? foregroundColor,
     required Color? backgroundColor,
   }) {
+    final decorations = <TextDecoration>[
+      if (underline) TextDecoration.underline,
+      if (strikethrough) TextDecoration.lineThrough,
+    ];
     return baseStyle?.copyWith(
       fontWeight: bold ? FontWeight.w800 : baseStyle.fontWeight,
+      fontStyle: italic ? FontStyle.italic : baseStyle.fontStyle,
+      decoration: decorations.isEmpty
+          ? baseStyle.decoration
+          : TextDecoration.combine(decorations),
       fontSize: fontSize ?? baseStyle.fontSize,
       color: foregroundColor ?? baseStyle.color,
       backgroundColor: backgroundColor,

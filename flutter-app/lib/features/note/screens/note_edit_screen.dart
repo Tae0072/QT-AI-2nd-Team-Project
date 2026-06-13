@@ -151,7 +151,12 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
   }
 
   void _showMessage(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(msg),
+        duration: const Duration(seconds: 2),
+      ));
   }
 
   /// 성경 본문에서 진입할 때 선택 범위·인용 본문을 읽기 전용으로 보여준다.

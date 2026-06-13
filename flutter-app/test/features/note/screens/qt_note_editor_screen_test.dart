@@ -1,14 +1,53 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/models/bible_reference.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/services/bible_repository.dart';
+import 'package:qtai_app/features/note/models/note_markup_quill_codec.dart';
 import 'package:qtai_app/features/note/providers/note_providers.dart';
 import 'package:qtai_app/features/note/screens/qt_note_editor_screen.dart';
 import 'package:qtai_app/features/note/services/note_repository.dart';
+
+/// QuillEditor 본문 컨트롤러(테스트용).
+QuillController _bodyQuill(WidgetTester tester, {Key? key}) =>
+    tester
+        .widget<QuillEditor>(
+          find.byKey(key ?? const ValueKey('qt-note-body-input')),
+        )
+        .controller;
+
+/// QuillEditor 본문을 [text]로 "전체 교체"한다(`enterText`와 같은 의미).
+/// QuillEditor는 일반 TextField가 아니라 `enterText`가 안 통하므로 컨트롤러를 직접 조작한다.
+/// 교체 후 커서를 텍스트 끝으로 옮겨 @멘션 감지 등이 실제 입력과 같게 동작하게 한다.
+void _enterBody(WidgetTester tester, String text, {Key? key}) {
+  final controller = _bodyQuill(tester, key: key);
+  // 문서는 항상 끝에 '\n'을 가지므로, 그 앞까지(길이-1)를 교체해 본문만 바꾼다.
+  final length = controller.document.length;
+  controller.replaceText(
+    0,
+    length <= 1 ? 0 : length - 1,
+    text,
+    TextSelection.collapsed(offset: text.length),
+  );
+}
+
+/// 본문을 저장 형식(마커 평문)으로 읽는다.
+String _bodyMarkers(WidgetTester tester, {Key? key}) =>
+    NoteMarkupQuillCodec.deltaToMarkers(
+      _bodyQuill(tester, key: key).document.toDelta(),
+    );
+
+/// 본문에서 [base]~[extent] 범위를 선택한다(서식 적용 대상 지정).
+void _selectBody(WidgetTester tester, int base, int extent, {Key? key}) {
+  _bodyQuill(tester, key: key).updateSelection(
+    TextSelection(baseOffset: base, extentOffset: extent),
+    ChangeSource.local,
+  );
+}
 
 void main() {
   testWidgets('QT 노트 작성 화면은 본문과 작성 영역을 분리하고 이모티콘 입력을 유지한다', (tester) async {
@@ -63,8 +102,9 @@ void main() {
     expect(find.byTooltip('(1) 목록'), findsOneWidget);
     expect(find.byTooltip('1) 목록'), findsOneWidget);
 
-    await tester.enterText(find.bySemanticsLabel('노트 작성'), '오늘 적용 🙂');
-    expect(find.text('오늘 적용 🙂'), findsOneWidget);
+    _enterBody(tester, '오늘 적용 🙂');
+    await tester.pump();
+    expect(_bodyMarkers(tester).trim(), '오늘 적용 🙂');
   });
 
   testWidgets('본문 입력 중에는 QT 본문 영역으로 튀지 않고 작성 영역과 입력값을 유지한다', (tester) async {
@@ -106,12 +146,11 @@ void main() {
     );
 
     final body = find.byKey(const ValueKey('qt-note-body-input'));
-    await tester.tap(body);
-    await tester.enterText(body, '첫 입력');
+    _enterBody(tester, '첫 입력');
     await tester.pump();
 
     expect(find.text('QT 노트'), findsOneWidget);
-    expect(find.text('첫 입력'), findsOneWidget);
+    expect(_bodyMarkers(tester).trim(), '첫 입력');
     expect(
       find.byKey(const ValueKey('qt-note-passage-scroll')),
       findsOneWidget,
@@ -162,29 +201,20 @@ void main() {
     );
 
     final body = find.byKey(const ValueKey('qt-note-body-input'));
-    await tester.tap(body);
-    await tester.enterText(body, '첫 글자');
+    _enterBody(tester, '첫 글자');
     await tester.pump();
 
-    final beforeField = tester.widget<TextField>(body);
-    final beforeEditable = tester.widget<EditableText>(
-      find.descendant(of: body, matching: find.byType(EditableText)),
-    );
+    final beforeController = _bodyQuill(tester);
 
     tester.view.viewInsets = const FakeViewPadding(bottom: 320);
     addTearDown(tester.view.resetViewInsets);
     await tester.pump();
 
-    final afterField = tester.widget<TextField>(body);
-    final afterEditable = tester.widget<EditableText>(
-      find.descendant(of: body, matching: find.byType(EditableText)),
-    );
-
+    // 키보드 inset이 바뀌어도 같은 컨트롤러·입력값·에디터가 유지된다.
     expect(find.text('QT 노트'), findsOneWidget);
-    expect(afterField.controller, same(beforeField.controller));
-    expect(afterField.controller!.text, '첫 글자');
-    expect(afterEditable.focusNode, same(beforeEditable.focusNode));
-    expect(afterEditable.focusNode.hasFocus, isTrue);
+    expect(_bodyQuill(tester), same(beforeController));
+    expect(_bodyMarkers(tester).trim(), '첫 글자');
+    expect(body, findsOneWidget);
     expect(
         find.byKey(const ValueKey('qt-note-passage-scroll')), findsOneWidget);
     expect(find.byKey(const ValueKey('qt-note-editor-scroll')), findsOneWidget);
@@ -338,7 +368,7 @@ void main() {
       ),
     );
 
-    await tester.enterText(find.bySemanticsLabel('노트 작성'), '@Ge');
+    _enterBody(tester, '@Ge');
     await tester.pumpAndSettle();
 
     expect(find.text('창세기'), findsOneWidget);
@@ -389,10 +419,7 @@ void main() {
     await tester.tap(find.byTooltip('구절 삽입'));
     await tester.pumpAndSettle();
 
-    final textField = tester.widget<TextField>(
-      find.byKey(const ValueKey('qt-note-body-input')),
-    );
-    expect(textField.controller!.text, '@');
+    expect(_bodyMarkers(tester), '@');
     expect(find.text('창세기'), findsOneWidget);
     expect(find.text('출애굽기'), findsOneWidget);
   });
@@ -438,13 +465,13 @@ void main() {
       ),
     );
 
-    await tester.enterText(find.bySemanticsLabel('노트 작성'), '@창');
+    _enterBody(tester, '@창');
     await tester.pumpAndSettle();
 
     expect(find.text('창세기'), findsOneWidget);
     expect(find.text('출애굽기'), findsNothing);
 
-    await tester.enterText(find.bySemanticsLabel('노트 작성'), '@창 1:1');
+    _enterBody(tester, '@창 1:1');
     await tester.pumpAndSettle();
 
     expect(find.text('창세기 1:1 삽입'), findsOneWidget);
@@ -452,8 +479,9 @@ void main() {
     await tester.tap(find.text('창세기 1:1 삽입'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('창세기 1:1 더미 구절 본문 1'), findsOneWidget);
-    expect(find.text('@창 1:1'), findsNothing);
+    // 에디터 본문은 Quill이라 find.text로 못 잡으므로 저장 형식(마커)으로 확인한다.
+    expect(_bodyMarkers(tester), contains('창세기 1:1 더미 구절 본문 1'));
+    expect(_bodyMarkers(tester), isNot(contains('@')));
   });
 
   testWidgets('@창 권 선택 후 장과 절 피커로 구절을 삽입한다', (tester) async {
@@ -497,7 +525,7 @@ void main() {
       ),
     );
 
-    await tester.enterText(find.bySemanticsLabel('노트 작성'), '@창');
+    _enterBody(tester, '@창');
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('창세기'));
@@ -509,16 +537,16 @@ void main() {
         findsOneWidget);
     expect(find.byKey(const Key('qt-note-mention-verse-to-picker')),
         findsOneWidget);
-    expect(find.text('창세기 1:1 삽입'), findsOneWidget);
+    expect(find.text('문구 삽입'), findsOneWidget);
 
-    await tester.tap(find.text('창세기 1:1 삽입'));
+    await tester.tap(find.text('문구 삽입'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('창세기 1:1 더미 구절 본문 1'), findsOneWidget);
-    expect(find.text('@창'), findsNothing);
+    expect(_bodyMarkers(tester), contains('창세기 1:1 더미 구절 본문 1'));
+    expect(_bodyMarkers(tester), isNot(contains('@')));
   });
 
-  testWidgets('글씨 크기를 슬라이더로 지정하고 이후 입력부터 적용한다', (tester) async {
+  testWidgets('글씨 크기를 선택 텍스트에 적용하면 [fs] 마커로 저장된다', (tester) async {
     const args = QtNoteEditorArgs(
       passage: TodayQtPassage(
         qtPassageId: 3,
@@ -556,7 +584,8 @@ void main() {
       ),
     );
 
-    await tester.enterText(find.bySemanticsLabel('노트 작성'), '본문 🙂');
+    _enterBody(tester, '본문 🙂');
+    _selectBody(tester, 0, 2); // '본문' 선택
     await tester.tap(find.byTooltip('글씨 크기'));
     await tester.pumpAndSettle();
 
@@ -570,32 +599,9 @@ void main() {
     await tester.tap(find.text('적용'));
     await tester.pumpAndSettle();
 
-    final textField = tester.widget<TextField>(
-      find.byKey(const ValueKey('qt-note-body-input')),
-    );
-    final controller = textField.controller!;
-    expect(textField.style?.fontSize, 16);
-    expect(controller.text, '본문 🙂[fs=24]');
-
-    await tester.enterText(
-      find.byKey(const ValueKey('qt-note-body-input')),
-      '${controller.text}큰글',
-    );
-
-    final span = textField.controller!.buildTextSpan(
-      context: tester.element(find.byKey(const ValueKey('qt-note-body-input'))),
-      style: textField.style!,
-      withComposing: false,
-    );
-    final emojiSpan = span.children!
-        .whereType<TextSpan>()
-        .firstWhere((child) => child.text == '🙂');
-    expect(emojiSpan.style?.fontSize, 16);
-
-    final styledSpan = span.children!
-        .whereType<TextSpan>()
-        .firstWhere((child) => child.text == '큰');
-    expect(styledSpan.style?.fontSize, 24);
+    // 선택한 '본문'에 크기가 적용되어 저장 형식(마커)에 [fs=24]가 남는다.
+    expect(_bodyMarkers(tester), contains('[fs=24]'));
+    expect(_bodyMarkers(tester), contains('본문'));
   });
 
   testWidgets('배경 색상은 하이라이트 대신 선택 텍스트에 적용된다', (tester) async {
@@ -636,51 +642,21 @@ void main() {
       ),
     );
 
-    await tester.enterText(
-        find.byKey(const ValueKey('qt-note-body-input')), '강조');
-
-    final textField = tester.widget<TextField>(
-      find.byKey(const ValueKey('qt-note-body-input')),
-    );
-    textField.controller!.selection = const TextSelection(
-      baseOffset: 0,
-      extentOffset: 2,
-    );
+    _enterBody(tester, '강조');
+    _selectBody(tester, 0, 2); // '강조' 선택
 
     await tester.tap(find.byTooltip('배경 색상'));
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(
-          ValueKey('note-color-swatch-${const Color(0xFFFEE2E2).toARGB32()}')),
+          ValueKey('note-color-swatch-${const Color(0xFFFEF08A).toARGB32()}')),
     );
     await tester.pumpAndSettle();
 
-    final span = textField.controller!.buildTextSpan(
-      context: tester.element(find.byKey(const ValueKey('qt-note-body-input'))),
-      style: textField.style!,
-      withComposing: false,
-    );
-    final highlighted = span.children!
-        .whereType<TextSpan>()
-        .where((child) => child.text == '강' || child.text == '조')
-        .toList();
-    final markers = span.children!
-        .whereType<TextSpan>()
-        .where((child) => child.text?.startsWith('[bg=') ?? false)
-        .toList();
-
-    expect(textField.controller!.text, startsWith('[bg='));
-    expect(textField.controller!.text, contains('강조[bg=]'));
-    expect(highlighted, hasLength(2));
-    expect(
-      highlighted.every((child) => child.style?.backgroundColor != null),
-      isTrue,
-    );
-    expect(markers, hasLength(2));
-    expect(
-      markers.every((marker) => marker.style?.color == Colors.transparent),
-      isTrue,
-    );
+    // 선택한 '강조'에 배경색이 적용되어 저장 형식에 [bg=...] 마커로 감싸진다.
+    final markers = _bodyMarkers(tester);
+    expect(markers, contains('[bg=#FEF08A]'));
+    expect(markers, contains('강조[bg=]'));
   });
 
   testWidgets('굵게 버튼은 최근 선택 범위를 잃지 않고 선택 텍스트에 적용된다', (tester) async {
@@ -721,25 +697,18 @@ void main() {
       ),
     );
 
-    final body = find.byKey(const ValueKey('qt-note-body-input'));
-    await tester.enterText(body, '강조');
-
-    final textField = tester.widget<TextField>(body);
-    textField.controller!.selection = const TextSelection(
-      baseOffset: 0,
-      extentOffset: 2,
-    );
-    await tester.pump();
-    textField.controller!.selection = const TextSelection.collapsed(offset: 2);
+    _enterBody(tester, '강조');
+    _selectBody(tester, 0, 2); // '강조' 선택
     await tester.pump();
 
     await tester.tap(find.byTooltip('굵게'));
     await tester.pump();
 
-    expect(textField.controller!.text, '**강조**');
+    // 선택한 '강조'가 ** 마커로 감싸져 저장된다.
+    expect(_bodyMarkers(tester), '**강조**');
   });
 
-  testWidgets('본문 입력창은 한국어 입력 힌트를 기본으로 쓰고 입력기 보조 UI를 최소화한다', (tester) async {
+  testWidgets('본문 입력창은 flutter_quill 에디터로 placeholder를 노출한다', (tester) async {
     const args = QtNoteEditorArgs(
       passage: TodayQtPassage(
         qtPassageId: 3,
@@ -777,16 +746,13 @@ void main() {
       ),
     );
 
-    final textField = tester.widget<TextField>(
+    // 새 본문 입력은 flutter_quill 에디터이며 placeholder('노트 작성')를 노출한다.
+    final editor = tester.widget<QuillEditor>(
       find.byKey(const ValueKey('qt-note-body-input')),
     );
-
-    expect(textField.hintLocales, const [Locale('ko', 'KR')]);
-    expect(textField.enableSuggestions, isFalse);
-    expect(textField.autocorrect, isFalse);
+    expect(editor.config.placeholder, '노트 작성');
   });
-  testWidgets('empty numbered list prefix is removed on trailing space',
-      (tester) async {
+  testWidgets('목록 버튼은 현재 줄 앞에 접두어를 넣는다', (tester) async {
     const args = QtNoteEditorArgs(
       passage: TodayQtPassage(
         qtPassageId: 3,
@@ -824,23 +790,18 @@ void main() {
       ),
     );
 
-    final body = find.byKey(const ValueKey('qt-note-body-input'));
-    await tester.enterText(body, '(1) ');
-    await tester.enterText(body, '(1)  ');
+    _enterBody(tester, '내용');
+    await tester.pump();
 
-    var textField = tester.widget<TextField>(body);
-    expect(textField.controller!.text, isEmpty);
+    await tester.tap(find.byTooltip('(1) 목록'));
+    await tester.pump();
+    // 번호 접두어가 현재 줄 맨 앞에 들어간다.
+    expect(_bodyMarkers(tester).trim(), '(1) 내용');
 
-    await tester.enterText(body, '  1) ');
-    await tester.enterText(body, '  1)  ');
-
-    textField = tester.widget<TextField>(body);
-    expect(textField.controller!.text, '  ');
-
-    await tester.enterText(body, '(1) body ');
-
-    textField = tester.widget<TextField>(body);
-    expect(textField.controller!.text, '(1) body ');
+    await tester.tap(find.byTooltip('동그라미 목록'));
+    await tester.pump();
+    // 글머리표 접두어도 줄 앞에 추가된다.
+    expect(_bodyMarkers(tester), contains('• '));
   });
 
   testWidgets('mention picker disables insert when chapter verses fail',
@@ -887,18 +848,12 @@ void main() {
       ),
     );
 
-    await tester.enterText(
-      find.byKey(const ValueKey('qt-note-body-input')),
-      '@Ge',
-    );
+    _enterBody(tester, '@Ge');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Genesis').first);
     await tester.pumpAndSettle();
 
-    final insertButtonFinder = find.ancestor(
-      of: find.textContaining('1:1'),
-      matching: find.byType(FilledButton),
-    );
+    final insertButtonFinder = find.widgetWithText(FilledButton, '문구 삽입');
     final insertButton = tester.widget<FilledButton>(insertButtonFinder);
 
     expect(find.byKey(const Key('qt-note-mention-chapter-picker')),
@@ -919,10 +874,8 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextField).first, 'draft title');
-    await tester.enterText(
-      find.byKey(const ValueKey('qt-note-body-input')),
-      'draft body',
-    );
+    _enterBody(tester, 'draft body');
+    await tester.pump();
     await tester.tap(find.widgetWithText(OutlinedButton, '임시저장'));
     await tester.pump();
 
@@ -948,10 +901,8 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextField).first, 'saved title');
-    await tester.enterText(
-      find.byKey(const ValueKey('qt-note-body-input')),
-      'saved body',
-    );
+    _enterBody(tester, 'saved body');
+    await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, '저장'));
     await tester.pump();
 

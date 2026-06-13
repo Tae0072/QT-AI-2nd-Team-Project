@@ -19,6 +19,10 @@ final noteCategoryFilterProvider = StateProvider<String?>((ref) => null);
 /// 명시적으로 [임시저장] 버튼을 눌러 만든 상태이지 자동 생성물이 아니다(07 §6.4 저장 정책).
 final noteStatusFilterProvider = StateProvider<String?>((ref) => null);
 
+/// 상태 드롭다운의 '나눔' 필터 값. 서버 status(DRAFT/SAVED)가 아니라 공유 여부
+/// (`NoteListItem.shared`)로 거르는 클라이언트 전용 센티넬이다.
+const String kNoteSharedFilter = 'SHARED';
+
 /// 검색어 (null = 검색 안 함). 검색바 제출 시 설정한다.
 /// 서버 `GET /notes?q=`(제목·본문 LIKE)로 전달된다.
 final noteSearchQueryProvider = StateProvider<String?>((ref) => null);
@@ -29,12 +33,23 @@ final noteSearchQueryProvider = StateProvider<String?>((ref) => null);
 /// 카테고리·상태·검색어를 watch 하므로 사용자가 칩/상태/검색을 바꾸면
 /// 이 provider가 자동으로 다시 조회한다.
 /// autoDispose = 화면을 떠나면 캐시를 비워 메모리/낡은 데이터를 정리한다.
-final notesProvider = FutureProvider.autoDispose<NoteListResponse>((ref) {
+final notesProvider = FutureProvider.autoDispose<NoteListResponse>((ref) async {
   final repository = ref.watch(noteRepositoryProvider);
   final category = ref.watch(noteCategoryFilterProvider);
-  final status = ref.watch(noteStatusFilterProvider);
+  final statusFilter = ref.watch(noteStatusFilterProvider);
   final q = ref.watch(noteSearchQueryProvider);
-  return repository.getNotes(category: category, status: status, q: q);
+
+  // '나눔'(SHARED)은 서버 status가 아니라 공유 여부다 → status 없이 조회한 뒤
+  // 나눔 페이지에 공개한(shared) 노트만 남긴다.
+  final isSharedFilter = statusFilter == kNoteSharedFilter;
+  final response = await repository.getNotes(
+    category: category,
+    status: isSharedFilter ? null : statusFilter,
+    q: q,
+  );
+  if (!isSharedFilter) return response;
+  final sharedItems = response.items.where((item) => item.shared).toList();
+  return NoteListResponse(items: sharedItems, hasNext: false);
 });
 
 /// 목록 다중 선택 모드 on/off. AppBar 햄버거(선택) 토글로 켜고, ✕로 끈다.

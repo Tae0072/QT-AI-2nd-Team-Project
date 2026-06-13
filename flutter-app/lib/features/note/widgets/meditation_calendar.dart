@@ -75,52 +75,147 @@ class _MeditationCalendarViewState
       dayMap = _devMockDays(_focusedDay);
     }
 
-    return TableCalendar<CalendarDay>(
-      firstDay: DateTime.utc(2020, 1, 1),
-      lastDay: DateTime.utc(2035, 12, 31),
-      focusedDay: _focusedDay,
-      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-      // ✏️ 점 표시 기준: 그날 saved면 [정보] 반환 → markerBuilder가 카테고리 색점을 찍는다.
-      eventLoader: (day) {
-        final info = dayMap[_dateKey(day)];
-        return (info?.saved ?? false) ? [info!] : [];
-      },
-      onDaySelected: (selectedDay, focusedDay) =>
-          _onDayTap(selectedDay, focusedDay, dayMap),
-      // ✏️ 달을 넘기면 _focusedDay를 갱신 → _monthKey 변경 → 그 달 데이터 재조회.
-      onPageChanged: (focusedDay) => setState(() => _focusedDay = focusedDay),
-      // ⑦ 월/일주일 토글 — 우상단 포맷 버튼으로 전환.
-      calendarFormat: _calendarFormat,
-      onFormatChanged: (format) => setState(() => _calendarFormat = format),
-      availableCalendarFormats: const {
-        CalendarFormat.month: 'month',
-        CalendarFormat.week: 'week',
-      },
-      // ⑥ 요일행(일~토)이 잘리지 않도록 높이 확보.
-      daysOfWeekHeight: 28,
-      availableGestures: AvailableGestures.horizontalSwipe,
-      // Calm Paper: 날짜/오늘/선택은 무채색. 저장일 점(marker)은 ④ markerBuilder가
-      // 카테고리 색으로 그리므로 calendarStyle.markerDecoration은 적용되지 않는다.
-      calendarStyle: CalendarStyle(
-        todayDecoration:
-            BoxDecoration(color: c.accentSoft, shape: BoxShape.circle),
-        todayTextStyle: TextStyle(color: c.text, fontWeight: FontWeight.w600),
-        selectedDecoration:
-            BoxDecoration(color: c.accent, shape: BoxShape.circle),
-        selectedTextStyle:
-            TextStyle(color: c.onAccent, fontWeight: FontWeight.w600),
-        defaultTextStyle: TextStyle(color: c.text),
-        weekendTextStyle: TextStyle(color: c.text),
-        outsideTextStyle: TextStyle(color: c.textMuted),
-        disabledTextStyle: TextStyle(color: c.textMuted),
-      ),
-      daysOfWeekStyle: DaysOfWeekStyle(
-        weekdayStyle: TextStyle(color: c.text2),
-        weekendStyle: TextStyle(color: c.text2),
-      ),
-      // ④ 카테고리별 색점(최대 3개) — calendarStyle.markerDecoration을 대체한다.
-      calendarBuilders: CalendarBuilders<CalendarDay>(
-        markerBuilder: (context, day, events) => _buildMarkers(events),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 커스텀 헤더: [<] 2026년 6월 … [오늘][week] [>] — '오늘'을 week 토글 왼쪽에 둔다.
+        _buildHeader(context),
+        TableCalendar<CalendarDay>(
+          firstDay: DateTime.utc(2020, 1, 1),
+          lastDay: DateTime.utc(2035, 12, 31),
+          focusedDay: _focusedDay,
+          headerVisible: false,
+          selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+          // ✏️ 점 표시 기준: 그날 saved면 [정보] 반환 → markerBuilder가 카테고리 색점을 찍는다.
+          eventLoader: (day) {
+            final info = dayMap[_dateKey(day)];
+            return (info?.saved ?? false) ? [info!] : [];
+          },
+          onDaySelected: (selectedDay, focusedDay) =>
+              _onDayTap(selectedDay, focusedDay, dayMap),
+          // ✏️ 달을 넘기면 _focusedDay를 갱신 → _monthKey 변경 → 그 달 데이터 재조회.
+          onPageChanged: (focusedDay) =>
+              setState(() => _focusedDay = focusedDay),
+          // ⑦ 월/일주일 토글 — 우상단 포맷 버튼으로 전환.
+          calendarFormat: _calendarFormat,
+          onFormatChanged: (format) => setState(() => _calendarFormat = format),
+          availableCalendarFormats: const {
+            CalendarFormat.month: 'month',
+            CalendarFormat.week: 'week',
+          },
+          // ⑥ 요일행(일~토)이 잘리지 않도록 높이 확보.
+          daysOfWeekHeight: 28,
+          availableGestures: AvailableGestures.horizontalSwipe,
+          // Calm Paper: 날짜/오늘/선택은 무채색. 저장일 점(marker)은 ④ markerBuilder가
+          // 카테고리 색으로 그리므로 calendarStyle.markerDecoration은 적용되지 않는다.
+          calendarStyle: CalendarStyle(
+            todayDecoration: BoxDecoration(
+              color: c.accentSoft,
+              shape: BoxShape.circle,
+              border: Border.all(color: c.accent, width: 1.8),
+            ),
+            todayTextStyle:
+                TextStyle(color: c.text, fontWeight: FontWeight.bold),
+            selectedDecoration:
+                BoxDecoration(color: c.accent, shape: BoxShape.circle),
+            selectedTextStyle:
+                TextStyle(color: c.onAccent, fontWeight: FontWeight.w600),
+            defaultTextStyle: TextStyle(color: c.text),
+            weekendTextStyle: TextStyle(color: c.text),
+            outsideTextStyle: TextStyle(color: c.textMuted),
+            disabledTextStyle: TextStyle(color: c.textMuted),
+          ),
+          daysOfWeekStyle: DaysOfWeekStyle(
+            weekdayStyle: TextStyle(color: c.text2),
+            weekendStyle: TextStyle(color: c.text2),
+          ),
+          // ④ 카테고리별 색점(최대 3개) — calendarStyle.markerDecoration을 대체한다.
+          calendarBuilders: CalendarBuilders<CalendarDay>(
+            markerBuilder: (context, day, events) => _buildMarkers(events),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 커스텀 달력 헤더 — '오늘' 버튼을 week 토글 왼쪽에 배치한다.
+  /// (table_calendar 기본 헤더에는 버튼을 끼워넣을 슬롯이 없어 직접 그린다.)
+  Widget _buildHeader(BuildContext context) {
+    final c = context.appColors;
+    final isWeek = _calendarFormat == CalendarFormat.week;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 0),
+      child: Row(
+        children: [
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: const Icon(Icons.chevron_left),
+            onPressed: () => setState(() {
+              _focusedDay = isWeek
+                  ? _focusedDay.subtract(const Duration(days: 7))
+                  : DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
+            }),
+          ),
+          // 좁은 화면에서 월 텍스트가 넘치지 않도록 Flexible + 줄임표.
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Text(
+                '${_focusedDay.year}년 ${_focusedDay.month}월',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: c.text,
+                ),
+              ),
+            ),
+          ),
+          const Spacer(),
+          // 오늘로 이동 — week 토글 왼쪽.
+          TextButton.icon(
+            onPressed: () => setState(() {
+              final now = DateTime.now();
+              _focusedDay = now;
+              _selectedDay = now;
+            }),
+            icon: const Icon(Icons.today, size: 18),
+            label: const Text('오늘'),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          // 월/주 토글.
+          OutlinedButton(
+            onPressed: () => setState(() {
+              _calendarFormat =
+                  isWeek ? CalendarFormat.month : CalendarFormat.week;
+            }),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(isWeek ? 'month' : 'week'),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: const Icon(Icons.chevron_right),
+            onPressed: () => setState(() {
+              _focusedDay = isWeek
+                  ? _focusedDay.add(const Duration(days: 7))
+                  : DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
+            }),
+          ),
+        ],
       ),
     );
   }

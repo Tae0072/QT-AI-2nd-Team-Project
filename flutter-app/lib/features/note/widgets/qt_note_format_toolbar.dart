@@ -4,8 +4,18 @@ class QtNoteFormatToolbar extends StatelessWidget {
   final double fontSize;
   final Color textColor;
   final Color backgroundColor;
+  final String fontFamilyLabel;
+  final List<String> fontFamilyOptions;
+  final ValueChanged<String> onFontFamily;
   final VoidCallback onFontSize;
+  final bool boldActive;
+  final bool italicActive;
+  final bool underlineActive;
+  final bool strikethroughActive;
   final VoidCallback onBold;
+  final VoidCallback onItalic;
+  final VoidCallback onUnderline;
+  final VoidCallback onStrikethrough;
   final VoidCallback onTextColor;
   final VoidCallback onBackgroundColor;
   final VoidCallback onIndent;
@@ -19,8 +29,18 @@ class QtNoteFormatToolbar extends StatelessWidget {
     required this.fontSize,
     required this.textColor,
     required this.backgroundColor,
+    required this.fontFamilyLabel,
+    required this.fontFamilyOptions,
+    required this.onFontFamily,
     required this.onFontSize,
+    this.boldActive = false,
+    this.italicActive = false,
+    this.underlineActive = false,
+    this.strikethroughActive = false,
     required this.onBold,
+    required this.onItalic,
+    required this.onUnderline,
+    required this.onStrikethrough,
     required this.onTextColor,
     required this.onBackgroundColor,
     required this.onIndent,
@@ -37,9 +57,15 @@ class QtNoteFormatToolbar extends StatelessWidget {
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
+          _fontFamilyButton(),
           _fontSizeButton(fontSize, onFontSize),
           _button(Icons.alternate_email, '구절 삽입', onVerseMention),
-          _button(Icons.format_bold, '굵게', onBold),
+          _button(Icons.format_bold, '굵게', onBold, active: boldActive),
+          _button(Icons.format_italic, '기울임', onItalic, active: italicActive),
+          _button(Icons.format_underlined, '밑줄', onUnderline,
+              active: underlineActive),
+          _button(Icons.format_strikethrough, '취소선', onStrikethrough,
+              active: strikethroughActive),
           _colorButton(
             icon: Icons.format_color_text,
             tooltip: '텍스트 색상',
@@ -61,11 +87,60 @@ class QtNoteFormatToolbar extends StatelessWidget {
     );
   }
 
-  Widget _button(IconData icon, String tooltip, VoidCallback onPressed) {
+  Widget _button(
+    IconData icon,
+    String tooltip,
+    VoidCallback onPressed, {
+    bool active = false,
+  }) {
+    // 적용 중인 서식은 색칠된 배경 + 강조색 아이콘으로 켜진 상태를 보여준다.
     return IconButton(
       tooltip: tooltip,
       icon: Icon(icon, size: 21),
+      isSelected: active,
+      style: active
+          ? IconButton.styleFrom(
+              backgroundColor: const Color(0xFFE5E7EB),
+              foregroundColor: const Color(0xFF111827),
+            )
+          : null,
       onPressed: onPressed,
+    );
+  }
+
+  /// 서체(글꼴) 선택 드롭다운. 현재 선택 라벨을 보여주고 누르면 목록이 뜬다.
+  Widget _fontFamilyButton() {
+    return Tooltip(
+      message: '서체',
+      child: PopupMenuButton<String>(
+        onSelected: onFontFamily,
+        itemBuilder: (context) => [
+          for (final option in fontFamilyOptions)
+            PopupMenuItem<String>(
+              value: option,
+              child: Row(
+                children: [
+                  if (option == fontFamilyLabel)
+                    const Icon(Icons.check, size: 18)
+                  else
+                    const SizedBox(width: 18),
+                  const SizedBox(width: 8),
+                  Text(option),
+                ],
+              ),
+            ),
+        ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(fontFamilyLabel),
+              const Icon(Icons.arrow_drop_down, size: 20),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
