@@ -41,6 +41,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Navigator.of(context).pushReplacementNamed(AppRouter.nicknameSetup));
       } else {
         ref.read(authStatusProvider.notifier).setAuthenticated();
+        // 기존 회원: 인증 상태만 바꿔도 화면이 자동 전환되지 않으므로 홈으로 명시적 이동.
+        unawaited(Navigator.of(context)
+            .pushNamedAndRemoveUntil(AppRouter.home, (route) => false));
       }
     } catch (e) {
       if (!mounted) return;

@@ -98,46 +98,53 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
 
           // 하단 영역: dot indicator + 버튼
+          // SafeArea(top:false)로 하단 시스템 내비게이션 바/제스처 인셋을 피하고,
+          // minimum 여백으로 인셋이 0인 기기에서도 화면 끝에 붙지 않게 한다(하단 잘림 방지).
           Positioned(
             left: 0,
             right: 0,
-            bottom: MediaQuery.of(context).padding.bottom + 32,
-            child: Column(
-              children: [
-                // Dot Indicator
-                PageIndicator(
-                  currentPage: _currentPage,
-                  pageCount: pages.length,
-                ),
-                const SizedBox(height: 32),
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              minimum: const EdgeInsets.only(bottom: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Dot Indicator
+                  PageIndicator(
+                    currentPage: _currentPage,
+                    pageCount: pages.length,
+                  ),
+                  const SizedBox(height: 32),
 
-                // 다음 / 시작하기 버튼
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _onNext,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: pages[_currentPage].backgroundColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(26),
+                  // 다음 / 시작하기 버튼
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _onNext,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: pages[_currentPage].backgroundColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(26),
+                          ),
+                          elevation: 0,
                         ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        _isLastPage ? l.onbStart : l.onbNext,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
+                        child: Text(
+                          _isLastPage ? l.onbStart : l.onbNext,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],

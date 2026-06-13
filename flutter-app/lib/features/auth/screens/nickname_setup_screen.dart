@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../routes/app_router.dart';
 import '../providers/auth_providers.dart';
 
 /// 신규 가입 시 닉네임 설정 화면.
@@ -61,8 +64,11 @@ class _NicknameSetupScreenState extends ConsumerState<NicknameSetupScreen> {
       );
 
       if (!mounted) return;
-      // 닉네임 설정 완료 → 인증 상태 업데이트 → main.dart에서 /home으로 전환
+      // 닉네임 설정 완료 → 인증 상태 업데이트 + 홈으로 명시적 이동
+      // (인증 상태 변화만으로는 화면이 자동 전환되지 않음)
       ref.read(authStatusProvider.notifier).setAuthenticated();
+      unawaited(Navigator.of(context)
+          .pushNamedAndRemoveUntil(AppRouter.home, (route) => false));
     } catch (e) {
       if (!mounted) return;
       setState(() {
