@@ -28,6 +28,9 @@ dependencies:
   # 로컬 저장소
   shared_preferences: ^2.3.4
 
+  # 로컬 알림(기기 알림 테스트·좋아요/댓글 알림)
+  flutter_local_notifications: ^19.0.0
+
   # 카카오 로그인
   kakao_flutter_sdk_user: ^1.9.5
 
