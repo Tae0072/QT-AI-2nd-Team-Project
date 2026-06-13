@@ -193,12 +193,11 @@ void main() {
       expect(pushedRoute, AppRouter.noteCategorySelect);
     });
 
-    testWidgets('기도 칩 선택 시 "기도 작성" 알약이 뜨고, 누르면 N-03로 PRAYER 직행',
+    testWidgets('기도 칩 선택 시에도 같은 둥근 + FAB이고, 누르면 N-03로 PRAYER 직행',
         (tester) async {
       await pump(tester);
 
-      // 카테고리 칩 '기도' 선택 → FAB이 알약으로 변신.
-      // 좁은 폭(360dp)에선 가로 칩 리스트에서 '기도'가 화면 밖일 수 있어 먼저 스크롤해 노출.
+      // 카테고리 칩 '기도' 선택. 좁은 폭에선 '기도'가 화면 밖일 수 있어 먼저 스크롤해 노출.
       await tester.dragUntilVisible(
         find.text('기도'),
         find.byKey(const ValueKey('note-category-chip-list')),
@@ -207,11 +206,12 @@ void main() {
       await tester.tap(find.text('기도'));
       await tester.pumpAndSettle();
 
-      expect(find.text('기도 작성'), findsOneWidget);
-      // 변신 후에는 일반 FloatingActionButton이 아니라 커스텀 알약
-      expect(find.byType(FloatingActionButton), findsNothing);
+      // 알약이 아니라 전체 카테고리와 동일한 둥근 FAB이 유지된다.
+      expect(find.text('기도 작성'), findsNothing);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
 
-      await tester.tap(find.text('기도 작성'));
+      // 동작은 빠른 작성(PRAYER 직행)으로 유지된다.
+      await tester.tap(find.byType(FloatingActionButton));
       await tester.pumpAndSettle();
 
       expect(pushedRoute, AppRouter.noteEdit);

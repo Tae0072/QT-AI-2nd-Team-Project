@@ -156,58 +156,25 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
               title: Text(l.navRecord),
               centerTitle: true,
             ),
-      // ✏️ 작성 진입은 Material 관례대로 우하단 FAB 하나로 모은다(항상 노출 → 발견성).
-      // 기도/회개/감사 칩 선택 시에는 FAB가 "+ {카테고리} 작성" 확장 버튼으로 바뀌어
-      // N-02(카테고리 선택)를 건너뛰고 N-03로 직행한다. 그 외에는 N-02로 간다.
-      // FAB 색은 페일 블러시(#EADAD2) 채움 + 다크 브라운 글자(라이트/다크 공통 고정색).
-      // 크기·여백도 타이트하게. 전역 FAB 토큰은 그대로 두고 이 화면만 오버라이드.
+      // ✏️ 작성 진입은 우하단 + FAB 하나로 통일한다(모든 카테고리 동일한 둥근 형식).
+      // 기도/회개/감사 칩에서는 N-02를 건너뛰고 그 카테고리로 바로 작성(N-03), 그 외엔
+      // N-02(카테고리 선택)로 간다 — 동작만 다르고 버튼 모양은 같다.
+      // AI 챗봇 런처처럼 둥글게 떠 있는 액센트 + 버튼.
       floatingActionButton: !showFab
           ? null
-          : quickCreateCategory != null
-              // 확장 FAB은 Material 규격상 높이 48dp가 고정이라 위아래 폭이 안 줄어든다.
-              // 커스텀 알약(Material+InkWell)으로 만들어 vertical 패딩으로 높이를 직접 잡는다.
-              ? Material(
-                  color: _kFabBg,
-                  shape: const StadiumBorder(),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () => Navigator.of(context).pushNamed(
+          : FloatingActionButton(
+              heroTag: 'note-create-fab',
+              onPressed: () => quickCreateCategory != null
+                  ? Navigator.of(context).pushNamed(
                       AppRouter.noteEdit,
                       arguments: NoteEditArgs(category: quickCreateCategory),
-                    ),
-                    child: Padding(
-                      // ▼ 위아래 폭은 vertical 값으로 조절(작게=6, 크게=10).
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 7),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.add, size: 16, color: _kFabFg),
-                          const SizedBox(width: 4),
-                          Text(
-                            l.noteQuickCreate(
-                                noteCategoryLabel(quickCreateCategory)),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: _kFabFg,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-              // AI 챗봇 런처처럼 둥글게 떠 있는 액센트 + 버튼(노트 작성 진입).
-              : FloatingActionButton(
-                  heroTag: 'note-create-fab',
-                  onPressed: () => Navigator.of(context)
-                      .pushNamed(AppRouter.noteCategorySelect),
-                  backgroundColor: context.appColors.accentDot,
-                  foregroundColor: Colors.white,
-                  shape: const CircleBorder(),
-                  child: const Icon(Icons.add, size: 28),
-                ),
+                    )
+                  : Navigator.of(context).pushNamed(AppRouter.noteCategorySelect),
+              backgroundColor: context.appColors.accentDot,
+              foregroundColor: Colors.white,
+              shape: const CircleBorder(),
+              child: const Icon(Icons.add, size: 28),
+            ),
       // 선택 모드 하단 삭제 바.
       bottomNavigationBar: selectionMode
           ? _SelectionDeleteBar(
@@ -312,11 +279,6 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
     );
   }
 }
-
-/// 노트탭 FAB 색 — 페일 블러시 채움 + 다크 브라운 글자(라이트/다크 공통 고정).
-/// 톤 바꾸려면 이 두 값만 교체하면 된다.
-const Color _kFabBg = Color(0xFFEADAD2); // 페일 블러시
-const Color _kFabFg = Color(0xFF4A3B2E); // 다크 브라운(블러시 위 가독)
 
 /// 노트 목록 본문 — 카테고리·상태 필터가 적용된 notesProvider를 구독해 그린다.
 class _NoteListBody extends ConsumerWidget {
