@@ -21,14 +21,15 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       AppConfig.initialize();
       expect(AppConfig.instance.baseUrl, contains('10.0.2.2'));
-      expect(AppConfig.instance.ttsBaseUrl, contains('10.0.2.2'));
+      // TTS 기본값은 배포된 Render 서버(로컬 서버 불필요). override 시에만 로컬.
+      expect(AppConfig.instance.ttsBaseUrl, contains('onrender.com'));
     });
 
     test('dev/iOS는 localhost 호스트로 분기', () {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       AppConfig.initialize();
       expect(AppConfig.instance.baseUrl, contains('localhost'));
-      expect(AppConfig.instance.ttsBaseUrl, contains('localhost'));
+      expect(AppConfig.instance.ttsBaseUrl, contains('onrender.com'));
     });
 
     test('initializeForTest로 prod 환경 설정', () {
