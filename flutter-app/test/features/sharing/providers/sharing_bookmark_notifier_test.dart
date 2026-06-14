@@ -33,7 +33,7 @@ class _FakeSharingRepository extends SharingRepository {
 
   @override
   Future<SharingPostListResponse> getSharingPosts(
-          {String? category, String? query, int page = 0}) async =>
+          {String? category, String? query, int page = 0, int size = 10}) async =>
       SharingPostListResponse(items: feed, hasNext: false);
 
   @override

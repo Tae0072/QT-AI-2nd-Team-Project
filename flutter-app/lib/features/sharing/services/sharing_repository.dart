@@ -13,12 +13,13 @@ class SharingRepository {
     String? category,
     String? query,
     int page = 0,
+    int size = 10,
   }) async {
     final response = await _dio.get('/sharing-posts', queryParameters: {
       if (category != null) 'category': category,
       if (query != null && query.isNotEmpty) 'q': query,
       'page': page,
-      'size': 20,
+      'size': size,
     });
     final data = response.data['data'] as Map<String, dynamic>;
     return SharingPostListResponse.fromJson(data);

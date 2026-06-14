@@ -604,6 +604,7 @@ class _FakeSharingRepository extends SharingRepository {
     String? category,
     String? query,
     int page = 0,
+    int size = 10,
   }) async {
     return SharingPostListResponse(items: const [], hasNext: false);
   }
