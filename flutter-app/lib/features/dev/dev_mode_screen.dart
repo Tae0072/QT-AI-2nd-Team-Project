@@ -15,6 +15,7 @@ import '../../routes/app_router.dart';
 import '../auth/providers/auth_providers.dart';
 import '../onboarding/providers/onboarding_providers.dart';
 import '../onboarding/screens/intro_splash_screen.dart';
+import 'dev_qt_video_test_screen.dart';
 
 /// [DEV_MODE] 설정 화면 하단의 "버전 정보" 타일.
 /// 5번 연속 탭 → 비밀번호 입력 → 개발자 모드 진입.
@@ -154,6 +155,13 @@ class _DevModeScreenState extends ConsumerState<DevModeScreen> {
     ));
   }
 
+  /// QT영상 테스트 화면 — 샘플 영상 재생 + 본문 ID로 서버·DB 클립 조회.
+  void _openQtVideoTest() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => const DevQtVideoTestScreen(),
+    ));
+  }
+
   void _goById(TextEditingController ctrl, String route) {
     final id = int.tryParse(ctrl.text.trim());
     if (id == null) {
@@ -195,6 +203,10 @@ class _DevModeScreenState extends ConsumerState<DevModeScreen> {
               FilledButton.tonal(
                 onPressed: _openIntro,
                 child: const Text('인트로(로딩) 보기'),
+              ),
+              FilledButton.tonal(
+                onPressed: _openQtVideoTest,
+                child: const Text('QT영상 테스트'),
               ),
             ],
           ),
