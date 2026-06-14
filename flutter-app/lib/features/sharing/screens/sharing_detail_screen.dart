@@ -181,7 +181,11 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
     }
   }
 
-  Future<void> _showReportSheet() async {
+  /// 신고 사유 시트를 띄우고 접수한다. 게시글(POST)·댓글(COMMENT) 공용.
+  Future<void> _showReportSheet({
+    required String targetType,
+    required int targetId,
+  }) async {
     final l = AppLocalizations.of(context);
     final reasons = {
       'SPAM': l.reportSpam,
@@ -197,7 +201,7 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
           children: [
             Padding(
               padding: AppPad.all16,
-              child: Text(l.sharingReportPrompt),
+              child: Text(targetType == 'COMMENT' ? '댓글을 신고합니다' : l.sharingReportPrompt),
             ),
             for (final entry in reasons.entries)
               ListTile(
@@ -211,8 +215,8 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
     if (reason == null || !mounted) return;
     try {
       await ref.read(sharingRepositoryProvider).report(
-            targetType: 'POST',
-            targetId: _postId,
+            targetType: targetType,
+            targetId: targetId,
             reason: reason,
           );
       if (mounted) {
@@ -290,7 +294,8 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
           IconButton(
             icon: const Icon(Icons.flag_outlined),
             tooltip: l.sharingReport,
-            onPressed: _showReportSheet,
+            onPressed: () =>
+                _showReportSheet(targetType: 'POST', targetId: _postId),
           ),
         ],
       ),
@@ -385,6 +390,10 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
                 SharingCommentTile(
                   comment: c,
                   onDelete: c.ownedByMe ? () => _deleteComment(c.id) : null,
+                  // 남의 댓글만 신고 가능(내 댓글은 삭제).
+                  onReport: c.ownedByMe
+                      ? null
+                      : () => _showReportSheet(targetType: 'COMMENT', targetId: c.id),
                 ),
           ] else
             Padding(
