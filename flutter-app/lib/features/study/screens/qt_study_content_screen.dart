@@ -170,7 +170,11 @@ class _ExplanationItem extends StatelessWidget {
                   Expanded(
                     child: Text(
                       verse,
-                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                      // 절 본문도 절 번호(9:1)와 같은 굵기로 진하게.
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        height: 1.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
