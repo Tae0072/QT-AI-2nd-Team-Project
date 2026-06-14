@@ -133,21 +133,31 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
     setState(() => _isGenerating = true);
 
     try {
-      final (text, scope) = await _composeText(autoPlay: autoPlay);
-      if (text.isEmpty) {
-        if (autoPlay) _showMessage(l.ttsTurnOnReadItems);
-        return;
+      final readBible = ref.read(ttsReadBibleProvider);
+      final readExplanation = ref.read(ttsReadExplanationProvider);
+
+      String audioPath;
+      // 본문만 읽을 때(기본)는 서버가 미리 만들어 캐시한 음성을 그대로 받는다(콜드스타트/재생성 제거).
+      if (readBible && !readExplanation && widget.qtPassageId != null) {
+        audioPath = await repo.getCachedQtPassageAudio(
+          qtPassageId: widget.qtPassageId!,
+          voice: voice,
+        );
+      } else {
+        // 해설 포함 등 그 외 조합은 클라이언트가 텍스트를 조합해 직접 생성한다.
+        final (text, scope) = await _composeText(autoPlay: autoPlay);
+        if (text.isEmpty) {
+          if (autoPlay) _showMessage(l.ttsTurnOnReadItems);
+          return;
+        }
+        final voiceHash = voice.hashCode.toRadixString(16);
+        final cacheKey = '${widget.qtDate}_${voiceHash}_$scope';
+        audioPath = await repo.generateQtAudio(
+          text: text,
+          voice: voice,
+          cacheKey: cacheKey,
+        );
       }
-
-      // 캐시 키: 날짜_목소리해시_범위 — 같은 조합이면 재생성하지 않는다
-      final voiceHash = voice.hashCode.toRadixString(16);
-      final cacheKey = '${widget.qtDate}_${voiceHash}_$scope';
-
-      final audioPath = await repo.generateQtAudio(
-        text: text,
-        voice: voice,
-        cacheKey: cacheKey,
-      );
 
       if (!mounted) return;
       // 웹은 파일 경로가 없어 data URI(setUrl), 기기는 파일 경로(setFilePath)로 로드.
