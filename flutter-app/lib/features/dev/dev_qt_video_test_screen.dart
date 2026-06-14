@@ -12,9 +12,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../bible/providers/bible_providers.dart';
 import '../bible/widgets/qt_video_player.dart';
 
-/// 저작권 부담이 없는 구글 공개 샘플 영상(약 15초). 로컬 검증 전용.
+/// Flutter 공식 데모 영상(약 6초). 로컬 검증 전용 — 안정적으로 200 응답.
 const String _kSampleVideoUrl =
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+    'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4';
 
 class DevQtVideoTestScreen extends ConsumerStatefulWidget {
   const DevQtVideoTestScreen({super.key});
@@ -63,15 +63,15 @@ class _DevQtVideoTestScreenState extends ConsumerState<DevQtVideoTestScreen> {
           const SizedBox(height: 4),
           const Text(
             'DB 데이터와 무관하게 영상 플레이어 자체(재생·일시정지·배속·구간·전체화면)가 '
-            '동작하는지 확인합니다. 공개 샘플 영상의 0~10초 구간을 재생합니다.',
+            '동작하는지 확인합니다. 공개 샘플 영상의 0~5초 구간을 재생합니다.',
             style: TextStyle(fontSize: 12, color: Colors.grey),
           ),
           const SizedBox(height: 10),
           const QtVideoPlayer(
             videoUrl: _kSampleVideoUrl,
-            cacheKey: 'dev-sample-blazes',
+            cacheKey: 'dev-sample-butterfly',
             startTimeSec: 0,
-            endTimeSec: 10,
+            endTimeSec: 5,
           ),
           const Divider(height: 32),
 
