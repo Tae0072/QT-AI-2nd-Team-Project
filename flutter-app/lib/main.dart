@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
@@ -136,13 +137,26 @@ class _QTAIAppState extends ConsumerState<QTAIApp> {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('ko'),
-      // 폰트 크기 설정을 앱 전역에 적용 — 모든 화면의 텍스트 배율을 한 번에 덮어쓴다.
+      // 폰트 크기 설정을 앱 전역에 적용 + 상단 기기 상태바 아이콘 색을 테마와 통일한다.
+      // AppBar가 없는 화면(홈 대시보드 등)도 AnnotatedRegion으로 동일 스타일을 받는다.
+      // 시스템 모드면 기기 밝기(platformBrightness)를 그대로 따른다.
       builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.linear(fontScale),
+        final isDark = themeMode == ThemeMode.dark ||
+            (themeMode == ThemeMode.system &&
+                MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness:
+                isDark ? Brightness.light : Brightness.dark,
+            statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
           ),
-          child: child ?? const SizedBox.shrink(),
+          child: MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(fontScale),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
       initialRoute: initialRoute,
