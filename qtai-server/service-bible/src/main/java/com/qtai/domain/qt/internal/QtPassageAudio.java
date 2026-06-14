@@ -43,8 +43,10 @@ public class QtPassageAudio {
     @Column(name = "byte_size", nullable = false)
     private Long byteSize;
 
+    // columnDefinition으로 LONGBLOB을 명시 — 로컬(ddl-auto=update)에서 varbinary 소형 컬럼이
+    // 생성돼 mp3 저장이 'Data too long'으로 실패하던 문제 방지. Flyway(LONGBLOB)와도 일치.
     @JdbcTypeCode(SqlTypes.LONGVARBINARY)
-    @Column(name = "audio_data", nullable = false)
+    @Column(name = "audio_data", nullable = false, columnDefinition = "LONGBLOB")
     private byte[] audioData;
 
     @Column(name = "created_at", nullable = false)
