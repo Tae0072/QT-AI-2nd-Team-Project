@@ -16,7 +16,15 @@ class IntroSplashScreen extends StatefulWidget {
   /// 로딩 동안 미리 받아둘 작업(인증 확인·오늘 QT 등). 실패해도 인트로는 끝난다.
   final Future<void> Function()? preload;
 
-  const IntroSplashScreen({super.key, required this.onComplete, this.preload});
+  /// 전체 재생 길이(기본 5초).
+  final Duration duration;
+
+  const IntroSplashScreen({
+    super.key,
+    required this.onComplete,
+    this.preload,
+    this.duration = const Duration(seconds: 5),
+  });
 
   @override
   State<IntroSplashScreen> createState() => _IntroSplashScreenState();
@@ -38,8 +46,7 @@ class _IntroSplashScreenState extends State<IntroSplashScreen>
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 3800));
+    _c = AnimationController(vsync: this, duration: widget.duration);
 
     _burst = CurvedAnimation(
         parent: _c, curve: const Interval(0.06, 0.40, curve: Curves.easeOutCubic));
