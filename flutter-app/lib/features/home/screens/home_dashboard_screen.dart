@@ -41,8 +41,8 @@ class HomeDashboardScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         child: ListView(
-          // 인사 텍스트가 상단·아래 카드와 여백을 갖도록 위/아래 패딩을 넉넉히.
-          padding: const EdgeInsets.fromLTRB(20, 36, 20, 24),
+          // 인사 텍스트가 상단·아래 카드와 충분히 떨어지도록 위/아래 여백을 크게.
+          padding: const EdgeInsets.fromLTRB(20, 72, 20, 24),
           children: [
             // 인사
             Text(
@@ -56,7 +56,7 @@ class HomeDashboardScreen extends ConsumerWidget {
               style: theme.textTheme.bodyMedium
                   ?.copyWith(color: context.appColors.text2),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 56),
 
             // 오늘의 말씀 카드
             _TodayVerseCard(passageAsync: passageAsync, gradient: gradient, dailySeed: _dailySeed),
@@ -181,9 +181,9 @@ class _TodayVerseCard extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // 단색처럼 보이지 않도록 은은한 추상 배경 그래픽(빛망울).
+            // 기독교 배경 그림 — 위에서 비치는 빛줄기 + 은은한 십자가.
             Positioned.fill(
-              child: CustomPaint(painter: const _VerseBackdropPainter()),
+              child: CustomPaint(painter: const _ChristianBackdropPainter()),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
@@ -208,47 +208,74 @@ class _TodayVerseCard extends StatelessWidget {
   }
 }
 
-/// 오늘의 말씀 카드의 은은한 배경 그래픽 — 반투명 빛망울/곡선으로 깊이를 준다.
-class _VerseBackdropPainter extends CustomPainter {
-  const _VerseBackdropPainter();
+/// 오늘의 말씀 카드의 기독교 배경 그림 — 하늘에서 비치는 빛줄기 + 은은한 십자가.
+/// 외부 사진 없이 직접 그려 저작권 부담이 없고, 흰 본문 글자 가독을 위해 농도는 낮게.
+class _ChristianBackdropPainter extends CustomPainter {
+  const _ChristianBackdropPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
 
-    // 밝은 빛망울(좌상단)·어두운 음영(우하단)으로 입체감.
-    canvas.drawCircle(
-      Offset(w * 0.08, h * 0.1),
-      h * 0.9,
-      Paint()..color = Colors.white.withValues(alpha: 0.07),
-    );
-    canvas.drawCircle(
-      Offset(w * 0.95, h * 1.05),
-      h * 0.8,
-      Paint()..color = Colors.black.withValues(alpha: 0.08),
-    );
-    canvas.drawCircle(
-      Offset(w * 0.78, h * 0.18),
-      h * 0.35,
-      Paint()..color = Colors.white.withValues(alpha: 0.05),
+    // 1) 상단 중앙에서 퍼지는 은은한 빛 글로우.
+    final glowCenter = Offset(w * 0.5, -h * 0.15);
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.16),
+            Colors.white.withValues(alpha: 0.0),
+          ],
+        ).createShader(Rect.fromCircle(center: glowCenter, radius: h * 1.3)),
     );
 
-    // 부드러운 곡선 하이라이트.
-    final path = Path()
-      ..moveTo(0, h * 0.72)
-      ..quadraticBezierTo(w * 0.35, h * 0.5, w, h * 0.78);
-    canvas.drawPath(
-      path,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
-        ..color = Colors.white.withValues(alpha: 0.08),
+    // 2) 빛줄기(rays) — 광원에서 아래로 부채꼴로 퍼진다.
+    final rayPaint = Paint()..color = Colors.white.withValues(alpha: 0.05);
+    const rayCount = 7;
+    for (var i = 0; i < rayCount; i++) {
+      final t = (i / (rayCount - 1)) - 0.5; // -0.5 ~ 0.5
+      final baseX = w * (0.5 + t * 1.3);
+      final spread = w * 0.05;
+      final path = Path()
+        ..moveTo(glowCenter.dx, glowCenter.dy)
+        ..lineTo(baseX - spread, h * 1.1)
+        ..lineTo(baseX + spread, h * 1.1)
+        ..close();
+      canvas.drawPath(path, rayPaint);
+    }
+
+    // 3) 은은한 십자가(오른쪽) — 본문 가독을 위해 중앙은 비워 둔다.
+    final cx = w * 0.84;
+    final cy = h * 0.52;
+    final barW = 7.0;
+    final vTop = cy - h * 0.30;
+    final vBot = cy + h * 0.30;
+    final hHalf = h * 0.13;
+    final crossPaint = Paint()..color = Colors.white.withValues(alpha: 0.12);
+    final radius = const Radius.circular(3);
+    // 세로 기둥
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(cx - barW / 2, vTop, cx + barW / 2, vBot),
+        radius,
+      ),
+      crossPaint,
+    );
+    // 가로 기둥(위쪽 1/3 지점)
+    final hY = cy - h * 0.12;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(cx - hHalf, hY - barW / 2, cx + hHalf, hY + barW / 2),
+        radius,
+      ),
+      crossPaint,
     );
   }
 
   @override
-  bool shouldRepaint(_VerseBackdropPainter oldDelegate) => false;
+  bool shouldRepaint(_ChristianBackdropPainter oldDelegate) => false;
 }
 
 class _RecentNotesList extends ConsumerWidget {
