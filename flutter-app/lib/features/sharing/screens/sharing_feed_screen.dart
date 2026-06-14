@@ -5,6 +5,7 @@ import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../providers/sharing_providers.dart';
+import '../widgets/page_navigator.dart';
 import '../widgets/post_card.dart';
 import '../widgets/sharing_feed_palette.dart';
 
@@ -90,6 +91,8 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
                 ),
               ),
               onSubmitted: (value) {
+                // 검색어가 바뀌면 1페이지부터 다시 본다.
+                ref.read(sharingPageProvider.notifier).state = 0;
                 ref.read(sharingQueryProvider.notifier).state =
                     value.trim().isEmpty ? null : value.trim();
               },
@@ -220,6 +223,17 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
               },
             ),
           ),
+
+          // 목차 번호 페이저(10개씩, 번호 5개씩). 페이지를 누르면 해당 페이지를 불러온다.
+          // 로딩 중에도 직전 값을 유지해 페이저가 깜빡이지 않게 valueOrNull을 쓴다.
+          if (postsAsync.valueOrNull != null)
+            PageNavigator(
+              currentPage: postsAsync.valueOrNull!.page,
+              totalPages: postsAsync.valueOrNull!.totalPages,
+              onSelect: (page) {
+                ref.read(sharingPageProvider.notifier).state = page;
+              },
+            ),
         ],
       ),
     );
@@ -242,6 +256,8 @@ class _CategoryChip extends ConsumerWidget {
       padding: const EdgeInsets.only(right: 8),
       child: GestureDetector(
         onTap: () {
+          // 카테고리가 바뀌면 1페이지부터 다시 본다.
+          ref.read(sharingPageProvider.notifier).state = 0;
           ref.read(sharingCategoryFilterProvider.notifier).state = value;
         },
         child: Center(

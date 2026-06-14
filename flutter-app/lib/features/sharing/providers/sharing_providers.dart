@@ -14,6 +14,10 @@ final sharingCategoryFilterProvider = StateProvider<String?>((ref) => null);
 /// 검색어 상태.
 final sharingQueryProvider = StateProvider<String?>((ref) => null);
 
+/// 나눔 피드 현재 페이지(0부터). 페이지를 바꾸면 해당 페이지를 서버에서 다시 불러온다.
+/// 카테고리·검색어를 바꿀 때는 화면에서 0으로 되돌린다.
+final sharingPageProvider = StateProvider<int>((ref) => 0);
+
 /// 나눔 피드 목록 + 낙관적 좋아요.
 ///
 /// FutureProvider 대신 AsyncNotifier로 둬서, 좋아요 시 전체 재조회(invalidate) 없이
@@ -25,7 +29,9 @@ class SharingFeedNotifier
     final repository = ref.watch(sharingRepositoryProvider);
     final category = ref.watch(sharingCategoryFilterProvider);
     final query = ref.watch(sharingQueryProvider);
-    return repository.getSharingPosts(category: category, query: query);
+    final page = ref.watch(sharingPageProvider);
+    // 10개씩 페이징. 페이지가 바뀌면 build가 다시 실행돼 해당 페이지를 불러온다.
+    return repository.getSharingPosts(category: category, query: query, page: page);
   }
 
   /// 좋아요 토글 — 즉시 로컬 갱신 후 서버 반영. 실패 시 원래 상태로 롤백한다.
@@ -94,7 +100,13 @@ class SharingFeedNotifier
       SharingPostListResponse res, int index, SharingPostItem item) {
     final items = [...res.items];
     items[index] = item;
-    return SharingPostListResponse(items: items, hasNext: res.hasNext);
+    // 페이징 정보(page/totalPages)는 그대로 유지해야 낙관적 갱신 후 페이저가 어긋나지 않는다.
+    return SharingPostListResponse(
+      items: items,
+      hasNext: res.hasNext,
+      page: res.page,
+      totalPages: res.totalPages,
+    );
   }
 }
 
@@ -121,8 +133,11 @@ class BookmarksNotifier
     final original = current.items[index];
 
     final remaining = [...current.items]..removeAt(index);
-    state = AsyncData(
-        SharingPostListResponse(items: remaining, hasNext: current.hasNext));
+    state = AsyncData(SharingPostListResponse(
+        items: remaining,
+        hasNext: current.hasNext,
+        page: current.page,
+        totalPages: current.totalPages));
 
     try {
       await ref.read(sharingRepositoryProvider).unbookmark(postId);
@@ -131,8 +146,11 @@ class BookmarksNotifier
       if (now != null) {
         final restored = [...now.items];
         restored.insert(index.clamp(0, restored.length), original);
-        state = AsyncData(
-            SharingPostListResponse(items: restored, hasNext: now.hasNext));
+        state = AsyncData(SharingPostListResponse(
+            items: restored,
+            hasNext: now.hasNext,
+            page: now.page,
+            totalPages: now.totalPages));
       }
       rethrow;
     }
