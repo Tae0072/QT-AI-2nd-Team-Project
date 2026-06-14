@@ -304,14 +304,6 @@ class _QtVideoPlayerState extends State<QtVideoPlayer> {
     _scheduleControlsHide();
   }
 
-  void _toggleControls() {
-    _controlsHideTimer?.cancel();
-    setState(() => _controlsVisible = !_controlsVisible);
-    if (_controlsVisible) {
-      _scheduleControlsHide();
-    }
-  }
-
   void _showControls() {
     _controlsHideTimer?.cancel();
     if (mounted) {
@@ -385,7 +377,8 @@ class _QtVideoPlayerState extends State<QtVideoPlayer> {
               Positioned.fill(
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
-                  onTap: _toggleControls,
+                  // 영상 어디든 탭하면 재생/정지 토글(정지 시 컨트롤 표시).
+                  onTap: _togglePlay,
                 ),
               ),
               _SlidingVideoControls(
@@ -515,14 +508,6 @@ class _QtVideoFullscreenState extends State<_QtVideoFullscreen> {
     _scheduleControlsHide();
   }
 
-  void _toggleControls() {
-    _controlsHideTimer?.cancel();
-    setState(() => _controlsVisible = !_controlsVisible);
-    if (_controlsVisible) {
-      _scheduleControlsHide();
-    }
-  }
-
   void _showControls() {
     _controlsHideTimer?.cancel();
     if (mounted) {
@@ -566,7 +551,8 @@ class _QtVideoFullscreenState extends State<_QtVideoFullscreen> {
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onTap: _toggleControls,
+                // 영상 어디든 탭하면 재생/정지 토글(정지 시 컨트롤 표시).
+                onTap: _togglePlay,
               ),
             ),
             Align(
