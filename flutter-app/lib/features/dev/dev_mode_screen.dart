@@ -5,10 +5,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/dev/dev_mode.dart';
 import '../../core/notifications/local_notification_service.dart';
+import '../../core/theme/font_scale_provider.dart';
+import '../../core/theme/theme_providers.dart';
 import '../../routes/app_router.dart';
+import '../auth/providers/auth_providers.dart';
+import '../onboarding/providers/onboarding_providers.dart';
 
 /// [DEV_MODE] 설정 화면 하단의 "버전 정보" 타일.
 /// 5번 연속 탭 → 비밀번호 입력 → 개발자 모드 진입.
@@ -88,23 +93,173 @@ class _DevVersionTileState extends State<DevVersionTile> {
   }
 }
 
-/// [DEV_MODE] 개발자 모드 화면 — 온보딩 보기 / 카카오 로그인 로그.
-class DevModeScreen extends StatelessWidget {
+/// [DEV_MODE] 화면 바로가기 항목.
+class _DevRoute {
+  final String label;
+  final String route;
+  const _DevRoute(this.label, this.route);
+}
+
+/// [DEV_MODE] 개발자 모드 화면 — 모든 화면 바로가기 + 상태 토글 + 알림/로그 테스트.
+class DevModeScreen extends ConsumerStatefulWidget {
   const DevModeScreen({super.key});
 
   @override
+  ConsumerState<DevModeScreen> createState() => _DevModeScreenState();
+}
+
+class _DevModeScreenState extends ConsumerState<DevModeScreen> {
+  final _postIdCtrl = TextEditingController();
+  final _noteIdCtrl = TextEditingController();
+
+  // 인자가 필요 없는 화면들 — 바로 push로 이동해 테스트한다.
+  static const _routes = <_DevRoute>[
+    _DevRoute('홈', AppRouter.home),
+    _DevRoute('온보딩', AppRouter.onboarding),
+    _DevRoute('닉네임 설정', AppRouter.nicknameSetup),
+    _DevRoute('로그인', AppRouter.login),
+    _DevRoute('마이페이지', AppRouter.myPage),
+    _DevRoute('프로필 편집', AppRouter.profileEdit),
+    _DevRoute('알림 목록', AppRouter.notifications),
+    _DevRoute('설정', AppRouter.appSettings),
+    _DevRoute('TTS 설정', AppRouter.ttsSettings),
+    _DevRoute('음악 설정', AppRouter.musicSettings),
+    _DevRoute('찬양', AppRouter.praise),
+    _DevRoute('나눔 피드', AppRouter.sharing),
+    _DevRoute('저장한 글', AppRouter.sharingBookmarks),
+    _DevRoute('나를 태그한 글', AppRouter.sharingMentions),
+    _DevRoute('내 나눔', AppRouter.mySharing),
+    _DevRoute('기록(노트 목록)', AppRouter.noteList),
+    _DevRoute('노트 카테고리 선택', AppRouter.noteCategorySelect),
+    _DevRoute('노트 작성', AppRouter.noteEdit),
+  ];
+
+  @override
+  void dispose() {
+    _postIdCtrl.dispose();
+    _noteIdCtrl.dispose();
+    super.dispose();
+  }
+
+  void _go(String route, {Object? args}) =>
+      Navigator.of(context).pushNamed(route, arguments: args);
+
+  void _goById(TextEditingController ctrl, String route) {
+    final id = int.tryParse(ctrl.text.trim());
+    if (id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('숫자 ID를 입력하세요.')),
+      );
+      return;
+    }
+    _go(route, args: id);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeModeProvider);
+    final fontSize = ref.watch(fontSizeProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('개발자 모드'), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          ListTile(
-            leading: const Icon(Icons.slideshow_outlined),
-            title: const Text('온보딩 화면 보기'),
-            subtitle: const Text('첫 실행 온보딩 화면을 다시 띄웁니다.'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).pushNamed(AppRouter.onboarding),
+          // ── 화면 바로가기 ────────────────────────────────────────────────
+          const Text('화면 바로가기',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          const Text('앱의 모든 화면을 바로 열어 테스트합니다.',
+              style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final r in _routes)
+                OutlinedButton(
+                  onPressed: () => _go(r.route),
+                  child: Text(r.label),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // ── 인자가 필요한 화면(ID 입력) ──────────────────────────────────
+          const Text('인자 필요 화면 (ID 입력)',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          _IdRow(
+            label: '나눔 상세',
+            hint: '나눔 글 ID',
+            controller: _postIdCtrl,
+            onGo: () => _goById(_postIdCtrl, AppRouter.sharingDetail),
+          ),
+          const SizedBox(height: 8),
+          _IdRow(
+            label: '노트 상세',
+            hint: '노트 ID',
+            controller: _noteIdCtrl,
+            onGo: () => _goById(_noteIdCtrl, AppRouter.noteDetail),
+          ),
+          const Divider(height: 32),
+
+          // ── 상태 토글 ────────────────────────────────────────────────────
+          const Text('상태 토글',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text('테마 모드', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          SegmentedButton<ThemeMode>(
+            segments: const [
+              ButtonSegment(value: ThemeMode.light, label: Text('라이트')),
+              ButtonSegment(value: ThemeMode.dark, label: Text('다크')),
+              ButtonSegment(value: ThemeMode.system, label: Text('시스템')),
+            ],
+            selected: {themeMode},
+            onSelectionChanged: (s) =>
+                unawaited(ref.read(themeModeProvider.notifier).setMode(s.first)),
+          ),
+          const SizedBox(height: 12),
+          const Text('폰트 크기', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'SMALL', label: Text('작게')),
+              ButtonSegment(value: 'MEDIUM', label: Text('보통')),
+              ButtonSegment(value: 'LARGE', label: Text('크게')),
+            ],
+            selected: {fontSize},
+            onSelectionChanged: (s) =>
+                unawaited(ref.read(fontSizeProvider.notifier).set(s.first)),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.restart_alt, size: 18),
+                label: const Text('온보딩 다시 보기 리셋'),
+                onPressed: () async {
+                  await ref.read(onboardingCompleteProvider.notifier).reset();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('온보딩이 리셋됐어요. 앱을 재시작하면 온보딩부터 시작합니다.')),
+                  );
+                },
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.logout, size: 18),
+                label: const Text('로그아웃'),
+                onPressed: () async {
+                  await ref.read(authRepositoryProvider).logout();
+                  ref.read(authStatusProvider.notifier).setUnauthenticated();
+                  if (!context.mounted) return;
+                  unawaited(Navigator.of(context).pushNamedAndRemoveUntil(
+                      AppRouter.login, (route) => false));
+                },
+              ),
+            ],
           ),
           const Divider(height: 32),
           // ── 알림 보내기(테스트) ──────────────────────────────────────────
@@ -224,4 +379,42 @@ class _NotificationTestButtons extends StatelessWidget {
     );
   }
 }
+/// [DEV_MODE] ID를 입력해 인자 필요 화면으로 이동하는 한 줄.
+class _IdRow extends StatelessWidget {
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final VoidCallback onGo;
+
+  const _IdRow({
+    required this.label,
+    required this.hint,
+    required this.controller,
+    required this.onGo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(width: 88, child: Text(label)),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              hintText: hint,
+              isDense: true,
+              border: const OutlineInputBorder(),
+            ),
+            onSubmitted: (_) => onGo(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton(onPressed: onGo, child: const Text('이동')),
+      ],
+    );
+  }
+}
+
 // [DEV_MODE] end =============================================================
