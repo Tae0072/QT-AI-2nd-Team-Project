@@ -108,13 +108,13 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
 
     @Override
     public java.util.List<MemberPublicResponse> searchActiveByNicknamePrefix(String prefix, int limit) {
-        if (prefix == null || prefix.isBlank()) {
-            return java.util.List.of();
-        }
+        // 접두사가 비어 있으면('#'만 입력) 빈 문자열로 검색 → 모든 닉네임이 매칭되어
+        // 기본 회원 목록(닉네임 가나다순 상위 N)을 멘션 후보로 보여준다.
+        String normalized = (prefix == null) ? "" : prefix.trim();
         int capped = (limit < 1) ? MENTION_SEARCH_DEFAULT_LIMIT : Math.min(limit, MENTION_SEARCH_MAX_LIMIT);
         return memberRepository
                 .findByNicknameStartingWithIgnoreCaseOrderByNicknameAsc(
-                        prefix.trim(), org.springframework.data.domain.PageRequest.of(0, capped))
+                        normalized, org.springframework.data.domain.PageRequest.of(0, capped))
                 .stream()
                 .filter(Member::isActive)
                 .map(member -> new MemberPublicResponse(

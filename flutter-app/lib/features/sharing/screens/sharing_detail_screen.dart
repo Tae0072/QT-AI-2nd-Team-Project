@@ -36,9 +36,9 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
   List<MemberSuggestion> _mentionSuggestions = const [];
   Timer? _mentionDebounce;
 
-  // '#' 뒤 닉네임 글자만 매칭(커서 앞 텍스트 끝에서). 한글/영문/숫자/_ 1~20자.
-  static final RegExp _mentionPrefix = RegExp(r'(?:^|\s)#([0-9A-Za-z가-힣_]{1,20})$');
-  static final RegExp _mentionReplace = RegExp(r'#([0-9A-Za-z가-힣_]{1,20})$');
+  // '#' 뒤 닉네임 글자(0~20자) 매칭. 0자도 허용해 '#'만 입력해도 후보가 뜬다.
+  static final RegExp _mentionPrefix = RegExp(r'(?:^|\s)#([0-9A-Za-z가-힣_]{0,20})$');
+  static final RegExp _mentionReplace = RegExp(r'#([0-9A-Za-z가-힣_]{0,20})$');
 
   int get _postId => widget.postId;
 
@@ -67,7 +67,8 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
   /// 입력이 바뀌면 '#접두사'를 감지해 닉네임 후보를 검색(200ms 디바운스)한다.
   void _onCommentChanged() {
     final prefix = _currentMentionPrefix();
-    if (prefix == null || prefix.isEmpty) {
+    // prefix가 빈 문자열("")이면 '#'만 입력한 상태 → 기본 목록을 띄운다. null이면 멘션 아님.
+    if (prefix == null) {
       if (_mentionSuggestions.isNotEmpty) {
         setState(() => _mentionSuggestions = const []);
       }
