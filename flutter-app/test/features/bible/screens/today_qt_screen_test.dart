@@ -12,6 +12,7 @@ import 'package:qtai_app/features/bible/models/bible_reference.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/screens/today_qt_screen.dart';
 import 'package:qtai_app/features/bible/services/bible_repository.dart';
+import 'package:qtai_app/features/home/providers/home_providers.dart';
 import 'package:qtai_app/features/mypage/models/dashboard_response.dart';
 import 'package:qtai_app/features/mypage/providers/mypage_providers.dart';
 import 'package:qtai_app/features/music/providers/music_providers.dart';
@@ -216,10 +217,16 @@ void main() {
               profile: ProfileSummary(memberId: 1, nickname: '테스터'),
             );
           }),
+          // 홈(랜딩) 최근 기록은 빈 목록(테스트에서 스피너가 무한 회전하지 않게).
+          homeRecentNotesProvider.overrideWith((ref) async => const []),
         ],
         child: const QTAIApp(),
       ),
     );
+    await tester.pumpAndSettle();
+
+    // 앱은 홈(랜딩)에서 시작 → '묵상 시작하기'로 오늘 QT 본문 화면에 진입한다.
+    await tester.tap(find.text('묵상 시작하기'));
     await tester.pumpAndSettle();
 
     await tester
