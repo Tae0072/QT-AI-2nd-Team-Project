@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/config/app_config.dart';
 import 'core/dev/web_dev_access.dart'; // [WEB_DEV_ACCESS] 개발 종료 시 삭제
+import 'core/notifications/notification_poller.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/font_scale_provider.dart';
 import 'core/theme/theme_providers.dart';
@@ -19,8 +20,13 @@ import 'routes/app_router.dart';
 const bool _devForceHome =
     bool.fromEnvironment('DEV_FORCE_HOME', defaultValue: false);
 
+// 실제 앱 구동(main 진입)에서만 true. 위젯 테스트는 main()을 거치지 않고 QTAIApp을
+// 직접 pump하므로 false로 남아, 알림 폴러(주기 Timer)가 테스트에서 시작되지 않는다.
+bool _launchedFromMain = false;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _launchedFromMain = true;
   AppConfig.initialize();
 
   // 카카오 SDK 초기화
@@ -104,6 +110,12 @@ class _QTAIAppState extends ConsumerState<QTAIApp> {
     }
 
     _mainAppStarted = true;
+
+    // 서버 알림 → 기기 배너 브리지(폴러)는 실제 앱 구동 + 로그인 상태에서만 살린다.
+    // (위젯 테스트는 main()을 안 거치므로 _launchedFromMain=false → 폴러 미시작.)
+    if (_launchedFromMain && authStatus == AuthStatus.authenticated) {
+      ref.watch(notificationPollerProvider);
+    }
 
     // 라우트 분기: 온보딩 미완료 → 온보딩, 토큰 있음 → 홈, 토큰 없음 → 로그인
     final initialRoute = resolveInitialRoute(

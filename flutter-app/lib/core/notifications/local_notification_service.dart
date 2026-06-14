@@ -21,37 +21,49 @@ class LocalNotificationService {
 
   Future<bool> _ensureInitialized() async {
     if (_initialized) return true;
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const darwin = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-    await _plugin.initialize(
-      const InitializationSettings(android: android, iOS: darwin),
-    );
+    // 플러그인/권한/플랫폼 미초기화(특히 테스트 환경)에서도 절대 throw하지 않는다.
+    try {
+      const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const darwin = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+      await _plugin.initialize(
+        const InitializationSettings(android: android, iOS: darwin),
+      );
 
-    final android13 = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    // Android 13+ 알림 권한 요청 + 채널 생성.
-    await android13?.requestNotificationsPermission();
-    await android13?.createNotificationChannel(
-      const AndroidNotificationChannel(
-        _channelId,
-        _channelName,
-        description: _channelDesc,
-        importance: Importance.high,
-      ),
-    );
+      final android13 = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      // Android 13+ 알림 권한 요청 + 채널 생성.
+      await android13?.requestNotificationsPermission();
+      await android13?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _channelId,
+          _channelName,
+          description: _channelDesc,
+          importance: Importance.high,
+        ),
+      );
 
-    // iOS 권한 요청(이미 초기화에서 요청하지만 명시적으로 한 번 더).
-    final ios = _plugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
-    await ios?.requestPermissions(alert: true, badge: true, sound: true);
+      // iOS 권한 요청(이미 초기화에서 요청하지만 명시적으로 한 번 더).
+      final ios = _plugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      await ios?.requestPermissions(alert: true, badge: true, sound: true);
 
-    _initialized = true;
-    return true;
+      _initialized = true;
+      return true;
+    } catch (e) {
+      debugPrint('[LocalNotification] init 실패: $e');
+      return false;
+    }
   }
+
+  /// 기기 알림 권한을 보장한다(첫 1회 초기화 + Android13/iOS 권한 요청).
+  ///
+  /// 설정에서 알림을 켤 때나 폴러 시작 시 호출해, 첫 알림 전에 OS 권한 다이얼로그가
+  /// 뜨도록 한다. 여러 번 불러도 초기화는 1회만 수행한다(idempotent).
+  Future<bool> ensurePermission() => _ensureInitialized();
 
   /// 즉시 알림 1건을 띄운다. 성공하면 true.
   Future<bool> show({required String title, required String body}) async {

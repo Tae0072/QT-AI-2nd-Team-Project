@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/notifications/local_notification_service.dart';
 import '../../../core/theme/font_scale_provider.dart';
 import '../../../core/theme/theme_providers.dart';
 import '../../../core/widgets/common_widgets.dart';
@@ -50,6 +51,11 @@ class SettingsScreen extends ConsumerWidget {
                   final repository = ref.read(myPageRepositoryProvider);
                   await repository.updateSettings(notificationEnabled: value);
                   ref.invalidate(settingsProvider);
+                  // 켜는 즉시 기기 알림 권한을 요청한다(개발자 모드 테스트와 동일 경로).
+                  // 이후 좋아요·댓글·공지 알림이 폴러를 통해 기기 배너로 뜬다.
+                  if (value) {
+                    await LocalNotificationService.instance.ensurePermission();
+                  }
                 },
               ),
 
