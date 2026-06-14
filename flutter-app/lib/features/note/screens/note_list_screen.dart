@@ -309,13 +309,12 @@ class _NoteListBody extends ConsumerWidget {
         }
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(notesProvider),
-          child: ListView.separated(
+          child: ListView.builder(
             itemCount: response.items.length,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            padding: const EdgeInsets.fromLTRB(12, 0, 16, 16),
             itemBuilder: (context, index) {
               final item = response.items[index];
-              return NoteCard(
+              final card = NoteCard(
                 item: item,
                 selectionMode: selectionMode,
                 selected: selectedIds.contains(item.id),
@@ -334,12 +333,99 @@ class _NoteListBody extends ConsumerWidget {
                   arguments: item.id,
                 ),
               );
+              // 좌측 타임라인 구분바(점 + 세로 연결선) + 카드.
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _NoteTimelineRail(
+                      isFirst: index == 0,
+                      isLast: index == response.items.length - 1,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: card,
+                      ),
+                    ),
+                  ],
+                ),
+              );
             },
           ),
         );
       },
     );
   }
+}
+
+/// 기록 목록 좌측 타임라인 구분바 — 항목마다 점, 점들을 세로선으로 연결한다.
+class _NoteTimelineRail extends StatelessWidget {
+  final bool isFirst;
+  final bool isLast;
+
+  const _NoteTimelineRail({required this.isFirst, required this.isLast});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return SizedBox(
+      width: 18,
+      child: CustomPaint(
+        painter: _TimelineRailPainter(
+          isFirst: isFirst,
+          isLast: isLast,
+          lineColor: colors.hairline,
+          dotColor: colors.text2,
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineRailPainter extends CustomPainter {
+  final bool isFirst;
+  final bool isLast;
+  final Color lineColor;
+  final Color dotColor;
+
+  // 점이 카드 상단(날짜 줄)과 비슷한 높이에 오도록.
+  static const double _dotY = 22;
+  static const double _dotR = 4;
+
+  const _TimelineRailPainter({
+    required this.isFirst,
+    required this.isLast,
+    required this.lineColor,
+    required this.dotColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final line = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    // 점 위쪽 선(첫 항목 제외).
+    if (!isFirst) {
+      canvas.drawLine(Offset(cx, 0), Offset(cx, _dotY), line);
+    }
+    // 점 아래쪽 선(마지막 항목 제외) — 다음 점까지 이어진다.
+    if (!isLast) {
+      canvas.drawLine(Offset(cx, _dotY), Offset(cx, size.height), line);
+    }
+    // 점.
+    canvas.drawCircle(Offset(cx, _dotY), _dotR, Paint()..color = dotColor);
+  }
+
+  @override
+  bool shouldRepaint(_TimelineRailPainter old) =>
+      old.isFirst != isFirst ||
+      old.isLast != isLast ||
+      old.lineColor != lineColor ||
+      old.dotColor != dotColor;
 }
 
 /// 선택 모드 하단 삭제 바. 선택 0개면 비활성.
