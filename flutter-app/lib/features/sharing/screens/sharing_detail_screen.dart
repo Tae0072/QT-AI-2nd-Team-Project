@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../models/member_suggestion.dart';
 import '../models/sharing_post_response.dart';
 import '../providers/sharing_providers.dart';
 import '../widgets/sharing_comment_input.dart';
@@ -29,12 +32,75 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
   final _commentController = TextEditingController();
   bool _sendingComment = false;
 
+  // 댓글 '#닉네임' 자동완성 상태.
+  List<MemberSuggestion> _mentionSuggestions = const [];
+  Timer? _mentionDebounce;
+
+  // '#' 뒤 닉네임 글자만 매칭(커서 앞 텍스트 끝에서). 한글/영문/숫자/_ 1~20자.
+  static final RegExp _mentionPrefix = RegExp(r'(?:^|\s)#([0-9A-Za-z가-힣_]{1,20})$');
+  static final RegExp _mentionReplace = RegExp(r'#([0-9A-Za-z가-힣_]{1,20})$');
+
   int get _postId => widget.postId;
 
   @override
+  void initState() {
+    super.initState();
+    _commentController.addListener(_onCommentChanged);
+  }
+
+  @override
   void dispose() {
+    _mentionDebounce?.cancel();
+    _commentController.removeListener(_onCommentChanged);
     _commentController.dispose();
     super.dispose();
+  }
+
+  /// 커서 앞 텍스트가 '#닉네임'으로 끝나면 그 접두사를, 아니면 null.
+  String? _currentMentionPrefix() {
+    final sel = _commentController.selection;
+    if (!sel.isValid || sel.baseOffset < 0) return null;
+    final before = _commentController.text.substring(0, sel.baseOffset);
+    return _mentionPrefix.firstMatch(before)?.group(1);
+  }
+
+  /// 입력이 바뀌면 '#접두사'를 감지해 닉네임 후보를 검색(200ms 디바운스)한다.
+  void _onCommentChanged() {
+    final prefix = _currentMentionPrefix();
+    if (prefix == null || prefix.isEmpty) {
+      if (_mentionSuggestions.isNotEmpty) {
+        setState(() => _mentionSuggestions = const []);
+      }
+      return;
+    }
+    _mentionDebounce?.cancel();
+    _mentionDebounce = Timer(const Duration(milliseconds: 200), () async {
+      try {
+        final results =
+            await ref.read(sharingRepositoryProvider).searchMembers(prefix);
+        if (mounted) setState(() => _mentionSuggestions = results);
+      } catch (_) {
+        // 자동완성 검색 실패는 조용히 무시(입력은 계속 가능).
+      }
+    });
+  }
+
+  /// 후보를 누르면 현재 '#접두사'를 '#닉네임 '으로 교체한다.
+  void _insertMention(String nickname) {
+    final sel = _commentController.selection;
+    if (!sel.isValid || sel.baseOffset < 0) return;
+    final full = _commentController.text;
+    final before = full.substring(0, sel.baseOffset);
+    final after = full.substring(sel.baseOffset);
+    final m = _mentionReplace.firstMatch(before);
+    if (m == null) return;
+    final newBefore = '${before.substring(0, m.start)}#$nickname ';
+    final newText = newBefore + after;
+    _commentController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newBefore.length),
+    );
+    setState(() => _mentionSuggestions = const []);
   }
 
   /// 상세/댓글 + 피드를 모두 새로고침.
@@ -276,6 +342,29 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
           if (detail.commentsEnabled) ...[
             Text(l.sharingComments, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
+            // '#닉네임' 자동완성 후보 — 입력 중 '#접두사'가 있을 때만.
+            if (_mentionSuggestions.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                constraints: const BoxConstraints(maxHeight: 180),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _mentionSuggestions.length,
+                  itemBuilder: (context, i) {
+                    final s = _mentionSuggestions[i];
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.alternate_email, size: 18),
+                      title: Text(s.nickname),
+                      onTap: () => _insertMention(s.nickname),
+                    );
+                  },
+                ),
+              ),
             // 댓글 입력 줄
             SharingCommentInput(
               controller: _commentController,

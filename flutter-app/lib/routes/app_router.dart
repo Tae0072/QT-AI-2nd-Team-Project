@@ -25,6 +25,7 @@ import '../features/sharing/screens/my_sharing_screen.dart';
 import '../features/sharing/screens/sharing_bookmarks_screen.dart';
 import '../features/sharing/screens/sharing_detail_screen.dart';
 import '../features/sharing/screens/sharing_feed_screen.dart';
+import '../features/sharing/screens/sharing_mentions_screen.dart';
 import '../features/study/screens/qt_study_content_screen.dart';
 
 /// 앱 라우트 설정.
@@ -44,6 +45,7 @@ class AppRouter {
   static const String sharing = '/sharing';
   static const String sharingDetail = '/sharing/detail';
   static const String sharingBookmarks = '/sharing/bookmarks';
+  static const String sharingMentions = '/sharing/mentions';
   static const String mySharing = '/my-sharing';
   static const String noteList = '/notes';
   static const String noteCategorySelect = '/notes/category-select';
@@ -124,6 +126,10 @@ class AppRouter {
       case sharingBookmarks:
         return MaterialPageRoute(
           builder: (_) => const SharingBookmarksScreen(),
+        );
+      case sharingMentions:
+        return MaterialPageRoute(
+          builder: (_) => const SharingMentionsScreen(),
         );
       case sharingDetail:
         final postId = settings.arguments as int;

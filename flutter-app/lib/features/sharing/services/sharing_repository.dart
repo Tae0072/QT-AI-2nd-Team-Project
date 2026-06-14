@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../models/member_suggestion.dart';
 import '../models/sharing_post_response.dart';
 
 /// 나눔 API 호출 레이어.
@@ -60,6 +61,30 @@ class SharingRepository {
     });
     final data = response.data['data'] as Map<String, dynamic>;
     return SharingPostListResponse.fromJson(data);
+  }
+
+  /// 내가 태그(멘션)된 글 목록 (GET /api/v1/me/mentions). 피드와 동일 형식, 최근 글 순.
+  Future<SharingPostListResponse> getMentions({int page = 0}) async {
+    final response = await _dio.get('/me/mentions', queryParameters: {
+      'page': page,
+      'size': 20,
+    });
+    final data = response.data['data'] as Map<String, dynamic>;
+    return SharingPostListResponse.fromJson(data);
+  }
+
+  /// 멘션 자동완성 — 닉네임 접두사로 회원 검색 (GET /api/v1/members/search).
+  Future<List<MemberSuggestion>> searchMembers(String query, {int size = 8}) async {
+    final q = query.trim();
+    if (q.isEmpty) return const [];
+    final response = await _dio.get('/members/search', queryParameters: {
+      'q': q,
+      'size': size,
+    });
+    final list = response.data['data'] as List<dynamic>? ?? [];
+    return list
+        .map((e) => MemberSuggestion.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// 나눔 글 삭제.
