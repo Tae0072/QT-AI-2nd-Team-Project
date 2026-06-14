@@ -170,6 +170,12 @@ final mySharingPostsProvider =
   return ref.watch(sharingRepositoryProvider).getMySharingPosts();
 });
 
+/// 내가 태그(멘션)된 글 목록 (GET /me/mentions). 화면 진입 시 1회 조회, 새로고침은 invalidate.
+final mentionsProvider =
+    FutureProvider.autoDispose<SharingPostListResponse>((ref) {
+  return ref.watch(sharingRepositoryProvider).getMentions();
+});
+
 /// 나눔 상세 + 댓글 묶음 (S-02 화면 데이터).
 class SharingDetailData {
   final SharingPostDetail detail;

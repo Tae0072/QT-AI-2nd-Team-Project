@@ -118,32 +118,20 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
                     ],
                   ),
                 ),
-                // 카테고리 줄 제일 오른쪽 — 저장한 글 목록으로 진입.
+                // 카테고리 줄 제일 오른쪽 — 저장한 글 / 나를 태그한 글 진입.
                 Container(width: 1, height: 20, color: SharingFeedPalette.divider),
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, right: 12),
-                  child: InkWell(
-                    onTap: () =>
-                        Navigator.of(context).pushNamed(AppRouter.sharingBookmarks),
-                    borderRadius: BorderRadius.circular(999),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.bookmark_border,
-                              size: 18, color: SharingFeedPalette.text),
-                          SizedBox(width: 4),
-                          Text('저장',
-                              style: TextStyle(
-                                  fontFamily: 'GowunDodum',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: SharingFeedPalette.text)),
-                        ],
-                      ),
-                    ),
-                  ),
+                _FeedActionButton(
+                  icon: Icons.bookmark_border,
+                  label: '저장',
+                  onTap: () =>
+                      Navigator.of(context).pushNamed(AppRouter.sharingBookmarks),
+                ),
+                _FeedActionButton(
+                  icon: Icons.alternate_email,
+                  label: '#태그',
+                  trailingPadding: true,
+                  onTap: () =>
+                      Navigator.of(context).pushNamed(AppRouter.sharingMentions),
                 ),
               ],
             ),
@@ -235,6 +223,48 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 카테고리 줄 오른쪽 액션 버튼(저장 / #태그). 아이콘 + 라벨.
+class _FeedActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool trailingPadding;
+
+  const _FeedActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.trailingPadding = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(left: 2, right: trailingPadding ? 12 : 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: SharingFeedPalette.text),
+              const SizedBox(width: 4),
+              Text(label,
+                  style: const TextStyle(
+                      fontFamily: 'GowunDodum',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: SharingFeedPalette.text)),
+            ],
+          ),
+        ),
       ),
     );
   }
