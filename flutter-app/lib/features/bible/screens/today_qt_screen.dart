@@ -223,9 +223,15 @@ class _ActionRow extends StatelessWidget {
                     arguments: QtStudyContentArgs(
                       qtPassageId: qtPassageId,
                       referenceText: data.reference.displayText,
+                      // 라벨은 "장:절"(예: 9:1) — 오늘 QT 표기와 일치시킨다.
                       verseLabels: {
                         for (final verse in data.verses)
-                          verse.id: '${verse.verseNo}',
+                          verse.id: '${verse.chapterNo}:${verse.verseNo}',
+                      },
+                      // 각 절 본문(절 번호 옆에 함께 표시).
+                      verseTexts: {
+                        for (final verse in data.verses)
+                          verse.id: (verse.koreanText ?? '').trim(),
                       },
                     ),
                   ),
