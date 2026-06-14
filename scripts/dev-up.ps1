@@ -10,6 +10,7 @@
 # 자주 쓰는 옵션:
 #   -BackendOnly        Flutter 실행 없이 백엔드까지만
 #   -Device <id>        Flutter 대상 기기 지정(미지정 시 자동 선택)
+#   -AllDevices         연결된 모든 안드로이드 기기에 최신 빌드 설치(에뮬+실기기 동시 갱신)
 #   -SkipImport         AI 해설 import 건너뜀
 #   -Recreate           DB 볼륨까지 비우고 처음부터(주의: 로컬 DB 삭제)
 #   -KakaoKey <key>     카카오 네이티브 앱 키(기본값은 AndroidManifest의 키)
@@ -22,6 +23,8 @@ param(
     [string]$Device = '',
     [switch]$SkipImport,
     [switch]$Recreate,
+    [switch]$SkipAdminWeb,
+    [switch]$AllDevices,
     [string]$KakaoKey = '53e5afb2d90048af9e71332e47f387fa'
 )
 # 네이티브 도구(java/gradle/docker/flutter)는 stderr에 정상 출력을 쓰므로 'Stop'이면
@@ -227,6 +230,84 @@ WHERE NOT EXISTS (SELECT 1 FROM ai_validation_checklist_versions
     }
 }
 
+# --- [7a] dev 관리자 전체 권한(SUPER_ADMIN) 보장 -------------------------------
+# dev 로컬 관리자(members.role=ADMIN)에 연결된 admin_users.admin_role을 SUPER_ADMIN으로
+# 동기화한다. SUPER_ADMIN은 백엔드 verifyAnyRole에서 모든 세부권한을 통과하므로,
+# REVIEWER/CONTENT_CREATOR 전용 API에서도 AD0003(권한 부족)이 나지 않는다.
+# Flyway 재적용 여부와 무관하게 매 실행 시 DB에 직접 반영한다(멱등).
+Step '7a' 'dev 관리자 권한 SUPER_ADMIN 동기화'
+$adminRoleSql = @"
+UPDATE admin_users SET admin_role='SUPER_ADMIN', status='ACTIVE', deleted_at=NULL
+WHERE member_id IN (SELECT id FROM members WHERE role='ADMIN');
+"@
+$arDeadline = (Get-Date).AddSeconds(60); $arDone = $false
+while ((Get-Date) -lt $arDeadline -and -not $arDone) {
+    $hasTbl = Sql-Scalar "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='admin_users';"
+    if ($hasTbl -and [int]$hasTbl -gt 0) {
+        $arTmp = New-TemporaryFile; [IO.File]::WriteAllText($arTmp, $adminRoleSql, (New-Object Text.UTF8Encoding $false))
+        $arRc = Sql-File $arTmp; Remove-Item $arTmp -Force
+        if ($arRc -eq 0) {
+            $arCnt = Sql-Scalar "SELECT COUNT(*) FROM admin_users WHERE admin_role='SUPER_ADMIN';"
+            Ok "관리자 SUPER_ADMIN 동기화 완료(SUPER_ADMIN 계정 수=$arCnt)"
+            $arDone = $true
+        }
+    }
+    if (-not $arDone) { Start-Sleep 3 }
+}
+if (-not $arDone) { Warn 'admin_users 준비 전이라 권한 동기화 건너뜀(admin-server 기동 후 dev-up 재실행 시 적용).' }
+
+# --- [7b] 관리자 웹(admin-web) dev 서버 기동 -----------------------------------
+# Vite dev 서버(5173)를 별도 창에서 띄운다. 이어지는 flutter run이 이 터미널을 점유하므로
+# 관리자 웹은 비차단(새 창)으로 실행한다. 브라우저에서 http://localhost:5173 으로 접속.
+# admin-web의 /api 요청은 vite proxy가 admin-server(8090)로 전달한다(vite.config.ts).
+if (-not $SkipAdminWeb) {
+    Step '7b' '관리자 웹 dev 서버 기동 (http://localhost:5173)'
+    $adminDir = Join-Path $root 'admin-web'
+    $npmCmd = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
+    if (-not $npmCmd) { $npmCmd = (Get-Command npm -ErrorAction SilentlyContinue).Source }
+    if (-not (Test-Path $adminDir)) { Warn 'admin-web 폴더 없음 → 건너뜀' }
+    elseif (-not $npmCmd) { Warn 'npm 미발견 → 관리자 웹 건너뜀(Node.js 설치 필요)' }
+    else {
+        # 의존성 점검: node_modules가 없거나, 핵심 패키지(antd)가 불완전하면 깨끗이 재설치한다.
+        # (과거 'npm install'이 부분 설치로 antd 진입점을 빠뜨려 vite가 실패한 사례 대응.)
+        $nm = Join-Path $adminDir 'node_modules'
+        $antdEntry = Join-Path $adminDir 'node_modules\antd\es\index.js'
+        $needInstall = (-not (Test-Path $nm)) -or (-not (Test-Path $antdEntry))
+        # vite 의존성 캐시는 매번 비워 stale 캐시로 인한 해석 오류를 막는다(가볍다).
+        $viteCache = Join-Path $nm '.vite'
+        if (Test-Path $viteCache) { Remove-Item -Recurse -Force $viteCache -ErrorAction SilentlyContinue }
+        if ($needInstall) {
+            Warn 'admin-web 의존성 없음/불완전 → 깨끗이 재설치합니다(최초 1회, 시간이 걸릴 수 있음)...'
+            Push-Location $adminDir
+            if (Test-Path $nm) { Remove-Item -Recurse -Force $nm -ErrorAction SilentlyContinue }
+            if (Test-Path (Join-Path $adminDir 'package-lock.json')) {
+                & $npmCmd ci --no-fund --no-audit | Out-Host
+            } else {
+                & $npmCmd install --no-fund --no-audit | Out-Host
+            }
+            Pop-Location
+            if (-not (Test-Path $antdEntry)) { Warn '의존성 설치 후에도 antd가 확인되지 않습니다. admin-web에서 npm ci를 수동 실행하세요.' }
+            else { Ok 'admin-web 의존성 설치 완료' }
+        }
+        # 이미 5173이 떠 있으면 중복 실행하지 않는다.
+        $alive = $false
+        try { $null = Invoke-WebRequest -UseBasicParsing -Uri 'http://localhost:5173' -TimeoutSec 2; $alive = $true } catch { $alive = $false }
+        if ($alive) {
+            Ok '관리자 웹 이미 실행 중 → 브라우저에서 http://localhost:5173 접속'
+        } else {
+            # 새 창에서 vite dev 실행(비차단). --strictPort로 포트(5173)를 고정한다.
+            Start-Process -FilePath $npmCmd -ArgumentList 'run','dev','--','--strictPort' -WorkingDirectory $adminDir -WindowStyle Normal | Out-Null
+            $deadline = (Get-Date).AddSeconds(40); $ready = $false
+            while ((Get-Date) -lt $deadline -and -not $ready) {
+                Start-Sleep 2
+                try { if ((Invoke-WebRequest -UseBasicParsing -Uri 'http://localhost:5173' -TimeoutSec 2).StatusCode -ge 200) { $ready = $true } } catch {}
+            }
+            if ($ready) { Ok '관리자 웹 기동 완료 → 브라우저에서 http://localhost:5173 접속' }
+            else { Warn '관리자 웹 기동 확인 실패(새 창 로그 확인). 잠시 후 http://localhost:5173 접속' }
+        }
+    }
+}
+
 # --- [8] Flutter 실행 --------------------------------------------------------
 if ($BackendOnly) {
     Step 8 '완료(백엔드)'
@@ -271,22 +352,59 @@ if (-not $Device) {
 }
 $sel = (Get-FDevices) | Where-Object { $_.id -eq $Device } | Select-Object -First 1
 Info "대상 기기: $Device"
-# 기기 종류별 백엔드 주소 분기
-$ddefines = @("--dart-define=KAKAO_NATIVE_APP_KEY=$KakaoKey")
-$ddefines += '--dart-define=DEV_MODE_PASSWORD=qtai-admin-1234'  # [DEV_MODE] 설정>버전 5탭 진입 비번
+
+# adb 실행 파일 경로 1회 해석.
+function Resolve-Adb {
+    $a = (Get-ChildItem "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+    if (-not $a) { $a = (Get-Command adb -ErrorAction SilentlyContinue).Source }
+    return $a
+}
+# 기기별 백엔드 주소(dart-define) 산출 + 실기기면 adb reverse(USB 8080 터널)까지 설정한다.
+# - 웹/에뮬레이터: 앱 기본값(localhost / 10.0.2.2) 사용.
+# - 실기기(USB): adb -s <id> reverse + DEV_BASE_URL=localhost. (여러 기기 연결 대비 -s 필수)
+function Get-DeviceDefines($selDev, $devId, $adbPath) {
+    $defs = @("--dart-define=KAKAO_NATIVE_APP_KEY=$KakaoKey",
+              '--dart-define=DEV_MODE_PASSWORD=qtai-admin-1234')  # [DEV_MODE] 설정>버전 5탭 진입 비번
+    $w = ($selDev -and $selDev.targetPlatform -like 'web*') -or ($devId -match 'chrome|edge|web')
+    $e = ($selDev -and $selDev.emulator -eq $true) -or ($devId -match '^emulator-')
+    if ($w -or $e) { return $defs }
+    if ($adbPath) { & $adbPath -s $devId reverse tcp:8080 tcp:8080 *> $null }
+    else { Warn 'adb 미발견 → 같은 Wi-Fi에서 DEV_BASE_URL을 PC LAN IP로 직접 지정하세요.' }
+    $defs += '--dart-define=DEV_BASE_URL=http://localhost:8080/api/v1'
+    return $defs
+}
+
+$adbExe   = Resolve-Adb
+$ddefines = Get-DeviceDefines $sel $Device $adbExe
 $isWeb = ($sel -and $sel.targetPlatform -like 'web*') -or ($Device -match 'chrome|edge|web')
 $isEmu = ($sel -and $sel.emulator -eq $true) -or ($Device -match '^emulator-')
-if ($isWeb) {
-    Info '웹 → localhost 직접 접근(추가 설정 없음)'
-} elseif ($isEmu) {
-    Info '안드로이드 에뮬레이터 → 앱 기본값 10.0.2.2 사용(추가 설정 없음)'
-} else {
-    # 실기기(USB): adb reverse 로 8080 터널 + DEV_BASE_URL=localhost
-    $adb = (Get-ChildItem "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-    if (-not $adb) { $adb = (Get-Command adb -ErrorAction SilentlyContinue).Source }
-    if ($adb) { & $adb reverse tcp:8080 tcp:8080 *> $null; Ok 'adb reverse 8080 설정(USB 터널)' }
-    else { Warn 'adb 미발견 → 같은 Wi-Fi에서 DEV_BASE_URL을 PC LAN IP로 직접 지정하세요.' }
-    $ddefines += '--dart-define=DEV_BASE_URL=http://localhost:8080/api/v1'
+if     ($isWeb) { Info '웹 → localhost 직접 접근(추가 설정 없음)' }
+elseif ($isEmu) { Info '안드로이드 에뮬레이터 → 앱 기본값 10.0.2.2 사용(추가 설정 없음)' }
+else            { Ok '실기기 → adb reverse 8080(USB 터널) + DEV_BASE_URL=localhost' }
+
+# --- [8b] (-AllDevices) 연결된 모든 안드로이드 기기에 최신 빌드 설치 -------------
+# flutter run은 기기 하나만 갱신하므로, 나머지 기기엔 옛 빌드가 남아 화면이 달라진다(구버전처럼 보임).
+# -AllDevices면 주(主) 기기를 제외한 모든 안드로이드 기기에 같은 코드를 빌드·설치·실행한다.
+# 기기 종류에 맞는 백엔드 주소로 각각 빌드하므로 빌드가 기기 수만큼 반복되어 시간이 더 걸린다.
+if ($AllDevices) {
+    Step '8b' '-AllDevices: 보조 기기에 최신 빌드 설치'
+    $apkPath = Join-Path $flutterDir 'build\app\outputs\flutter-apk\app-debug.apk'
+    $others = @(Get-FDevices | Where-Object { $_.id -ne $Device -and ($_.targetPlatform -like 'android*') })
+    if ($others.Count -eq 0) { Info '추가 안드로이드 기기 없음 → 건너뜀' }
+    foreach ($d in $others) {
+        Info "[보조] $($d.name) ($($d.id)) 빌드+설치..."
+        $defs2 = Get-DeviceDefines $d $d.id $adbExe
+        Push-Location $flutterDir
+        & flutter build apk --debug @defs2
+        $rc = $LASTEXITCODE
+        Pop-Location
+        if ($rc -ne 0) { Warn "[보조] 빌드 실패 → 건너뜀: $($d.id)"; continue }
+        if (-not $adbExe) { Warn '[보조] adb 미발견 → 설치 건너뜀'; continue }
+        & $adbExe -s $d.id install -r $apkPath *> $null
+        if ($LASTEXITCODE -ne 0) { Warn "[보조] 설치 실패: $($d.id)"; continue }
+        & $adbExe -s $d.id shell monkey -p com.qtai.qtai_app -c android.intent.category.LAUNCHER 1 *> $null
+        Ok "[보조] 설치+실행 완료: $($d.id)"
+    }
 }
 Step 9 "flutter run -d $Device"
 # Windows: build 폴더 내 파일의 ReadOnly 표식 때문에 gradle의 cleanMergeDebugAssets가
