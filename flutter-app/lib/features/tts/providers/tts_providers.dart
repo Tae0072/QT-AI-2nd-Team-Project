@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/network/api_client.dart' show dioProvider;
 import '../../onboarding/providers/onboarding_providers.dart'
     show sharedPreferencesProvider;
 import '../services/tts_repository.dart';
@@ -27,6 +28,8 @@ final ttsRepositoryProvider = Provider<TtsRepository>((ref) {
   return TtsRepository(
     dio: ref.watch(ttsDioProvider),
     ttsToken: ref.watch(ttsTokenProvider),
+    // 서버 캐시 음성(/qt/passages/{id}/audio) 다운로드용 인증 dio(qtai-server).
+    apiDio: ref.watch(dioProvider),
   );
 });
 
