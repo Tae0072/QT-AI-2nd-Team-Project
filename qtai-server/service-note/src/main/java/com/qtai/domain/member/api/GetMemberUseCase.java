@@ -29,4 +29,12 @@ public interface GetMemberUseCase {
      * @return 활성 회원의 공개 프로필 목록 (요청 순서 보장 없음)
      */
     java.util.List<MemberPublicResponse> getActivePublicProfiles(java.util.Collection<Long> memberIds);
+
+    /**
+     * 닉네임 정확 일치로 활성 회원 공개 프로필을 일괄 조회 — '#닉네임' 멘션 해석용.
+     * 존재하지 않거나 비활성인 닉네임은 결과에서 제외된다.
+     *
+     * @param nicknames 조회할 닉네임 목록 (null/빈 목록이면 빈 결과)
+     */
+    java.util.List<MemberPublicResponse> resolveActiveByNicknames(java.util.Collection<String> nicknames);
 }

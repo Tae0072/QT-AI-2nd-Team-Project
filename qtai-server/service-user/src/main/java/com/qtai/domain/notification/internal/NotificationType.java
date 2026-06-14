@@ -6,6 +6,7 @@ package com.qtai.domain.notification.internal;
 public enum NotificationType {
     LIKE,
     COMMENT,
+    MENTION,
     REPORT_RESULT,
     NOTICE
 }

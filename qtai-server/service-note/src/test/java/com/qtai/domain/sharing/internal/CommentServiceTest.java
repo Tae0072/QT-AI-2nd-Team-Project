@@ -38,10 +38,11 @@ class CommentServiceTest {
     @Mock private SharingPostRepository sharingPostRepository;
     @Mock private GetMemberUseCase getMemberUseCase;
     @Mock private SendNotificationUseCase sendNotificationUseCase;
+    @Mock private SharingMentionService sharingMentionService;
 
     private CommentService service() {
         return new CommentService(commentRepository, sharingPostRepository,
-                getMemberUseCase, sendNotificationUseCase);
+                getMemberUseCase, sendNotificationUseCase, sharingMentionService);
     }
 
     private static SharingPost post(boolean commentsEnabled) {

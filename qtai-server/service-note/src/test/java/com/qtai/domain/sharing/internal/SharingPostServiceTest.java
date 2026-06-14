@@ -43,10 +43,12 @@ class SharingPostServiceTest {
     @Mock private MarkNoteSharedUseCase markNoteSharedUseCase;
     @Mock private GetMemberUseCase getMemberUseCase;
     @Mock private SendNotificationUseCase sendNotificationUseCase;
+    @Mock private SharingMentionService sharingMentionService;
 
     private SharingPostService service() {
         return new SharingPostService(sharingPostRepository, postLikeRepository, sharingBookmarkRepository,
-                getNoteUseCase, markNoteSharedUseCase, getMemberUseCase, sendNotificationUseCase, CLOCK);
+                getNoteUseCase, markNoteSharedUseCase, getMemberUseCase, sendNotificationUseCase,
+                sharingMentionService, CLOCK);
     }
 
     private static SharingPost publishedPost(long ownerId) {

@@ -86,6 +86,35 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    /**
+     * GET /api/v1/members/search?q=프&size=8 — 닉네임 접두사 검색(멘션 자동완성).
+     *
+     * <p>본인은 결과에서 제외한다(자기 자신을 태그하지 않음). 활성 회원만 반환.
+     * (literal 경로라 {@code /members/{id}}보다 우선 매칭된다.)
+     */
+    @GetMapping("/api/v1/members/search")
+    public ResponseEntity<ApiResponse<List<MemberPublicResponse>>> searchByNickname(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam("q") @NotBlank @Size(max = 20) String q,
+            @RequestParam(value = "size", required = false, defaultValue = "8") int size) {
+        List<MemberPublicResponse> result = getMemberUseCase.searchActiveByNicknamePrefix(q, size).stream()
+                .filter(m -> memberId == null || !m.id().equals(memberId))
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    /**
+     * GET /api/v1/members/by-nicknames?nicknames=가,나 — 닉네임 정확 일치 일괄 조회.
+     *
+     * <p>서비스 간 호출(service-note의 '#닉네임' 멘션 해석)용. 존재하지 않거나 비활성인 닉네임은 제외.
+     */
+    @GetMapping("/api/v1/members/by-nicknames")
+    public ResponseEntity<ApiResponse<List<MemberPublicResponse>>> resolveByNicknames(
+            @RequestParam("nicknames") List<String> nicknames) {
+        List<MemberPublicResponse> response = getMemberUseCase.resolveActiveByNicknames(nicknames);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     // ── 프로필 수정 ──
 
     /** PATCH /api/v1/me — 프로필 수정. */

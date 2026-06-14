@@ -74,6 +74,8 @@ public class SharingPostService
     private final GetMemberUseCase getMemberUseCase;
     // 좋아요 알림 발송용(P1-13).
     private final SendNotificationUseCase sendNotificationUseCase;
+    // 게시글 본문 '#닉네임' 멘션 기록·알림용.
+    private final SharingMentionService sharingMentionService;
     // 공통 시계(Asia/Seoul) — 좋아요 생성/삭제/숨김 시각을 시간 정책과 일관되게 기록한다.
     private final Clock clock;
 
@@ -218,6 +220,9 @@ public class SharingPostService
 
         // 원본 노트를 SHARED로 표시 → 기록 목록의 shared 플래그가 실제 공유 상태를 반영한다.
         markNoteSharedUseCase.markShared(memberId, noteId);
+
+        // 본문의 '#닉네임' 멘션 기록·알림(게시글 본문 멘션이므로 commentId=null, 본인 멘션 제외).
+        sharingMentionService.recordMentions(saved.getId(), null, memberId, saved.getSnapshotBody());
 
         // 방금 내가 만든 글이므로 likedByMe=false, bookmarkedByMe=false, ownedByMe=true.
         return toDetail(saved, false, false, true);
