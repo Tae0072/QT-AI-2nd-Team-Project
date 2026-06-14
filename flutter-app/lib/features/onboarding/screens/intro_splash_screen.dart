@@ -35,8 +35,8 @@ class _IntroSplashScreenState extends State<IntroSplashScreen>
   late final AnimationController _c;
 
   // 단계별 구간(컨트롤러 0~1 기준).
-  late final Animation<double> _burst; // 중앙 빛 폭발(스케일)
-  late final Animation<double> _veil; // 전 화면 하양(피크 후 사라짐)
+  late final Animation<double> _expand; // 중앙 점에서 빛이 방사되어 퍼짐(0~1)
+  late final Animation<double> _gather; // 전 화면 백색 → T로 빛이 모임(0~1)
   late final Animation<double> _logoFade; // 로고 등장
   late final Animation<double> _crossGlow; // 십자가 빛남
   late final Animation<double> _star; // 8각 별 반짝임
@@ -48,25 +48,21 @@ class _IntroSplashScreenState extends State<IntroSplashScreen>
     super.initState();
     _c = AnimationController(vsync: this, duration: widget.duration);
 
-    // 단계(총 8초 기준): 검은화면 0~0.125(1s) → 빅뱅·전화면 백색 0.125~0.375(2s)
-    // → 백색에서 T 십자가로 빛이 모임 0.375~0.75(3s) → 8각 별 반짝임 0.75~1.0(2s).
-    _burst = CurvedAnimation(
+    // 단계(총 8초 기준): 검은화면 0~0.125(1s)
+    // → 중앙 점에서 빛이 방사되어 전 화면 백색 0.125~0.375(2s)
+    // → 백색에서 T 십자가로 빛이 빨려 모임 0.375~0.72(3s) → 8각 별 반짝임 0.72~1.0(2s).
+    _expand = CurvedAnimation(
         parent: _c,
         curve: const Interval(0.125, 0.375, curve: Curves.easeOutCubic));
-    // 백색 막: 0.125~0.375 차오름(전 화면 백색) → 0.45~0.70 거둬짐(십자가로 모임).
-    _veil = TweenSequence<double>([
-      TweenSequenceItem(tween: ConstantTween(0.0), weight: 12.5),
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 25),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 7.5),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 25),
-      TweenSequenceItem(tween: ConstantTween(0.0), weight: 30),
-    ]).animate(_c);
+    _gather = CurvedAnimation(
+        parent: _c,
+        curve: const Interval(0.375, 0.72, curve: Curves.easeInOutCubic));
     _logoFade = CurvedAnimation(
-        parent: _c, curve: const Interval(0.45, 0.62, curve: Curves.easeOut));
+        parent: _c, curve: const Interval(0.46, 0.64, curve: Curves.easeOut));
     _crossGlow = CurvedAnimation(
-        parent: _c, curve: const Interval(0.46, 0.75, curve: Curves.easeOut));
+        parent: _c, curve: const Interval(0.45, 0.78, curve: Curves.easeOut));
     _star = CurvedAnimation(
-        parent: _c, curve: const Interval(0.75, 1.0, curve: Curves.easeOut));
+        parent: _c, curve: const Interval(0.78, 1.0, curve: Curves.easeOut));
 
     _start();
   }
@@ -95,7 +91,9 @@ class _IntroSplashScreenState extends State<IntroSplashScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final burstMax = size.longestSide * 1.6;
+    // T(십자가)의 화면상 대략 위치 — 로고는 화면 중앙, 십자가는 'Q' 다음(중앙에서 살짝 왼쪽).
+    // 빛이 거둬질 때 이 점으로 모이게 한다.
+    final focal = size.center(Offset.zero).translate(-_LogoRow.fontSize * 0.46, 0);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -105,7 +103,7 @@ class _IntroSplashScreenState extends State<IntroSplashScreen>
           return Stack(
             fit: StackFit.expand,
             children: [
-              // 로고 — 빛이 거둬지며 드러난다.
+              // 로고 — 빛이 십자가로 모이며 드러난다.
               Center(
                 child: Opacity(
                   opacity: _logoFade.value,
@@ -115,28 +113,17 @@ class _IntroSplashScreenState extends State<IntroSplashScreen>
                   ),
                 ),
               ),
-              // 중앙 빅뱅 빛 폭발(퍼지는 원형 빛).
-              if (_veil.value > 0.001 || _burst.value < 1.0)
-                IgnorePointer(
-                  child: Center(
-                    child: Container(
-                      width: burstMax * _burst.value,
-                      height: burstMax * _burst.value,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [Colors.white, Color(0x00FFFFFF)],
-                          stops: [0.55, 1.0],
-                        ),
+              // 빛: 중앙 점에서 방사되어 퍼짐 → 전 화면 백색 → T로 빨려 모임.
+              if (_expand.value > 0.0 || _gather.value < 1.0)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _FlashPainter(
+                        expand: _expand.value,
+                        gather: _gather.value,
+                        focal: focal,
                       ),
                     ),
-                  ),
-                ),
-              // 전 화면 하양(피크 후 거둬짐).
-              if (_veil.value > 0.001)
-                IgnorePointer(
-                  child: ColoredBox(
-                    color: Colors.white.withValues(alpha: _veil.value),
                   ),
                 ),
             ],
@@ -147,6 +134,66 @@ class _IntroSplashScreenState extends State<IntroSplashScreen>
   }
 }
 
+/// 빅뱅(중앙에서 방사) → 전 화면 백색 → T(focal)로 수렴하는 빛.
+///
+/// 부드러운 [RadialGradient]로 '점에서 빛이 번지는' 느낌과 '빛이 한 점으로 빨려드는'
+/// 느낌을 함께 표현한다. 단순 원이 커지는 것이 아니라 가장자리가 흐릿하게 퍼진다.
+class _FlashPainter extends CustomPainter {
+  final double expand; // 0~1: 중앙에서 빛이 퍼져 전 화면 백색
+  final double gather; // 0~1: 백색이 focal로 모이며 사라짐
+  final Offset focal; // 수렴 지점(T 십자가)
+
+  _FlashPainter({
+    required this.expand,
+    required this.gather,
+    required this.focal,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final maxR = size.longestSide * 0.75;
+
+    if (gather <= 0.0) {
+      // 확산: 작은 중앙 점 → 점점 번져 전 화면 백색.
+      if (expand <= 0.0) return;
+      final e = expand.clamp(0.0, 1.0);
+      final r = (0.02 + 1.45 * e) * maxR; // 점 → 화면 밖까지
+      final coreA = (e * 1.25).clamp(0.0, 1.0);
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: coreA),
+            Colors.white.withValues(alpha: coreA * 0.85),
+            Colors.white.withValues(alpha: 0.0),
+          ],
+          stops: const [0.0, 0.45, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: r));
+      canvas.drawRect(Offset.zero & size, paint);
+    } else {
+      // 수렴: 전 화면 백색 → 중심이 focal로 이동하며 반지름이 줄어 십자가로 빨려든다.
+      final g = gather.clamp(0.0, 1.0);
+      final c = Offset.lerp(center, focal, g)!;
+      final r = (1.45 - 1.32 * g) * maxR; // 화면 밖 → 십자가 크기
+      final a = (1.0 - g); // 전체적으로 옅어짐
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: a),
+            Colors.white.withValues(alpha: a * 0.8),
+            Colors.white.withValues(alpha: 0.0),
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(Rect.fromCircle(center: c, radius: r));
+      canvas.drawRect(Offset.zero & size, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _FlashPainter old) =>
+      old.expand != expand || old.gather != gather || old.focal != focal;
+}
+
 /// 'Q' + 빛나는 십자가(T) + 8각 별(·) + 'AI'.
 class _LogoRow extends StatelessWidget {
   final double crossGlow;
@@ -154,9 +201,11 @@ class _LogoRow extends StatelessWidget {
 
   const _LogoRow({required this.crossGlow, required this.starTwinkle});
 
+  /// 로고 글자 크기(빛 수렴 지점 계산에도 쓰인다).
+  static const double fontSize = 58;
+
   @override
   Widget build(BuildContext context) {
-    const double fontSize = 58;
     const textStyle = TextStyle(
       fontFamily: 'GowunDodum',
       fontSize: fontSize,
