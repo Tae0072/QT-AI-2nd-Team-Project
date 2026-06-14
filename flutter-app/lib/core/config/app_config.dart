@@ -110,23 +110,18 @@ class AppConfig {
     }
   }
 
+  /// 배포된 TTS 서버(Render). 무료 인스턴스라 미사용 시 잠들어 첫 요청은 콜드스타트로
+  /// 수십 초 지연될 수 있다. 로컬 TTS(8091)로 쓰려면 아래 override를 사용한다.
+  static const String _hostedTtsUrl = 'https://qt-ai-2nd-team-project.onrender.com';
+
   /// TTS 서버 URL 결정.
-  /// `--dart-define=TTS_BASE_URL=...` 으로 override 가능.
+  /// `--dart-define=TTS_BASE_URL=...` 으로 override 가능(예: 로컬 `http://10.0.2.2:8091`).
   ///
-  /// dev 기본 포트는 8091 — 8090은 MSA 전환 후 admin-server가 사용하므로
-  /// TTS 로컬 서버는 8091로 띄운다(코드리뷰 2026-06-10 TODO 2 후속, 2026-06-11 합의).
+  /// 기본값은 배포된 Render TTS 서버 — 로컬 TTS 서버를 띄우지 않아도 기기에서 바로 동작한다.
   static String _ttsBaseUrlFor(Environment env) {
     const override = String.fromEnvironment('TTS_BASE_URL', defaultValue: '');
     if (override.isNotEmpty) return override;
-    switch (env) {
-      case Environment.dev:
-        final host = _devHost();
-        return 'http://$host:8091';
-      case Environment.staging:
-        return 'https://tts.qtai.com';
-      case Environment.prod:
-        return 'https://tts.qtai.com';
-    }
+    return _hostedTtsUrl;
   }
 
   /// dev 환경에서 접근할 서버 호스트를 결정한다.
