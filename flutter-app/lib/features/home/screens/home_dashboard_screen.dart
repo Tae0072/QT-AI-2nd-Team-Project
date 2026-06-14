@@ -41,7 +41,8 @@ class HomeDashboardScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          // 인사 텍스트가 상단·아래 카드와 여백을 갖도록 위/아래 패딩을 넉넉히.
+          padding: const EdgeInsets.fromLTRB(20, 36, 20, 24),
           children: [
             // 인사
             Text(
@@ -55,7 +56,7 @@ class HomeDashboardScreen extends ConsumerWidget {
               style: theme.textTheme.bodyMedium
                   ?.copyWith(color: context.appColors.text2),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 28),
 
             // 오늘의 말씀 카드
             _TodayVerseCard(passageAsync: passageAsync, gradient: gradient, dailySeed: _dailySeed),
@@ -70,6 +71,9 @@ class HomeDashboardScreen extends ConsumerWidget {
                 icon: const Icon(Icons.self_improvement_outlined, size: 20),
                 label: const Text('묵상 시작하기'),
                 style: FilledButton.styleFrom(
+                  // 기록 탭의 + 버튼과 동일한 액센트 색.
+                  backgroundColor: context.appColors.accentDot,
+                  foregroundColor: Colors.white,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                   shape: const StadiumBorder(),
@@ -164,32 +168,87 @@ class _TodayVerseCard extends StatelessWidget {
       },
     );
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradient,
-        ),
-      ),
-      child: Column(
-        children: [
-          Text(
-            '오늘의 말씀',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.9),
-              letterSpacing: 1.2,
-            ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradient,
           ),
-          const SizedBox(height: 14),
-          body,
-        ],
+        ),
+        child: Stack(
+          children: [
+            // 단색처럼 보이지 않도록 은은한 추상 배경 그래픽(빛망울).
+            Positioned.fill(
+              child: CustomPaint(painter: const _VerseBackdropPainter()),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+              child: Column(
+                children: [
+                  Text(
+                    '오늘의 말씀',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  body,
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+/// 오늘의 말씀 카드의 은은한 배경 그래픽 — 반투명 빛망울/곡선으로 깊이를 준다.
+class _VerseBackdropPainter extends CustomPainter {
+  const _VerseBackdropPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // 밝은 빛망울(좌상단)·어두운 음영(우하단)으로 입체감.
+    canvas.drawCircle(
+      Offset(w * 0.08, h * 0.1),
+      h * 0.9,
+      Paint()..color = Colors.white.withValues(alpha: 0.07),
+    );
+    canvas.drawCircle(
+      Offset(w * 0.95, h * 1.05),
+      h * 0.8,
+      Paint()..color = Colors.black.withValues(alpha: 0.08),
+    );
+    canvas.drawCircle(
+      Offset(w * 0.78, h * 0.18),
+      h * 0.35,
+      Paint()..color = Colors.white.withValues(alpha: 0.05),
+    );
+
+    // 부드러운 곡선 하이라이트.
+    final path = Path()
+      ..moveTo(0, h * 0.72)
+      ..quadraticBezierTo(w * 0.35, h * 0.5, w, h * 0.78);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = Colors.white.withValues(alpha: 0.08),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_VerseBackdropPainter oldDelegate) => false;
 }
 
 class _RecentNotesList extends ConsumerWidget {
@@ -268,12 +327,13 @@ class _RecentNoteTile extends StatelessWidget {
   }
 }
 
-/// 매일 랜덤으로 고를 차분한 어스톤 그라데이션 세트(흰 글자 가독).
+/// 매일 랜덤으로 고를 차분한 어스톤 그라데이션 세트(3스톱, 흰 글자 가독).
+/// 단색처럼 보이지 않도록 위→아래 명도 대비를 충분히 둔다.
 const List<List<Color>> _kGradients = [
-  [Color(0xFF6B7B6E), Color(0xFF3E463E)], // 세이지
-  [Color(0xFF7A6A5D), Color(0xFF493F37)], // 클레이
-  [Color(0xFF6E7780), Color(0xFF40464E)], // 슬레이트
-  [Color(0xFF8A7B5C), Color(0xFF544A38)], // 샌드
-  [Color(0xFF7A6E80), Color(0xFF47414F)], // 모브
-  [Color(0xFF5E7480), Color(0xFF38444C)], // 블루슬레이트
+  [Color(0xFF8FA38C), Color(0xFF5E6E5E), Color(0xFF323A32)], // 세이지
+  [Color(0xFFA08B77), Color(0xFF6F5E4F), Color(0xFF3C332B)], // 클레이
+  [Color(0xFF8A95A0), Color(0xFF5C636C), Color(0xFF333941)], // 슬레이트
+  [Color(0xFFB0A077), Color(0xFF7C6E4F), Color(0xFF463D2C)], // 샌드
+  [Color(0xFF978AA0), Color(0xFF665F70), Color(0xFF3B3545)], // 모브
+  [Color(0xFF7E97A4), Color(0xFF536572), Color(0xFF2E3A41)], // 블루슬레이트
 ];
