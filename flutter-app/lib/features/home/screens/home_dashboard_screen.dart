@@ -204,8 +204,8 @@ class _TodayVerseCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: ConstrainedBox(
-          // 카드는 본문에 맞춰 늘어나되 최소 높이를 확보(4~5줄도 여유).
-          constraints: const BoxConstraints(minHeight: 200),
+          // 카드는 본문에 맞춰 늘어나되 충분한 최소 높이로 배경 그림이 잘 보이게.
+          constraints: const BoxConstraints(minHeight: 300),
           child: Stack(
             fit: StackFit.passthrough,
             children: [
@@ -417,7 +417,7 @@ const List<String> _kBackgroundAssets = <String>[
   'assets/home_backgrounds/mountains_dawn.png',
   'assets/home_backgrounds/valley_path.png',
   'assets/home_backgrounds/church_evening.png',
-  'assets/home_backgrounds/stained_glass.png',
+  'assets/home_backgrounds/dawn_rays.png',
 ];
 
 /// 매일 랜덤으로 고를 차분한 어스톤 그라데이션 세트(3스톱, 흰 글자 가독).
