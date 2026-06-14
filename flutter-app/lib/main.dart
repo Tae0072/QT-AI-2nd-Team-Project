@@ -11,7 +11,9 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/font_scale_provider.dart';
 import 'core/theme/theme_providers.dart';
 import 'features/auth/providers/auth_providers.dart';
+import 'features/bible/providers/bible_providers.dart' show todayQtPassageProvider;
 import 'features/onboarding/providers/onboarding_providers.dart';
+import 'features/onboarding/screens/intro_splash_screen.dart';
 import 'routes/app_router.dart';
 
 const bool _devForceHome =
@@ -45,6 +47,8 @@ class QTAIApp extends ConsumerStatefulWidget {
 
 class _QTAIAppState extends ConsumerState<QTAIApp> {
   bool _mainAppStarted = false;
+  // 콜드스타트 인트로(로딩) 재생 중 플래그 — 한번 시작하면 애니메이션이 끝날 때까지 유지한다.
+  bool _introPlaying = false;
 
   @override
   Widget build(BuildContext context) {
@@ -59,10 +63,13 @@ class _QTAIAppState extends ConsumerState<QTAIApp> {
     final webBypass = webDevNoLogin;
     final forceHome = (AppConfig.instance.isDev && _devForceHome) || webBypass;
 
-    // 인증 상태 확인 중이면 최초 진입에서만 스플래시(로딩)를 표시한다.
-    // main app이 한 번 시작된 뒤에는 refresh/auth 상태가 잠깐 unknown으로
-    // 흔들려도 Navigator를 새로 만들지 않아 push된 화면을 유지한다.
-    if (!_mainAppStarted && authStatus == AuthStatus.unknown && !forceHome) {
+    // 콜드스타트 인트로(로딩) 애니메이션. 인증 미확정(unknown)으로 시작하면 한 번 재생하고,
+    // 애니메이션이 끝날 때까지(_introPlaying) 유지한다. 그동안 백그라운드로 인증·오늘 QT를 준비한다.
+    // (테스트는 authStatus를 authenticated로 주입하므로 인트로가 뜨지 않는다 → 기존 흐름 유지.)
+    if (!_mainAppStarted &&
+        !forceHome &&
+        (authStatus == AuthStatus.unknown || _introPlaying)) {
+      _introPlaying = true;
       return MaterialApp(
         key: const ValueKey('qtai-splash-app'),
         title: 'QT AI',
@@ -73,42 +80,24 @@ class _QTAIAppState extends ConsumerState<QTAIApp> {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('ko'),
-        // 스플래시도 다크 모드 대응 — Builder로 테마 컨텍스트의 AppColors를 받는다.
-        home: Builder(
-          builder: (context) {
-            final colors = context.appColors;
-            return Scaffold(
-              backgroundColor: colors.bgSunken,
-              body: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text.rich(
-                      TextSpan(children: [
-                        const TextSpan(text: 'QT'),
-                        // 로고 가운뎃점 — 유일한 유채색 포인트(탭 도트와 동일 토큰).
-                        TextSpan(
-                            text: '·',
-                            style: TextStyle(color: colors.accentDot)),
-                        const TextSpan(text: 'AI'),
-                      ]),
-                      style: TextStyle(
-                        fontFamily: 'GowunDodum',
-                        fontSize: 60,
-                        fontWeight: FontWeight.w400,
-                        color: colors.text,
-                        letterSpacing: -1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      AppLocalizations.of(context).splashSubtitle,
-                      style: TextStyle(fontSize: 17, color: colors.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-            );
+        home: IntroSplashScreen(
+          onComplete: () {
+            if (mounted) {
+              setState(() {
+                _introPlaying = false;
+                _mainAppStarted = true;
+              });
+            }
+          },
+          preload: () async {
+            // 로딩 동안 미리 받아둘 것들 — 로그인돼 있으면 오늘 QT를 미리 받아 둔다(실패 무시).
+            try {
+              if (await ref.read(authRepositoryProvider).hasToken()) {
+                await ref
+                    .read(todayQtPassageProvider.future)
+                    .timeout(const Duration(seconds: 6));
+              }
+            } catch (_) {}
           },
         ),
       );
