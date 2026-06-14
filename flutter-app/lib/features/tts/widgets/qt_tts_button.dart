@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart' show CancelToken, DioException;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,6 +37,10 @@ class QtTtsButton extends ConsumerStatefulWidget {
 class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
   final AudioPlayer _player = AudioPlayer();
   bool _isGenerating = false;
+
+  // 로딩(생성/다운로드) 취소용 — 버튼을 다시 누르면 요청을 취소하고 재생하지 않는다.
+  CancelToken? _cancelToken;
+  bool _canceled = false;
 
   @override
   void initState() {
@@ -130,6 +135,8 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
     // (서버가 토큰을 요구하면 --dart-define=TTS_TOKEN=... 로 주입하면 그대로 전달된다.)
     if (_isGenerating) return;
 
+    _canceled = false;
+    _cancelToken = CancelToken();
     setState(() => _isGenerating = true);
 
     try {
@@ -142,6 +149,7 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
         audioPath = await repo.getCachedQtPassageAudio(
           qtPassageId: widget.qtPassageId!,
           voice: voice,
+          cancelToken: _cancelToken,
         );
       } else {
         // 해설 포함 등 그 외 조합은 클라이언트가 텍스트를 조합해 직접 생성한다.
@@ -156,22 +164,35 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
           text: text,
           voice: voice,
           cacheKey: cacheKey,
+          cancelToken: _cancelToken,
         );
       }
 
-      if (!mounted) return;
+      // 사용자가 로딩 중 정지를 눌렀으면 재생하지 않는다.
+      if (_canceled || !mounted) return;
       // 웹은 파일 경로가 없어 data URI(setUrl), 기기는 파일 경로(setFilePath)로 로드.
       if (kIsWeb) {
         await _player.setUrl(audioPath);
       } else {
         await _player.setFilePath(audioPath);
       }
+      if (_canceled || !mounted) return;
       if (autoPlay) await _player.play();
-    } catch (_) {
+    } catch (e) {
+      // 사용자가 취소한 경우는 에러로 안내하지 않는다.
+      if (e is DioException && CancelToken.isCancel(e)) return;
       if (mounted && autoPlay) _showMessage(l.ttsPrepareFailed);
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
+  }
+
+  /// 로딩(생성/다운로드) 중 정지 — 네트워크 요청을 취소하고 재생을 막는다.
+  void _cancelGeneration() {
+    _canceled = true;
+    _cancelToken?.cancel('user-stop');
+    _player.stop();
+    if (mounted) setState(() => _isGenerating = false);
   }
 
   void _showMessage(String message) {
@@ -184,8 +205,11 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
   }
 
   void _onTap() {
-    if (_player.playing) {
-      // 한 번 더 누르면 정지 (처음으로 되감기)
+    if (_isGenerating) {
+      // 로딩(생성/다운로드) 중 다시 누르면 취소·정지.
+      _cancelGeneration();
+    } else if (_player.playing) {
+      // 재생 중 누르면 정지 (처음으로 되감기)
       _player.pause();
       _player.seek(Duration.zero);
     } else if (_player.processingState != ProcessingState.idle) {
@@ -223,11 +247,14 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
     });
 
     if (_isGenerating) {
-      return const SizedBox(
-        width: 48,
-        height: 48,
-        child: Padding(
-          padding: EdgeInsets.all(14),
+      // 로딩 중에도 누르면 취소·정지되도록 탭 가능한 스피너로 표시한다.
+      return IconButton(
+        tooltip: l.ttsStop,
+        onPressed: _onTap,
+        iconSize: 26,
+        icon: const SizedBox(
+          width: 20,
+          height: 20,
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
       );
