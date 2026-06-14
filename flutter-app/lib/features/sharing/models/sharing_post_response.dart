@@ -72,9 +72,10 @@ class SharingPostListResponse {
   final bool hasNext;
 
   // 페이징 정보. page=현재 페이지(0부터), totalPages=전체 페이지 수.
-  // 낙관적 갱신 등 로컬 생성 시엔 기본값(0,1)을 쓴다.
-  final int page;
-  final int totalPages;
+  // nullable로 둔다: 핫 리로드로 옛 객체가 캐시에 남으면 새 필드가 비어 null이 될 수 있어,
+  // 읽는 쪽에서 ?? 기본값으로 안전하게 처리하기 위함(정상 경로에선 fromJson이 항상 채운다).
+  final int? page;
+  final int? totalPages;
 
   SharingPostListResponse({
     required this.items,

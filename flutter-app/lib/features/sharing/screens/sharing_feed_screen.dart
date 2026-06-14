@@ -225,15 +225,15 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
           ),
 
           // 목차 번호 페이저(10개씩, 번호 5개씩). 페이지를 누르면 해당 페이지를 불러온다.
-          // 로딩 중에도 직전 값을 유지해 페이저가 깜빡이지 않게 valueOrNull을 쓴다.
-          if (postsAsync.valueOrNull != null)
-            PageNavigator(
-              currentPage: postsAsync.valueOrNull!.page,
-              totalPages: postsAsync.valueOrNull!.totalPages,
-              onSelect: (page) {
-                ref.read(sharingPageProvider.notifier).state = page;
-              },
-            ),
+          // 현재 페이지는 응답이 아니라 상태(provider)에서 읽어 항상 정확하고,
+          // totalPages는 ?? 1로 안전하게 처리한다(핫 리로드 등으로 비어도 크래시하지 않음).
+          PageNavigator(
+            currentPage: ref.watch(sharingPageProvider),
+            totalPages: postsAsync.valueOrNull?.totalPages ?? 1,
+            onSelect: (page) {
+              ref.read(sharingPageProvider.notifier).state = page;
+            },
+          ),
         ],
       ),
     );
