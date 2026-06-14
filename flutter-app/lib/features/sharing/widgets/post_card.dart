@@ -14,11 +14,15 @@ class PostCard extends StatelessWidget {
   /// 좋아요 토글(피드 낙관적 업데이트). null이면 하트 비활성(상세 등).
   final VoidCallback? onLike;
 
+  /// 저장(북마크) 토글. null이면 저장 버튼 숨김.
+  final VoidCallback? onBookmark;
+
   const PostCard({
     super.key,
     required this.item,
     required this.onTap,
     this.onLike,
+    this.onBookmark,
   });
 
   @override
@@ -168,6 +172,27 @@ class PostCard extends StatelessWidget {
                         fontFamily: 'GowunDodum',
                         fontSize: 13,
                         color: SharingFeedPalette.muted)),
+                // 저장(북마크) 버튼 — 액션 줄 오른쪽 끝에 배치.
+                if (onBookmark != null) ...[
+                  const Spacer(),
+                  InkWell(
+                    onTap: onBookmark,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 4),
+                      child: Icon(
+                        item.bookmarkedByMe
+                            ? Icons.bookmark
+                            : Icons.bookmark_border,
+                        size: 17,
+                        color: item.bookmarkedByMe
+                            ? SharingFeedPalette.text
+                            : SharingFeedPalette.muted,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],

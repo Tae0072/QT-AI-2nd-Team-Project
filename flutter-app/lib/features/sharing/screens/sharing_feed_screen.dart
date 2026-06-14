@@ -96,19 +96,52 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
             ),
           ),
 
-          // 카테고리 필터
+          // 카테고리 필터 + (오른쪽 고정) 저장 목록 버튼
           SizedBox(
             height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
               children: [
-                _CategoryChip(label: l.noteFilterAll, value: null, selected: selectedCategory),
-                _CategoryChip(label: l.catMeditation, value: 'MEDITATION', selected: selectedCategory),
-                _CategoryChip(label: l.catSermon, value: 'SERMON', selected: selectedCategory),
-                _CategoryChip(label: l.catPrayer, value: 'PRAYER', selected: selectedCategory),
-                _CategoryChip(label: l.catGratitude, value: 'GRATITUDE', selected: selectedCategory),
-                _CategoryChip(label: l.catRepentance, value: 'REPENTANCE', selected: selectedCategory),
+                Expanded(
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: [
+                      _CategoryChip(label: l.noteFilterAll, value: null, selected: selectedCategory),
+                      _CategoryChip(label: l.catMeditation, value: 'MEDITATION', selected: selectedCategory),
+                      _CategoryChip(label: l.catSermon, value: 'SERMON', selected: selectedCategory),
+                      _CategoryChip(label: l.catPrayer, value: 'PRAYER', selected: selectedCategory),
+                      _CategoryChip(label: l.catGratitude, value: 'GRATITUDE', selected: selectedCategory),
+                      _CategoryChip(label: l.catRepentance, value: 'REPENTANCE', selected: selectedCategory),
+                    ],
+                  ),
+                ),
+                // 카테고리 줄 제일 오른쪽 — 저장한 글 목록으로 진입.
+                Container(width: 1, height: 20, color: SharingFeedPalette.divider),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 12),
+                  child: InkWell(
+                    onTap: () =>
+                        Navigator.of(context).pushNamed(AppRouter.sharingBookmarks),
+                    borderRadius: BorderRadius.circular(999),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.bookmark_border,
+                              size: 18, color: SharingFeedPalette.text),
+                          SizedBox(width: 4),
+                          Text('저장',
+                              style: TextStyle(
+                                  fontFamily: 'GowunDodum',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: SharingFeedPalette.text)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -154,6 +187,24 @@ class _SharingFeedScreenState extends ConsumerState<SharingFeedScreen> {
                                 content: Text(wasLiked
                                     ? l.sharingUnlikeFailed
                                     : l.sharingLikeFailed),
+                              ),
+                            );
+                          }
+                        },
+                        // 저장(북마크) 토글 — 즉시 반영, 실패 시 롤백.
+                        onBookmark: () async {
+                          final wasBookmarked = item.bookmarkedByMe;
+                          try {
+                            await ref
+                                .read(sharingPostsProvider.notifier)
+                                .toggleBookmark(item.id);
+                          } catch (_) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(
+                                content: Text(wasBookmarked
+                                    ? '저장 해제에 실패했어요.'
+                                    : '저장에 실패했어요.'),
                               ),
                             );
                           }

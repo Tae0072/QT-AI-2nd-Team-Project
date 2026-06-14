@@ -62,6 +62,34 @@ class SharingFeedNotifier
     }
   }
 
+  /// 저장(북마크) 토글 — 즉시 로컬 갱신 후 서버 반영. 실패 시 롤백. (좋아요와 동일 패턴)
+  Future<void> toggleBookmark(int postId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final index = current.items.indexWhere((e) => e.id == postId);
+    if (index < 0) return;
+    final original = current.items[index];
+    final bookmarked = original.bookmarkedByMe;
+
+    state = AsyncData(_replace(
+      current,
+      index,
+      original.copyWith(bookmarkedByMe: !bookmarked),
+    ));
+
+    try {
+      final repo = ref.read(sharingRepositoryProvider);
+      bookmarked ? await repo.unbookmark(postId) : await repo.bookmark(postId);
+    } catch (_) {
+      final now = state.valueOrNull;
+      if (now != null) {
+        final i = now.items.indexWhere((e) => e.id == postId);
+        if (i >= 0) state = AsyncData(_replace(now, i, original));
+      }
+      rethrow;
+    }
+  }
+
   SharingPostListResponse _replace(
       SharingPostListResponse res, int index, SharingPostItem item) {
     final items = [...res.items];
@@ -72,6 +100,47 @@ class SharingFeedNotifier
 
 final sharingPostsProvider = AsyncNotifierProvider.autoDispose<
     SharingFeedNotifier, SharingPostListResponse>(SharingFeedNotifier.new);
+
+/// 내 저장(북마크) 목록 + 낙관적 저장 해제.
+///
+/// 저장 목록 화면에서 저장 해제 시 해당 카드를 즉시 목록에서 빼고 서버에 반영한다.
+/// 실패하면 원래 자리로 되돌린다.
+class BookmarksNotifier
+    extends AutoDisposeAsyncNotifier<SharingPostListResponse> {
+  @override
+  Future<SharingPostListResponse> build() {
+    return ref.watch(sharingRepositoryProvider).getBookmarks();
+  }
+
+  /// 저장 해제 — 목록에서 즉시 제거 후 서버 반영. 실패 시 원위치로 복원한다.
+  Future<void> removeBookmark(int postId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final index = current.items.indexWhere((e) => e.id == postId);
+    if (index < 0) return;
+    final original = current.items[index];
+
+    final remaining = [...current.items]..removeAt(index);
+    state = AsyncData(
+        SharingPostListResponse(items: remaining, hasNext: current.hasNext));
+
+    try {
+      await ref.read(sharingRepositoryProvider).unbookmark(postId);
+    } catch (_) {
+      final now = state.valueOrNull;
+      if (now != null) {
+        final restored = [...now.items];
+        restored.insert(index.clamp(0, restored.length), original);
+        state = AsyncData(
+            SharingPostListResponse(items: restored, hasNext: now.hasNext));
+      }
+      rethrow;
+    }
+  }
+}
+
+final bookmarksProvider = AsyncNotifierProvider.autoDispose<BookmarksNotifier,
+    SharingPostListResponse>(BookmarksNotifier.new);
 
 /// 내 나눔 글 목록 (M-05).
 ///
@@ -137,6 +206,33 @@ class SharingDetailNotifier
             SharingDetailData(detail: original, comments: now.comments));
       }
       rethrow; // 화면이 실패 안내할 수 있게 전파
+    }
+  }
+
+  /// 저장(북마크) 토글 — 낙관적 갱신 후 서버 반영. 실패 시 롤백. (좋아요와 동일 패턴)
+  Future<void> toggleBookmark() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final original = current.detail;
+    final bookmarked = original.bookmarkedByMe;
+
+    state = AsyncData(SharingDetailData(
+      detail: original.copyWith(bookmarkedByMe: !bookmarked),
+      comments: current.comments,
+    ));
+
+    try {
+      final repo = ref.read(sharingRepositoryProvider);
+      bookmarked
+          ? await repo.unbookmark(original.id)
+          : await repo.bookmark(original.id);
+    } catch (_) {
+      final now = state.valueOrNull;
+      if (now != null) {
+        state = AsyncData(
+            SharingDetailData(detail: original, comments: now.comments));
+      }
+      rethrow;
     }
   }
 }
