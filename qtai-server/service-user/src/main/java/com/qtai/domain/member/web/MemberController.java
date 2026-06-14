@@ -95,8 +95,9 @@ public class MemberController {
     @GetMapping("/api/v1/members/search")
     public ResponseEntity<ApiResponse<List<MemberPublicResponse>>> searchByNickname(
             @AuthenticationPrincipal Long memberId,
-            @RequestParam("q") @NotBlank @Size(max = 20) String q,
+            @RequestParam(value = "q", required = false, defaultValue = "") @Size(max = 20) String q,
             @RequestParam(value = "size", required = false, defaultValue = "8") int size) {
+        // q가 비면('#'만 입력) 기본 회원 목록을 후보로 돌려준다.
         List<MemberPublicResponse> result = getMemberUseCase.searchActiveByNicknamePrefix(q, size).stream()
                 .filter(m -> memberId == null || !m.id().equals(memberId))
                 .toList();

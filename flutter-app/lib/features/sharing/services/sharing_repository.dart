@@ -74,11 +74,10 @@ class SharingRepository {
   }
 
   /// 멘션 자동완성 — 닉네임 접두사로 회원 검색 (GET /api/v1/members/search).
+  /// query가 비면('#'만 입력) 서버가 기본 회원 목록을 후보로 돌려준다.
   Future<List<MemberSuggestion>> searchMembers(String query, {int size = 8}) async {
-    final q = query.trim();
-    if (q.isEmpty) return const [];
     final response = await _dio.get('/members/search', queryParameters: {
-      'q': q,
+      'q': query.trim(),
       'size': size,
     });
     final list = response.data['data'] as List<dynamic>? ?? [];
