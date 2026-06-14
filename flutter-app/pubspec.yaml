@@ -34,6 +34,9 @@ dependencies:
   # 카카오 로그인
   kakao_flutter_sdk_user: ^1.9.5
 
+  # 프로필 사진 선택(갤러리/카메라)
+  image_picker: ^1.1.2
+
   # UI
   cupertino_icons: ^1.0.8
   google_fonts: ^6.2.1

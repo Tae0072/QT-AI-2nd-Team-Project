@@ -4,11 +4,14 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.ChangeNicknameUseCase;
 import com.qtai.domain.member.api.GetMemberUseCase;
+import com.qtai.domain.member.api.GetProfilePhotoUseCase;
+import com.qtai.domain.member.api.UpdateProfilePhotoUseCase;
 import com.qtai.domain.member.api.UpdateProfileUseCase;
 import com.qtai.domain.member.api.WithdrawUseCase;
 import com.qtai.domain.member.api.dto.MemberPublicResponse;
 import com.qtai.domain.member.api.dto.MemberResponse;
 import com.qtai.domain.member.api.dto.NicknameChangeRequest;
+import com.qtai.domain.member.api.dto.ProfilePhotoView;
 import com.qtai.domain.member.api.dto.ProfileUpdateRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -30,7 +34,13 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, WithdrawUseCase, ChangeNicknameUseCase {
+public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, WithdrawUseCase, ChangeNicknameUseCase,
+        UpdateProfilePhotoUseCase, GetProfilePhotoUseCase {
+
+    // 허용 이미지 형식·최대 크기(프로필 사진).
+    private static final Set<String> ALLOWED_IMAGE_TYPES =
+            Set.of("image/jpeg", "image/png", "image/webp");
+    private static final long MAX_PHOTO_BYTES = 5L * 1024 * 1024; // 5MB
 
     private final MemberRepository memberRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -96,6 +106,44 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
         }
 
         return toResponse(member);
+    }
+
+    // ── UpdateProfilePhotoUseCase / GetProfilePhotoUseCase (프로필 사진 업로드·조회) ──
+
+    @Override
+    @Transactional
+    public MemberResponse updateProfilePhoto(Long memberId, byte[] data, String contentType) {
+        if (data == null || data.length == 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "이미지 파일이 비어 있습니다.");
+        }
+        if (data.length > MAX_PHOTO_BYTES) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "이미지는 5MB 이하만 가능합니다.");
+        }
+        String normalized = contentType == null ? "" : contentType.toLowerCase();
+        if (!ALLOWED_IMAGE_TYPES.contains(normalized)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "지원하지 않는 이미지 형식입니다(jpeg/png/webp).");
+        }
+        Member member = findActiveMemberOrThrow(memberId);
+        member.updateProfilePhoto(data, normalized, clock);
+        return toResponse(member);
+    }
+
+    @Override
+    @Transactional
+    public MemberResponse deleteProfilePhoto(Long memberId) {
+        Member member = findActiveMemberOrThrow(memberId);
+        member.clearProfilePhoto();
+        return toResponse(member);
+    }
+
+    @Override
+    public ProfilePhotoView getOwnProfilePhoto(Long memberId) {
+        Member member = findActiveMemberOrThrow(memberId);
+        if (!member.hasProfilePhoto()) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "프로필 사진이 없습니다.");
+        }
+        return new ProfilePhotoView(member.getProfileImageData(), member.getProfileImageContentType());
     }
 
     // ── ChangeNicknameUseCase (닉네임 변경 — 즉시 변경 가능, 2026-06-11 잠금 폐지) ──

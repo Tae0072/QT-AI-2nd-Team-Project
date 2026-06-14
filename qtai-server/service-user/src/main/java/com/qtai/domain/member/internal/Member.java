@@ -11,6 +11,8 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -42,6 +44,18 @@ public class Member extends BaseEntity {
 
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
+
+    // 프로필 사진 바이트(직접 업로드분)를 DB에 저장(음악 audio_data와 동일한 LONGBLOB 패턴).
+    // 목록/일반 조회에서는 로딩하지 않고, 사진 스트리밍 시에만 읽는다.
+    @JdbcTypeCode(SqlTypes.LONGVARBINARY)
+    @Column(name = "profile_image_data")
+    private byte[] profileImageData;
+
+    @Column(name = "profile_image_content_type", length = 80)
+    private String profileImageContentType;
+
+    @Column(name = "profile_image_updated_at")
+    private LocalDateTime profileImageUpdatedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -101,6 +115,31 @@ public class Member extends BaseEntity {
 
     public void updateProfileImageUrl(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
+    }
+
+    /**
+     * 직접 업로드한 프로필 사진 바이트를 저장하고, 공개 URL을 스트림 경로로 채운다.
+     * URL에 갱신 시각(버전)을 붙여 클라이언트 캐시를 무효화한다.
+     */
+    public void updateProfilePhoto(byte[] data, String contentType, Clock clock) {
+        this.profileImageData = data;
+        this.profileImageContentType = contentType;
+        this.profileImageUpdatedAt = LocalDateTime.now(clock);
+        long version = this.profileImageUpdatedAt
+                .atZone(java.time.ZoneOffset.UTC).toEpochSecond();
+        this.profileImageUrl = "/api/v1/me/profile-photo?v=" + version;
+    }
+
+    /** 프로필 사진 제거(기본 아바타로 되돌림). */
+    public void clearProfilePhoto() {
+        this.profileImageData = null;
+        this.profileImageContentType = null;
+        this.profileImageUpdatedAt = null;
+        this.profileImageUrl = null;
+    }
+
+    public boolean hasProfilePhoto() {
+        return this.profileImageData != null && this.profileImageData.length > 0;
     }
 
     /**
