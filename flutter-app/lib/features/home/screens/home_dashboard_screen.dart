@@ -121,23 +121,27 @@ class _TodayVerseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = context.appColors;
 
-    Widget body;
-    body = passageAsync.when(
-      loading: () => const SizedBox(
-        height: 60,
-        child: Center(child: CircularProgressIndicator()),
+    // 본문(라벨 + 절 + 참조) — 가운데 정렬. 절은 폭을 제한해 길면 4~5줄로 감싸 가운데로.
+    final content = passageAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 28),
+        child: CircularProgressIndicator(color: Colors.white),
       ),
       error: (_, __) => Text(
         '오늘의 말씀을 불러오지 못했어요.',
+        textAlign: TextAlign.center,
         style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white),
       ),
       data: (passage) {
-        final verses =
-            passage.verses.where((v) => (v.koreanText ?? '').trim().isNotEmpty).toList();
+        final verses = passage.verses
+            .where((v) => (v.koreanText ?? '').trim().isNotEmpty)
+            .toList();
         if (verses.isEmpty) {
           return Text(
             '오늘 준비된 말씀이 없어요.',
+            textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white),
           );
         }
@@ -146,20 +150,31 @@ class _TodayVerseCard extends StatelessWidget {
         final label =
             '${passage.reference.koreanBookName} ${verse.chapterNo}:${verse.verseNo}';
         return Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            Text(
+              '오늘의 말씀',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.9),
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 14),
             Text(
               '"${verse.koreanText!.trim()}"',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: Colors.white,
-                height: 1.55,
+                height: 1.6,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Text(
               label,
+              textAlign: TextAlign.center,
               style: theme.textTheme.labelLarge
                   ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
             ),
@@ -168,42 +183,82 @@ class _TodayVerseCard extends StatelessWidget {
       },
     );
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: gradient,
-          ),
-        ),
-        child: Stack(
-          children: [
-            // 기독교 배경 그림 — 위에서 비치는 빛줄기 + 은은한 십자가.
-            Positioned.fill(
-              child: CustomPaint(painter: const _ChristianBackdropPainter()),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-              child: Column(
-                children: [
-                  Text(
-                    '오늘의 말씀',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      letterSpacing: 1.2,
+    // 배경: 그림 자산이 있으면 이미지, 없으면 그라데이션 + 기독교 드로잉(빛+십자가).
+    final hasImage = _kBackgroundAssets.isNotEmpty;
+    final Widget background = hasImage
+        ? Image.asset(
+            _kBackgroundAssets[Random(dailySeed).nextInt(_kBackgroundAssets.length)],
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) =>
+                _GradientBackdrop(gradient: gradient),
+          )
+        : _GradientBackdrop(gradient: gradient);
+
+    return Container(
+      // 그림 뒤에 한 겹 더 있는 형태(외곽 프레임).
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: colors.bgSunken,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: ConstrainedBox(
+          // 카드는 본문에 맞춰 늘어나되 최소 높이를 확보(4~5줄도 여유).
+          constraints: const BoxConstraints(minHeight: 200),
+          child: Stack(
+            fit: StackFit.passthrough,
+            children: [
+              Positioned.fill(child: background),
+              // 글자 가독용 어두운 막(이미지/그라데이션 공통).
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.22),
+                        Colors.black.withValues(alpha: 0.42),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  body,
-                ],
+                ),
               ),
-            ),
-          ],
+              // 본문 — 배경 그림 기준 정중앙, 폭 제한으로 가운데 정렬.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: content,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// 그림 자산이 없을 때의 기본 배경 — 그라데이션 + 기독교 드로잉(빛+십자가).
+class _GradientBackdrop extends StatelessWidget {
+  final List<Color> gradient;
+  const _GradientBackdrop({required this.gradient});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradient,
+        ),
+      ),
+      child: const CustomPaint(painter: _ChristianBackdropPainter()),
     );
   }
 }
@@ -353,6 +408,10 @@ class _RecentNoteTile extends StatelessWidget {
     );
   }
 }
+
+/// 오늘의 말씀 카드 배경 그림(기독교) 자산 경로. 채워지면 매일 랜덤으로 한 장 쓰고,
+/// 비어 있으면 그라데이션 + 십자가 드로잉을 쓴다. (이미지는 저작권 확인된 것만 추가)
+const List<String> _kBackgroundAssets = <String>[];
 
 /// 매일 랜덤으로 고를 차분한 어스톤 그라데이션 세트(3스톱, 흰 글자 가독).
 /// 단색처럼 보이지 않도록 위→아래 명도 대비를 충분히 둔다.
