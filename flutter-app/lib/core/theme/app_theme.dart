@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// QT·AI "Calm Paper" 테마 (DESIGN_PROMPT.md, 2026-06-11 적용 / 다크 모드 동시 지원).
 ///
@@ -99,6 +100,15 @@ class AppTheme {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,
+      // 상단 기기 상태바(시계·배터리·와이파이) 아이콘 색을 테마에 고정한다.
+      // 라이트=검은 아이콘(밝은 배경 가독), 다크=흰 아이콘. 페이지마다 배경색이 달라도 통일된다.
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness:
+            brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        statusBarBrightness:
+            brightness == Brightness.dark ? Brightness.dark : Brightness.light,
+      ),
       titleTextStyle: TextStyle(
         fontFamily: 'GowunDodum',
         fontSize: 17,
