@@ -49,11 +49,8 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
       }
       setState(() {});
     });
-
-    // QT 본문이 로드되면 바로 음성을 미리 준비한다 (자동 생성).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _prepareAudio();
-    });
+    // 음성은 버튼을 탭할 때 생성한다(첫 탭 시 생성 후 자동 재생).
+    // 화면 진입마다 자동 생성하면 느린 무료 호스팅에 불필요한 요청이 쌓이므로 하지 않는다.
   }
 
   @override
@@ -128,12 +125,9 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
     final l = AppLocalizations.of(context);
     final repo = ref.read(ttsRepositoryProvider);
     final voice = ref.read(selectedVoiceProvider);
-    final token = ref.read(ttsTokenProvider);
 
-    if (token.isEmpty) {
-      if (autoPlay) _showMessage(l.ttsTokenMissing);
-      return;
-    }
+    // TTS 서버는 토큰 없이도 동작하므로 토큰 유무로 막지 않는다.
+    // (서버가 토큰을 요구하면 --dart-define=TTS_TOKEN=... 로 주입하면 그대로 전달된다.)
     if (_isGenerating) return;
 
     setState(() => _isGenerating = true);
