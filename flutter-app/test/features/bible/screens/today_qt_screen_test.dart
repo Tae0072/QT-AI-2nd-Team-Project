@@ -312,7 +312,7 @@ void main() {
     expect(find.text('아직 준비된 해설이 없습니다.'), findsOneWidget);
   });
 
-  testWidgets('해설 화면은 절 번호만 표시하고 검수해설 문구를 노출하지 않는다', (tester) async {
+  testWidgets('해설 화면은 절 번호(장:절)와 절 본문을 함께 보여주고 검수해설은 노출하지 않는다', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
 
@@ -383,9 +383,12 @@ void main() {
     await tester.tap(find.text('해설'));
     await tester.pumpAndSettle();
 
-    expect(find.text('1'), findsOneWidget);
-    expect(find.text('2:1 해설'), findsNothing);
+    // 절 번호(장:절)와 그 절 본문을 함께 보여준다.
+    expect(find.text('2:1'), findsOneWidget);
+    expect(find.text('더미 한글 본문 1'), findsOneWidget);
+    // 검증용 출처 라벨은 사용자에게 노출하지 않는다.
     expect(find.text('검수해설'), findsNothing);
+    // 해설 본문은 보여준다.
     expect(find.text('해설 본문'), findsOneWidget);
   });
 

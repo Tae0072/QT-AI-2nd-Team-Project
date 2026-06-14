@@ -10,10 +10,14 @@ class QtStudyContentArgs {
   final String referenceText;
   final Map<int, String> verseLabels;
 
+  /// 절 본문(verseId → 한글 본문). 절별 해설에서 절 번호 옆에 본문을 함께 보여준다.
+  final Map<int, String> verseTexts;
+
   const QtStudyContentArgs({
     required this.qtPassageId,
     required this.referenceText,
     required this.verseLabels,
+    this.verseTexts = const {},
   });
 }
 
@@ -43,6 +47,7 @@ class QtStudyContentScreen extends ConsumerWidget {
           content: data,
           referenceText: args.referenceText,
           verseLabels: args.verseLabels,
+          verseTexts: args.verseTexts,
         ),
       ),
     );
@@ -53,11 +58,13 @@ class _QtStudyContentBody extends StatelessWidget {
   final QtStudyContent content;
   final String referenceText;
   final Map<int, String> verseLabels;
+  final Map<int, String> verseTexts;
 
   const _QtStudyContentBody({
     required this.content,
     required this.referenceText,
     required this.verseLabels,
+    required this.verseTexts,
   });
 
   @override
@@ -100,6 +107,7 @@ class _QtStudyContentBody extends StatelessWidget {
             _ExplanationItem(
               explanation: explanation,
               verseLabel: verseLabels[explanation.verseId],
+              verseText: verseTexts[explanation.verseId],
             ),
         ],
         if (content.glossaryTerms.isNotEmpty) ...[
@@ -125,16 +133,19 @@ class _QtStudyContentBody extends StatelessWidget {
 class _ExplanationItem extends StatelessWidget {
   final QtStudyExplanation explanation;
   final String? verseLabel;
+  final String? verseText;
 
   const _ExplanationItem({
     required this.explanation,
     required this.verseLabel,
+    this.verseText,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final summary = explanation.summary?.trim();
+    final verse = verseText?.trim();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -143,12 +154,27 @@ class _ExplanationItem extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              verseLabel ?? '절',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w700,
-              ),
+            // 절 번호(장:절) + 그 절 본문을 한 줄로: "9:1  태초에 ..."
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  verseLabel ?? '절',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (verse != null && verse.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      verse,
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                    ),
+                  ),
+                ],
+              ],
             ),
             if (summary != null && summary.isNotEmpty) ...[
               const SizedBox(height: 8),
