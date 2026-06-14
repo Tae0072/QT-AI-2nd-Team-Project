@@ -16,14 +16,14 @@ class IntroSplashScreen extends StatefulWidget {
   /// 로딩 동안 미리 받아둘 작업(인증 확인·오늘 QT 등). 실패해도 인트로는 끝난다.
   final Future<void> Function()? preload;
 
-  /// 전체 재생 길이(기본 5초).
+  /// 전체 재생 길이(기본 8초 = 검은1+빅뱅2+십자가3+별2).
   final Duration duration;
 
   const IntroSplashScreen({
     super.key,
     required this.onComplete,
     this.preload,
-    this.duration = const Duration(seconds: 5),
+    this.duration = const Duration(seconds: 8),
   });
 
   @override
@@ -48,21 +48,25 @@ class _IntroSplashScreenState extends State<IntroSplashScreen>
     super.initState();
     _c = AnimationController(vsync: this, duration: widget.duration);
 
+    // 단계(총 8초 기준): 검은화면 0~0.125(1s) → 빅뱅·전화면 백색 0.125~0.375(2s)
+    // → 백색에서 T 십자가로 빛이 모임 0.375~0.75(3s) → 8각 별 반짝임 0.75~1.0(2s).
     _burst = CurvedAnimation(
-        parent: _c, curve: const Interval(0.06, 0.40, curve: Curves.easeOutCubic));
-    // 0.18~0.40 동안 1로 차오르고(전 화면 하양), 0.40~0.70 동안 0으로 거둬진다.
+        parent: _c,
+        curve: const Interval(0.125, 0.375, curve: Curves.easeOutCubic));
+    // 백색 막: 0.125~0.375 차오름(전 화면 백색) → 0.45~0.70 거둬짐(십자가로 모임).
     _veil = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 22),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 4),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 30),
-      TweenSequenceItem(tween: ConstantTween(0.0), weight: 44),
-    ]).animate(CurvedAnimation(parent: _c, curve: const Interval(0.18, 1.0)));
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 12.5),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 25),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 7.5),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 25),
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 30),
+    ]).animate(_c);
     _logoFade = CurvedAnimation(
-        parent: _c, curve: const Interval(0.40, 0.62, curve: Curves.easeOut));
+        parent: _c, curve: const Interval(0.45, 0.62, curve: Curves.easeOut));
     _crossGlow = CurvedAnimation(
-        parent: _c, curve: const Interval(0.42, 0.74, curve: Curves.easeOut));
+        parent: _c, curve: const Interval(0.46, 0.75, curve: Curves.easeOut));
     _star = CurvedAnimation(
-        parent: _c, curve: const Interval(0.70, 1.0, curve: Curves.easeOut));
+        parent: _c, curve: const Interval(0.75, 1.0, curve: Curves.easeOut));
 
     _start();
   }

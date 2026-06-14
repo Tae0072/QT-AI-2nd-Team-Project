@@ -37,6 +37,7 @@ class TtsRepository {
     required int qtPassageId,
     String voice = '선희 (여성)',
     String format = 'mp3',
+    CancelToken? cancelToken,
   }) async {
     final url = '$_apiBaseUrl/qt/passages/$qtPassageId/audio';
     final query = {'voice': voice};
@@ -46,6 +47,7 @@ class TtsRepository {
       final response = await _apiDio.get(
         url,
         queryParameters: query,
+        cancelToken: cancelToken,
         options: Options(responseType: ResponseType.bytes),
       );
       final bytes = response.data as List<int>;
@@ -63,6 +65,7 @@ class TtsRepository {
       url,
       savePath,
       queryParameters: query,
+      cancelToken: cancelToken,
       options: Options(responseType: ResponseType.bytes),
     );
     return savePath;
@@ -87,6 +90,7 @@ class TtsRepository {
     double tau = 0.7,
     String format = 'mp3',
     String? cacheKey,
+    CancelToken? cancelToken,
   }) async {
     // 웹(브라우저)은 파일 저장이 불가하므로, 음성을 메모리(bytes)로 받아
     // data URI로 만들어 그대로 재생한다. (TTS 서버의 CORS 허용이 필요)
@@ -99,6 +103,7 @@ class TtsRepository {
           'tau': tau,
           'format': format,
         },
+        cancelToken: cancelToken,
         options: Options(
           headers: {
             'Authorization': 'Bearer $_ttsToken',
@@ -133,6 +138,7 @@ class TtsRepository {
         'tau': tau,
         'format': format,
       },
+      cancelToken: cancelToken,
       options: Options(
         method: 'POST',
         headers: {
