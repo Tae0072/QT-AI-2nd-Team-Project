@@ -204,8 +204,8 @@ class _TodayVerseCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: ConstrainedBox(
-          // 카드는 본문에 맞춰 늘어나되 최소 높이를 확보(4~5줄도 여유).
-          constraints: const BoxConstraints(minHeight: 200),
+          // 카드는 본문에 맞춰 늘어나되 충분한 최소 높이로 배경 그림이 잘 보이게.
+          constraints: const BoxConstraints(minHeight: 300),
           child: Stack(
             fit: StackFit.passthrough,
             children: [
@@ -218,8 +218,8 @@ class _TodayVerseCard extends StatelessWidget {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.22),
-                        Colors.black.withValues(alpha: 0.42),
+                        Colors.black.withValues(alpha: 0.30),
+                        Colors.black.withValues(alpha: 0.52),
                       ],
                     ),
                   ),
@@ -409,9 +409,16 @@ class _RecentNoteTile extends StatelessWidget {
   }
 }
 
-/// 오늘의 말씀 카드 배경 그림(기독교) 자산 경로. 채워지면 매일 랜덤으로 한 장 쓰고,
-/// 비어 있으면 그라데이션 + 십자가 드로잉을 쓴다. (이미지는 저작권 확인된 것만 추가)
-const List<String> _kBackgroundAssets = <String>[];
+/// 오늘의 말씀 카드 배경 그림(기독교) 자산 경로 — 매일 랜덤으로 한 장.
+/// 모두 직접 그린 원본 일러스트라 저작권 부담이 없다.
+const List<String> _kBackgroundAssets = <String>[
+  'assets/home_backgrounds/sunrise_cross.png',
+  'assets/home_backgrounds/three_crosses.png',
+  'assets/home_backgrounds/mountains_dawn.png',
+  'assets/home_backgrounds/valley_path.png',
+  'assets/home_backgrounds/church_evening.png',
+  'assets/home_backgrounds/dawn_rays.png',
+];
 
 /// 매일 랜덤으로 고를 차분한 어스톤 그라데이션 세트(3스톱, 흰 글자 가독).
 /// 단색처럼 보이지 않도록 위→아래 명도 대비를 충분히 둔다.

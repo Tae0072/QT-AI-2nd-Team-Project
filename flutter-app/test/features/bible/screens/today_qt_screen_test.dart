@@ -226,6 +226,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // 앱은 홈(랜딩)에서 시작 → '묵상 시작하기'로 오늘 QT 본문 화면에 진입한다.
+    await tester.ensureVisible(find.text('묵상 시작하기'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('묵상 시작하기'));
     await tester.pumpAndSettle();
 
