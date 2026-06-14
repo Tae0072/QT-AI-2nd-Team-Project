@@ -11,6 +11,9 @@ class SharingPostItem {
   final int likeCount;
   final int commentCount;
   final bool likedByMe;
+
+  // 내가 저장(북마크)했는지. JSON: bookmarkedByMe.
+  final bool bookmarkedByMe;
   final DateTime? publishedAt;
 
   SharingPostItem({
@@ -23,6 +26,7 @@ class SharingPostItem {
     required this.likeCount,
     required this.commentCount,
     required this.likedByMe,
+    this.bookmarkedByMe = false,
     this.publishedAt,
   });
 
@@ -37,14 +41,15 @@ class SharingPostItem {
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       likedByMe: json['likedByMe'] as bool? ?? false,
+      bookmarkedByMe: json['bookmarkedByMe'] as bool? ?? false,
       publishedAt: json['publishedAt'] != null
           ? DateTime.parse(json['publishedAt'] as String)
           : null,
     );
   }
 
-  /// 낙관적 좋아요 업데이트용 — 좋아요 상태/수만 바꾼 복제본.
-  SharingPostItem copyWith({int? likeCount, bool? likedByMe}) {
+  /// 낙관적 업데이트용 — 좋아요/저장 상태·수만 바꾼 복제본.
+  SharingPostItem copyWith({int? likeCount, bool? likedByMe, bool? bookmarkedByMe}) {
     return SharingPostItem(
       id: id,
       nicknameSnapshot: nicknameSnapshot,
@@ -55,6 +60,7 @@ class SharingPostItem {
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount,
       likedByMe: likedByMe ?? this.likedByMe,
+      bookmarkedByMe: bookmarkedByMe ?? this.bookmarkedByMe,
       publishedAt: publishedAt,
     );
   }
@@ -184,6 +190,7 @@ class SharingPostDetail {
   final int likeCount;
   final int commentCount;
   final bool likedByMe;
+  final bool bookmarkedByMe;
   final bool ownedByMe;
   final DateTime? publishedAt;
 
@@ -199,6 +206,7 @@ class SharingPostDetail {
     required this.likeCount,
     required this.commentCount,
     required this.likedByMe,
+    this.bookmarkedByMe = false,
     required this.ownedByMe,
     this.publishedAt,
   });
@@ -216,6 +224,7 @@ class SharingPostDetail {
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       likedByMe: json['likedByMe'] as bool? ?? false,
+      bookmarkedByMe: json['bookmarkedByMe'] as bool? ?? false,
       ownedByMe: json['ownedByMe'] as bool? ?? false,
       publishedAt: json['publishedAt'] != null
           ? DateTime.parse(json['publishedAt'] as String)
@@ -223,8 +232,8 @@ class SharingPostDetail {
     );
   }
 
-  /// 낙관적 좋아요 업데이트용 — 좋아요 상태/수만 바꾼 복제본.
-  SharingPostDetail copyWith({int? likeCount, bool? likedByMe}) {
+  /// 낙관적 업데이트용 — 좋아요/저장 상태·수만 바꾼 복제본.
+  SharingPostDetail copyWith({int? likeCount, bool? likedByMe, bool? bookmarkedByMe}) {
     return SharingPostDetail(
       id: id,
       noteId: noteId,
@@ -237,6 +246,7 @@ class SharingPostDetail {
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount,
       likedByMe: likedByMe ?? this.likedByMe,
+      bookmarkedByMe: bookmarkedByMe ?? this.bookmarkedByMe,
       ownedByMe: ownedByMe,
       publishedAt: publishedAt,
     );

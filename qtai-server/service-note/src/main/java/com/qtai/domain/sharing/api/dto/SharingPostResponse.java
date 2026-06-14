@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
  * @param bodySnapshot       발행 시점 본문 전체 (목록의 미리보기와 달리 자르지 않음)
  * @param ownedByMe          조회자가 작성자인지
  * @param likedByMe          조회자가 좋아요를 눌렀는지
+ * @param bookmarkedByMe     조회자가 저장(북마크)했는지
  * @param sourceNoteDeletedAt 원본 노트 공유 해제 시각. null이면 원본 유효
  */
 public record SharingPostResponse(
@@ -28,6 +29,7 @@ public record SharingPostResponse(
         int likeCount,
         int commentCount,
         boolean likedByMe,
+        boolean bookmarkedByMe,
         boolean ownedByMe,
         LocalDateTime publishedAt,
         LocalDateTime hiddenAt,

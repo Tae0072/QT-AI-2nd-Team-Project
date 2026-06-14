@@ -41,6 +41,26 @@ class SharingRepository {
     await _dio.delete('/sharing-posts/$postId/like');
   }
 
+  /// 저장(북마크). POST /sharing-posts/{id}/bookmark (201). 멱등.
+  Future<void> bookmark(int postId) async {
+    await _dio.post('/sharing-posts/$postId/bookmark');
+  }
+
+  /// 저장 해제. DELETE /sharing-posts/{id}/bookmark (204). 멱등.
+  Future<void> unbookmark(int postId) async {
+    await _dio.delete('/sharing-posts/$postId/bookmark');
+  }
+
+  /// 내 저장 목록 (GET /api/v1/me/bookmarks). 피드와 동일한 형식, 최근 저장순.
+  Future<SharingPostListResponse> getBookmarks({int page = 0}) async {
+    final response = await _dio.get('/me/bookmarks', queryParameters: {
+      'page': page,
+      'size': 20,
+    });
+    final data = response.data['data'] as Map<String, dynamic>;
+    return SharingPostListResponse.fromJson(data);
+  }
+
   /// 나눔 글 삭제.
   Future<void> deletePost(int postId) async {
     await _dio.delete('/sharing-posts/$postId');

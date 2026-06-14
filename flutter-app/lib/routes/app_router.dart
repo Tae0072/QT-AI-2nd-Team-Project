@@ -22,6 +22,7 @@ import '../features/onboarding/providers/onboarding_providers.dart';
 import '../features/onboarding/screens/onboarding_screen.dart';
 import '../features/dev/dev_mode_screen.dart'; // [DEV_MODE]
 import '../features/sharing/screens/my_sharing_screen.dart';
+import '../features/sharing/screens/sharing_bookmarks_screen.dart';
 import '../features/sharing/screens/sharing_detail_screen.dart';
 import '../features/sharing/screens/sharing_feed_screen.dart';
 import '../features/study/screens/qt_study_content_screen.dart';
@@ -42,6 +43,7 @@ class AppRouter {
   static const String praise = '/praise';
   static const String sharing = '/sharing';
   static const String sharingDetail = '/sharing/detail';
+  static const String sharingBookmarks = '/sharing/bookmarks';
   static const String mySharing = '/my-sharing';
   static const String noteList = '/notes';
   static const String noteCategorySelect = '/notes/category-select';
@@ -118,6 +120,10 @@ class AppRouter {
       case mySharing:
         return MaterialPageRoute(
           builder: (_) => const MySharingScreen(),
+        );
+      case sharingBookmarks:
+        return MaterialPageRoute(
+          builder: (_) => const SharingBookmarksScreen(),
         );
       case sharingDetail:
         final postId = settings.arguments as int;

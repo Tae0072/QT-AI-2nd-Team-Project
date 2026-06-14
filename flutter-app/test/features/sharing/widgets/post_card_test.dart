@@ -58,6 +58,49 @@ void main() {
     expect(find.byIcon(Icons.favorite_border), findsNothing);
   });
 
+  testWidgets('onBookmark가 있으면 저장 아이콘을 보이고 탭을 전달한다', (tester) async {
+    var bookmarked = false;
+    final saved = SharingPostItem(
+      id: 1,
+      nicknameSnapshot: 'a',
+      titleSnapshot: 't',
+      category: 'PRAYER',
+      bodyPreview: '',
+      likeCount: 0,
+      commentCount: 0,
+      likedByMe: false,
+      bookmarkedByMe: true,
+    );
+    await tester.pumpWidget(wrap(PostCard(
+      item: saved,
+      onTap: () {},
+      onBookmark: () => bookmarked = true,
+    )));
+
+    // 저장된 글은 채워진 북마크.
+    expect(find.byIcon(Icons.bookmark), findsOneWidget);
+    expect(find.byIcon(Icons.bookmark_border), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.bookmark));
+    expect(bookmarked, isTrue);
+  });
+
+  testWidgets('onBookmark가 없으면 저장 아이콘을 숨긴다', (tester) async {
+    final item = SharingPostItem(
+      id: 1,
+      nicknameSnapshot: 'a',
+      titleSnapshot: 't',
+      category: 'PRAYER',
+      bodyPreview: '',
+      likeCount: 0,
+      commentCount: 0,
+      likedByMe: false,
+    );
+    await tester.pumpWidget(wrap(PostCard(item: item, onTap: () {})));
+    expect(find.byIcon(Icons.bookmark), findsNothing);
+    expect(find.byIcon(Icons.bookmark_border), findsNothing);
+  });
+
   testWidgets('긴 닉네임이어도 좁은 폭에서 오버플로하지 않는다', (tester) async {
     final item = SharingPostItem(
       id: 2,

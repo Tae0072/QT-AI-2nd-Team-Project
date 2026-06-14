@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
  * @param bodyPreview        본문 미리보기 (앞 일부만 잘라서 제공)
  * @param sourceNoteDeletedAt 원본 노트 공유 해제 시각. null이면 원본 유효
  * @param likedByMe          현재 조회자가 좋아요를 눌렀는지 (사용자별 계산)
+ * @param bookmarkedByMe     현재 조회자가 저장(북마크)했는지 (사용자별 계산)
  * @param publishedAt        발행 시각
  */
 public record SharingPostListItem(
@@ -26,5 +27,6 @@ public record SharingPostListItem(
         int likeCount,
         int commentCount,
         boolean likedByMe,
+        boolean bookmarkedByMe,
         LocalDateTime publishedAt
 ) {}

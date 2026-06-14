@@ -96,6 +96,24 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
     }
   }
 
+  Future<void> _toggleBookmark(SharingPostDetail detail) async {
+    try {
+      // 낙관적 갱신: 저장 아이콘만 즉시 바뀐다(실패 시 롤백).
+      await ref
+          .read(sharingPostDetailProvider(_postId).notifier)
+          .toggleBookmark();
+      // 피드 목록의 저장 표시도 어긋나지 않게 백그라운드 동기화.
+      ref.invalidate(sharingPostsProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(detail.bookmarkedByMe ? '저장 해제에 실패했어요.' : '저장에 실패했어요.')),
+        );
+      }
+    }
+  }
+
   Future<void> _showReportSheet() async {
     final l = AppLocalizations.of(context);
     final reasons = {
@@ -190,6 +208,14 @@ class _SharingDetailScreenState extends ConsumerState<SharingDetailScreen> {
         title: Text(l.sharingDetailTitle),
         centerTitle: true,
         actions: [
+          if (detail != null)
+            IconButton(
+              icon: Icon(detail.bookmarkedByMe
+                  ? Icons.bookmark
+                  : Icons.bookmark_border),
+              tooltip: '저장',
+              onPressed: () => _toggleBookmark(detail),
+            ),
           if (detail != null && detail.ownedByMe)
             IconButton(
                 icon: const Icon(Icons.delete_outline),
