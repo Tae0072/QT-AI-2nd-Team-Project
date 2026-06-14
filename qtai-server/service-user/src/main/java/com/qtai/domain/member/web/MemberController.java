@@ -1,12 +1,17 @@
 package com.qtai.domain.member.web;
 
 import com.qtai.common.dto.ApiResponse;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
+import com.qtai.domain.member.api.GetProfilePhotoUseCase;
+import com.qtai.domain.member.api.UpdateProfilePhotoUseCase;
 import com.qtai.domain.member.api.UpdateProfileUseCase;
 import com.qtai.domain.member.api.WithdrawUseCase;
 import com.qtai.domain.member.api.dto.MemberPublicResponse;
 import com.qtai.domain.member.api.dto.MemberResponse;
 import com.qtai.domain.member.api.dto.NicknameChangeRequest;
+import com.qtai.domain.member.api.dto.ProfilePhotoView;
 import com.qtai.domain.member.api.dto.ProfileUpdateRequest;
 import com.qtai.domain.member.api.dto.WithdrawRequest;
 import com.qtai.domain.member.api.ChangeNicknameUseCase;
@@ -14,6 +19,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -21,10 +28,14 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -42,6 +53,8 @@ public class MemberController {
     private final UpdateProfileUseCase updateProfileUseCase;
     private final WithdrawUseCase withdrawUseCase;
     private final ChangeNicknameUseCase changeNicknameUseCase;
+    private final UpdateProfilePhotoUseCase updateProfilePhotoUseCase;
+    private final GetProfilePhotoUseCase getProfilePhotoUseCase;
 
     // ── 회원 조회 ──
 
@@ -82,6 +95,47 @@ public class MemberController {
             @Valid @RequestBody ProfileUpdateRequest request) {
         MemberResponse response = updateProfileUseCase.updateProfile(memberId, request);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    // ── 프로필 사진(서버 DB 저장 + 스트리밍) ──
+
+    /** POST /api/v1/me/profile-photo — 프로필 사진 업로드(multipart, 필드명 file). */
+    @PostMapping(value = "/api/v1/me/profile-photo",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<MemberResponse>> uploadProfilePhoto(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "이미지 파일이 필요합니다.");
+        }
+        final byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "이미지를 읽지 못했습니다.");
+        }
+        MemberResponse response =
+                updateProfilePhotoUseCase.updateProfilePhoto(memberId, bytes, file.getContentType());
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /** DELETE /api/v1/me/profile-photo — 프로필 사진 삭제(기본 아바타로). */
+    @DeleteMapping("/api/v1/me/profile-photo")
+    public ResponseEntity<ApiResponse<MemberResponse>> deleteProfilePhoto(
+            @AuthenticationPrincipal Long memberId) {
+        MemberResponse response = updateProfilePhotoUseCase.deleteProfilePhoto(memberId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /** GET /api/v1/me/profile-photo — 내 프로필 사진 바이트 스트리밍. */
+    @GetMapping("/api/v1/me/profile-photo")
+    public ResponseEntity<byte[]> getProfilePhoto(@AuthenticationPrincipal Long memberId) {
+        ProfilePhotoView photo = getProfilePhotoUseCase.getOwnProfilePhoto(memberId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(photo.contentType()))
+                .contentLength(photo.data().length)
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePrivate())
+                .body(photo.data());
     }
 
     // ── 닉네임 변경 (즉시 변경 가능 — 2026-06-11 잠금 폐지) ──

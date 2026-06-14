@@ -14,6 +14,11 @@ spring:
     properties:
       hibernate:
         format_sql: false
+  # 프로필 사진 업로드(multipart) 최대 크기 — 서비스 검증은 5MB, 여유로 6MB 허용.
+  servlet:
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 6MB
   # Jackson — 시간대/날짜 직렬화 정책(모놀리식과 동일)
   jackson:
     time-zone: Asia/Seoul

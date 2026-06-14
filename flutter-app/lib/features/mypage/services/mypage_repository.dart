@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../models/dashboard_response.dart';
@@ -51,6 +53,62 @@ class MyPageRepository {
     final response = await _dio.patch('/me', data: body);
     final data = response.data['data'] as Map<String, dynamic>;
     return MemberResponse.fromJson(data);
+  }
+
+  // ── 프로필 사진(서버 DB 저장) ──
+
+  /// 프로필 사진 업로드(multipart). [bytes]는 이미지 바이트, [filename]은 확장자 포함.
+  ///
+  /// POST /me/profile-photo → [MemberResponse]
+  Future<MemberResponse> uploadProfilePhoto(
+    Uint8List bytes, {
+    required String filename,
+  }) async {
+    final subtype = _imageSubtype(filename);
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: DioMediaType('image', subtype),
+      ),
+    });
+    final response = await _dio.post('/me/profile-photo', data: form);
+    final data = response.data['data'] as Map<String, dynamic>;
+    return MemberResponse.fromJson(data);
+  }
+
+  /// 프로필 사진 삭제(기본 아바타로).
+  ///
+  /// DELETE /me/profile-photo → [MemberResponse]
+  Future<MemberResponse> deleteProfilePhoto() async {
+    final response = await _dio.delete('/me/profile-photo');
+    final data = response.data['data'] as Map<String, dynamic>;
+    return MemberResponse.fromJson(data);
+  }
+
+  /// 내가 업로드한 프로필 사진 바이트 조회(없으면 null).
+  ///
+  /// GET /me/profile-photo (raw bytes)
+  Future<Uint8List?> getMyProfilePhotoBytes() async {
+    try {
+      final response = await _dio.get<List<int>>(
+        '/me/profile-photo',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final data = response.data;
+      return data == null ? null : Uint8List.fromList(data);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// 확장자 → image 서브타입(jpeg/png/webp). 기본 jpeg.
+  String _imageSubtype(String filename) {
+    final lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) return 'png';
+    if (lower.endsWith('.webp')) return 'webp';
+    return 'jpeg';
   }
 
   // ── 닉네임 ──

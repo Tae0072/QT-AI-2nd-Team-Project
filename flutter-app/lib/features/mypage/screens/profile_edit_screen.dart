@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/network/error_interceptor.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../auth/providers/auth_providers.dart';
+import '../models/member_response.dart';
 import '../providers/mypage_providers.dart';
 import '../widgets/withdraw_dialog.dart';
 
@@ -27,6 +30,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _nicknameController = TextEditingController();
   bool _isEditing = false;
   bool _isSaving = false;
+  bool _photoBusy = false; // 사진 업로드/삭제 중
   Timer? _debounceTimer;
 
   @override
@@ -41,6 +45,91 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       ref.read(nicknameQueryProvider.notifier).state = value.trim();
     });
+  }
+
+  /// 아바타 — 카카오 등 외부 http URL은 NetworkImage, 우리 서버 업로드분은
+  /// Dio로 바이트를 받아 MemoryImage로 표시(인증 필요), 없으면 기본 아이콘.
+  Widget _avatar(MemberResponse member) {
+    final url = member.profileImageUrl;
+    if (url == null) {
+      return const CircleAvatar(radius: 48, child: Icon(Icons.person, size: 48));
+    }
+    if (url.startsWith('http')) {
+      return CircleAvatar(radius: 48, backgroundImage: NetworkImage(url));
+    }
+    // 우리 서버 업로드분(/api/v1/me/profile-photo?v=...): 버전이 바뀌면 다시 로드.
+    return FutureBuilder<Uint8List?>(
+      key: ValueKey(url),
+      future: ref.read(myPageRepositoryProvider).getMyProfilePhotoBytes(),
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        return CircleAvatar(
+          radius: 48,
+          backgroundImage: bytes != null ? MemoryImage(bytes) : null,
+          child: bytes == null ? const Icon(Icons.person, size: 48) : null,
+        );
+      },
+    );
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+    setState(() => _photoBusy = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      await ref
+          .read(myPageRepositoryProvider)
+          .uploadProfilePhoto(bytes, filename: picked.name);
+      ref.invalidate(profileProvider);
+      ref.invalidate(dashboardProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('프로필 사진을 변경했어요.')),
+        );
+      }
+    } on ApiError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('사진을 변경하지 못했어요. 다시 시도해 주세요.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
+  Future<void> _deletePhoto() async {
+    setState(() => _photoBusy = true);
+    try {
+      await ref.read(myPageRepositoryProvider).deleteProfilePhoto();
+      ref.invalidate(profileProvider);
+      ref.invalidate(dashboardProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('기본 이미지로 변경했어요.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('변경하지 못했어요. 다시 시도해 주세요.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
   }
 
   Future<void> _saveNickname() async {
@@ -155,20 +244,27 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // 프로필 이미지
-              Center(
-                child: CircleAvatar(
-                  radius: 48,
-                  backgroundImage: member.profileImageUrl != null
-                      ? NetworkImage(member.profileImageUrl!)
-                      : null,
-                  child: member.profileImageUrl == null
-                      ? const Icon(Icons.person, size: 48)
-                      : null,
-                ),
+              // 프로필 이미지 + 변경/삭제
+              Center(child: _avatar(member)),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton.icon(
+                    onPressed: _photoBusy ? null : _pickAndUploadPhoto,
+                    icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                    label: const Text('사진 변경'),
+                  ),
+                  if (member.profileImageUrl != null)
+                    TextButton.icon(
+                      onPressed: _photoBusy ? null : _deletePhoto,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('기본 이미지로'),
+                    ),
+                ],
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // 닉네임 섹션
               _buildNicknameSection(member.isNicknameChangeable,
