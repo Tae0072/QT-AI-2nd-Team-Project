@@ -73,6 +73,15 @@ public class MemberRestClientAdapter implements GetMemberUseCase {
         return get(uri -> uri.path("/api/v1/members").queryParam("ids", memberIds).build(), PUBLIC_LIST_TYPE);
     }
 
+    @Override
+    public List<MemberPublicResponse> resolveActiveByNicknames(Collection<String> nicknames) {
+        if (nicknames == null || nicknames.isEmpty()) {
+            return List.of();
+        }
+        return get(uri -> uri.path("/api/v1/members/by-nicknames").queryParam("nicknames", nicknames).build(),
+                PUBLIC_LIST_TYPE);
+    }
+
     private <T> T get(Function<UriBuilder, URI> uriFunction, ParameterizedTypeReference<ApiResponse<T>> type) {
         try {
             ApiResponse<T> body = restClient.get()

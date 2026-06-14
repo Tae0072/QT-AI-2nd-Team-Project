@@ -90,6 +90,38 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
                 .toList();
     }
 
+    /** 멘션 자동완성 기본/최대 결과 수. */
+    private static final int MENTION_SEARCH_DEFAULT_LIMIT = 8;
+    private static final int MENTION_SEARCH_MAX_LIMIT = 20;
+
+    @Override
+    public java.util.List<MemberPublicResponse> resolveActiveByNicknames(java.util.Collection<String> nicknames) {
+        if (nicknames == null || nicknames.isEmpty()) {
+            return java.util.List.of();
+        }
+        return memberRepository.findByNicknameIn(new java.util.LinkedHashSet<>(nicknames)).stream()
+                .filter(Member::isActive)
+                .map(member -> new MemberPublicResponse(
+                        member.getId(), member.getNickname(), member.getProfileImageUrl()))
+                .toList();
+    }
+
+    @Override
+    public java.util.List<MemberPublicResponse> searchActiveByNicknamePrefix(String prefix, int limit) {
+        if (prefix == null || prefix.isBlank()) {
+            return java.util.List.of();
+        }
+        int capped = (limit < 1) ? MENTION_SEARCH_DEFAULT_LIMIT : Math.min(limit, MENTION_SEARCH_MAX_LIMIT);
+        return memberRepository
+                .findByNicknameStartingWithIgnoreCaseOrderByNicknameAsc(
+                        prefix.trim(), org.springframework.data.domain.PageRequest.of(0, capped))
+                .stream()
+                .filter(Member::isActive)
+                .map(member -> new MemberPublicResponse(
+                        member.getId(), member.getNickname(), member.getProfileImageUrl()))
+                .toList();
+    }
+
     // ── UpdateProfileUseCase ──
 
     @Override
