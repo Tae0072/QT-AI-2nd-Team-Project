@@ -33,12 +33,16 @@ import {
 } from '../api/aiPromptVersions';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
+import {
+  AI_PROMPT_DEFAULT_STATUS,
+  AI_PROMPT_MANAGED_TYPE,
+  AI_PROMPT_VERSION_STATUS_TAGS,
+  aiPromptVersionListParams,
+} from './adminPageContracts';
 
 // ===== AI 프롬프트 관리 =====
 // 1차 범위는 EXPLANATION 프롬프트 버전의 등록, 상세 조회, 활성화, 폐기이다.
 // 권한: REVIEWER / SUPER_ADMIN.
-
-const PROMPT_TYPE = 'EXPLANATION' as const;
 
 const STATUS_OPTIONS = [
   { label: '초안(DRAFT)', value: 'DRAFT' },
@@ -57,12 +61,10 @@ const promptBlockStyle = {
 } as const;
 
 function statusTag(status: string) {
-  const map: Record<string, { color: string; text: string }> = {
-    DRAFT: { color: 'gold', text: '초안' },
-    ACTIVE: { color: 'green', text: '활성' },
-    RETIRED: { color: 'default', text: '폐기' },
-  };
-  const m = map[status] ?? { color: 'default', text: status };
+  const m =
+    AI_PROMPT_VERSION_STATUS_TAGS[
+      status as keyof typeof AI_PROMPT_VERSION_STATUS_TAGS
+    ] ?? { color: 'default', text: status };
   return <Tag color={m.color}>{m.text}</Tag>;
 }
 
@@ -81,11 +83,12 @@ export default function AiPromptVersionsPage() {
     usePagedList<AiPromptVersion, AiPromptVersionListParams>(listAiPromptVersions, {
       page: 0,
       size: 20,
-      promptType: PROMPT_TYPE,
-      status: 'DRAFT',
+      ...aiPromptVersionListParams(AI_PROMPT_DEFAULT_STATUS),
     });
 
-  const [status, setStatus] = useState<AiPromptStatus | undefined>('DRAFT');
+  const [status, setStatus] = useState<AiPromptStatus | undefined>(
+    AI_PROMPT_DEFAULT_STATUS,
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form] = Form.useForm<CreatePromptFormValues>();
@@ -96,11 +99,11 @@ export default function AiPromptVersionsPage() {
   const [detail, setDetail] = useState<AiPromptVersion | null>(null);
 
   const onSearch = () =>
-    applyFilters({ promptType: PROMPT_TYPE, status: status || undefined });
+    applyFilters(aiPromptVersionListParams(status || undefined));
 
   const onReset = () => {
-    setStatus('DRAFT');
-    applyFilters({ promptType: PROMPT_TYPE, status: 'DRAFT' });
+    setStatus(AI_PROMPT_DEFAULT_STATUS);
+    applyFilters(aiPromptVersionListParams(AI_PROMPT_DEFAULT_STATUS));
   };
 
   const openDetail = async (row: AiPromptVersion) => {
@@ -126,7 +129,7 @@ export default function AiPromptVersionsPage() {
     setCreating(true);
     try {
       await createAiPromptVersion({
-        promptType: PROMPT_TYPE,
+        promptType: AI_PROMPT_MANAGED_TYPE,
         version: values.version.trim(),
         systemPrompt: values.systemPrompt.trim(),
         userPromptTemplate: values.userPromptTemplate.trim(),
@@ -288,10 +291,10 @@ export default function AiPromptVersionsPage() {
 
         <Space wrap>
           <Select
-            value={PROMPT_TYPE}
+            value={AI_PROMPT_MANAGED_TYPE}
             style={{ width: 190 }}
             disabled
-            options={[{ label: '해설(EXPLANATION)', value: PROMPT_TYPE }]}
+            options={[{ label: '해설(EXPLANATION)', value: AI_PROMPT_MANAGED_TYPE }]}
           />
           <Select
             placeholder="상태"

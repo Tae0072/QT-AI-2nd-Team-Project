@@ -4,7 +4,7 @@
 | --- | --- |
 | 작성일 | 2026-06-15 |
 | 브랜치 | `feature/ai-prompt-eval-admin-web-docs` |
-| PR 대상 | `feature/ai-prompt-eval-backend-openapi` 또는 backend PR merge 후 `dev` |
+| PR 대상 | `dev` |
 | 범위 | admin-web, frontend docs |
 
 ## 요약
@@ -21,6 +21,12 @@ Backend/OpenAPI PR에서 추가한 EXPLANATION 프롬프트 관리 API와 평가
 - 최근 평가 run 결과와 case별 결과 상세 Drawer 추가.
 - 메뉴와 라우트 추가.
 - frontend 전용 workflow/report 작성.
+
+## 리뷰 반영
+
+- `getLatestEvaluationRun` 행별 조회를 `Promise.allSettled`로 변경해 일부 set의 latest 조회 실패가 전체 목록을 무너뜨리지 않도록 보강.
+- 평가 run status/result를 backend/OpenAPI enum(`RUNNING/SUCCEEDED/FAILED`, `PASSED/FAILED/NEEDS_REVIEW`)에 맞추고 임의 별칭(`COMPLETED`, `PASS`, `FAIL` 등)을 제거.
+- `admin-page-contracts.test.mjs`에 신규 프롬프트 관리 화면, AD-11 평가 실행 UI, 라우트/메뉴 권한, enum 매핑, DRAFT EXPLANATION 프롬프트 조회 계약 테스트를 추가.
 
 ## 주요 파일
 
@@ -50,5 +56,4 @@ Backend/OpenAPI PR에서 추가한 EXPLANATION 프롬프트 관리 API와 평가
 ## 리뷰 포인트
 
 - frontend PR은 backend PR의 API 계약에 의존한다.
-- stacked PR로 올릴 경우 base를 `feature/ai-prompt-eval-backend-openapi`로 둔다.
-- backend PR이 먼저 merge되면 frontend PR은 `dev`로 rebase 후 base를 `dev`로 열 수 있다.
+- backend PR이 먼저 merge되어 현재 frontend PR은 `dev` 기준으로 rebase되어 있다.
