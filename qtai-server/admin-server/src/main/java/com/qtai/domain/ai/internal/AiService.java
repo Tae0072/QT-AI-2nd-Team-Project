@@ -9,6 +9,7 @@ import java.util.Map;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,21 +18,27 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.ai.api.generation.CreateAiGenerationJobUseCase;
 import com.qtai.domain.ai.api.admin.asset.RegenerateAiAssetUseCase;
+import com.qtai.domain.ai.api.admin.asset.GenerateQtPassageExplanationUseCase;
 import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobCommand;
 import com.qtai.domain.ai.api.generation.dto.CreateAiGenerationJobResult;
 import com.qtai.domain.ai.api.admin.asset.dto.RegenerateAiAssetCommand;
 import com.qtai.domain.ai.api.admin.asset.dto.RegenerateAiAssetResult;
+import com.qtai.domain.ai.api.admin.asset.dto.GenerateQtPassageExplanationCommand;
+import com.qtai.domain.ai.api.admin.asset.dto.GenerateQtPassageExplanationResult;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 
 @Service
-public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAssetUseCase {
+public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAssetUseCase,
+        GenerateQtPassageExplanationUseCase {
 
     private static final String ACTIVE_JOB_UNIQUE_CONSTRAINT = "uk_ai_generation_jobs_active_target_prompt";
     private static final String ACTIVE_TARGET_UNIQUE_CONSTRAINT = "uk_ai_generation_jobs_active_target";
     private static final String ACTOR_TYPE_ADMIN = "ADMIN";
     private static final String ACTION_AI_REGENERATE_REQUEST = "AI_REGENERATE_REQUEST";
+    private static final String ACTION_AI_EXPLANATION_GENERATE_REQUEST = "AI_EXPLANATION_GENERATE_REQUEST";
     private static final String TARGET_TYPE_AI_GENERATED_ASSET = "AI_GENERATED_ASSET";
+    private static final String TARGET_TYPE_QT_PASSAGE = "QT_PASSAGE";
 
     private static final List<AiGenerationJobStatus> ACTIVE_GENERATION_STATUSES = List.of(
             AiGenerationJobStatus.QUEUED,
@@ -41,6 +48,7 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
     private final AiGenerationJobRepository generationJobRepository;
     private final AiGeneratedAssetRepository generatedAssetRepository;
     private final AiPromptVersionRepository promptVersionRepository;
+    private final AiDailyQtVerseExplanationSeedService explanationSeedService;
     private final WriteAuditLogUseCase auditLogUseCase;
     private final ObjectMapper objectMapper;
 
@@ -49,12 +57,14 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
             AiGenerationJobRepository generationJobRepository,
             AiGeneratedAssetRepository generatedAssetRepository,
             AiPromptVersionRepository promptVersionRepository,
+            @Lazy AiDailyQtVerseExplanationSeedService explanationSeedService,
             WriteAuditLogUseCase auditLogUseCase,
             ObjectMapper objectMapper
     ) {
         this.generationJobRepository = generationJobRepository;
         this.generatedAssetRepository = generatedAssetRepository;
         this.promptVersionRepository = promptVersionRepository;
+        this.explanationSeedService = explanationSeedService;
         this.auditLogUseCase = auditLogUseCase;
         this.objectMapper = objectMapper;
     }
@@ -140,6 +150,33 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         );
     }
 
+    /**
+     * 관리자 해설 생성 트리거(F-02/F-06/F-14).
+     *
+     * <p>특정 QT 본문의 미생성 해설 절에 대해 생성 job을 시딩한다. 시딩은
+     * {@link AiDailyQtVerseExplanationSeedService#seedForPassage}(propagation=NOT_SUPPORTED)로 위임되어
+     * 각 job이 개별 트랜잭션으로 커밋되며, 본 메서드의 트랜잭션은 그동안 잠시 보류됐다가
+     * 재개되어 마지막 감사 로그를 함께 커밋한다.
+     */
+    @Override
+    @Transactional
+    public GenerateQtPassageExplanationResult generateQtPassageExplanation(
+            GenerateQtPassageExplanationCommand command) {
+        requireValidCommand(command);
+
+        AiDailyQtVerseExplanationSeedResult result = explanationSeedService.seedForPassage(
+                command.qtPassageId(),
+                ACTOR_TYPE_ADMIN + ":" + command.adminId()
+        );
+        writeGenerateExplanationAudit(command, result);
+
+        return new GenerateQtPassageExplanationResult(
+                result.createdCount(),
+                result.failedCount(),
+                result.failureReason()
+        );
+    }
+
     private AiGenerationJob saveQueuedJob(AiGenerationJob job) {
         try {
             return generationJobRepository.saveAndFlush(job);
@@ -184,6 +221,17 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
         requireText(command.adminRole(), "adminRole");
         requirePositive(command.promptVersionId(), "promptVersionId");
         requireText(command.reason(), "reason");
+        if (command.requestedAt() == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "requestedAt must not be null");
+        }
+    }
+
+    private static void requireValidCommand(GenerateQtPassageExplanationCommand command) {
+        if (command == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "command must not be null");
+        }
+        requirePositive(command.qtPassageId(), "qtPassageId");
+        requirePositive(command.adminId(), "adminId");
         if (command.requestedAt() == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "requestedAt must not be null");
         }
@@ -293,6 +341,34 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
                 assetSnapshot(command.assetId(), asset),
                 jobSnapshot(savedJob)
         ));
+    }
+
+    private void writeGenerateExplanationAudit(
+            GenerateQtPassageExplanationCommand command,
+            AiDailyQtVerseExplanationSeedResult result
+    ) {
+        auditLogUseCase.write(new AuditLogWriteRequest(
+                null,
+                ACTOR_TYPE_ADMIN,
+                command.adminId(),
+                ACTOR_TYPE_ADMIN + ":" + command.adminId(),
+                ACTION_AI_EXPLANATION_GENERATE_REQUEST,
+                TARGET_TYPE_QT_PASSAGE,
+                command.qtPassageId(),
+                null,
+                explanationSeedSnapshot(command.qtPassageId(), result)
+        ));
+    }
+
+    private String explanationSeedSnapshot(Long qtPassageId, AiDailyQtVerseExplanationSeedResult result) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("qtPassageId", qtPassageId);
+        payload.put("createdCount", result.createdCount());
+        payload.put("failedCount", result.failedCount());
+        if (result.hasFailureReason()) {
+            payload.put("failureReason", result.failureReason());
+        }
+        return toAuditJson(payload);
     }
 
     private String assetSnapshot(Long assetId, AiGeneratedAsset asset) {
