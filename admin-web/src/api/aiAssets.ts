@@ -28,6 +28,8 @@ export interface AiAsset {
   promptVersion: PromptVersionSummary | null;
   checklistVersionId: number | null;
   latestValidationResult: string | null;
+  autoValidationResult: string | null;
+  advisorValidationResult: string | null;
   sourceLabelPresent: boolean;
   createdAt: string; // ISO
 }

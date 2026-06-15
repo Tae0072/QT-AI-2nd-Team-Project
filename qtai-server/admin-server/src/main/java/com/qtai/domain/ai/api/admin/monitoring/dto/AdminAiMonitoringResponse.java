@@ -7,6 +7,7 @@ import java.util.List;
 public record AdminAiMonitoringResponse(
         Period period,
         GenerationJobs generationJobs,
+        AssetStatuses assetStatuses,
         Validation validation,
         BatchRuns batchRuns,
         Qa qa,
@@ -25,6 +26,14 @@ public record AdminAiMonitoringResponse(
             long running,
             long succeeded,
             long failed
+    ) {
+    }
+
+    public record AssetStatuses(
+            long validating,
+            long approved,
+            long rejected,
+            long hidden
     ) {
     }
 

@@ -84,11 +84,32 @@ test('admin page modals use destroyOnHidden instead of deprecated destroyOnClose
 });
 
 test('AI asset action visibility follows review and regeneration contracts', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiAssetsPage.tsx'), 'utf8');
+
   assert.equal(contracts.isAiAssetReviewable('VALIDATING'), true);
   assert.equal(contracts.isAiAssetReviewable('APPROVED'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'PASSED', 'PASSED'), true);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'NEEDS_REVIEW', 'PASSED'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'PASSED', 'NEEDS_REVIEW'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'PASSED', 'REJECTED'), false);
+  assert.equal(contracts.isAiAssetApprovable('APPROVED', 'PASSED', 'PASSED'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', null, 'PASSED'), false);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('VALIDATING', 'PASSED'), true);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('VALIDATING', 'NEEDS_REVIEW'), true);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('VALIDATING', 'REJECTED'), false);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('APPROVED', 'PASSED'), false);
   assert.equal(contracts.isAiAssetRegeneratable('REJECTED'), true);
   assert.equal(contracts.isAiAssetRegeneratable('HIDDEN'), true);
   assert.equal(contracts.isAiAssetRegeneratable('APPROVED'), false);
+  assert.match(
+    page,
+    /isAiAssetApprovable\(\s*r\.status,\s*r\.autoValidationResult,\s*r\.advisorValidationResult,\s*\)/,
+  );
+  assert.match(
+    page,
+    /shouldShowAiAssetApproveButton\(\s*r\.status,\s*r\.advisorValidationResult,\s*\)/,
+  );
+  assert.match(page, /disabled=\{!canApprove\}/);
 });
 
 test('AI asset active regeneration job prefers cached active jobs', () => {

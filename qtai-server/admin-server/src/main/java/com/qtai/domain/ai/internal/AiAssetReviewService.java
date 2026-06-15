@@ -321,7 +321,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
                 TARGET_TYPE_AI_GENERATED_ASSET,
                 command.assetId(),
                 beforeJson,
-                reviewedAssetSnapshot(command.assetId(), asset, command.activateForTarget())
+                reviewedAssetSnapshot(command, asset)
         ));
     }
 
@@ -335,15 +335,18 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         return toAuditJson(payload);
     }
 
-    private String reviewedAssetSnapshot(Long assetId, AiGeneratedAsset asset, boolean activateForTarget) {
+    private String reviewedAssetSnapshot(ReviewAiAssetCommand command, AiGeneratedAsset asset) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("id", assetId);
+        payload.put("id", command.assetId());
         payload.put("assetType", asset.getAssetType().name());
         payload.put("status", asset.getStatus().name());
         payload.put("targetType", asset.getTargetType().name());
         payload.put("targetId", asset.getTargetId());
         payload.put("reviewedAt", DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(asset.getReviewedAt()));
-        payload.put("activateForTarget", activateForTarget);
+        payload.put("activateForTarget", command.activateForTarget());
+        if (command.reason() != null && !command.reason().isBlank()) {
+            payload.put("reviewReason", command.reason());
+        }
         return toAuditJson(payload);
     }
 
@@ -372,7 +375,6 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         requireText(command.memberRole(), "memberRole");
         requireText(command.adminRole(), "adminRole");
         requireText(command.action(), "action");
-        requireText(command.reason(), "reason");
         if (command.reviewedAt() == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "reviewedAt must not be null");
         }

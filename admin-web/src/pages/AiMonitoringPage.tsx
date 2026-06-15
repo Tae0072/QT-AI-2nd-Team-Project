@@ -167,7 +167,7 @@ export default function AiMonitoringPage() {
               )}
 
               <Row gutter={[16, 16]}>
-                <Col xs={24} md={8}>
+                <Col xs={24} md={12} xl={6}>
                   <Card size="small" title="생성 작업">
                     <Row gutter={8}>
                       <Col span={6}>
@@ -203,7 +203,43 @@ export default function AiMonitoringPage() {
                     </Row>
                   </Card>
                 </Col>
-                <Col xs={24} md={8}>
+                <Col xs={24} md={12} xl={6}>
+                  <Card size="small" title="산출물 상태">
+                    <Row gutter={8}>
+                      <Col span={6}>
+                        <Statistic
+                          title="검증중"
+                          value={data.assetStatuses.validating}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic
+                          title="승인"
+                          value={data.assetStatuses.approved}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic
+                          title="반려"
+                          value={data.assetStatuses.rejected}
+                          valueStyle={{
+                            color:
+                              data.assetStatuses.rejected > 0
+                                ? '#cf1322'
+                                : undefined,
+                          }}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic
+                          title="숨김"
+                          value={data.assetStatuses.hidden}
+                        />
+                      </Col>
+                    </Row>
+                  </Card>
+                </Col>
+                <Col xs={24} md={12} xl={6}>
                   <Card size="small" title="검증">
                     <Row gutter={8}>
                       <Col span={6}>
@@ -233,7 +269,7 @@ export default function AiMonitoringPage() {
                     </Row>
                   </Card>
                 </Col>
-                <Col xs={24} md={8}>
+                <Col xs={24} md={12} xl={6}>
                   <Card size="small" title="Q&amp;A">
                     <Row gutter={8}>
                       <Col span={6}>
