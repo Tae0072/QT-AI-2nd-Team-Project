@@ -102,7 +102,7 @@ class AdminAiPromptVersionControllerTest {
                                   "promptType":"EXPLANATION",
                                   "version":"2026.06.2",
                                   "systemPrompt":"Return JSON only.",
-                                  "userPromptTemplate":"Verses: {{versesBlock}}",
+                                  "userPromptTemplate":"요약은 한 문장으로 작성하세요.",
                                   "modelName":"deepseek-chat",
                                   "temperature":0.2,
                                   "maxTokens":2000,
@@ -144,7 +144,7 @@ class AdminAiPromptVersionControllerTest {
                                   "promptType":"EXPLANATION",
                                   "version":"2026.06.2",
                                   "systemPrompt":"Return JSON only.",
-                                  "userPromptTemplate":"Verses: {{versesBlock}}",
+                                  "userPromptTemplate":"요약은 한 문장으로 작성하세요.",
                                   "temperature":3.0,
                                   "maxTokens":2000
                                 }
@@ -179,7 +179,7 @@ class AdminAiPromptVersionControllerTest {
                 "hash-002",
                 status,
                 "Return JSON only.",
-                "Verses: {{versesBlock}}",
+                "요약은 한 문장으로 작성하세요.",
                 "deepseek-chat",
                 0.2,
                 2000,
