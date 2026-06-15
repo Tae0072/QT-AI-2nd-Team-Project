@@ -108,9 +108,9 @@ public class MusicTrackService implements
         MusicTrack track = findTrack(trackId);
         String before = auditSnapshotFactory.snapshot(track);
         track.updateMetadata(
-                requiredText(command.title(), "title"),
-                parseCategory(command.category()),
-                requiredText(command.mimeType(), "mimeType"),
+                optionalText(command.title(), "title"),
+                parseCategoryOrNull(command.category()),
+                optionalText(command.mimeType(), "mimeType"),
                 command.durationSec(),
                 command.sortOrder(),
                 command.licenseNote()
@@ -169,7 +169,7 @@ public class MusicTrackService implements
                 s.getByteSize(),
                 s.getDurationSec(),
                 s.getSortOrder(),
-                "/api/v1/music/tracks/" + s.getId() + "/stream"
+                streamUrl(s.getId())
         );
     }
 
@@ -243,6 +243,20 @@ public class MusicTrackService implements
             throw new BusinessException(ErrorCode.INVALID_INPUT,
                     "유효하지 않은 배경음악 분류입니다: " + rawCategory);
         }
+    }
+
+    private static MusicCategory parseCategoryOrNull(String rawCategory) {
+        if (rawCategory == null || rawCategory.isBlank()) {
+            return null;
+        }
+        return parseCategory(rawCategory);
+    }
+
+    private static String optionalText(String value, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        return requiredText(value, fieldName);
     }
 
     private static void validateRequiredAudio(byte[] audioData) {

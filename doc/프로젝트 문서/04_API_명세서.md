@@ -1706,6 +1706,8 @@
 목록/상세 응답:
 
 `file` max upload size: 10 MiB.
+Allowed `mimeType`: `audio/mpeg`, `audio/mp4`, `audio/aac`, `audio/ogg`, `audio/wav`, `audio/x-wav`, `audio/webm`, `audio/flac`.
+PATCH omitted fields keep the existing `music_tracks` values.
 
 ```json
 {

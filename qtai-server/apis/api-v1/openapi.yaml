@@ -3957,6 +3957,15 @@ components:
         mimeType:
           type: string
           maxLength: 60
+          enum:
+            - audio/mpeg
+            - audio/mp4
+            - audio/aac
+            - audio/ogg
+            - audio/wav
+            - audio/x-wav
+            - audio/webm
+            - audio/flac
           default: audio/mpeg
         durationSec:
           type: integer
@@ -3979,9 +3988,6 @@ components:
           description: 서버가 music_tracks.audio_data에 저장하는 음원 파일.
     AdminMusicTrackUpdateMultipartRequest:
       type: object
-      required:
-        - title
-        - category
       properties:
         title:
           type: string
@@ -3992,7 +3998,15 @@ components:
         mimeType:
           type: string
           maxLength: 60
-          default: audio/mpeg
+          enum:
+            - audio/mpeg
+            - audio/mp4
+            - audio/aac
+            - audio/ogg
+            - audio/wav
+            - audio/x-wav
+            - audio/webm
+            - audio/flac
         durationSec:
           type: integer
           format: int32
@@ -4002,7 +4016,6 @@ components:
           type: integer
           format: int32
           minimum: 0
-          default: 0
         licenseNote:
           type: string
           maxLength: 300

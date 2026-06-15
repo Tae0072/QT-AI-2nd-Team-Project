@@ -43,6 +43,16 @@ public class AdminMusicTrackController {
 
     private static final List<String> MUSIC_TRACK_ADMIN_ROLES = List.of("OPERATOR", "SUPER_ADMIN");
     private static final long MAX_AUDIO_FILE_BYTES = 10L * 1024 * 1024;
+    private static final Set<String> ALLOWED_AUDIO_MIME_TYPES = Set.of(
+            "audio/mpeg",
+            "audio/mp4",
+            "audio/aac",
+            "audio/ogg",
+            "audio/wav",
+            "audio/x-wav",
+            "audio/webm",
+            "audio/flac"
+    );
 
     private final ListAdminMusicTrackUseCase listAdminMusicTrackUseCase;
     private final CreateAdminMusicTrackUseCase createAdminMusicTrackUseCase;
@@ -86,10 +96,10 @@ public class AdminMusicTrackController {
             @PathVariable Long id,
             Authentication authentication,
             @RequestParam(required = false) String title,
-            @RequestParam(defaultValue = "BGM") String category,
+            @RequestParam(required = false) String category,
             @RequestParam(required = false) String mimeType,
             @RequestParam(required = false) Integer durationSec,
-            @RequestParam(defaultValue = "0") Integer sortOrder,
+            @RequestParam(required = false) Integer sortOrder,
             @RequestParam(required = false) String licenseNote,
             @RequestPart(value = "file", required = false) MultipartFile file) {
         Long adminUserId = requireOperator(authentication);
@@ -140,7 +150,7 @@ public class AdminMusicTrackController {
         return new AdminMusicTrackCommand(
                 title,
                 category,
-                resolveMimeType(mimeType, file),
+                resolveMimeType(mimeType, file, requireFile),
                 durationSec,
                 sortOrder,
                 licenseNote,
@@ -148,14 +158,23 @@ public class AdminMusicTrackController {
         );
     }
 
-    private static String resolveMimeType(String requestedMimeType, MultipartFile file) {
+    private static String resolveMimeType(String requestedMimeType, MultipartFile file, boolean requireFile) {
         if (requestedMimeType != null && !requestedMimeType.isBlank()) {
-            return requestedMimeType;
+            return validateMimeType(requestedMimeType.trim());
         }
         if (file != null && file.getContentType() != null && !file.getContentType().isBlank()) {
-            return file.getContentType();
+            return validateMimeType(file.getContentType().trim());
         }
-        return "audio/mpeg";
+        return requireFile || (file != null && !file.isEmpty()) ? "audio/mpeg" : null;
+    }
+
+    private static String validateMimeType(String mimeType) {
+        String normalized = mimeType.toLowerCase();
+        if (!ALLOWED_AUDIO_MIME_TYPES.contains(normalized)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "unsupported audio mime type: " + mimeType);
+        }
+        return normalized;
     }
 
     private static void validateAudioFileSize(MultipartFile file) {

@@ -8,13 +8,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.music.api.dto.AdminMusicTrackCommand;
 import com.qtai.domain.music.api.dto.AdminMusicTrackListResponse;
 import com.qtai.domain.music.api.dto.AdminMusicTrackResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -52,7 +52,7 @@ class AdminMusicTrackServiceTest {
     }
 
     @Test
-    @DisplayName("listAdmin returns documented page response")
+    @DisplayName("listAdmin은 문서화된 페이징 응답을 반환한다")
     void listAdmin_returnsDocumentedPageResponse() {
         PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
         when(musicTrackRepository.findAdminSummaries(eq(Boolean.TRUE), eq(pageable)))
@@ -95,7 +95,7 @@ class AdminMusicTrackServiceTest {
     }
 
     @Test
-    @DisplayName("updateAdmin은 파일이 없으면 메타데이터만 수정한다")
+    @DisplayName("updateAdmin은 파일이 없으면 기존 음원을 유지한다")
     void updateAdmin_withoutAudio_keepsCurrentAudio() {
         MusicTrack track = track(10L, true, audio("old"));
         when(musicTrackRepository.findById(10L)).thenReturn(Optional.of(track));
@@ -107,6 +107,40 @@ class AdminMusicTrackServiceTest {
         assertThat(track.getAudioData()).isEqualTo(audio("old"));
         assertThat(response.status()).isEqualTo("ACTIVE");
         verify(auditLogUseCase).write(any());
+    }
+
+    @Test
+    @DisplayName("updateAdmin은 누락된 PATCH 필드를 기존 값으로 보존한다")
+    void updateAdmin_partialCommand_preservesOmittedFields() {
+        MusicTrack track = track(
+                10L,
+                true,
+                MusicCategory.HYMN,
+                "audio/wav",
+                120,
+                7,
+                "기존 라이선스",
+                audio("old")
+        );
+        when(musicTrackRepository.findById(10L)).thenReturn(Optional.of(track));
+
+        service.updateAdmin(3L, 10L, new AdminMusicTrackCommand(
+                "제목만 수정",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        ));
+
+        assertThat(track.getTitle()).isEqualTo("제목만 수정");
+        assertThat(track.getCategory()).isEqualTo(MusicCategory.HYMN);
+        assertThat(track.getMimeType()).isEqualTo("audio/wav");
+        assertThat(track.getDurationSec()).isEqualTo(120);
+        assertThat(track.getSortOrder()).isEqualTo(7);
+        assertThat(track.getLicenseNote()).isEqualTo("기존 라이선스");
+        assertThat(track.getAudioData()).isEqualTo(audio("old"));
     }
 
     @Test
@@ -135,7 +169,7 @@ class AdminMusicTrackServiceTest {
     }
 
     @Test
-    @DisplayName("publishAdmin은 이미 ACTIVE면 INVALID_STATUS_TRANSITION")
+    @DisplayName("publishAdmin은 이미 ACTIVE이면 INVALID_STATUS_TRANSITION")
     void publishAdmin_activeTrack_rejectsTransition() {
         MusicTrack track = track(10L, true, audio("mp3"));
         when(musicTrackRepository.findById(10L)).thenReturn(Optional.of(track));
@@ -185,15 +219,36 @@ class AdminMusicTrackServiceTest {
     }
 
     private static MusicTrack track(Long id, boolean enabled, byte[] audioData) {
+        return track(
+                id,
+                enabled,
+                MusicCategory.BGM,
+                "audio/mpeg",
+                120,
+                1,
+                "라이선스 확인",
+                audioData
+        );
+    }
+
+    private static MusicTrack track(
+            Long id,
+            boolean enabled,
+            MusicCategory category,
+            String mimeType,
+            Integer durationSec,
+            Integer sortOrder,
+            String licenseNote,
+            byte[] audioData) {
         MusicTrack track = MusicTrack.builder()
                 .title("기존 배경음악")
-                .category(MusicCategory.BGM)
-                .mimeType("audio/mpeg")
+                .category(category)
+                .mimeType(mimeType)
                 .byteSize((long) audioData.length)
-                .durationSec(120)
-                .sortOrder(1)
+                .durationSec(durationSec)
+                .sortOrder(sortOrder)
                 .enabled(enabled)
-                .licenseNote("라이선스 확인")
+                .licenseNote(licenseNote)
                 .audioData(audioData)
                 .build();
         ReflectionTestUtils.setField(track, "id", id);

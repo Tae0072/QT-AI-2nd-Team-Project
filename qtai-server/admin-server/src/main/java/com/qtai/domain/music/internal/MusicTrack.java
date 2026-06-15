@@ -86,12 +86,12 @@ public class MusicTrack extends BaseEntity {
 
     public void updateMetadata(String title, MusicCategory category, String mimeType,
                                Integer durationSec, Integer sortOrder, String licenseNote) {
-        this.title = title;
+        this.title = (title != null && !title.isBlank()) ? title : this.title;
         this.category = (category != null) ? category : this.category;
         this.mimeType = (mimeType != null && !mimeType.isBlank()) ? mimeType : this.mimeType;
-        this.durationSec = durationSec;
+        this.durationSec = (durationSec != null) ? durationSec : this.durationSec;
         this.sortOrder = (sortOrder != null) ? sortOrder : this.sortOrder;
-        this.licenseNote = licenseNote;
+        this.licenseNote = (licenseNote != null) ? licenseNote : this.licenseNote;
     }
 
     public void replaceAudio(String mimeType, byte[] audioData) {

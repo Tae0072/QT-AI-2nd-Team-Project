@@ -1,5 +1,6 @@
 package com.qtai.domain.music.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -21,6 +22,7 @@ import com.qtai.domain.music.api.HideAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.ListAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.PublishAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.UpdateAdminMusicTrackUseCase;
+import com.qtai.domain.music.api.dto.AdminMusicTrackCommand;
 import com.qtai.domain.music.api.dto.AdminMusicTrackListResponse;
 import com.qtai.domain.music.api.dto.AdminMusicTrackResponse;
 import java.time.LocalDateTime;
@@ -29,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
@@ -149,6 +152,34 @@ class AdminMusicTrackControllerTest {
     }
 
     @Test
+    @DisplayName("PATCH에서 누락한 필드는 command에 null로 전달한다")
+    void update_partialRequest_passesNullForOmittedFields() throws Exception {
+        operator();
+        when(updateAdminMusicTrackUseCase.updateAdmin(eq(3L), eq(10L), any()))
+                .thenReturn(response(10L, "ACTIVE"));
+
+        mockMvc.perform(multipart("/api/v1/admin/music-tracks/10")
+                        .param("title", "제목만 수정")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .with(request -> {
+                            request.setMethod("PATCH");
+                            return request;
+                        }))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<AdminMusicTrackCommand> captor = ArgumentCaptor.forClass(AdminMusicTrackCommand.class);
+        verify(updateAdminMusicTrackUseCase).updateAdmin(eq(3L), eq(10L), captor.capture());
+        AdminMusicTrackCommand command = captor.getValue();
+        assertThat(command.title()).isEqualTo("제목만 수정");
+        assertThat(command.category()).isNull();
+        assertThat(command.mimeType()).isNull();
+        assertThat(command.durationSec()).isNull();
+        assertThat(command.sortOrder()).isNull();
+        assertThat(command.licenseNote()).isNull();
+        assertThat(command.audioData()).isNull();
+    }
+
+    @Test
     @DisplayName("OPERATOR는 배경음악을 발행할 수 있다")
     void publish_returnsOk() throws Exception {
         operator();
@@ -209,17 +240,32 @@ class AdminMusicTrackControllerTest {
                         .param("title", "새 배경음악")
                         .param("category", "BGM")
                         .principal(authentication("ROLE_ADMIN")))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("C0002"));
     }
 
     @Test
-    @DisplayName("?깅줉 ?붿껌???뚯씪???덈Т ?щ㈃ 400")
+    @DisplayName("등록 요청에 파일이 너무 크면 400")
     void create_withOversizedFile_returnsBadRequest() throws Exception {
         operator();
 
         mockMvc.perform(multipart("/api/v1/admin/music-tracks")
                         .file(oversizedAudioFile())
-                        .param("title", "??諛곌꼍?뚯븙")
+                        .param("title", "새 배경음악")
+                        .param("category", "BGM")
+                        .principal(authentication("ROLE_ADMIN")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("C0002"));
+    }
+
+    @Test
+    @DisplayName("허용하지 않는 MIME 타입이면 400")
+    void create_withUnsupportedMime_returnsBadRequest() throws Exception {
+        operator();
+
+        mockMvc.perform(multipart("/api/v1/admin/music-tracks")
+                        .file(pdfFile())
+                        .param("title", "새 배경음악")
                         .param("category", "BGM")
                         .principal(authentication("ROLE_ADMIN")))
                 .andExpect(status().isBadRequest())
@@ -273,7 +319,7 @@ class AdminMusicTrackControllerTest {
         return new MockMultipartFile(
                 "file",
                 "music.mp3",
-                MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                "audio/mpeg",
                 "audio".getBytes()
         );
     }
@@ -282,8 +328,17 @@ class AdminMusicTrackControllerTest {
         return new MockMultipartFile(
                 "file",
                 "large.mp3",
-                MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                "audio/mpeg",
                 new byte[(10 * 1024 * 1024) + 1]
+        );
+    }
+
+    private static MockMultipartFile pdfFile() {
+        return new MockMultipartFile(
+                "file",
+                "not-audio.pdf",
+                MediaType.APPLICATION_PDF_VALUE,
+                "pdf".getBytes()
         );
     }
 
