@@ -14,24 +14,24 @@ import com.qtai.domain.bible.api.ListBibleBooksUseCase;
 import com.qtai.domain.bible.api.dto.BibleBookResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
-import com.qtai.domain.qt.api.QtPassageVerseMappingsChangedEvent;
 import com.qtai.domain.qt.client.sum.SuTodayPassage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 성서유니온 수집 본문 반영 + 절 매핑(qt_passage_verses) 저장.
+ * 성서유니온 수집 본문 반영 + 절 매핑(qt_passage_verses) 저장의 코디네이터.
  *
  * <p>버그 수정(2026-06-05): 기존에는 qt_passages 행만 만들고 qt_passage_verses를
  * 채우는 코드가 없어, 자동 수집 본문은 AI 해설 시딩·학습 콘텐츠·시뮬레이터가
  * 쓰는 verseIds가 항상 비어 파이프라인이 통째로 끊겼다. 수집 시 bible api로
  * 절 범위를 verse id에 매핑해 함께 저장하고, 과거 누락분은 백필로 보강한다.
  *
- * <p>책 식별도 bible_books 테이블 native 조인 대신 bible api(ListBibleBooksUseCase)
- * 경유로 교체 — 도메인 경계의 SQL 우회 제거(MSA 분리 대비).
+ * <p>트랜잭션 설계: 이 메서드들은 <b>비트랜잭션 코디네이터</b>다. 절 범위 조회(bible
+ * {@code getVerses}는 readOnly 트랜잭션이라 빈 장이면 예외를 던진다)를 쓰기 트랜잭션 <b>밖에서</b>
+ * 수행해 예외를 격리하고({@link #collectRangeVersesOrEmpty}), 본문 저장과 매핑 저장은
+ * {@link QtPassageWriter}가 각자의 트랜잭션으로 처리한다. 그래야 절 조회 실패가 본문 저장
+ * 트랜잭션을 rollback-only로 오염시키지 않아 "절 매핑 실패해도 본문은 유지" 폴백이 보장된다.
  */
 @Slf4j
 @Service
@@ -39,24 +39,33 @@ import org.springframework.transaction.annotation.Transactional;
 public class QtTodayPassageImportService {
 
     private final QtPassageRepository qtPassageRepository;
-    private final QtPassageVerseRepository qtPassageVerseRepository;
     private final ListBibleBooksUseCase listBibleBooksUseCase;
     private final GetBibleVerseUseCase getBibleVerseUseCase;
-    private final ApplicationEventPublisher eventPublisher;
+    private final QtPassageWriter qtPassageWriter;
 
-    @Transactional
     public QtPassage importToday(LocalDate qtDate, SuTodayPassage passage) {
         BibleBookResponse book = findBookByEnglishName(passage.englishBookName());
         Short bookId = book.id().shortValue();
 
-        QtPassage saved = qtPassageRepository.findByQtDate(qtDate)
-                .map(qtPassage -> updateExisting(qtPassage, bookId, passage))
-                .orElseGet(() -> createNew(qtDate, bookId, passage));
+        // 1) 본문 저장(자체 트랜잭션, 커밋). 절 조회/매핑과 분리해 본문은 항상 보존한다.
+        QtPassage saved = qtPassageWriter.upsert(qtDate, bookId, passage);
 
-        // 절 매핑 실패는 본문 반영을 막지 않는다 — 본문(범위 기반 사용자 조회)은 유지하고
-        // 매핑은 startup 백필이 재시도한다. (AI/학습 파이프라인 입력은 매핑에 의존)
-        replaceVerseMappings(saved, book.code(), passage.chapter(), passage.endChapter(),
+        // 2) 절 조회는 트랜잭션 밖에서 — 빈 장 예외를 격리한다(본문 저장 트랜잭션 오염 방지).
+        List<BibleVerseResponse> verses = collectRangeVersesOrEmpty(
+                book.code(), passage.chapter(), passage.endChapter(),
                 passage.startVerse(), passage.endVerse());
+
+        // 3) 미리 모은 절로 매핑 저장(자체 트랜잭션). 비었거나 실패하면 본문만 유지하고 백필 대상으로 남긴다.
+        if (verses.isEmpty()) {
+            log.warn("절 매핑 보류 — 본문만 저장, 백필 재시도 대상. qtDate={}, qtPassageId={}", qtDate, saved.getId());
+        } else {
+            try {
+                qtPassageWriter.replaceMappings(saved.getId(), verses);
+            } catch (RuntimeException exception) {
+                log.warn("절 매핑 저장 실패 — 본문은 유지, 백필 재시도 대상. qtDate={}, qtPassageId={}, errorType={}, errorMessage={}",
+                        qtDate, saved.getId(), exception.getClass().getSimpleName(), exception.getMessage());
+            }
+        }
         return saved;
     }
 
@@ -65,7 +74,6 @@ public class QtTodayPassageImportService {
      *
      * @return 매핑을 채운 본문 수
      */
-    @Transactional
     public int backfillMissingVerseMappings() {
         List<QtPassage> targets = qtPassageRepository.findAllWithoutVerseMappings();
         if (targets.isEmpty()) {
@@ -82,49 +90,22 @@ public class QtTodayPassageImportService {
                         passage.getId(), passage.getBookId());
                 continue;
             }
-            boolean filled = replaceVerseMappings(
-                    passage,
-                    book.code(),
-                    passage.getChapter(),
-                    passage.getEndChapter(),
-                    passage.getStartVerse(),
-                    passage.getEndVerse()
-            );
-            if (filled) {
-                filledCount++;
+            List<BibleVerseResponse> verses = collectRangeVersesOrEmpty(
+                    book.code(), passage.getChapter(), passage.getEndChapter(),
+                    passage.getStartVerse(), passage.getEndVerse());
+            if (verses.isEmpty()) {
+                continue;
+            }
+            try {
+                if (qtPassageWriter.replaceMappings(passage.getId(), verses)) {
+                    filledCount++;
+                }
+            } catch (RuntimeException exception) {
+                log.warn("절 매핑 백필 실패 — 다음 본문 계속. qtPassageId={}, errorType={}, errorMessage={}",
+                        passage.getId(), exception.getClass().getSimpleName(), exception.getMessage());
             }
         }
         return filledCount;
-    }
-
-    private QtPassage createNew(LocalDate qtDate, Short bookId, SuTodayPassage passage) {
-        // 성서유니온 본문은 같은 권 안에서만 장이 교차한다 → 종료 권 = 시작 권.
-        QtPassage qtPassage = QtPassage.create(
-                qtDate,
-                bookId,
-                bookId,
-                passage.chapter(),
-                passage.endChapter(),
-                passage.startVerse(),
-                passage.endVerse(),
-                passage.title(),
-                passage.referenceText()
-        );
-        return qtPassageRepository.save(qtPassage);
-    }
-
-    private QtPassage updateExisting(QtPassage qtPassage, Short bookId, SuTodayPassage passage) {
-        qtPassage.updateRange(
-                bookId,
-                bookId,
-                passage.chapter(),
-                passage.endChapter(),
-                passage.startVerse(),
-                passage.endVerse(),
-                passage.title(),
-                passage.referenceText()
-        );
-        return qtPassageRepository.save(qtPassage);
     }
 
     private BibleBookResponse findBookByEnglishName(String englishName) {
@@ -138,37 +119,19 @@ public class QtTodayPassageImportService {
     }
 
     /**
-     * 본문의 절 범위를 bible api로 verse id에 매핑해 qt_passage_verses를 교체 저장한다.
-     *
-     * @return 매핑 저장 성공 여부 (실패는 로그만 남기고 본문 반영은 유지)
+     * 시작~종료 장 범위의 절을 모은다. bible 조회 실패(빈 장 예외 등)는 잡아서 빈 목록을 돌려준다 —
+     * 본문 저장 트랜잭션 밖에서 호출되므로 예외가 본문 저장을 롤백시키지 않는다.
      */
-    private boolean replaceVerseMappings(QtPassage qtPassage, String bookCode,
-                                         short startChapter, short endChapter,
-                                         short startVerse, short endVerse) {
+    private List<BibleVerseResponse> collectRangeVersesOrEmpty(String bookCode,
+                                                               short startChapter, short endChapter,
+                                                               short startVerse, short endVerse) {
         try {
-            List<BibleVerseResponse> verses = collectRangeVerses(
-                    bookCode, startChapter, endChapter, startVerse, endVerse);
-            if (verses.isEmpty()) {
-                log.error("절 매핑 실패 — bible 절 범위 조회 결과 없음. qtPassageId={}, bookCode={}, range={}:{}~{}:{}",
-                        qtPassage.getId(), bookCode, startChapter, startVerse, endChapter, endVerse);
-                return false;
-            }
-
-            qtPassageVerseRepository.deleteByQtPassageId(qtPassage.getId());
-            short displayOrder = 1;
-            List<QtPassageVerse> mappings = new ArrayList<>(verses.size());
-            for (BibleVerseResponse verse : verses) {
-                mappings.add(QtPassageVerse.create(qtPassage.getId(), verse.id(), displayOrder++));
-            }
-            qtPassageVerseRepository.saveAll(mappings);
-            log.info("절 매핑 저장 완료. qtPassageId={}, verseCount={}", qtPassage.getId(), mappings.size());
-            eventPublisher.publishEvent(new QtPassageVerseMappingsChangedEvent(qtPassage.getId()));
-            return true;
+            return collectRangeVerses(bookCode, startChapter, endChapter, startVerse, endVerse);
         } catch (RuntimeException exception) {
-            log.error("절 매핑 실패 — 본문은 유지, startup 백필 재시도 대상. qtPassageId={}, bookCode={}, errorType={}, errorMessage={}",
-                    qtPassage.getId(), bookCode,
+            log.warn("절 범위 조회 실패 — 매핑 보류. bookCode={}, range={}:{}~{}:{}, errorType={}, errorMessage={}",
+                    bookCode, startChapter, startVerse, endChapter, endVerse,
                     exception.getClass().getSimpleName(), exception.getMessage());
-            return false;
+            return List.of();
         }
     }
 
@@ -179,7 +142,7 @@ public class QtTodayPassageImportService {
      * 장 교차 범위는 장별로 조회하고 경계(시작 장의 시작 절 이전, 종료 장의 종료 절 이후)를
      * 필터링해 이어 붙인다. 중간 장은 장 전체({@code from=null})를 가져온다. 권 교차는 현재
      * 수집 소스에 없으므로 같은 권({@code bookCode}) 기준으로 처리한다. 한 장이라도 조회 결과나
-     * 경계 필터 결과가 비면 부분 매핑을 저장하지 않고 기존 매핑을 유지해 백필 재시도 대상으로 남긴다.
+     * 경계 필터 결과가 비면 부분 매핑을 저장하지 않고 빈 목록을 돌려 본문만 유지한다.
      */
     private List<BibleVerseResponse> collectRangeVerses(String bookCode,
                                                         short startChapter, short endChapter,

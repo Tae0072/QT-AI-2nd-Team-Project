@@ -33,6 +33,7 @@
 - bible API 단일 장 제약을 우회하려 타 도메인 API를 바꾸지 않고 qt 도메인 안에서 장별 조회로 해결(도메인 경계 유지).
 - `end_book_id`는 권 교차 대비 컬럼 — 현재 항상 `book_id`와 동일. 권 교차는 소스에 없어 파서에서 비활성.
 - admin 요청 `endChapter` 선택 필드 + 컨트롤러 보정으로 기존 단일 장 클라이언트 하위호환 유지.
+- **트랜잭션 격리(리뷰 2/3 반영)**: 빈 장에 대한 readOnly `getVerses` 예외가 본문 저장 트랜잭션을 rollback-only로 오염시켜 폴백이 `UnexpectedRollbackException`으로 깨지는 문제를 수정. 절 조회를 쓰기 트랜잭션 밖에서 수행해 예외를 격리하고, 본문 upsert와 매핑 저장을 `QtPassageWriter`의 각자 트랜잭션으로 분리(매핑은 커밋된 본문을 FK로 안전 참조). 폴백을 실제 트랜잭션에서 보장하는 통합 테스트 `QtTodayPassageImportFallbackIntegrationTest` 추가, 매핑/조회 단위 테스트를 `QtPassageWriterTest`·`QtTodayPassageImportServiceTest`로 분리.
 
 ## 미해결 / 후속
 - **API 계약**: `04_API_명세서.md` §4.7.2에 `endChapter`와 교차 장 검증 규칙 동기화 완료.

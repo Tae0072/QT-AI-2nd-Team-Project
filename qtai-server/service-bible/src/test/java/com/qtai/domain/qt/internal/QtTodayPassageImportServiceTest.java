@@ -2,6 +2,9 @@ package com.qtai.domain.qt.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,17 +25,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class QtTodayPassageImportServiceTest {
 
     @Mock private QtPassageRepository qtPassageRepository;
-    @Mock private QtPassageVerseRepository qtPassageVerseRepository;
     @Mock private ListBibleBooksUseCase listBibleBooksUseCase;
     @Mock private GetBibleVerseUseCase getBibleVerseUseCase;
-    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private QtPassageWriter qtPassageWriter;
 
     private QtTodayPassageImportService service;
 
@@ -40,25 +41,20 @@ class QtTodayPassageImportServiceTest {
     void setUp() {
         service = new QtTodayPassageImportService(
                 qtPassageRepository,
-                qtPassageVerseRepository,
                 listBibleBooksUseCase,
                 getBibleVerseUseCase,
-                eventPublisher
+                qtPassageWriter
         );
         when(listBibleBooksUseCase.listBibleBooks()).thenReturn(List.of(
                 new BibleBookResponse(46, "NT", "1CO", "고린도전서", "1 Corinthians", 46)
         ));
-        when(qtPassageRepository.findByQtDate(any(LocalDate.class))).thenReturn(java.util.Optional.empty());
-        when(qtPassageRepository.save(any(QtPassage.class))).thenAnswer(invocation -> {
-            QtPassage passage = invocation.getArgument(0);
-            ReflectionTestUtils.setField(passage, "id", 100L);
-            return passage;
-        });
+        when(qtPassageWriter.upsert(any(LocalDate.class), any(Short.class), any(SuTodayPassage.class)))
+                .thenReturn(savedPassage(100L));
     }
 
     @Test
-    @DisplayName("장 교차 범위는 시작·종료 장 경계 절을 포함해 순서대로 매핑한다")
-    void importToday_mapsCrossChapterBoundaryVersesInOrder() {
+    @DisplayName("장 교차 범위는 시작·종료 장 경계 절만 추려 순서대로 매핑 writer에 넘긴다")
+    void importToday_passesCrossChapterBoundaryVersesToWriterInOrder() {
         when(getBibleVerseUseCase.getVerses("1CO", 9, null, null)).thenReturn(range(
                 verse(901L, 9, 1), verse(902L, 9, 2), verse(903L, 9, 3)
         ));
@@ -68,21 +64,16 @@ class QtTodayPassageImportServiceTest {
 
         service.importToday(LocalDate.of(2026, 6, 15), passage((short) 9, (short) 10, (short) 2, (short) 2));
 
-        verify(qtPassageVerseRepository).saveAll(any());
-        verify(qtPassageVerseRepository).saveAll(org.mockito.ArgumentMatchers.argThat(mappings -> {
-            assertThat(mappings)
-                    .extracting(QtPassageVerse::getBibleVerseId)
-                    .containsExactly(902L, 903L, 1001L, 1002L);
-            assertThat(mappings)
-                    .extracting(QtPassageVerse::getDisplayOrder)
-                    .containsExactly((short) 1, (short) 2, (short) 3, (short) 4);
+        verify(qtPassageWriter).upsert(any(LocalDate.class), eq((short) 46), any(SuTodayPassage.class));
+        verify(qtPassageWriter).replaceMappings(eq(100L), org.mockito.ArgumentMatchers.argThat(verses -> {
+            assertThat(verses).extracting(BibleVerseResponse::id).containsExactly(902L, 903L, 1001L, 1002L);
             return true;
         }));
     }
 
     @Test
-    @DisplayName("장 교차 범위 중 한 장이 비면(getVerses가 BIBLE_VERSE_NOT_FOUND throw) 기존 매핑을 유지하고 백필 재시도 대상으로 남긴다")
-    void importToday_keepsExistingMappingsWhenAnyChapterIsMissing() {
+    @DisplayName("절 조회가 실패(빈 장 예외)하면 본문만 저장하고 매핑은 호출하지 않으며 예외를 전파하지 않는다")
+    void importToday_keepsPassageWhenVerseLookupFails() {
         when(getBibleVerseUseCase.getVerses("1CO", 9, null, null)).thenReturn(range(
                 verse(902L, 9, 2), verse(903L, 9, 3)
         ));
@@ -90,12 +81,20 @@ class QtTodayPassageImportServiceTest {
         when(getBibleVerseUseCase.getVerses("1CO", 10, null, null))
                 .thenThrow(new BusinessException(ErrorCode.BIBLE_VERSE_NOT_FOUND));
 
-        service.importToday(LocalDate.of(2026, 6, 15), passage((short) 9, (short) 11, (short) 2, (short) 2));
+        QtPassage result = service.importToday(
+                LocalDate.of(2026, 6, 15), passage((short) 9, (short) 11, (short) 2, (short) 2));
 
-        verify(getBibleVerseUseCase, never()).getVerses("1CO", 11, null, null);
-        verify(qtPassageVerseRepository, never()).deleteByQtPassageId(any());
-        verify(qtPassageVerseRepository, never()).saveAll(any());
-        verify(eventPublisher, never()).publishEvent(any());
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(100L);
+        verify(qtPassageWriter).upsert(any(LocalDate.class), eq((short) 46), any(SuTodayPassage.class));
+        verify(qtPassageWriter, never()).replaceMappings(anyLong(), anyList());
+    }
+
+    private static QtPassage savedPassage(long id) {
+        QtPassage passage = QtPassage.create(
+                LocalDate.of(2026, 6, 15), (short) 46, (short) 9, (short) 1, (short) 5, "오늘의 QT", "ref");
+        ReflectionTestUtils.setField(passage, "id", id);
+        return passage;
     }
 
     private static SuTodayPassage passage(short chapter, short endChapter, short startVerse, short endVerse) {
