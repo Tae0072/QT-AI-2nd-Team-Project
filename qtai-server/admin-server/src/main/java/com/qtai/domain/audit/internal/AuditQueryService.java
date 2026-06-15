@@ -32,7 +32,8 @@ class AuditQueryService implements ListAuditUseCase {
             "AI_ASSET_REJECT",
             "AI_ASSET_HIDE",
             "AI_REGENERATE_REQUEST",
-            "AI_EXPLANATION_GENERATE_REQUEST"
+            "AI_EXPLANATION_GENERATE_REQUEST",
+            "SIMULATOR_CLIP_HIDE"
     );
     private static final int MAX_PAGE_SIZE = 100;
 
