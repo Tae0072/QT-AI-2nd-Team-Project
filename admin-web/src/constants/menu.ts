@@ -119,4 +119,10 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'AI 프롬프트 관리',
     requiredRoles: [ADMIN_ROLES.REVIEWER],
   },
+  {
+    code: 'AD-18',
+    path: '/self-test',
+    label: '자가진단',
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
+  },
 ];
