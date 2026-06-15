@@ -24,6 +24,8 @@ import { EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import {
   getMemberDetail,
   getMemberMissions,
+  getMemberNote,
+  getMemberPost,
   listMembers,
   listMemberComments,
   listMemberLikes,
@@ -35,7 +37,9 @@ import {
   type AdminMemberCommentItem,
   type AdminMemberDetail,
   type AdminMemberLikedPostItem,
+  type AdminMemberPostDetail,
   type AdminMemberPostItem,
+  type AdminNoteDetail,
   type AdminNoteItem,
   type MemberListParams,
   type MemberStatus,
@@ -129,9 +133,11 @@ function MemberSummary({ memberId }: { memberId: number }) {
 function PagedSubTable<T extends object>({
   fetcher,
   columns,
+  onRowClick,
 }: {
   fetcher: (params: PageParams) => Promise<Page<T>>;
   columns: ColumnsType<T>;
+  onRowClick?: (row: T) => void;
 }) {
   const [data, setData] = useState<Page<T> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -164,6 +170,11 @@ function PagedSubTable<T extends object>({
       columns={columns}
       dataSource={data?.content ?? []}
       scroll={{ x: 'max-content' }}
+      onRow={
+        onRowClick
+          ? (record) => ({ onClick: () => onRowClick(record), style: { cursor: 'pointer' } })
+          : undefined
+      }
       pagination={{
         current: page + 1,
         pageSize: size,
@@ -270,47 +281,166 @@ const nicknameHistoryColumns: ColumnsType<NicknameHistoryItem> = [
   { title: '변경 시각', dataIndex: 'changedAt', width: 180, render: (v: string) => formatDateTime(v) },
 ];
 
-// 회원 상세 모달 본문 — 탭으로 요약/노트/공유글/댓글/좋아요/미션을 본다.
-function MemberDetailView({ memberId }: { memberId: number }) {
+// 본문 섹션 한 칸(제목 + 여러 줄 텍스트). 비어 있으면 렌더하지 않는다.
+function Section({ label, text }: { label: string; text: string | null }) {
+  if (!text) return null;
   return (
-    <Tabs
-      defaultActiveKey="summary"
-      destroyInactiveTabPane
-      items={[
-        { key: 'summary', label: '요약', children: <MemberSummary memberId={memberId} /> },
-        {
-          key: 'nickname',
-          label: '닉네임 이력',
-          children: (
-            <PagedSubTable
-              fetcher={(p) => listMemberNicknameHistory(memberId, p)}
-              columns={nicknameHistoryColumns}
-            />
-          ),
-        },
-        {
-          key: 'notes',
-          label: '노트',
-          children: <PagedSubTable fetcher={(p) => listMemberNotes(memberId, p)} columns={noteColumns} />,
-        },
-        {
-          key: 'posts',
-          label: '공유글',
-          children: <PagedSubTable fetcher={(p) => listMemberPosts(memberId, p)} columns={postColumns} />,
-        },
-        {
-          key: 'comments',
-          label: '댓글',
-          children: <PagedSubTable fetcher={(p) => listMemberComments(memberId, p)} columns={commentColumns} />,
-        },
-        {
-          key: 'likes',
-          label: '좋아요',
-          children: <PagedSubTable fetcher={(p) => listMemberLikes(memberId, p)} columns={likeColumns} />,
-        },
-        { key: 'missions', label: '미션', children: <MissionPanel memberId={memberId} /> },
-      ]}
-    />
+    <div style={{ marginTop: 12 }}>
+      <Typography.Text strong>{label}</Typography.Text>
+      <Typography.Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{text}</Typography.Paragraph>
+    </div>
+  );
+}
+
+// 노트 1건 전체 내용 — 클릭한 행의 상세를 1회 로드.
+function NoteDetailContent({ memberId, noteId }: { memberId: number; noteId: number }) {
+  const [d, setD] = useState<AdminNoteDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    getMemberNote(memberId, noteId)
+      .then((v) => !cancelled && setD(v))
+      .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : '노트를 불러오지 못했습니다.'))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [memberId, noteId]);
+  if (loading) return <Spin />;
+  if (error || !d) return <Typography.Text type="danger">{error ?? '노트 없음'}</Typography.Text>;
+  return (
+    <div>
+      <Descriptions size="small" column={2} bordered>
+        <Descriptions.Item label="제목" span={2}>{d.title || '(제목 없음)'}</Descriptions.Item>
+        <Descriptions.Item label="분류">{d.category ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="상태">{d.status ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="공개">{d.visibility ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="작성일">{formatDateTime(d.createdAt)}</Descriptions.Item>
+      </Descriptions>
+      <Section label="본문" text={d.body} />
+      <Section label="묵상(Remember)" text={d.rememberSection} />
+      <Section label="해석(Interpret)" text={d.interpretSection} />
+      <Section label="적용(Apply)" text={d.applySection} />
+      <Section label="기도(Pray)" text={d.praySection} />
+    </div>
+  );
+}
+
+// 공유글 1건 전체 내용 — 클릭한 행의 상세를 1회 로드.
+function PostDetailContent({ memberId, postId }: { memberId: number; postId: number }) {
+  const [d, setD] = useState<AdminMemberPostDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    getMemberPost(memberId, postId)
+      .then((v) => !cancelled && setD(v))
+      .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : '공유글을 불러오지 못했습니다.'))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [memberId, postId]);
+  if (loading) return <Spin />;
+  if (error || !d) return <Typography.Text type="danger">{error ?? '공유글 없음'}</Typography.Text>;
+  return (
+    <div>
+      <Descriptions size="small" column={2} bordered>
+        <Descriptions.Item label="제목" span={2}>{d.title || '(제목 없음)'}</Descriptions.Item>
+        <Descriptions.Item label="분류">{d.category ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="상태">{d.status ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="구절">{d.verseLabel ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="좋아요/댓글">{d.likeCount} / {d.commentCount}</Descriptions.Item>
+        <Descriptions.Item label="작성일" span={2}>{formatDateTime(d.createdAt)}</Descriptions.Item>
+      </Descriptions>
+      <Section label="본문" text={d.body} />
+    </div>
+  );
+}
+
+// 회원 상세 모달 본문 — 탭으로 요약/노트/공유글/댓글/좋아요/미션을 본다.
+// 노트·공유글 행을 클릭하면 본문 전체를 중첩 모달로 연다.
+function MemberDetailView({ memberId }: { memberId: number }) {
+  const [noteId, setNoteId] = useState<number | null>(null);
+  const [postId, setPostId] = useState<number | null>(null);
+  return (
+    <>
+      <Tabs
+        defaultActiveKey="summary"
+        destroyInactiveTabPane
+        items={[
+          { key: 'summary', label: '요약', children: <MemberSummary memberId={memberId} /> },
+          {
+            key: 'nickname',
+            label: '닉네임 이력',
+            children: (
+              <PagedSubTable
+                fetcher={(p) => listMemberNicknameHistory(memberId, p)}
+                columns={nicknameHistoryColumns}
+              />
+            ),
+          },
+          {
+            key: 'notes',
+            label: '노트',
+            children: (
+              <PagedSubTable
+                fetcher={(p) => listMemberNotes(memberId, p)}
+                columns={noteColumns}
+                onRowClick={(r) => setNoteId(r.id)}
+              />
+            ),
+          },
+          {
+            key: 'posts',
+            label: '공유글',
+            children: (
+              <PagedSubTable
+                fetcher={(p) => listMemberPosts(memberId, p)}
+                columns={postColumns}
+                onRowClick={(r) => setPostId(r.id)}
+              />
+            ),
+          },
+          {
+            key: 'comments',
+            label: '댓글',
+            children: <PagedSubTable fetcher={(p) => listMemberComments(memberId, p)} columns={commentColumns} />,
+          },
+          {
+            key: 'likes',
+            label: '좋아요',
+            children: <PagedSubTable fetcher={(p) => listMemberLikes(memberId, p)} columns={likeColumns} />,
+          },
+          { key: 'missions', label: '미션', children: <MissionPanel memberId={memberId} /> },
+        ]}
+      />
+      <Modal
+        open={noteId != null}
+        title={noteId ? `노트 #${noteId}` : '노트'}
+        footer={null}
+        width={720}
+        onCancel={() => setNoteId(null)}
+        destroyOnHidden
+      >
+        {noteId != null && <NoteDetailContent memberId={memberId} noteId={noteId} />}
+      </Modal>
+      <Modal
+        open={postId != null}
+        title={postId ? `공유글 #${postId}` : '공유글'}
+        footer={null}
+        width={720}
+        onCancel={() => setPostId(null)}
+        destroyOnHidden
+      >
+        {postId != null && <PostDetailContent memberId={memberId} postId={postId} />}
+      </Modal>
+    </>
   );
 }
 

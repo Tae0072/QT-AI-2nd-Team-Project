@@ -15,10 +15,12 @@ import com.qtai.domain.member.api.dto.NicknameHistoryItem;
 import com.qtai.domain.mission.api.GetMemberMissionProgressUseCase;
 import com.qtai.domain.mission.api.dto.MissionProgressResponse;
 import com.qtai.domain.note.api.ListMemberNotesForAdminUseCase;
+import com.qtai.domain.note.api.dto.AdminNoteDetail;
 import com.qtai.domain.note.api.dto.AdminNoteItem;
 import com.qtai.domain.sharing.api.AdminMemberSharingQueryUseCase;
 import com.qtai.domain.sharing.api.dto.AdminMemberCommentItem;
 import com.qtai.domain.sharing.api.dto.AdminMemberLikedPostItem;
+import com.qtai.domain.sharing.api.dto.AdminMemberPostDetail;
 import com.qtai.domain.sharing.api.dto.AdminMemberPostItem;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -107,6 +109,17 @@ public class AdminMemberController {
                 listMemberNotesForAdminUseCase.listNotesByMember(memberId, pageable)));
     }
 
+    /** GET /api/v1/admin/members/{memberId}/notes/{noteId} — 노트 1건 전체 내용 */
+    @GetMapping("/{memberId}/notes/{noteId}")
+    public ResponseEntity<ApiResponse<AdminNoteDetail>> noteDetail(
+            @PathVariable Long memberId,
+            @PathVariable Long noteId,
+            Authentication authentication) {
+        requireOperator(authentication);
+        return ResponseEntity.ok(ApiResponse.success(
+                listMemberNotesForAdminUseCase.getNoteDetailForMember(memberId, noteId)));
+    }
+
     /** GET /api/v1/admin/members/{memberId}/posts — 회원이 공유한 나눔글(전체 상태, 최신순) */
     @GetMapping("/{memberId}/posts")
     public ResponseEntity<ApiResponse<Page<AdminMemberPostItem>>> posts(
@@ -117,6 +130,17 @@ public class AdminMemberController {
         requireOperator(authentication);
         return ResponseEntity.ok(ApiResponse.success(
                 adminMemberSharingQueryUseCase.listPostsByMember(memberId, PageRequest.of(page, size))));
+    }
+
+    /** GET /api/v1/admin/members/{memberId}/posts/{postId} — 공유글 1건 전체 내용 */
+    @GetMapping("/{memberId}/posts/{postId}")
+    public ResponseEntity<ApiResponse<AdminMemberPostDetail>> postDetail(
+            @PathVariable Long memberId,
+            @PathVariable Long postId,
+            Authentication authentication) {
+        requireOperator(authentication);
+        return ResponseEntity.ok(ApiResponse.success(
+                adminMemberSharingQueryUseCase.getPostDetailForMember(memberId, postId)));
     }
 
     /** GET /api/v1/admin/members/{memberId}/comments — 회원이 작성한 댓글(삭제 포함, 최신순) */

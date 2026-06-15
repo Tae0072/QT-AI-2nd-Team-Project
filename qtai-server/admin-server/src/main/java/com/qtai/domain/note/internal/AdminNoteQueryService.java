@@ -1,6 +1,9 @@
 package com.qtai.domain.note.internal;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.note.api.ListMemberNotesForAdminUseCase;
+import com.qtai.domain.note.api.dto.AdminNoteDetail;
 import com.qtai.domain.note.api.dto.AdminNoteItem;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -33,5 +36,26 @@ public class AdminNoteQueryService implements ListMemberNotesForAdminUseCase {
                         note.getTitle(),
                         note.getCreatedAt()
                 ));
+    }
+
+    @Override
+    public AdminNoteDetail getNoteDetailForMember(Long memberId, Long noteId) {
+        Note note = noteRepository.findById(noteId)
+                .filter(n -> n.getMemberId() != null && n.getMemberId().equals(memberId))
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTE_NOT_FOUND));
+        return new AdminNoteDetail(
+                note.getId(),
+                note.getQtPassageId(),
+                note.getCategory() == null ? null : note.getCategory().name(),
+                note.getStatus() == null ? null : note.getStatus().name(),
+                note.getVisibility() == null ? null : note.getVisibility().name(),
+                note.getTitle(),
+                note.getBody(),
+                note.getRememberSection(),
+                note.getInterpretSection(),
+                note.getApplySection(),
+                note.getPraySection(),
+                note.getCreatedAt()
+        );
     }
 }

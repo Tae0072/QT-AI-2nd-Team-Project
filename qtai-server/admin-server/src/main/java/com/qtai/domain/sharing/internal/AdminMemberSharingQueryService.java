@@ -1,8 +1,11 @@
 package com.qtai.domain.sharing.internal;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.sharing.api.AdminMemberSharingQueryUseCase;
 import com.qtai.domain.sharing.api.dto.AdminMemberCommentItem;
 import com.qtai.domain.sharing.api.dto.AdminMemberLikedPostItem;
+import com.qtai.domain.sharing.api.dto.AdminMemberPostDetail;
 import com.qtai.domain.sharing.api.dto.AdminMemberPostItem;
 import java.util.List;
 import java.util.Map;
@@ -70,5 +73,24 @@ public class AdminMemberSharingQueryService implements AdminMemberSharingQueryUs
                     like.getCreatedAt()
             );
         });
+    }
+
+    @Override
+    public AdminMemberPostDetail getPostDetailForMember(Long memberId, Long postId) {
+        SharingPost p = sharingPostRepository.findById(postId)
+                .filter(sp -> sp.getMemberId() != null && sp.getMemberId().equals(memberId))
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHARING_POST_NOT_FOUND));
+        return new AdminMemberPostDetail(
+                p.getId(),
+                p.getStatus() == null ? null : p.getStatus().name(),
+                p.getSnapshotTitle(),
+                p.getSnapshotBody(),
+                p.getSnapshotCategory(),
+                p.getSnapshotVerseLabel(),
+                p.getNoteId(),
+                p.getLikeCount(),
+                p.getCommentCount(),
+                p.getCreatedAt()
+        );
     }
 }
