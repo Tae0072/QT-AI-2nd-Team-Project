@@ -1,6 +1,7 @@
 # Gradle
 .gradle/
 build/
+# AI 2차 검증 restricted reference data (커밋 금지)
 restricted/
 !gradle/wrapper/gradle-wrapper.jar
 

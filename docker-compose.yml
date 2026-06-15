@@ -13,8 +13,10 @@
 #   1) 키 생성:  ./scripts/generate-keys.ps1   (또는 scripts/generate-keys.sh)  → .env 생성
 #   2) 빌드:     cd qtai-server && ./gradlew :service-user:bootJar :service-bible:bootJar \
 #                  :service-note:bootJar :service-ai:bootJar
-#   3) 기동:     docker compose up -d --build
-#   4) 종료:     docker compose down            (데이터까지: docker compose down -v)
+#   3) AI 2차 검증 참조 인덱스 연결(선택):
+#                powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-ai-review-reference.ps1 -SourceIndex C:\path\reference-index.json
+#   4) 기동:     docker compose up -d --build
+#   5) 종료:     docker compose down            (데이터까지: docker compose down -v)
 #
 # 평문 키/시크릿은 이 파일에 두지 않는다. 값은 프로젝트 루트 .env(gitignore)에서 자동 주입한다.
 # =============================================================================
@@ -211,8 +213,11 @@ services:
       AI_SCHEDULING_ENABLED: ${AI_SCHEDULING_ENABLED:-false}
       # DeepSeek API key는 env로만 주입(미설정 시 빈 값 — 호출 시점에만 필요)
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      QTAI_RESTRICTED_STORAGE_ROOT: /app/restricted
     ports:
       - "${AI_SERVICE_PORT:-8084}:8084"
+    volumes:
+      - ./qtai-server/restricted:/app/restricted:ro
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8084' 2>/dev/null || exit 1"]
       interval: 15s
@@ -268,8 +273,11 @@ services:
       # 음원 시더 off — service-bible과 동일(음원 자산 미이전). 단일 DB에서 음원 테이블 시딩 충돌 방지.
       QTAI_MUSIC_SEED_ENABLED: "false"
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      QTAI_RESTRICTED_STORAGE_ROOT: /app/restricted
     ports:
       - "${ADMIN_SERVICE_PORT:-8090}:8090"
+    volumes:
+      - ./qtai-server/restricted:/app/restricted:ro
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8090' 2>/dev/null || exit 1"]
       interval: 15s
