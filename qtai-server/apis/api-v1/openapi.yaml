@@ -1290,6 +1290,9 @@ paths:
         Executes APPROVED cases in an ACTIVE EXPLANATION evaluation set against a
         DRAFT or ACTIVE EXPLANATION prompt version. Evaluation output stores only
         summary metadata and payload hashes, not raw prompt text or generated body.
+        In this PR, PASSED means the generation call completed and the response
+        matched the required EXPLANATION JSON structure. Semantic scoring against
+        expectedPolicyJson is a follow-up enhancement and is not implied by PASSED.
         Requires ROLE_ADMIN and one of ADMIN_ROLE_CONTENT_CREATOR,
         ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
       security:
@@ -4305,6 +4308,11 @@ components:
           nullable: true
     AdminAiEvaluationCaseRequest:
       type: object
+      description: >
+        Manual evaluation case creation follows the current server DTO: the client
+        sends target identifiers and optional expected policy metadata, and the
+        server assembles the stored inputJson snapshot. This OpenAPI correction
+        aligns the contract with the already-merged backend behavior.
       required:
         - targetType
         - targetId
@@ -4559,7 +4567,11 @@ components:
           format: int64
           minimum: 1
         result:
-          $ref: "#/components/schemas/AiEvaluationResultStatus"
+          allOf:
+            - $ref: "#/components/schemas/AiEvaluationResultStatus"
+          description: >
+            PASSED currently indicates successful generation and required response
+            shape validation. It does not yet mean semantic policy scoring passed.
         reason:
           type: string
           nullable: true
