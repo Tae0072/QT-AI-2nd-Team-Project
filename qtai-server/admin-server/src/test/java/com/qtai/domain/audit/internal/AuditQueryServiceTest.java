@@ -1,6 +1,7 @@
 package com.qtai.domain.audit.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -8,13 +9,15 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.audit.api.dto.AuditLogListResponse;
 import com.qtai.domain.audit.api.dto.ListAuditQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
-/** AD-07: 감사 조회가 비-AI 관리자 액션(신고/공지/배경음악/QT)까지 노출하는지 검증. */
+/** AD-07: 감사 조회가 비-AI 운영 관리자 액션을 노출하되, 민감 영역은 deny-by-default로 계속 차단하는지 검증. */
 class AuditQueryServiceTest {
 
     private AuditQueryRepository repository;
@@ -63,5 +66,19 @@ class AuditQueryServiceTest {
                 ArgumentCaptor.forClass(AuditQueryRepository.Filter.class);
         verify(repository).findAll(captor.capture(), any());
         assertThat(captor.getValue().targetType()).isEqualTo("REPORT");
+    }
+
+    @Test
+    void sensitiveActionTypeIsRejected() {
+        assertThatThrownBy(() -> service.listAuditLogs(query("VALIDATION_REFERENCE_JOB_CREATE", null)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+    }
+
+    @Test
+    void sensitiveTargetTypeIsRejected() {
+        assertThatThrownBy(() -> service.listAuditLogs(query(null, "VALIDATION_REFERENCE_JOB")))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
     }
 }
