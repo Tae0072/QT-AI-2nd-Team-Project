@@ -25,6 +25,7 @@ export interface MenuItem {
 //  - AD-09 검증체크리스트: REVIEWER           (AdminAiValidationChecklistController.requireReviewer)
 //  - AD-10 배치실행로그  : OPERATOR/REVIEWER   (AdminAiBatchRunLogController.requireMonitoring)
 //  - AD-11 평가셋/케이스 : REVIEWER/CONTENT_CREATOR (AdminAiAuthentication.requireEvaluationManager)
+//  - AD-12 배경음악 관리: OPERATOR            (AdminMusicTrackController.requireOperator)
 //  - AI 프롬프트 관리    : REVIEWER           (AdminAiPromptController)
 export const MENU_ITEMS: MenuItem[] = [
   {
@@ -61,6 +62,12 @@ export const MENU_ITEMS: MenuItem[] = [
     code: 'AD-06',
     path: '/notices',
     label: '시스템 공지',
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
+  },
+  {
+    code: 'AD-12',
+    path: '/music-tracks',
+    label: '배경음악 관리',
     requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
   {

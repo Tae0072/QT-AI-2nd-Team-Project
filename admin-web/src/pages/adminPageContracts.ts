@@ -1,5 +1,6 @@
 import type { EvaluationSetListParams } from '../api/aiEvaluations';
 import type { AiPromptStatus, AiPromptVersionListParams } from '../api/aiPromptVersions';
+import type { MusicTrackStatus } from '../api/musicTracks';
 import type {
   CreatePraiseSongRequest,
   PraiseSongStatus,
@@ -159,6 +160,15 @@ export function buildPraiseSongUpdatePayload(
     artist: values.artist,
     licenseNote: values.licenseNote,
     status: values.status,
+  };
+}
+
+export const MUSIC_TRACK_FILTERABLE_STATUSES: MusicTrackStatus[] = ['ACTIVE', 'HIDDEN'];
+
+export function musicTrackActionsForStatus(status: MusicTrackStatus) {
+  return {
+    canPublish: status === 'HIDDEN',
+    canHide: status === 'ACTIVE',
   };
 }
 

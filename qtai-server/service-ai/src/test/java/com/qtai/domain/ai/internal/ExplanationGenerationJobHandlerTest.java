@@ -93,11 +93,69 @@ class ExplanationGenerationJobHandlerTest {
         assertThat(requestCaptor.getValue().temperature()).isEqualTo(0.4);
         assertThat(requestCaptor.getValue().prompt())
                 .contains("Custom target 1001")
+                .doesNotContain("추가 생성 지시사항")
                 .doesNotContain("Commentary materials:")
                 .doesNotContain("Commentary excerpt");
 
         JsonNode sourceMetadata = objectMapper.readTree(asset.getPayloadJson()).get("sourceMetadata");
         assertEmptyCommentaryMetadata(sourceMetadata);
+    }
+
+    @Test
+    void generateBuildsKoreanPromptAroundNaturalInstruction() throws Exception {
+        AiGenerationJob job = AiGenerationJob.queue(
+                AiGenerationJobType.EXPLANATION,
+                AiTargetType.BIBLE_VERSE,
+                1001L,
+                13L,
+                CREATED_AT
+        );
+        setId(job, 7003L);
+
+        when(promptVersionRepository.findById(13L)).thenReturn(Optional.of(AiPromptVersion.of(
+                13L,
+                AiPromptType.EXPLANATION,
+                "2026.06.3",
+                "hash-003",
+                AiPromptVersionStatus.ACTIVE,
+                "custom system prompt",
+                "요약은 한 문장으로 작성하고 쉬운 표현을 사용하세요.",
+                "deepseek-reasoner",
+                0.3,
+                1500,
+                "natural instruction prompt",
+                2L,
+                CREATED_AT.minusDays(1),
+                CREATED_AT.minusDays(1),
+                null
+        )));
+        when(bibleVerseUseCase.getVerses(List.of(1001L))).thenReturn(List.of(new BibleVerseResponse(
+                1001L,
+                "Gen",
+                1,
+                1,
+                "테스트 본문",
+                "test verse"
+        )));
+        when(commentaryMaterialService.findPromptContextByVerseIds(List.of(1001L)))
+                .thenReturn(CommentaryMaterialContext.empty());
+        when(llmClient.complete(any(LlmCompletionRequest.class))).thenReturn(completionResponse());
+
+        handler.generate(job, CREATED_AT);
+
+        ArgumentCaptor<LlmCompletionRequest> requestCaptor = ArgumentCaptor.forClass(LlmCompletionRequest.class);
+        org.mockito.Mockito.verify(llmClient).complete(requestCaptor.capture());
+        assertThat(requestCaptor.getValue().prompt())
+                .contains("다음 성경 구절에 대한 해설 JSON을 생성하세요.")
+                .contains("대상 유형: BIBLE_VERSE")
+                .contains("대상 ID: 1001")
+                .contains("구절 목록:")
+                .contains("verseId=1001")
+                .contains("한글 본문=테스트 본문")
+                .contains("추가 생성 지시사항:")
+                .contains("요약은 한 문장으로 작성하고 쉬운 표현을 사용하세요.")
+                .doesNotContain("{{")
+                .doesNotContain("참고 해설 자료:");
     }
 
     @Test
@@ -157,7 +215,11 @@ class ExplanationGenerationJobHandlerTest {
         ArgumentCaptor<LlmCompletionRequest> requestCaptor = ArgumentCaptor.forClass(LlmCompletionRequest.class);
         org.mockito.Mockito.verify(llmClient).complete(requestCaptor.capture());
         assertThat(requestCaptor.getValue().prompt())
-                .contains("Commentary materials:")
+                .contains("다음 성경 구절에 대한 해설 JSON을 생성하세요.")
+                .contains("QT 본문 정보:")
+                .contains("구절 목록:")
+                .contains("참고 해설 자료:")
+                .contains("추가 생성 지시사항:")
                 .contains("Tyndale Open Study Notes")
                 .contains("Commentary excerpt")
                 .contains("materialId=3001");

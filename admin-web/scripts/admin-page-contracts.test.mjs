@@ -84,6 +84,7 @@ test('admin page modals use destroyOnHidden instead of deprecated destroyOnClose
     ['AiChecklistsPage.tsx', 1],
     ['AiEvaluationsPage.tsx', 4],
     ['AiPromptVersionsPage.tsx', 2],
+    ['MusicTracksPage.tsx', 2],
     ['PraiseSongsPage.tsx', 2],
     ['ReportsPage.tsx', 2],
   ];
@@ -308,6 +309,32 @@ test('praise song payload remains metadata-only', () => {
   assert.equal(hasOwn(payload, 'sourceType'), false);
   assert.equal(hasOwn(payload, 'lyrics'), false);
   assert.equal(hasOwn(payload, 'youtubeUrl'), false);
+});
+
+test('music track route and menu stay operator-gated', () => {
+  const app = fs.readFileSync(path.join(rootDir, 'src', 'App.tsx'), 'utf8');
+  const menu = fs.readFileSync(path.join(rootDir, 'src', 'constants', 'menu.ts'), 'utf8');
+
+  assert.deepEqual(contracts.MUSIC_TRACK_FILTERABLE_STATUSES, ['ACTIVE', 'HIDDEN']);
+  assert.deepEqual(contracts.musicTrackActionsForStatus('HIDDEN'), {
+    canPublish: true,
+    canHide: false,
+  });
+  assert.deepEqual(contracts.musicTrackActionsForStatus('ACTIVE'), {
+    canPublish: false,
+    canHide: true,
+  });
+
+  assert.match(app, /import MusicTracksPage from '\.\/pages\/MusicTracksPage';/);
+  assert.match(app, /path="\/music-tracks"/);
+  assert.match(
+    app,
+    /element=\{withRole\('\/music-tracks', <MusicTracksPage \/>\)\}/,
+  );
+  assert.match(
+    menu,
+    /path:\s*'\/music-tracks'[\s\S]*?label:\s*'배경음악 관리'[\s\S]*?requiredRoles:\s*\[ADMIN_ROLES\.OPERATOR\]/,
+  );
 });
 
 test('QT passage filters and row actions use operational statuses only', () => {

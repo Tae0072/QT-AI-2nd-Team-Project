@@ -8,6 +8,7 @@ import QtPassagesPage from './pages/QtPassagesPage';
 import AiAssetsPage from './pages/AiAssetsPage';
 import ReportsPage from './pages/ReportsPage';
 import PraiseSongsPage from './pages/PraiseSongsPage';
+import MusicTracksPage from './pages/MusicTracksPage';
 import NoticesPage from './pages/NoticesPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import AiMonitoringPage from './pages/AiMonitoringPage';
@@ -58,6 +59,10 @@ export default function App() {
           <Route
             path="/praise-songs"
             element={withRole('/praise-songs', <PraiseSongsPage />)}
+          />
+          <Route
+            path="/music-tracks"
+            element={withRole('/music-tracks', <MusicTracksPage />)}
           />
           <Route path="/notices" element={withRole('/notices', <NoticesPage />)} />
           <Route
