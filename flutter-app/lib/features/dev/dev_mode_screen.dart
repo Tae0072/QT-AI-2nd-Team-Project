@@ -126,7 +126,6 @@ class _DevModeScreenState extends ConsumerState<DevModeScreen> {
     _DevRoute('설정', AppRouter.appSettings),
     _DevRoute('TTS 설정', AppRouter.ttsSettings),
     _DevRoute('음악 설정', AppRouter.musicSettings),
-    _DevRoute('찬양', AppRouter.praise),
     _DevRoute('나눔 피드', AppRouter.sharing),
     _DevRoute('저장한 글', AppRouter.sharingBookmarks),
     _DevRoute('나를 태그한 글', AppRouter.sharingMentions),

@@ -6,7 +6,6 @@ import '../../../core/network/api_client.dart';
 import '../models/dashboard_response.dart';
 import '../models/member_response.dart';
 import '../models/notification_response.dart';
-import '../models/praise_response.dart';
 import '../models/settings_response.dart';
 import '../services/mypage_repository.dart';
 
@@ -79,16 +78,4 @@ final settingsProvider = FutureProvider.autoDispose<SettingsData>((ref) {
   return repository.getSettings();
 });
 
-// ── 찬양 ──
-
-/// 큐레이션 곡 목록.
-final curationSongsProvider = FutureProvider.autoDispose<List<PraiseSong>>((ref) {
-  final repository = ref.watch(myPageRepositoryProvider);
-  return repository.getCurationSongs();
-});
-
-/// 내 찬양 목록.
-final myPraiseSongsProvider = FutureProvider.autoDispose<List<MyPraiseSong>>((ref) {
-  final repository = ref.watch(myPageRepositoryProvider);
-  return repository.getMyPraiseSongs();
-});
+// ── 설정 끝 ──
