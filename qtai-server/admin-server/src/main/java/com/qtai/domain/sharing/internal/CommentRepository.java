@@ -18,4 +18,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     /** 회원이 작성한 댓글 ID 목록 — 관리자 회원 상세에서 받은 신고(COMMENT) 집계용. */
     @Query("SELECT c.id FROM Comment c WHERE c.memberId = :memberId")
     List<Long> findIdsByMemberId(@Param("memberId") Long memberId);
+
+    /** 회원이 작성한 댓글(삭제 포함)을 최신순으로 — 관리자 회원 상세 목록용. */
+    Page<Comment> findByMemberIdOrderByCreatedAtDesc(Long memberId, Pageable pageable);
 }

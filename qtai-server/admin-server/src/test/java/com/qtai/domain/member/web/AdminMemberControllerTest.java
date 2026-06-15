@@ -16,6 +16,9 @@ import com.qtai.domain.member.api.ListMembersForAdminUseCase;
 import com.qtai.domain.member.api.UpdateMemberStatusForAdminUseCase;
 import com.qtai.domain.member.api.dto.AdminMemberDetailResponse;
 import com.qtai.domain.member.api.dto.AdminMemberResponse;
+import com.qtai.domain.mission.api.GetMemberMissionProgressUseCase;
+import com.qtai.domain.note.api.ListMemberNotesForAdminUseCase;
+import com.qtai.domain.sharing.api.AdminMemberSharingQueryUseCase;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +53,15 @@ class AdminMemberControllerTest {
     @Mock
     private VerifyAdminRoleUseCase verifyAdminRoleUseCase;
 
+    @Mock
+    private ListMemberNotesForAdminUseCase listMemberNotesForAdminUseCase;
+
+    @Mock
+    private AdminMemberSharingQueryUseCase adminMemberSharingQueryUseCase;
+
+    @Mock
+    private GetMemberMissionProgressUseCase getMemberMissionProgressUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -58,7 +70,10 @@ class AdminMemberControllerTest {
                 listMembersForAdminUseCase,
                 updateMemberStatusForAdminUseCase,
                 getMemberDetailForAdminUseCase,
-                verifyAdminRoleUseCase);
+                verifyAdminRoleUseCase,
+                listMemberNotesForAdminUseCase,
+                adminMemberSharingQueryUseCase,
+                getMemberMissionProgressUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();

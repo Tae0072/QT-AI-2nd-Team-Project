@@ -3,13 +3,17 @@ import {
   Button,
   Card,
   Descriptions,
+  Empty,
   Input,
+  List,
   Popconfirm,
   Modal,
+  Progress,
   Select,
   Space,
   Spin,
   Table,
+  Tabs,
   Tag,
   Tooltip,
   Typography,
@@ -19,13 +23,24 @@ import type { ColumnsType } from 'antd/es/table';
 import { EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import {
   getMemberDetail,
+  getMemberMissions,
   listMembers,
+  listMemberComments,
+  listMemberLikes,
+  listMemberNotes,
+  listMemberPosts,
   updateMemberStatus,
   type AdminMember,
+  type AdminMemberCommentItem,
   type AdminMemberDetail,
+  type AdminMemberLikedPostItem,
+  type AdminMemberPostItem,
+  type AdminNoteItem,
   type MemberListParams,
   type MemberStatus,
+  type MissionProgress,
 } from '../api/members';
+import type { Page, PageParams } from '../api/types';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
 
@@ -49,8 +64,8 @@ function statusTag(status: string) {
   return <Tag color={m.color}>{m.text}</Tag>;
 }
 
-// 회원 상세 모달 본문. 열릴 때 상세 API를 1회 호출한다.
-function MemberDetailView({ memberId }: { memberId: number }) {
+// 회원 상세 — 요약 정보(닉네임 변경 시각·신고/나눔 집계).
+function MemberSummary({ memberId }: { memberId: number }) {
   const [detail, setDetail] = useState<AdminMemberDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +120,179 @@ function MemberDetailView({ memberId }: { memberId: number }) {
         </Typography.Text>
       </Descriptions.Item>
     </Descriptions>
+  );
+}
+
+// 회원 상세 — 페이징 서브 목록(노트/공유글/댓글/좋아요). 탭이 처음 열릴 때 1회 로드.
+function PagedSubTable<T extends object>({
+  fetcher,
+  columns,
+}: {
+  fetcher: (params: PageParams) => Promise<Page<T>>;
+  columns: ColumnsType<T>;
+}) {
+  const [data, setData] = useState<Page<T> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetcher({ page, size })
+      .then((p) => {
+        if (!cancelled) setData(p);
+      })
+      .catch(() => {
+        if (!cancelled) setData({ content: [], page, size, totalElements: 0, totalPages: 0 });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetcher, page, size]);
+
+  return (
+    <Table<T>
+      rowKey={(_, idx) => String(idx)}
+      size="small"
+      loading={loading}
+      columns={columns}
+      dataSource={data?.content ?? []}
+      scroll={{ x: 'max-content' }}
+      pagination={{
+        current: page + 1,
+        pageSize: size,
+        total: data?.totalElements ?? 0,
+        showSizeChanger: true,
+        showTotal: (t: number) => `총 ${t}건`,
+        onChange: (p: number, ps: number) => {
+          setPage(p - 1);
+          setSize(ps);
+        },
+      }}
+    />
+  );
+}
+
+// 회원 상세 — 미션 진행률(페이징 없이 전체).
+function MissionPanel({ memberId }: { memberId: number }) {
+  const [rows, setRows] = useState<MissionProgress[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getMemberMissions(memberId)
+      .then((r) => {
+        if (!cancelled) setRows(r);
+      })
+      .catch(() => {
+        if (!cancelled) setRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [memberId]);
+
+  if (loading) return <Spin />;
+  if (!rows || rows.length === 0) return <Empty description="진행 중인 미션 없음" />;
+  return (
+    <List
+      size="small"
+      dataSource={rows}
+      renderItem={(m) => (
+        <List.Item>
+          <div style={{ width: '100%' }}>
+            <Space style={{ justifyContent: 'space-between', width: '100%' }}>
+              <Typography.Text strong>{m.title}</Typography.Text>
+              <Typography.Text type="secondary">
+                {m.currentCount}/{m.targetCount} ({m.periodType})
+                {m.completed ? ' · 완료' : ''}
+              </Typography.Text>
+            </Space>
+            <Progress
+              percent={Math.round(Number(m.progressRate) || 0)}
+              status={m.completed ? 'success' : 'active'}
+              size="small"
+            />
+          </div>
+        </List.Item>
+      )}
+    />
+  );
+}
+
+const noteColumns: ColumnsType<AdminNoteItem> = [
+  { title: '제목', dataIndex: 'title', render: (v: string | null) => v || '(제목 없음)' },
+  { title: '분류', dataIndex: 'category', width: 110, render: (v: string | null) => v ?? '-' },
+  { title: '상태', dataIndex: 'status', width: 100, render: (v: string | null) => v ?? '-' },
+  { title: '공개', dataIndex: 'visibility', width: 100, render: (v: string | null) => v ?? '-' },
+  { title: '작성일', dataIndex: 'createdAt', width: 160, render: (v: string) => formatDateTime(v) },
+];
+
+const postColumns: ColumnsType<AdminMemberPostItem> = [
+  { title: '제목', dataIndex: 'title', render: (v: string | null) => v || '(제목 없음)' },
+  { title: '분류', dataIndex: 'category', width: 110, render: (v: string | null) => v ?? '-' },
+  { title: '상태', dataIndex: 'status', width: 110, render: (v: string | null) => v ?? '-' },
+  { title: '작성일', dataIndex: 'createdAt', width: 160, render: (v: string) => formatDateTime(v) },
+];
+
+const commentColumns: ColumnsType<AdminMemberCommentItem> = [
+  { title: '내용', dataIndex: 'body', render: (v: string | null) => v || '(삭제됨)' },
+  { title: '글ID', dataIndex: 'sharingPostId', width: 80 },
+  {
+    title: '삭제',
+    dataIndex: 'deleted',
+    width: 70,
+    render: (v: boolean) => (v ? <Tag color="default">삭제</Tag> : <Tag color="green">유지</Tag>),
+  },
+  { title: '작성일', dataIndex: 'createdAt', width: 160, render: (v: string) => formatDateTime(v) },
+];
+
+const likeColumns: ColumnsType<AdminMemberLikedPostItem> = [
+  { title: '글 제목', dataIndex: 'title', render: (v: string | null) => v || '(삭제된 글)' },
+  { title: '글ID', dataIndex: 'postId', width: 80 },
+  { title: '글 상태', dataIndex: 'status', width: 110, render: (v: string | null) => v ?? '-' },
+  { title: '좋아요한 시각', dataIndex: 'likedAt', width: 160, render: (v: string) => formatDateTime(v) },
+];
+
+// 회원 상세 모달 본문 — 탭으로 요약/노트/공유글/댓글/좋아요/미션을 본다.
+function MemberDetailView({ memberId }: { memberId: number }) {
+  return (
+    <Tabs
+      defaultActiveKey="summary"
+      destroyInactiveTabPane
+      items={[
+        { key: 'summary', label: '요약', children: <MemberSummary memberId={memberId} /> },
+        {
+          key: 'notes',
+          label: '노트',
+          children: <PagedSubTable fetcher={(p) => listMemberNotes(memberId, p)} columns={noteColumns} />,
+        },
+        {
+          key: 'posts',
+          label: '공유글',
+          children: <PagedSubTable fetcher={(p) => listMemberPosts(memberId, p)} columns={postColumns} />,
+        },
+        {
+          key: 'comments',
+          label: '댓글',
+          children: <PagedSubTable fetcher={(p) => listMemberComments(memberId, p)} columns={commentColumns} />,
+        },
+        {
+          key: 'likes',
+          label: '좋아요',
+          children: <PagedSubTable fetcher={(p) => listMemberLikes(memberId, p)} columns={likeColumns} />,
+        },
+        { key: 'missions', label: '미션', children: <MissionPanel memberId={memberId} /> },
+      ]}
+    />
   );
 }
 
@@ -253,7 +441,7 @@ export default function MembersPage() {
         open={viewTarget != null}
         title={viewTarget ? `회원 #${viewTarget.id} 상세` : '회원 상세'}
         footer={null}
-        width={620}
+        width={880}
         onCancel={() => setViewTarget(null)}
         destroyOnHidden
       >

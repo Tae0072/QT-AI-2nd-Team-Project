@@ -86,6 +86,9 @@ public interface SharingPostRepository extends JpaRepository<SharingPost, Long> 
     /** 회원이 작성한 공유글 수(전체 상태) — 관리자 회원 상세 통계용. */
     long countByMemberId(Long memberId);
 
+    /** 회원이 작성한 공유글(전체 상태)을 최신순으로 — 관리자 회원 상세 목록용. */
+    Page<SharingPost> findByMemberIdOrderByCreatedAtDesc(Long memberId, Pageable pageable);
+
     /** 회원이 작성한 공유글 ID 목록 — 받은 신고(POST) 집계용. */
     @Query("SELECT sp.id FROM SharingPost sp WHERE sp.memberId = :memberId")
     List<Long> findIdsByMemberId(@Param("memberId") Long memberId);
