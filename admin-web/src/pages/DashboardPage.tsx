@@ -149,10 +149,11 @@ export default function DashboardPage() {
           <Spin spinning={loading}>
             {data && (
               <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                {/* 운영 카운트 3종 — 대기 건이 있으면 처리 화면으로 가는 CTA 노출 */}
-                <Row gutter={[16, 16]}>
+                {/* 운영 카운트 3종 — 대기 건이 있으면 처리 화면으로 가는 CTA 노출.
+                    align=stretch + Card height:100% 로 CTA 유무와 무관하게 3칸 높이를 맞춘다. */}
+                <Row gutter={[16, 16]} align="stretch">
                   <Col xs={24} sm={8}>
-                    <Card size="small">
+                    <Card size="small" style={{ height: '100%' }}>
                       <Statistic title="AI 검증 대기" value={data.pendingAiValidationCount} />
                       {data.pendingAiValidationCount > 0 && (
                         <CtaLink label="검증하러 가기" to="/ai-assets" />
@@ -160,7 +161,7 @@ export default function DashboardPage() {
                     </Card>
                   </Col>
                   <Col xs={24} sm={8}>
-                    <Card size="small">
+                    <Card size="small" style={{ height: '100%' }}>
                       <Statistic title="신고 접수" value={data.receivedReportCount} />
                       {data.receivedReportCount > 0 && (
                         <CtaLink label="신고 처리하기" to="/reports?status=RECEIVED" />
@@ -168,7 +169,7 @@ export default function DashboardPage() {
                     </Card>
                   </Col>
                   <Col xs={24} sm={8}>
-                    <Card size="small">
+                    <Card size="small" style={{ height: '100%' }}>
                       <Statistic title="신고 검토 중" value={data.reviewingReportCount} />
                       {data.reviewingReportCount > 0 && (
                         <CtaLink label="검토 이어가기" to="/reports?status=REVIEWING" />
@@ -209,8 +210,10 @@ export default function DashboardPage() {
                       <Descriptions.Item label="해설">
                         <Space size={8}>
                           <span>{todayQt.hasExplanation ? '있음' : '없음'}</span>
+                          {/* /ai-assets 는 승인/재생성(검증) 화면. 미생성 해설의 수동 '생성 요청'은
+                              후속 PR(해설 생성 트리거)에서 추가하므로 라벨을 '검증'으로 둔다. */}
                           {!todayQt.hasExplanation && (
-                            <CtaLink label="해설 생성/검증" to="/ai-assets" />
+                            <CtaLink label="해설 검증하러 가기" to="/ai-assets" />
                           )}
                         </Space>
                       </Descriptions.Item>
