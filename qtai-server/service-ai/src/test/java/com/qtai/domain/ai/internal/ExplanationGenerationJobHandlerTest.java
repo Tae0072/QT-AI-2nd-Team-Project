@@ -60,7 +60,16 @@ class ExplanationGenerationJobHandlerTest {
                 "2026.06.2",
                 "hash-002",
                 AiPromptVersionStatus.ACTIVE,
-                CREATED_AT.minusDays(1)
+                "custom system prompt",
+                "Custom target {{targetId}}\n{{versesBlock}}{{commentaryBlock}}",
+                "deepseek-reasoner",
+                0.4,
+                1234,
+                "custom prompt",
+                2L,
+                CREATED_AT.minusDays(1),
+                CREATED_AT.minusDays(1),
+                null
         )));
         when(bibleVerseUseCase.getVerses(List.of(1001L))).thenReturn(List.of(new BibleVerseResponse(
                 1001L,
@@ -78,7 +87,12 @@ class ExplanationGenerationJobHandlerTest {
 
         ArgumentCaptor<LlmCompletionRequest> requestCaptor = ArgumentCaptor.forClass(LlmCompletionRequest.class);
         org.mockito.Mockito.verify(llmClient).complete(requestCaptor.capture());
+        assertThat(requestCaptor.getValue().model()).isEqualTo("deepseek-reasoner");
+        assertThat(requestCaptor.getValue().systemPrompt()).isEqualTo("custom system prompt");
+        assertThat(requestCaptor.getValue().maxTokens()).isEqualTo(1234);
+        assertThat(requestCaptor.getValue().temperature()).isEqualTo(0.4);
         assertThat(requestCaptor.getValue().prompt())
+                .contains("Custom target 1001")
                 .doesNotContain("Commentary materials:")
                 .doesNotContain("Commentary excerpt");
 

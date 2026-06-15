@@ -30,9 +30,12 @@ import com.qtai.domain.ai.api.admin.evaluation.ApproveAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationAssetCandidateUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationReportCandidateUseCase;
+import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationRunUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationSetUseCase;
+import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationRunUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationSetUseCase;
+import com.qtai.domain.ai.api.admin.evaluation.GetLatestAiEvaluationRunUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.ListAiEvaluationCasesUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.ListAiEvaluationSetsUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.RejectAiEvaluationCaseUseCase;
@@ -40,6 +43,7 @@ import com.qtai.domain.ai.api.admin.evaluation.RetireAiEvaluationSetUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationCaseListResponse;
 import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationCaseResponse;
 import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationCaseStatusResponse;
+import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationRunResponse;
 import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationSetListResponse;
 import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationSetResponse;
 import com.qtai.domain.ai.api.admin.evaluation.dto.ChangeAiEvaluationCaseStatusCommand;
@@ -47,9 +51,12 @@ import com.qtai.domain.ai.api.admin.evaluation.dto.ChangeAiEvaluationSetStatusCo
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationAssetCandidateCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationCaseCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationReportCandidateCommand;
+import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationRunCommand;
 import com.qtai.domain.ai.api.admin.evaluation.dto.CreateAiEvaluationSetCommand;
+import com.qtai.domain.ai.api.admin.evaluation.dto.GetAiEvaluationRunQuery;
 import com.qtai.domain.ai.api.admin.evaluation.dto.GetAiEvaluationCaseQuery;
 import com.qtai.domain.ai.api.admin.evaluation.dto.GetAiEvaluationSetQuery;
+import com.qtai.domain.ai.api.admin.evaluation.dto.GetLatestAiEvaluationRunQuery;
 import com.qtai.domain.ai.api.admin.evaluation.dto.ListAiEvaluationCasesQuery;
 import com.qtai.domain.ai.api.admin.evaluation.dto.ListAiEvaluationSetsQuery;
 
@@ -69,6 +76,9 @@ public class AdminAiEvaluationController {
     private final RejectAiEvaluationCaseUseCase rejectCaseUseCase;
     private final CreateAiEvaluationAssetCandidateUseCase assetCandidateUseCase;
     private final CreateAiEvaluationReportCandidateUseCase reportCandidateUseCase;
+    private final CreateAiEvaluationRunUseCase createRunUseCase;
+    private final GetLatestAiEvaluationRunUseCase latestRunUseCase;
+    private final GetAiEvaluationRunUseCase getRunUseCase;
     private final AdminAiAuthentication adminAiAuthentication;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -87,12 +97,16 @@ public class AdminAiEvaluationController {
             RejectAiEvaluationCaseUseCase rejectCaseUseCase,
             CreateAiEvaluationAssetCandidateUseCase assetCandidateUseCase,
             CreateAiEvaluationReportCandidateUseCase reportCandidateUseCase,
+            CreateAiEvaluationRunUseCase createRunUseCase,
+            GetLatestAiEvaluationRunUseCase latestRunUseCase,
+            GetAiEvaluationRunUseCase getRunUseCase,
             AdminAiAuthentication adminAiAuthentication,
             ObjectMapper objectMapper
     ) {
         this(listSetsUseCase, createSetUseCase, getSetUseCase, activateSetUseCase, retireSetUseCase,
                 listCasesUseCase, createCaseUseCase, getCaseUseCase, approveCaseUseCase, rejectCaseUseCase,
-                assetCandidateUseCase, reportCandidateUseCase, adminAiAuthentication, objectMapper,
+                assetCandidateUseCase, reportCandidateUseCase, createRunUseCase, latestRunUseCase, getRunUseCase,
+                adminAiAuthentication, objectMapper,
                 Clock.systemDefaultZone());
     }
 
@@ -113,6 +127,32 @@ public class AdminAiEvaluationController {
             ObjectMapper objectMapper,
             Clock clock
     ) {
+        this(listSetsUseCase, createSetUseCase, getSetUseCase, activateSetUseCase, retireSetUseCase,
+                listCasesUseCase, createCaseUseCase, getCaseUseCase, approveCaseUseCase, rejectCaseUseCase,
+                assetCandidateUseCase, reportCandidateUseCase, null, null, null, adminAiAuthentication, objectMapper,
+                clock);
+    }
+
+    AdminAiEvaluationController(
+            ListAiEvaluationSetsUseCase listSetsUseCase,
+            CreateAiEvaluationSetUseCase createSetUseCase,
+            GetAiEvaluationSetUseCase getSetUseCase,
+            ActivateAiEvaluationSetUseCase activateSetUseCase,
+            RetireAiEvaluationSetUseCase retireSetUseCase,
+            ListAiEvaluationCasesUseCase listCasesUseCase,
+            CreateAiEvaluationCaseUseCase createCaseUseCase,
+            GetAiEvaluationCaseUseCase getCaseUseCase,
+            ApproveAiEvaluationCaseUseCase approveCaseUseCase,
+            RejectAiEvaluationCaseUseCase rejectCaseUseCase,
+            CreateAiEvaluationAssetCandidateUseCase assetCandidateUseCase,
+            CreateAiEvaluationReportCandidateUseCase reportCandidateUseCase,
+            CreateAiEvaluationRunUseCase createRunUseCase,
+            GetLatestAiEvaluationRunUseCase latestRunUseCase,
+            GetAiEvaluationRunUseCase getRunUseCase,
+            AdminAiAuthentication adminAiAuthentication,
+            ObjectMapper objectMapper,
+            Clock clock
+    ) {
         this.listSetsUseCase = listSetsUseCase;
         this.createSetUseCase = createSetUseCase;
         this.getSetUseCase = getSetUseCase;
@@ -125,6 +165,9 @@ public class AdminAiEvaluationController {
         this.rejectCaseUseCase = rejectCaseUseCase;
         this.assetCandidateUseCase = assetCandidateUseCase;
         this.reportCandidateUseCase = reportCandidateUseCase;
+        this.createRunUseCase = createRunUseCase;
+        this.latestRunUseCase = latestRunUseCase;
+        this.getRunUseCase = getRunUseCase;
         this.adminAiAuthentication = adminAiAuthentication;
         this.objectMapper = objectMapper;
         this.clock = clock;
@@ -220,6 +263,53 @@ public class AdminAiEvaluationController {
         AdminAiAuthentication.AdminAiPrincipal principal = adminAiAuthentication.requireEvaluationManager(authentication);
         return ResponseEntity.ok(ApiResponse.success(getCaseUseCase.getEvaluationCase(new GetAiEvaluationCaseQuery(
                 principal.adminId(), principal.memberRole(), principal.adminRole(), caseId
+        ))));
+    }
+
+    @PostMapping("/evaluation-sets/{setId}/runs")
+    public ResponseEntity<ApiResponse<AiEvaluationRunResponse>> createEvaluationRun(
+            Authentication authentication,
+            @PathVariable Long setId,
+            @Valid @RequestBody AiEvaluationRunRequest request
+    ) {
+        AdminAiAuthentication.AdminAiPrincipal principal = adminAiAuthentication.requireEvaluationManager(authentication);
+        AiEvaluationRunResponse response = createRunUseCase.createEvaluationRun(new CreateAiEvaluationRunCommand(
+                principal.adminId(),
+                principal.memberRole(),
+                principal.adminRole(),
+                setId,
+                request.promptVersionId()
+        ));
+        return ResponseEntity.status(201).body(ApiResponse.success(response));
+    }
+
+    @GetMapping("/evaluation-sets/{setId}/runs/latest")
+    public ResponseEntity<ApiResponse<AiEvaluationRunResponse>> getLatestEvaluationRun(
+            Authentication authentication,
+            @PathVariable Long setId
+    ) {
+        AdminAiAuthentication.AdminAiPrincipal principal = adminAiAuthentication.requireEvaluationManager(authentication);
+        return ResponseEntity.ok(ApiResponse.success(latestRunUseCase.getLatestEvaluationRun(
+                new GetLatestAiEvaluationRunQuery(
+                        principal.adminId(),
+                        principal.memberRole(),
+                        principal.adminRole(),
+                        setId
+                )
+        )));
+    }
+
+    @GetMapping("/evaluation-runs/{runId}")
+    public ResponseEntity<ApiResponse<AiEvaluationRunResponse>> getEvaluationRun(
+            Authentication authentication,
+            @PathVariable Long runId
+    ) {
+        AdminAiAuthentication.AdminAiPrincipal principal = adminAiAuthentication.requireEvaluationManager(authentication);
+        return ResponseEntity.ok(ApiResponse.success(getRunUseCase.getEvaluationRun(new GetAiEvaluationRunQuery(
+                principal.adminId(),
+                principal.memberRole(),
+                principal.adminRole(),
+                runId
         ))));
     }
 
@@ -329,6 +419,9 @@ public class AdminAiEvaluationController {
     }
 
     public record ReviewRequest(@NotBlank String reviewReason) {
+    }
+
+    public record AiEvaluationRunRequest(@NotNull Long promptVersionId) {
     }
 
     public record AssetCandidateRequest(
