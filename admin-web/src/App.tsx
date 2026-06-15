@@ -15,6 +15,7 @@ import AiChecklistsPage from './pages/AiChecklistsPage';
 import AiBatchRunLogsPage from './pages/AiBatchRunLogsPage';
 import AiEvaluationsPage from './pages/AiEvaluationsPage';
 import SimulatorClipsPage from './pages/SimulatorClipsPage';
+import AiPromptVersionsPage from './pages/AiPromptVersionsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { MENU_ITEMS } from './constants/menu';
 
@@ -82,6 +83,10 @@ export default function App() {
           <Route
             path="/simulator-clips"
             element={withRole('/simulator-clips', <SimulatorClipsPage />)}
+          />
+          <Route
+            path="/ai-prompt-versions"
+            element={withRole('/ai-prompt-versions', <AiPromptVersionsPage />)}
           />
         </Route>
       </Route>

@@ -25,6 +25,7 @@ export interface MenuItem {
 //  - AD-09 검증체크리스트: REVIEWER           (AdminAiValidationChecklistController.requireReviewer)
 //  - AD-10 배치실행로그  : OPERATOR/REVIEWER   (AdminAiBatchRunLogController.requireMonitoring)
 //  - AD-11 평가셋/케이스 : REVIEWER/CONTENT_CREATOR (AdminAiAuthentication.requireEvaluationManager)
+//  - AI 프롬프트 관리    : REVIEWER           (AdminAiPromptController)
 export const MENU_ITEMS: MenuItem[] = [
   {
     code: 'AD-01',
@@ -93,10 +94,15 @@ export const MENU_ITEMS: MenuItem[] = [
     requiredRoles: [ADMIN_ROLES.REVIEWER, ADMIN_ROLES.CONTENT_CREATOR],
   },
   {
-    // AD-14 시뮬레이터 관리(조회+숨김) — AdminSimulatorClipController.requireReviewer
     code: 'AD-14',
     path: '/simulator-clips',
     label: '시뮬레이터 관리',
+    requiredRoles: [ADMIN_ROLES.REVIEWER],
+  },
+  {
+    code: 'AI-PROMPT',
+    path: '/ai-prompt-versions',
+    label: 'AI 프롬프트 관리',
     requiredRoles: [ADMIN_ROLES.REVIEWER],
   },
 ];

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Card,
+  Descriptions,
   Drawer,
   Table,
   Tag,
@@ -18,7 +19,7 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined, PlusOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   listEvaluationSets,
   createEvaluationSet,
@@ -28,11 +29,20 @@ import {
   createEvaluationCase,
   approveEvaluationCase,
   rejectEvaluationCase,
+  createEvaluationRun,
+  getEvaluationRun,
+  getLatestEvaluationRun,
   type EvaluationSet,
   type EvaluationSetListParams,
   type EvaluationCase,
   type EvaluationCaseListParams,
+  type EvaluationRun,
+  type EvaluationRunResult,
 } from '../api/aiEvaluations';
+import {
+  listAiPromptVersions,
+  type AiPromptVersion,
+} from '../api/aiPromptVersions';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
 import { useAuth } from '../auth/useAuth';
@@ -87,6 +97,32 @@ function caseStatusTag(status: string) {
   return <Tag color={m.color}>{m.text}</Tag>;
 }
 
+function runStatusTag(status: string) {
+  const map: Record<string, { color: string; text: string }> = {
+    QUEUED: { color: 'blue', text: '대기' },
+    RUNNING: { color: 'processing', text: '실행 중' },
+    SUCCEEDED: { color: 'green', text: '성공' },
+    COMPLETED: { color: 'green', text: '완료' },
+    PARTIAL_FAILED: { color: 'gold', text: '부분 실패' },
+    FAILED: { color: 'red', text: '실패' },
+    CANCELLED: { color: 'default', text: '취소' },
+  };
+  const m = map[status] ?? { color: 'default', text: status };
+  return <Tag color={m.color}>{m.text}</Tag>;
+}
+
+function runResultTag(result: string) {
+  const map: Record<string, { color: string; text: string }> = {
+    PASSED: { color: 'green', text: '통과' },
+    PASS: { color: 'green', text: '통과' },
+    FAILED: { color: 'red', text: '실패' },
+    FAIL: { color: 'red', text: '실패' },
+    NEEDS_REVIEW: { color: 'gold', text: '검토 필요' },
+  };
+  const m = map[result] ?? { color: 'default', text: result };
+  return <Tag color={m.color}>{m.text}</Tag>;
+}
+
 // 응답의 JSON 값을 보기 좋게 표시. 자연어로 저장된 기대 판정(JSON 문자열)은 따옴표를 벗겨 그대로 보여준다.
 function prettyJson(value: string | null): string {
   if (!value) return '-';
@@ -107,6 +143,10 @@ interface CreateSetFormValues {
   status?: string;
   description?: string;
   expectedPolicyJson?: string;
+}
+
+interface RunEvaluationFormValues {
+  promptVersionId: number;
 }
 
 export default function AiEvaluationsPage() {
@@ -133,6 +173,57 @@ export default function AiEvaluationsPage() {
 
   // 케이스 드로어
   const [selectedSet, setSelectedSet] = useState<EvaluationSet | null>(null);
+
+  // 평가 실행
+  const [latestRuns, setLatestRuns] = useState<Record<number, EvaluationRun | null>>({});
+  const [latestLoading, setLatestLoading] = useState(false);
+  const [runOpen, setRunOpen] = useState(false);
+  const [runSet, setRunSet] = useState<EvaluationSet | null>(null);
+  const [promptOptions, setPromptOptions] = useState<AiPromptVersion[]>([]);
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runForm] = Form.useForm<RunEvaluationFormValues>();
+  const [runDetailOpen, setRunDetailOpen] = useState(false);
+  const [runDetailLoading, setRunDetailLoading] = useState(false);
+  const [runDetail, setRunDetail] = useState<EvaluationRun | null>(null);
+
+  useEffect(() => {
+    if (rows.length === 0) {
+      setLatestRuns({});
+      return;
+    }
+
+    let cancelled = false;
+    setLatestLoading(true);
+    Promise.all(
+      rows.map(async (row) => ({
+        setId: row.id,
+        run: await getLatestEvaluationRun(row.id),
+      })),
+    )
+      .then((entries) => {
+        if (cancelled) return;
+        const next: Record<number, EvaluationRun | null> = {};
+        for (const entry of entries) {
+          next[entry.setId] = entry.run;
+        }
+        setLatestRuns(next);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          message.error(
+            e instanceof Error ? e.message : '최근 평가 실행을 불러오지 못했습니다.',
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLatestLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rows]);
 
   const onSearch = () =>
     applyFilters({ evalType: evalType || undefined, status: status || undefined });
@@ -199,6 +290,72 @@ export default function AiEvaluationsPage() {
     }
   };
 
+  const loadDraftPrompts = async () => {
+    setPromptLoading(true);
+    try {
+      const res = await listAiPromptVersions({
+        promptType: 'EXPLANATION',
+        status: 'DRAFT',
+        page: 0,
+        size: 100,
+      });
+      setPromptOptions(res.content);
+    } catch (e) {
+      message.error(
+        e instanceof Error ? e.message : 'DRAFT 프롬프트 목록을 불러오지 못했습니다.',
+      );
+    } finally {
+      setPromptLoading(false);
+    }
+  };
+
+  const openRunModal = (row: EvaluationSet) => {
+    setRunSet(row);
+    runForm.resetFields();
+    setPromptOptions([]);
+    setRunOpen(true);
+    loadDraftPrompts();
+  };
+
+  const openRunDetail = async (run: EvaluationRun) => {
+    setRunDetail(run);
+    setRunDetailOpen(true);
+    setRunDetailLoading(true);
+    try {
+      setRunDetail(await getEvaluationRun(run.id));
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '평가 실행 상세 조회에 실패했습니다.');
+    } finally {
+      setRunDetailLoading(false);
+    }
+  };
+
+  const submitRun = async () => {
+    if (!runSet) return;
+    let values: RunEvaluationFormValues;
+    try {
+      values = await runForm.validateFields();
+    } catch {
+      return;
+    }
+
+    setRunning(true);
+    try {
+      const run = await createEvaluationRun(runSet.id, {
+        promptVersionId: values.promptVersionId,
+      });
+      message.success('평가 실행을 요청했습니다.');
+      setLatestRuns((prev) => ({ ...prev, [runSet.id]: run }));
+      setRunOpen(false);
+      setRunDetail(run);
+      setRunDetailOpen(true);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '평가 실행 요청에 실패했습니다.');
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const columns: ColumnsType<EvaluationSet> = [
     { title: 'ID', dataIndex: 'id', width: 64 },
     { title: '이름', dataIndex: 'name', width: 200, ellipsis: true },
@@ -228,14 +385,51 @@ export default function AiEvaluationsPage() {
       render: (v: string) => formatDateTime(v),
     },
     {
+      title: '최근 실행 결과',
+      width: 260,
+      render: (_, r) => {
+        const hasLoaded = Object.prototype.hasOwnProperty.call(latestRuns, r.id);
+        const run = latestRuns[r.id];
+        if (!hasLoaded && latestLoading) {
+          return <Typography.Text type="secondary">조회 중</Typography.Text>;
+        }
+        if (!run) {
+          return <Typography.Text type="secondary">-</Typography.Text>;
+        }
+        return (
+          <Space direction="vertical" size={0}>
+            <Space size={4} wrap>
+              {runStatusTag(run.status)}
+              <Typography.Text style={{ fontSize: 12 }}>
+                통과 {run.passedCount} / 실패 {run.failedCount} / 검토{' '}
+                {run.needsReviewCount}
+              </Typography.Text>
+            </Space>
+            <Button size="small" type="link" onClick={() => openRunDetail(run)}>
+              실행 #{run.id} 상세
+            </Button>
+          </Space>
+        );
+      },
+    },
+    {
       title: '액션',
-      width: 230,
+      width: 330,
       fixed: 'right',
       render: (_, r) => (
         <Space>
           <Button size="small" onClick={() => setSelectedSet(r)}>
             항목 보기
           </Button>
+          {canReview && r.evalType === 'EXPLANATION' && (
+            <Button
+              size="small"
+              icon={<PlayCircleOutlined />}
+              onClick={() => openRunModal(r)}
+            >
+              평가 실행
+            </Button>
+          )}
           {r.status === 'DRAFT' && (
             <Popconfirm
               title="이 평가 세트을 활성화할까요?"
@@ -263,6 +457,35 @@ export default function AiEvaluationsPage() {
           )}
         </Space>
       ),
+    },
+  ];
+
+  const runResultColumns: ColumnsType<EvaluationRunResult> = [
+    { title: 'ID', dataIndex: 'id', width: 70 },
+    {
+      title: '평가 항목',
+      dataIndex: 'evaluationCaseId',
+      width: 100,
+      render: (v: number) => `#${v}`,
+    },
+    {
+      title: '결과',
+      dataIndex: 'result',
+      width: 110,
+      render: (v: string) => runResultTag(v),
+    },
+    {
+      title: '사유',
+      dataIndex: 'reason',
+      width: 240,
+      ellipsis: true,
+      render: (v: string | null) => v || '-',
+    },
+    {
+      title: '생성일',
+      dataIndex: 'createdAt',
+      width: 160,
+      render: (v: string) => formatDateTime(v),
     },
   ];
 
@@ -430,6 +653,113 @@ export default function AiEvaluationsPage() {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* 평가 실행 모달 */}
+      <Modal
+        open={runOpen}
+        title={runSet ? `평가 실행 — #${runSet.id} ${runSet.name}` : '평가 실행'}
+        okText="실행"
+        cancelText="취소"
+        confirmLoading={running}
+        onOk={submitRun}
+        onCancel={() => setRunOpen(false)}
+      >
+        <Form<RunEvaluationFormValues> form={runForm} layout="vertical" preserve={false}>
+          <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
+            DRAFT 상태의 EXPLANATION 프롬프트 버전을 선택해 이 평가 세트로 실행합니다.
+            실행 결과는 사용자 노출 산출물과 분리된 평가 실행 결과로 조회합니다.
+          </Typography.Paragraph>
+          <Form.Item
+            name="promptVersionId"
+            label="DRAFT EXPLANATION 프롬프트"
+            rules={[{ required: true, message: '프롬프트 버전을 선택하세요.' }]}
+          >
+            <Select
+              showSearch
+              placeholder="프롬프트 버전 선택"
+              loading={promptLoading}
+              optionFilterProp="label"
+              options={promptOptions.map((prompt) => ({
+                label: `${prompt.version} · #${prompt.id}${
+                  prompt.modelName ? ` · ${prompt.modelName}` : ''
+                }`,
+                value: prompt.id,
+              }))}
+              notFoundContent={
+                promptLoading ? '불러오는 중' : '선택 가능한 DRAFT 프롬프트가 없습니다'
+              }
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 평가 실행 상세 */}
+      <Drawer
+        open={runDetailOpen}
+        title={runDetail ? `평가 실행 #${runDetail.id}` : '평가 실행 상세'}
+        width={860}
+        extra={
+          runDetail ? (
+            <Tooltip title="새로고침">
+              <Button
+                icon={<ReloadOutlined />}
+                loading={runDetailLoading}
+                onClick={() => openRunDetail(runDetail)}
+              />
+            </Tooltip>
+          ) : null
+        }
+        onClose={() => setRunDetailOpen(false)}
+      >
+        {runDetail && (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Descriptions column={2} bordered size="small">
+              <Descriptions.Item label="상태">
+                {runStatusTag(runDetail.status)}
+              </Descriptions.Item>
+              <Descriptions.Item label="평가 세트">
+                #{runDetail.evaluationSetId}
+              </Descriptions.Item>
+              <Descriptions.Item label="프롬프트 버전">
+                #{runDetail.promptVersionId}
+              </Descriptions.Item>
+              <Descriptions.Item label="요청 관리자">
+                #{runDetail.requestedByAdminId ?? '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="시작">
+                {formatDateTime(runDetail.startedAt)}
+              </Descriptions.Item>
+              <Descriptions.Item label="종료">
+                {formatDateTime(runDetail.finishedAt)}
+              </Descriptions.Item>
+              <Descriptions.Item label="집계" span={2}>
+                전체 {runDetail.totalCount} · 통과 {runDetail.passedCount} · 실패{' '}
+                {runDetail.failedCount} · 검토 필요 {runDetail.needsReviewCount}
+              </Descriptions.Item>
+            </Descriptions>
+
+            <Table<EvaluationRunResult>
+              rowKey="id"
+              size="small"
+              loading={runDetailLoading}
+              columns={runResultColumns}
+              dataSource={runDetail.results}
+              scroll={{ x: 'max-content' }}
+              expandable={{
+                expandedRowRender: (r) => (
+                  <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Typography.Text type="secondary">출력 요약</Typography.Text>
+                    <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                      {prettyJson(r.outputSummaryJson)}
+                    </pre>
+                  </Space>
+                ),
+              }}
+              pagination={false}
+            />
+          </Space>
+        )}
+      </Drawer>
 
       {/* 케이스 관리 드로어 */}
       <Drawer
