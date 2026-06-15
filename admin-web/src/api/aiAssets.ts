@@ -131,6 +131,23 @@ export function regenerateAiAsset(assetId: number, payload: RegeneratePayload) {
   );
 }
 
+// 관리자 해설 생성 트리거 결과 (백엔드 GenerateQtPassageExplanationResult)
+export interface GenerateExplanationResult {
+  createdCount: number;
+  failedCount: number;
+  reason: string | null;
+}
+
+// 특정 QT 본문의 미생성 해설 생성 job 시딩(F-02/F-06). 생성은 배치/시스템 처리라 202 Accepted.
+export function generateQtPassageExplanation(qtPassageId: number) {
+  return unwrap<GenerateExplanationResult>(
+    apiClient.post<ApiResponse<GenerateExplanationResult>>(
+      `/admin/ai/qt-passages/${qtPassageId}/explanations/generate`,
+      {},
+    ),
+  );
+}
+
 export function rejectAiAsset(assetId: number, reason?: string) {
   return unwrap<ReviewAiAssetResult>(
     apiClient.post<ApiResponse<ReviewAiAssetResult>>(
