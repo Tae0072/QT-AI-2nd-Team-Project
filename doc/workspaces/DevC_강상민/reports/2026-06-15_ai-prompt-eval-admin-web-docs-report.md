@@ -11,7 +11,7 @@
 
 Backend/OpenAPI PR에서 추가한 EXPLANATION 프롬프트 관리 API와 평가 run API를 관리자 웹에 연결했다. 관리자는 새 프롬프트를 만들고, AD-11 평가 세트에서 해당 프롬프트를 실행한 뒤 최근 실행 결과와 상세 결과를 확인할 수 있다.
 
-이 리포트는 admin-web과 문서 PR 전용이다. 서버 API, DB migration, OpenAPI 변경은 선행 backend PR에서 다룬다.
+이 리포트는 admin-web과 문서 PR 전용이다. 서버 API,  DB migration, OpenAPI 변경은 선행 backend PR에서 다룬다.
 
 ## 구현 내용
 
