@@ -32,6 +32,41 @@ import { formatDateTime } from '../utils/datetime';
 // GET /api/v1/admin/ai/monitoring — 생성/검증/배치/Q&A 집계 대시보드.
 // 권한: OPERATOR/REVIEWER/SUPER_ADMIN.
 
+// 가독성: 사유는 건수 내림차순 상위 N개만 노출하고, 나머지는 요약 한 줄로 접는다.
+const TOP_REASONS = 5;
+
+function TopReasonTable<T extends { count: number }>({
+  rows,
+  columns,
+  rowKey,
+}: {
+  rows: T[];
+  columns: ColumnsType<T>;
+  rowKey: string;
+}) {
+  const sorted = [...rows].sort((a, b) => b.count - a.count);
+  const top = sorted.slice(0, TOP_REASONS);
+  const restCount = sorted.length - top.length;
+  const restSum = sorted.slice(TOP_REASONS).reduce((s, r) => s + r.count, 0);
+  return (
+    <>
+      <Table
+        rowKey={rowKey}
+        size="small"
+        pagination={false}
+        columns={columns}
+        dataSource={top}
+        locale={{ emptyText: '없음' }}
+      />
+      {restCount > 0 && (
+        <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+          그 외 {restCount}종 · 합계 {restSum}건 (상위 {TOP_REASONS}개만 표시)
+        </Typography.Text>
+      )}
+    </>
+  );
+}
+
 export default function AiMonitoringPage() {
   const navigate = useNavigate();
   const [data, setData] = useState<AiMonitoringSummary | null>(null);
@@ -112,7 +147,15 @@ export default function AiMonitoringPage() {
     {
       title: '오류',
       dataIndex: 'errorMessage',
-      render: (v: string | null) => v ?? '-',
+      ellipsis: { showTitle: false },
+      render: (v: string | null) =>
+        v ? (
+          <Tooltip title={v}>
+            <span>{v}</span>
+          </Tooltip>
+        ) : (
+          '-'
+        ),
     },
   ];
 
@@ -286,25 +329,19 @@ export default function AiMonitoringPage() {
               <Row gutter={[16, 16]}>
                 <Col xs={24} md={12}>
                   <Card size="small" title="검증 로그 실패 사유">
-                    <Table
+                    <TopReasonTable
                       rowKey="resultCode"
-                      size="small"
-                      pagination={false}
                       columns={failureCols}
-                      dataSource={data.validation.failureReasons ?? []}
-                      locale={{ emptyText: '없음' }}
+                      rows={data.validation.failureReasons ?? []}
                     />
                   </Card>
                 </Col>
                 <Col xs={24} md={12}>
                   <Card size="small" title="Q&amp;A 차단 사유">
-                    <Table
+                    <TopReasonTable
                       rowKey="blockedReason"
-                      size="small"
-                      pagination={false}
                       columns={blockedCols}
-                      dataSource={data.qa.blockedReasons ?? []}
-                      locale={{ emptyText: '없음' }}
+                      rows={data.qa.blockedReasons ?? []}
                     />
                   </Card>
                 </Col>
