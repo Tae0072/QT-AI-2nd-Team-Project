@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,7 +16,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
@@ -48,6 +52,7 @@ public class AiEvaluationRunService implements
     private final WriteAuditLogUseCase auditLogUseCase;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final TransactionTemplate transactionTemplate;
 
     @Autowired
     public AiEvaluationRunService(
@@ -58,10 +63,12 @@ public class AiEvaluationRunService implements
             AiEvaluationResultRepository resultRepository,
             ExplanationGenerationJobHandler explanationGenerationJobHandler,
             WriteAuditLogUseCase auditLogUseCase,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            PlatformTransactionManager transactionManager
     ) {
         this(setRepository, caseRepository, promptVersionRepository, runRepository, resultRepository,
-                explanationGenerationJobHandler, auditLogUseCase, objectMapper, Clock.systemDefaultZone());
+                explanationGenerationJobHandler, auditLogUseCase, objectMapper, Clock.systemDefaultZone(),
+                transactionManager);
     }
 
     AiEvaluationRunService(
@@ -73,7 +80,8 @@ public class AiEvaluationRunService implements
             ExplanationGenerationJobHandler explanationGenerationJobHandler,
             WriteAuditLogUseCase auditLogUseCase,
             ObjectMapper objectMapper,
-            Clock clock
+            Clock clock,
+            PlatformTransactionManager transactionManager
     ) {
         this.setRepository = setRepository;
         this.caseRepository = caseRepository;
@@ -84,48 +92,39 @@ public class AiEvaluationRunService implements
         this.auditLogUseCase = auditLogUseCase;
         this.objectMapper = objectMapper;
         this.clock = clock;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AiEvaluationRunResponse createEvaluationRun(CreateAiEvaluationRunCommand command) {
         requireValidCreateCommand(command);
         requireEvaluationManager(command.memberRole(), command.adminRole());
 
-        AiEvaluationSet set = findSet(command.evaluationSetId());
-        requireRunnableExplanationSet(set);
-        AiPromptVersion promptVersion = findPromptVersion(command.promptVersionId());
-        requireRunnableExplanationPrompt(promptVersion);
-        List<AiEvaluationCase> cases = caseRepository.findByEvaluationSetIdAndStatusOrderByIdAsc(
-                set.getId(),
-                AiEvaluationCaseStatus.APPROVED
-        );
-        if (cases.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION, "EVALUATION_RUN_REQUIRES_APPROVED_CASES");
-        }
-
-        OffsetDateTime now = OffsetDateTime.now(clock);
-        AiEvaluationRun run = runRepository.saveAndFlush(AiEvaluationRun.start(
-                set.getId(),
-                promptVersion.getId(),
-                command.adminId(),
-                now
-        ));
+        EvaluationRunPlan plan = startEvaluationRun(command);
 
         int passedCount = 0;
         int failedCount = 0;
-        for (AiEvaluationCase evaluationCase : cases) {
-            AiEvaluationResult result = executeCase(run, promptVersion, evaluationCase, OffsetDateTime.now(clock));
-            if (result.getResult() == AiEvaluationResultStatus.PASSED) {
-                passedCount++;
-            } else if (result.getResult() == AiEvaluationResultStatus.FAILED) {
-                failedCount++;
+        List<EvaluationCaseResultDraft> resultDrafts = new ArrayList<>();
+        try {
+            for (AiEvaluationCase evaluationCase : plan.cases()) {
+                EvaluationCaseResultDraft result = executeCase(
+                        plan.promptVersion(),
+                        evaluationCase,
+                        OffsetDateTime.now(clock)
+                );
+                resultDrafts.add(result);
+                if (result.result() == AiEvaluationResultStatus.PASSED) {
+                    passedCount++;
+                } else if (result.result() == AiEvaluationResultStatus.FAILED) {
+                    failedCount++;
+                }
             }
+            return completeEvaluationRun(command.adminId(), plan.runId(), resultDrafts, passedCount, failedCount);
+        } catch (RuntimeException exception) {
+            markRunFailed(plan.runId());
+            throw exception;
         }
-        List<AiEvaluationResult> savedResults = resultRepository.findByEvaluationRunIdOrderByIdAsc(run.getId());
-        run.finish(cases.size(), passedCount, failedCount, 0, OffsetDateTime.now(clock));
-        writeAudit(command.adminId(), run, savedResults);
-        return toResponse(run, savedResults);
     }
 
     @Override
@@ -148,8 +147,67 @@ public class AiEvaluationRunService implements
         return toResponse(run, resultRepository.findByEvaluationRunIdOrderByIdAsc(run.getId()));
     }
 
-    private AiEvaluationResult executeCase(
-            AiEvaluationRun run,
+    private EvaluationRunPlan startEvaluationRun(CreateAiEvaluationRunCommand command) {
+        return transactionTemplate.execute(status -> {
+            AiEvaluationSet set = findSet(command.evaluationSetId());
+            requireRunnableExplanationSet(set);
+            AiPromptVersion promptVersion = findPromptVersion(command.promptVersionId());
+            requireRunnableExplanationPrompt(promptVersion);
+            List<AiEvaluationCase> cases = caseRepository.findByEvaluationSetIdAndStatusOrderByIdAsc(
+                    set.getId(),
+                    AiEvaluationCaseStatus.APPROVED
+            );
+            if (cases.isEmpty()) {
+                throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION, "EVALUATION_RUN_REQUIRES_APPROVED_CASES");
+            }
+
+            OffsetDateTime now = OffsetDateTime.now(clock);
+            AiEvaluationRun run = runRepository.saveAndFlush(AiEvaluationRun.start(
+                    set.getId(),
+                    promptVersion.getId(),
+                    command.adminId(),
+                    now
+            ));
+            return new EvaluationRunPlan(run.getId(), promptVersion, List.copyOf(cases));
+        });
+    }
+
+    private AiEvaluationRunResponse completeEvaluationRun(
+            Long adminId,
+            Long runId,
+            List<EvaluationCaseResultDraft> resultDrafts,
+            int passedCount,
+            int failedCount
+    ) {
+        return transactionTemplate.execute(status -> {
+            AiEvaluationRun run = runRepository.findById(runId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+            List<AiEvaluationResult> savedResults = new ArrayList<>();
+            for (EvaluationCaseResultDraft draft : resultDrafts) {
+                savedResults.add(resultRepository.save(AiEvaluationResult.create(
+                        run.getId(),
+                        draft.evaluationCaseId(),
+                        draft.result(),
+                        draft.reason(),
+                        draft.outputSummaryJson(),
+                        draft.createdAt()
+                )));
+            }
+            run.finish(resultDrafts.size(), passedCount, failedCount, 0, OffsetDateTime.now(clock));
+            writeAudit(adminId, run, savedResults);
+            return toResponse(run, savedResults);
+        });
+    }
+
+    private void markRunFailed(Long runId) {
+        transactionTemplate.executeWithoutResult(status -> runRepository.findById(runId).ifPresent(run -> {
+            if (run.getStatus() == AiEvaluationRunStatus.RUNNING) {
+                run.fail(OffsetDateTime.now(clock));
+            }
+        }));
+    }
+
+    private EvaluationCaseResultDraft executeCase(
             AiPromptVersion promptVersion,
             AiEvaluationCase evaluationCase,
             OffsetDateTime createdAt
@@ -161,39 +219,42 @@ public class AiEvaluationRunService implements
             Long targetId = requirePositive(evaluationCase.getTargetId(), "targetId");
             ExplanationGenerationJobHandler.GeneratedExplanation generated =
                     explanationGenerationJobHandler.generateForEvaluation(
-                            promptVersion,
-                            evaluationCase.getTargetType(),
-                            targetId
-                    );
-            return resultRepository.save(AiEvaluationResult.create(
-                    run.getId(),
+                    promptVersion,
+                    evaluationCase.getTargetType(),
+                    targetId
+            );
+            return new EvaluationCaseResultDraft(
                     evaluationCase.getId(),
                     AiEvaluationResultStatus.PASSED,
                     null,
                     outputSummaryJson(promptVersion, evaluationCase, generated),
                     createdAt
-            ));
+            );
         } catch (BusinessException exception) {
-            return failedResult(run, evaluationCase, exception.getErrorCode().name() + ":" + exception.getMessage(), createdAt);
-        } catch (RuntimeException exception) {
-            return failedResult(run, evaluationCase, exception.getClass().getSimpleName() + ":" + exception.getMessage(), createdAt);
+            return failedResult(evaluationCase, safeFailureReason(exception), createdAt);
         }
     }
 
-    private AiEvaluationResult failedResult(
-            AiEvaluationRun run,
+    private EvaluationCaseResultDraft failedResult(
             AiEvaluationCase evaluationCase,
             String reason,
             OffsetDateTime createdAt
     ) {
-        return resultRepository.save(AiEvaluationResult.create(
-                run.getId(),
+        return new EvaluationCaseResultDraft(
                 evaluationCase.getId(),
                 AiEvaluationResultStatus.FAILED,
                 reason,
                 failureSummaryJson(evaluationCase),
                 createdAt
-        ));
+        );
+    }
+
+    private static String safeFailureReason(BusinessException exception) {
+        String detail = exception.getMessage();
+        if (detail != null && detail.matches("[A-Z0-9_]+")) {
+            return exception.getErrorCode().name() + ":" + detail;
+        }
+        return exception.getErrorCode().name();
     }
 
     private String outputSummaryJson(
@@ -392,5 +453,21 @@ public class AiEvaluationRunService implements
             throw new BusinessException(ErrorCode.INVALID_INPUT, fieldName + " must not be blank");
         }
         return value;
+    }
+
+    private record EvaluationRunPlan(
+            Long runId,
+            AiPromptVersion promptVersion,
+            List<AiEvaluationCase> cases
+    ) {
+    }
+
+    private record EvaluationCaseResultDraft(
+            Long evaluationCaseId,
+            AiEvaluationResultStatus result,
+            String reason,
+            String outputSummaryJson,
+            OffsetDateTime createdAt
+    ) {
     }
 }

@@ -310,9 +310,6 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         return promptVersion.getUserPromptTemplate()
                 .replace("{{targetType}}", input.targetType().name())
                 .replace("{{targetId}}", String.valueOf(input.targetId()))
-                .replace("{{qtPassageId}}", nullToEmpty(input.qtPassageId()))
-                .replace("{{qtDate}}", input.qtDate() == null ? "" : input.qtDate().toString())
-                .replace("{{qtTitle}}", nullToEmpty(input.title()))
                 .replace("{{qtPassageBlock}}", qtPassageBlock(input))
                 .replace("{{versesBlock}}", versesBlock(input))
                 .replace("{{commentaryBlock}}", commentaryBlock(input));
