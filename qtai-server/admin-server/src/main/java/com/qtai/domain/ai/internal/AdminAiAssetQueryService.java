@@ -165,6 +165,8 @@ public class AdminAiAssetQueryService implements ListAdminAiAssetsUseCase, GetAd
                 ),
                 row.checklistVersionId(),
                 row.latestValidationResult() == null ? null : row.latestValidationResult().name(),
+                row.autoValidationResult() == null ? null : row.autoValidationResult().name(),
+                row.advisorValidationResult() == null ? null : row.advisorValidationResult().name(),
                 row.sourceLabel() != null && !row.sourceLabel().isBlank(),
                 row.createdAt()
         );

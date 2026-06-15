@@ -81,6 +81,16 @@ class AiAssetReviewServiceTest {
     }
 
     @Test
+    void approveAllowsOptionalReasonAndSeparatesAssetFromValidating() {
+        AiGeneratedAsset asset = asset();
+        stubPassedApproval(asset);
+
+        service.reviewAiAsset(command("APPROVE", false, null));
+
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.APPROVED);
+    }
+
+    @Test
     void hideHidesVerseExplanationAndGlossaryTerms() {
         AiGeneratedAsset asset = asset();
         asset.approve(REVIEWED_AT.minusMinutes(1));
@@ -94,6 +104,23 @@ class AiAssetReviewServiceTest {
         verify(hideGlossaryUseCase).hidePublishedGlossaryTerms(glossaryCaptor.capture());
         assertThat(glossaryCaptor.getValue().aiAssetId()).isEqualTo(500L);
         verify(publishGlossaryUseCase, never()).publishApprovedGlossaryTerms(any());
+    }
+
+    @Test
+    void rejectAllowsOptionalReasonAndSeparatesAssetFromValidating() {
+        AiGeneratedAsset asset = asset();
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+
+        service.reviewAiAsset(command("REJECT", false, null));
+
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.REJECTED);
+        verify(publishExplanationUseCase, never())
+                .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+        verify(publishGlossaryUseCase, never())
+                .publishApprovedGlossaryTerms(any(PublishApprovedGlossaryTermsCommand.class));
+        ArgumentCaptor<AiValidationLog> validationLogCaptor = ArgumentCaptor.forClass(AiValidationLog.class);
+        verify(validationLogRepository).save(validationLogCaptor.capture());
+        assertAdminValidationLog(validationLogCaptor.getValue(), AiValidationResult.REJECTED, null);
     }
 
     @Test
@@ -124,13 +151,17 @@ class AiAssetReviewServiceTest {
     }
 
     private static ReviewAiAssetCommand command(String action, boolean activateForTarget) {
+        return command(action, activateForTarget, "review reason");
+    }
+
+    private static ReviewAiAssetCommand command(String action, boolean activateForTarget, String reason) {
         return new ReviewAiAssetCommand(
                 7L,
                 500L,
                 "ADMIN",
                 "REVIEWER",
                 action,
-                "review reason",
+                reason,
                 activateForTarget,
                 REVIEWED_AT
         );

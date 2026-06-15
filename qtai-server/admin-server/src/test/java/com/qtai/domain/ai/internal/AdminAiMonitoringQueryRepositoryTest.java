@@ -31,7 +31,7 @@ class AdminAiMonitoringQueryRepositoryTest {
     EntityManager entityManager;
 
     @Test
-    @DisplayName("AD-08은 산출물 관리자 검수 상태와 검증 로그 결과를 분리 집계한다")
+    @DisplayName("AD-08은 산출물 관리 상태와 검증 로그 결과를 분리 집계한다")
     void summarizeSeparatesReviewedAssetStatusesFromValidationLogResults() {
         AiGeneratedAsset waiting = asset(1001L);
         AiGeneratedAsset approved = asset(1002L);
@@ -44,15 +44,12 @@ class AdminAiMonitoringQueryRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        AdminAiMonitoringQueryRepository.Summary summary = repository.summarize(
-                new AdminAiMonitoringQueryRepository.Filter(
-                        FROM,
-                        TO,
-                        LocalDateTime.of(2026, 6, 15, 0, 0),
-                        LocalDateTime.of(2026, 6, 16, 0, 0)
-                )
-        );
+        AdminAiMonitoringQueryRepository.Summary summary = repository.summarize(filter());
 
+        assertThat(summary.assetStatuses().validating()).isEqualTo(1);
+        assertThat(summary.assetStatuses().approved()).isEqualTo(1);
+        assertThat(summary.assetStatuses().rejected()).isEqualTo(1);
+        assertThat(summary.assetStatuses().hidden()).isEqualTo(1);
         assertThat(summary.validation().waitingAssets()).isEqualTo(1);
         assertThat(summary.validation().approvedAssets()).isEqualTo(1);
         assertThat(summary.validation().rejectedAssets()).isEqualTo(1);
@@ -112,5 +109,14 @@ class AdminAiMonitoringQueryRepositoryTest {
                 "AUTO_VALIDATION_REJECTED",
                 REVIEWED_AT.plusMinutes(3)
         ));
+    }
+
+    private static AdminAiMonitoringQueryRepository.Filter filter() {
+        return new AdminAiMonitoringQueryRepository.Filter(
+                FROM,
+                TO,
+                LocalDateTime.of(2026, 6, 15, 0, 0),
+                LocalDateTime.of(2026, 6, 16, 0, 0)
+        );
     }
 }

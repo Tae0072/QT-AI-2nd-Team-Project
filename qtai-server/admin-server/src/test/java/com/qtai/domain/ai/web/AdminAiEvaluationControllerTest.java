@@ -23,15 +23,20 @@ import com.qtai.domain.ai.api.admin.evaluation.ApproveAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationAssetCandidateUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationReportCandidateUseCase;
+import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationRunUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.CreateAiEvaluationSetUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationCaseUseCase;
+import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationRunUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.GetAiEvaluationSetUseCase;
+import com.qtai.domain.ai.api.admin.evaluation.GetLatestAiEvaluationRunUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.ListAiEvaluationCasesUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.ListAiEvaluationSetsUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.RejectAiEvaluationCaseUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.RetireAiEvaluationSetUseCase;
 import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationCaseResponse;
 import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationCaseStatusResponse;
+import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationRunResponse;
+import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationRunResultResponse;
 import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationSetListResponse;
 import com.qtai.domain.ai.api.admin.evaluation.dto.AiEvaluationSetResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,6 +79,12 @@ class AdminAiEvaluationControllerTest {
     @Mock
     private CreateAiEvaluationReportCandidateUseCase reportCandidateUseCase;
     @Mock
+    private CreateAiEvaluationRunUseCase createRunUseCase;
+    @Mock
+    private GetLatestAiEvaluationRunUseCase latestRunUseCase;
+    @Mock
+    private GetAiEvaluationRunUseCase getRunUseCase;
+    @Mock
     private VerifyAdminRoleUseCase verifyAdminRoleUseCase;
 
     private MockMvc mockMvc;
@@ -97,6 +108,9 @@ class AdminAiEvaluationControllerTest {
                 rejectCaseUseCase,
                 assetCandidateUseCase,
                 reportCandidateUseCase,
+                createRunUseCase,
+                latestRunUseCase,
+                getRunUseCase,
                 authentication,
                 objectMapper,
                 Clock.systemDefaultZone()
@@ -263,6 +277,68 @@ class AdminAiEvaluationControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void contentCreatorCanCreateAndReadEvaluationRuns() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("REVIEWER", "CONTENT_CREATOR"))))
+                .thenReturn(new AdminUserInfo(100L, 7L, "CONTENT_CREATOR"));
+        when(createRunUseCase.createEvaluationRun(any())).thenReturn(runResponse());
+        when(latestRunUseCase.getLatestEvaluationRun(any())).thenReturn(runResponse());
+        when(getRunUseCase.getEvaluationRun(any())).thenReturn(runResponse());
+
+        mockMvc.perform(post("/api/v1/admin/ai/evaluation-sets/20/runs")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"promptVersionId\":2}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").value(400))
+                .andExpect(jsonPath("$.data.results[0].result").value("PASSED"));
+
+        mockMvc.perform(get("/api/v1/admin/ai/evaluation-sets/20/runs/latest")
+                        .principal(authentication("ROLE_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.promptVersionId").value(2));
+
+        mockMvc.perform(get("/api/v1/admin/ai/evaluation-runs/400")
+                        .principal(authentication("ROLE_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SUCCEEDED"));
+    }
+
+    @Test
+    void evaluationRunRequiresPromptVersionId() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/ai/evaluation-sets/20/runs")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void insufficientAdminRoleCannotCreateEvaluationRun() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("REVIEWER", "CONTENT_CREATOR"))))
+                .thenThrow(new BusinessException(ErrorCode.ADMIN_ROLE_INSUFFICIENT));
+
+        mockMvc.perform(post("/api/v1/admin/ai/evaluation-sets/20/runs")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"promptVersionId\":2}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("AD0003"));
+    }
+
+    @Test
+    void missingEvaluationRunReturns404() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("REVIEWER", "CONTENT_CREATOR"))))
+                .thenReturn(new AdminUserInfo(100L, 7L, "REVIEWER"));
+        when(getRunUseCase.getEvaluationRun(any()))
+                .thenThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/admin/ai/evaluation-runs/999")
+                        .principal(authentication("ROLE_ADMIN")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("C0004"));
+    }
+
     private static Authentication authentication(String authority) {
         TestingAuthenticationToken authentication = new TestingAuthenticationToken("7", "n/a", authority);
         authentication.setAuthenticated(true);
@@ -300,6 +376,30 @@ class AdminAiEvaluationControllerTest {
                 null,
                 null,
                 OffsetDateTime.parse("2026-06-11T10:00:00+09:00")
+        );
+    }
+
+    private static AiEvaluationRunResponse runResponse() {
+        return new AiEvaluationRunResponse(
+                400L,
+                20L,
+                2L,
+                "SUCCEEDED",
+                1,
+                1,
+                0,
+                0,
+                OffsetDateTime.parse("2026-06-15T10:00:00+09:00"),
+                OffsetDateTime.parse("2026-06-15T10:01:00+09:00"),
+                100L,
+                List.of(new AiEvaluationRunResultResponse(
+                        401L,
+                        301L,
+                        "PASSED",
+                        null,
+                        "{\"payloadHash\":\"hash\"}",
+                        OffsetDateTime.parse("2026-06-15T10:00:30+09:00")
+                ))
         );
     }
 }

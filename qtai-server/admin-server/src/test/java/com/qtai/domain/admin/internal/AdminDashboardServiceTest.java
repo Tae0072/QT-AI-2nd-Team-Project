@@ -161,6 +161,7 @@ class AdminDashboardServiceTest {
                 .thenReturn(new AdminAiMonitoringResponse(
                         new AdminAiMonitoringResponse.Period(null, null, "Asia/Seoul"),
                         new AdminAiMonitoringResponse.GenerationJobs(0, 0, 0, 0),
+                        new AdminAiMonitoringResponse.AssetStatuses(0, 0, 0, 0),
                         null,
                         new AdminAiMonitoringResponse.BatchRuns(0, 0, 0, List.of()),
                         new AdminAiMonitoringResponse.Qa(0, 0, 0, 0, List.of()),
@@ -234,6 +235,7 @@ class AdminDashboardServiceTest {
         return new AdminAiMonitoringResponse(
                 new AdminAiMonitoringResponse.Period(null, null, "Asia/Seoul"),
                 new AdminAiMonitoringResponse.GenerationJobs(0, 0, 0, 0),
+                new AdminAiMonitoringResponse.AssetStatuses(waitingAssets, 0, 0, 0),
                 new AdminAiMonitoringResponse.Validation(waitingAssets, 0, 0, 0, List.of()),
                 new AdminAiMonitoringResponse.BatchRuns(0, 0, 0, List.of()),
                 new AdminAiMonitoringResponse.Qa(0, 0, 0, 0, List.of()),

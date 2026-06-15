@@ -44,9 +44,11 @@ import {
   AI_ASSET_FILTERABLE_STATUSES,
   AI_ASSET_DEFAULT_STATUS,
   aiAssetEvaluationSetListParams,
+  isAiAssetApprovable,
   isAiAssetRegeneratable,
   isAiAssetReviewable,
   resolveActiveRegenerationJob,
+  shouldShowAiAssetApproveButton,
   type RegenerationJobNotice,
 } from './adminPageContracts';
 
@@ -76,15 +78,46 @@ function statusTag(status: string) {
   return <Tag color={m.color}>{m.text}</Tag>;
 }
 
-function validationResultTag(result: string) {
+function validationResultTag(result: string, prefix?: string) {
   const map: Record<string, { color: string; text: string }> = {
     PASSED: { color: 'green', text: '통과' },
+    REJECTED: { color: 'red', text: '반려' },
+    NEEDS_REVIEW: { color: 'gold', text: '검토 필요' },
     FAILED: { color: 'red', text: '실패' },
     BLOCKED: { color: 'red', text: '차단' },
     WARNING: { color: 'gold', text: '경고' },
   };
   const m = map[result] ?? { color: 'default', text: result };
-  return <Tag color={m.color}>{m.text}</Tag>;
+  return <Tag color={m.color}>{prefix ? `${prefix}: ${m.text}` : m.text}</Tag>;
+}
+
+function validationResultSummary(asset: AiAsset) {
+  if (!asset.autoValidationResult && !asset.advisorValidationResult) {
+    return asset.latestValidationResult ? validationResultTag(asset.latestValidationResult) : '-';
+  }
+  return (
+    <Space size={[4, 4]} wrap>
+      {asset.autoValidationResult
+        ? validationResultTag(asset.autoValidationResult, 'AUTO')
+        : <Tag>AUTO: -</Tag>}
+      {asset.advisorValidationResult
+        ? validationResultTag(asset.advisorValidationResult, 'ADVISOR')
+        : <Tag>ADVISOR: -</Tag>}
+    </Space>
+  );
+}
+
+function approveDisabledReason(asset: AiAsset) {
+  if (asset.advisorValidationResult === 'NEEDS_REVIEW') {
+    return '검증 결과가 NEEDS_REVIEW라 승인할 수 없습니다. 상세 검토 후 반려하거나 재검증이 필요합니다.';
+  }
+  if (asset.autoValidationResult !== 'PASSED') {
+    return '자동 검증 결과가 PASSED가 아니라 승인할 수 없습니다.';
+  }
+  if (asset.advisorValidationResult !== 'PASSED') {
+    return '어드바이저 검증 결과가 PASSED가 아니라 승인할 수 없습니다.';
+  }
+  return undefined;
 }
 
 function targetLabel(target: { targetType: string | null; targetId: number | null }) {
@@ -402,8 +435,8 @@ export default function AiAssetsPage() {
     {
       title: '검증결과',
       dataIndex: 'latestValidationResult',
-      width: 140,
-      render: (v: string | null) => v ?? '-',
+      width: 220,
+      render: (_, r) => validationResultSummary(r),
     },
     {
       title: '원문라벨',
@@ -416,24 +449,43 @@ export default function AiAssetsPage() {
       title: '액션',
       width: 260,
       fixed: 'right',
-      render: (_, r) => (
-        <Space>
-          <Button
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => openDetail(r)}
-          >
+      render: (_, r) => {
+        const canApprove = isAiAssetApprovable(
+          r.status,
+          r.autoValidationResult,
+          r.advisorValidationResult,
+        );
+        const showApprove = shouldShowAiAssetApproveButton(
+          r.status,
+          r.advisorValidationResult,
+        );
+        const approveReason = canApprove ? undefined : approveDisabledReason(r);
+
+        return (
+          <Space>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => openDetail(r)}
+            >
             상세
           </Button>
           {isAiAssetReviewable(r.status) && (
             <>
-              <Button
-                size="small"
-                type="primary"
-                onClick={() => openAction('approve', r)}
-              >
-                승인
-              </Button>
+              {showApprove && (
+                <Tooltip title={approveReason}>
+                  <span>
+                    <Button
+                      size="small"
+                      type="primary"
+                      disabled={!canApprove}
+                      onClick={() => openAction('approve', r)}
+                    >
+                  승인
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
               <Button size="small" danger onClick={() => openAction('reject', r)}>
                 반려
               </Button>
@@ -444,8 +496,9 @@ export default function AiAssetsPage() {
               숨김
             </Button>
           )}
-        </Space>
-      ),
+          </Space>
+        );
+      },
     },
   ];
 
@@ -529,6 +582,14 @@ export default function AiAssetsPage() {
                 <Typography.Text>
                   <Typography.Text strong>최신 검증 결과: </Typography.Text>
                   {r.latestValidationResult ?? '-'}
+                </Typography.Text>
+                <Typography.Text>
+                  <Typography.Text strong>자동 검증 결과: </Typography.Text>
+                  {r.autoValidationResult ?? '-'}
+                </Typography.Text>
+                <Typography.Text>
+                  <Typography.Text strong>어드바이저 검증 결과: </Typography.Text>
+                  {r.advisorValidationResult ?? '-'}
                 </Typography.Text>
                 <Typography.Text>
                   <Typography.Text strong>원문 라벨 존재: </Typography.Text>
