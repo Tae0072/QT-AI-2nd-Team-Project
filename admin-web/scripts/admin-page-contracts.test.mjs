@@ -67,6 +67,17 @@ test('AI assets page starts and resets with the validating status filter', () =>
   assert.match(page, /applyFilters\(\{\s*status:\s*AI_ASSET_DEFAULT_STATUS\s*\}\)/);
 });
 
+test('AI monitoring separates asset status and validation log summary cards', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiMonitoringPage.tsx'), 'utf8');
+
+  assert.match(page, /title="생성 작업"/);
+  assert.match(page, /title="산출물 상태"/);
+  assert.match(page, /title="검증 로그"/);
+  assert.match(page, /title="Q&amp;A"/);
+  assert.doesNotMatch(page, /title="검증"/);
+  assert.equal((page.match(/xl=\{6\}/g) ?? []).length, 4);
+});
+
 test('admin page modals use destroyOnHidden instead of deprecated destroyOnClose', () => {
   const modalPages = [
     ['AiAssetsPage.tsx', 4],
