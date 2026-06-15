@@ -25,15 +25,27 @@ class AuditQueryService implements ListAuditUseCase {
     private static final String SORT = "createdAt,desc,id,desc";
     private static final String AI_ASSET_TARGET_TYPE = "AI_GENERATED_ASSET";
     private static final String QT_PASSAGE_TARGET_TYPE = "QT_PASSAGE";
+    private static final String SOURCE_VIDEO_TARGET_TYPE = "SOURCE_VIDEO";
+    private static final String QT_VIDEO_CLIP_TARGET_TYPE = "QT_VIDEO_CLIP";
     // 감사 조회가 허용하는 대상 유형 — AI 산출물 + 관리자 해설 생성 트리거(QT 본문 대상).
-    private static final List<String> ALLOWED_TARGET_TYPES = List.of(AI_ASSET_TARGET_TYPE, QT_PASSAGE_TARGET_TYPE);
+    private static final List<String> ALLOWED_TARGET_TYPES = List.of(
+            AI_ASSET_TARGET_TYPE,
+            QT_PASSAGE_TARGET_TYPE,
+            SOURCE_VIDEO_TARGET_TYPE,
+            QT_VIDEO_CLIP_TARGET_TYPE
+    );
     private static final List<String> AI_ACTION_TYPES = List.of(
             "AI_ASSET_APPROVE",
             "AI_ASSET_REJECT",
             "AI_ASSET_HIDE",
             "AI_REGENERATE_REQUEST",
             "AI_EXPLANATION_GENERATE_REQUEST",
-            "SIMULATOR_CLIP_HIDE"
+            "SIMULATOR_CLIP_HIDE",
+            "QT_VIDEO_SOURCE_CREATE",
+            "QT_VIDEO_SOURCE_UPDATE",
+            "QT_VIDEO_SEGMENTS_REPLACE",
+            "QT_VIDEO_CLIP_PREPARE",
+            "QT_VIDEO_CLIP_STATUS_CHANGE"
     );
     private static final int MAX_PAGE_SIZE = 100;
 
