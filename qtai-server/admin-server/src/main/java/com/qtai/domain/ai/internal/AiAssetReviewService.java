@@ -40,6 +40,8 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     private static final String ACTION_AI_ASSET_HIDE = "AI_ASSET_HIDE";
     private static final int SERVER_AUTO_VALIDATION_LAYER = 1;
     private static final int AI_REVIEW_VALIDATION_LAYER = 2;
+    private static final int ADMIN_REVIEW_VALIDATION_LAYER = 3;
+    private static final String ADMIN_REVIEW_CHECKLIST_JSON = "{\"source\":\"ADMIN_ASSET_REVIEW\"}";
 
     private final AiGeneratedAssetRepository generatedAssetRepository;
     private final AiValidationLogRepository validationLogRepository;
@@ -82,8 +84,14 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         String beforeJson = assetSnapshot(command.assetId(), asset);
 
         switch (action) {
-            case APPROVE -> approve(command, asset);
-            case REJECT -> asset.reject(command.reviewedAt());
+            case APPROVE -> {
+                approve(command, asset);
+                writeAdminValidationLog(command, AiValidationResult.PASSED, null);
+            }
+            case REJECT -> {
+                asset.reject(command.reviewedAt());
+                writeAdminValidationLog(command, AiValidationResult.REJECTED, command.reason());
+            }
             case HIDE -> hide(command, asset);
         }
 
@@ -322,6 +330,24 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
                 command.assetId(),
                 beforeJson,
                 reviewedAssetSnapshot(command.assetId(), asset, command.activateForTarget())
+        ));
+    }
+
+    private void writeAdminValidationLog(
+            ReviewAiAssetCommand command,
+            AiValidationResult result,
+            String errorMessage
+    ) {
+        validationLogRepository.save(AiValidationLog.create(
+                command.assetId(),
+                null,
+                ADMIN_REVIEW_VALIDATION_LAYER,
+                result,
+                AiValidationReviewerType.ADMIN,
+                null,
+                ADMIN_REVIEW_CHECKLIST_JSON,
+                errorMessage,
+                command.reviewedAt()
         ));
     }
 

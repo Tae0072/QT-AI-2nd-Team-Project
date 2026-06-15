@@ -79,6 +79,9 @@ class AdminAiMonitoringQueryService implements GetAdminAiMonitoringUseCase {
                 ),
                 new AdminAiMonitoringResponse.Validation(
                         validation.waitingAssets(),
+                        validation.approvedAssets(),
+                        validation.rejectedAssets(),
+                        validation.hiddenAssets(),
                         validation.passCount(),
                         validation.failCount(),
                         validation.needsReviewCount(),
