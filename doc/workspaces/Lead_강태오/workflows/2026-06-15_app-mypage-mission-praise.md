@@ -27,13 +27,10 @@
 - ⚠️ 샌드박스는 Flutter SDK 미설치 → 코드 대조 + 잔존 참조 0건 확인(PraiseScreen/PraiseSong/MyPraiseSong/AppRouter.praise/curationSongsProvider 등). CI `Flutter Analyze & Test`로 최종 검증.
 - PR 전/머지 전: `cd flutter-app && flutter pub get && flutter analyze && flutter test`.
 
-## 후속 추적 — 07/F-09 SSoT 반영 (리뷰 WARN 대응, 머지 비차단)
-- CLAUDE.md §2: 요구사항 변경은 Lead 검토 후 문서(SSoT=07_요구사항_정의서) 반영. 본 PR은 코드가 먼저 나갔으므로 **문서 반영 후속 PR이 즉시 따라가야** 한다.
-- 추적 항목(머지 후 바로 진행):
-  - 작업: 문서 저장소(2nd-Team-Project) `07_요구사항_정의서` F-09 "사용자 앱 찬양 큐레이션 노출 제거(2026-06-15 Lead T 결정)" 반영.
-  - 담당: Lead 강태오(T). 기한: 본 PR 머지 후 1영업일 내.
-  - 예정 브랜치/PR: `docs/f09-app-praise-removal` → 문서레포 master.
-- 서버 F-09 엔드포인트·admin praise 백엔드는 이번 범위에서 제거하지 않음(보존). 완전 폐기 여부는 위 문서 반영 시 함께 결정.
+## 후속 추적 — 07/F-09 SSoT 반영 (리뷰 BLOCK 해소, 동시 진행 완료)
+- CLAUDE.md §2: 요구사항 변경은 Lead 검토 후 문서(SSoT=07_요구사항_정의서) 반영.
+- **동시 진행 문서 PR 생성 완료**: `2nd-Team-Project#21` — `07_요구사항_정의서` §6.10 F-09에 "사용자 앱 '나의 찬양' 노출 제거(2026-06-15 Lead T 결정)" 콜아웃 추가(branch `docs/f09-app-praise-removal` → master). 담당 Lead 강태오(T).
+- 서버 F-09 엔드포인트·admin praise 백엔드는 이번 범위에서 제거하지 않음(보존). 완전 폐기 여부는 추후 별도 결정.
 
 ## Git/PR
 - branch `feature/app-mypage-mission-block` → PR #677(dev). 보완 커밋: 위젯 테스트 + 본 문서.
