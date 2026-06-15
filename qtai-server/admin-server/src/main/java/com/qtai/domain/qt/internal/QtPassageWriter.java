@@ -57,6 +57,9 @@ class QtPassageWriter {
         }
         qtPassageVerseRepository.saveAll(mappings);
         log.info("절 매핑 저장 완료. qtPassageId={}, verseCount={}", qtPassageId, mappings.size());
+        // service-bible 복사본과 달리 QtPassageVerseMappingsChangedEvent를 발행하지 않는다(의도).
+        // 이 이벤트의 유일한 소비자는 service-bible의 QtVideoClipPreparationListener(QT영상 클립 준비)이고,
+        // admin-server에는 해당 소비자도 이벤트 클래스도 없어 발행할 대상이 없다. (admin-server-sync 예외)
         return true;
     }
 

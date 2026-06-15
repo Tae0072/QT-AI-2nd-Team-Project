@@ -19,8 +19,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *
  * <p>회귀 가드: 절 매핑을 본문 저장과 같은 트랜잭션에서 처리하면, 빈 장에 대한 bible
  * {@code getVerses}(readOnly) 예외가 트랜잭션을 rollback-only로 만들어 커밋 시
- * {@code UnexpectedRollbackException}이 발생하고 본문까지 롤백된다. 매핑을 REQUIRES_NEW로
- * 분리했으므로 본문은 저장되고 매핑만 비어야 한다.
+ * {@code UnexpectedRollbackException}이 발생하고 본문까지 롤백된다. {@code importToday}는
+ * 비트랜잭션 코디네이터로서 절 조회를 쓰기 트랜잭션 밖에서 격리하고, 본문 upsert와 매핑 저장을
+ * {@code QtPassageWriter}의 분리된 트랜잭션으로 처리하므로 본문은 저장되고 매핑만 비어야 한다.
  */
 @SpringBootTest(classes = BibleServiceApplication.class, properties = {
         "qt.today-source.sum.enabled=false",
