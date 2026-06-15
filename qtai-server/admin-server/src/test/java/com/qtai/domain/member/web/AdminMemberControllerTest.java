@@ -13,6 +13,7 @@ import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
 import com.qtai.domain.admin.api.dto.AdminUserInfo;
 import com.qtai.domain.member.api.GetMemberDetailForAdminUseCase;
 import com.qtai.domain.member.api.ListMembersForAdminUseCase;
+import com.qtai.domain.member.api.ListNicknameHistoryForAdminUseCase;
 import com.qtai.domain.member.api.UpdateMemberStatusForAdminUseCase;
 import com.qtai.domain.member.api.dto.AdminMemberDetailResponse;
 import com.qtai.domain.member.api.dto.AdminMemberResponse;
@@ -62,6 +63,9 @@ class AdminMemberControllerTest {
     @Mock
     private GetMemberMissionProgressUseCase getMemberMissionProgressUseCase;
 
+    @Mock
+    private ListNicknameHistoryForAdminUseCase listNicknameHistoryForAdminUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -73,7 +77,8 @@ class AdminMemberControllerTest {
                 verifyAdminRoleUseCase,
                 listMemberNotesForAdminUseCase,
                 adminMemberSharingQueryUseCase,
-                getMemberMissionProgressUseCase);
+                getMemberMissionProgressUseCase,
+                listNicknameHistoryForAdminUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
