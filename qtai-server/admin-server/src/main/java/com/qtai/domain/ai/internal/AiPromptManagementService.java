@@ -290,14 +290,32 @@ public class AiPromptManagementService implements
     }
 
     private static String contentHash(CreateAiPromptVersionCommand command) {
-        String content = String.join("\n",
+        return contentHash(
                 command.promptType(),
                 command.version(),
-                AiPromptVersion.defaultSystemPrompt(),
                 command.userPromptTemplate(),
-                nullToEmpty(command.modelName()),
-                String.valueOf(command.temperature()),
-                String.valueOf(command.maxTokens())
+                command.modelName(),
+                command.temperature(),
+                command.maxTokens()
+        );
+    }
+
+    static String contentHash(
+            String promptType,
+            String version,
+            String userPromptTemplate,
+            String modelName,
+            Double temperature,
+            Integer maxTokens
+    ) {
+        String content = String.join("\n",
+                promptType,
+                version,
+                AiPromptVersion.defaultSystemPrompt(),
+                userPromptTemplate,
+                nullToEmpty(modelName),
+                String.valueOf(temperature == null ? AiPromptVersion.DEFAULT_TEMPERATURE : temperature),
+                String.valueOf(maxTokens == null ? AiPromptVersion.DEFAULT_MAX_TOKENS : maxTokens)
         );
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

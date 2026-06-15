@@ -111,8 +111,8 @@ public class AiPromptVersion {
         this.version = requireText(version, "version");
         this.contentHash = requireText(contentHash, "contentHash");
         this.status = Objects.requireNonNull(status, "status must not be null");
-        this.systemPrompt = defaultIfBlank(systemPrompt, DEFAULT_SYSTEM_PROMPT);
-        this.userPromptTemplate = defaultIfBlank(userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+        this.systemPrompt = defaultIfBlank(systemPrompt, defaultSystemPrompt());
+        this.userPromptTemplate = defaultIfBlank(userPromptTemplate, defaultUserPromptTemplate());
         this.modelName = blankToNull(modelName);
         this.temperature = temperature == null ? DEFAULT_TEMPERATURE : temperature;
         this.maxTokens = maxTokens == null ? DEFAULT_MAX_TOKENS : requirePositive(maxTokens, "maxTokens");
@@ -137,8 +137,8 @@ public class AiPromptVersion {
                 version,
                 contentHash,
                 status,
-                DEFAULT_SYSTEM_PROMPT,
-                DEFAULT_USER_PROMPT_TEMPLATE,
+                defaultSystemPrompt(),
+                defaultUserPromptTemplate(),
                 null,
                 DEFAULT_TEMPERATURE,
                 DEFAULT_MAX_TOKENS,
@@ -207,11 +207,11 @@ public class AiPromptVersion {
     }
 
     public String getSystemPrompt() {
-        return defaultIfBlank(systemPrompt, DEFAULT_SYSTEM_PROMPT);
+        return defaultIfBlank(systemPrompt, defaultSystemPrompt());
     }
 
     public String getUserPromptTemplate() {
-        return defaultIfBlank(userPromptTemplate, DEFAULT_USER_PROMPT_TEMPLATE);
+        return defaultIfBlank(userPromptTemplate, defaultUserPromptTemplate());
     }
 
     public String getModelName() {

@@ -83,6 +83,28 @@ class AiPromptManagementServiceTest {
     }
 
     @Test
+    void contentHashUsesEffectiveDefaultsWhenOptionalGenerationSettingsAreNull() {
+        String withNullSettings = AiPromptManagementService.contentHash(
+                "EXPLANATION",
+                "2026.06.3",
+                "natural instruction",
+                null,
+                null,
+                null
+        );
+        String withExplicitDefaults = AiPromptManagementService.contentHash(
+                "EXPLANATION",
+                "2026.06.3",
+                "natural instruction",
+                null,
+                AiPromptVersion.DEFAULT_TEMPERATURE,
+                AiPromptVersion.DEFAULT_MAX_TOKENS
+        );
+
+        assertThat(withNullSettings).isEqualTo(withExplicitDefaults);
+    }
+
+    @Test
     void activateRequiresSuccessfulEvaluationRun() {
         when(promptVersionRepository.findPromptTypeById(2L)).thenReturn(Optional.of(AiPromptType.EXPLANATION));
         when(evaluationRunRepository.findFirstByPromptVersionIdAndStatusOrderByFinishedAtDescIdDesc(

@@ -10,16 +10,16 @@ provider raw response, prompt text, validation reference text, secrets, private 
 ';
 
 UPDATE ai_prompt_versions
-SET system_prompt = @qtai_explanation_system_prompt,
+SET system_prompt = REPLACE(@qtai_explanation_system_prompt, CONCAT(CHAR(13), CHAR(10)), CHAR(10)),
     temperature = COALESCE(temperature, 0.2),
     max_tokens = COALESCE(max_tokens, 2000),
     content_hash = LOWER(SHA2(CONCAT(
-            prompt_type, '\n',
-            version, '\n',
-            @qtai_explanation_system_prompt, '\n',
-            COALESCE(user_prompt_template, ''), '\n',
-            COALESCE(model_name, ''), '\n',
-            CAST(COALESCE(temperature, 0.2) AS CHAR), '\n',
-            CAST(COALESCE(max_tokens, 2000) AS CHAR)
+            prompt_type, CHAR(10),
+            version, CHAR(10),
+            REPLACE(@qtai_explanation_system_prompt, CONCAT(CHAR(13), CHAR(10)), CHAR(10)), CHAR(10),
+            COALESCE(user_prompt_template, ''), CHAR(10),
+            COALESCE(model_name, ''), CHAR(10),
+            COALESCE(temperature, 0.2), CHAR(10),
+            COALESCE(max_tokens, 2000)
     ), 256))
 WHERE prompt_type = 'EXPLANATION';
