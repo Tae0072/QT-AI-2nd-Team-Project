@@ -55,7 +55,8 @@ public class QtTodayPassageImportService {
 
         // 절 매핑 실패는 본문 반영을 막지 않는다 — 본문(범위 기반 사용자 조회)은 유지하고
         // 매핑은 startup 백필이 재시도한다. (AI/학습 파이프라인 입력은 매핑에 의존)
-        replaceVerseMappings(saved, book.code(), passage.chapter(), passage.startVerse(), passage.endVerse());
+        replaceVerseMappings(saved, book.code(), passage.chapter(), passage.endChapter(),
+                passage.startVerse(), passage.endVerse());
         return saved;
     }
 
@@ -85,6 +86,7 @@ public class QtTodayPassageImportService {
                     passage,
                     book.code(),
                     passage.getChapter(),
+                    passage.getEndChapter(),
                     passage.getStartVerse(),
                     passage.getEndVerse()
             );
@@ -96,10 +98,13 @@ public class QtTodayPassageImportService {
     }
 
     private QtPassage createNew(LocalDate qtDate, Short bookId, SuTodayPassage passage) {
+        // 성서유니온 본문은 같은 권 안에서만 장이 교차한다 → 종료 권 = 시작 권.
         QtPassage qtPassage = QtPassage.create(
                 qtDate,
                 bookId,
+                bookId,
                 passage.chapter(),
+                passage.endChapter(),
                 passage.startVerse(),
                 passage.endVerse(),
                 passage.title(),
@@ -111,7 +116,9 @@ public class QtTodayPassageImportService {
     private QtPassage updateExisting(QtPassage qtPassage, Short bookId, SuTodayPassage passage) {
         qtPassage.updateRange(
                 bookId,
+                bookId,
                 passage.chapter(),
+                passage.endChapter(),
                 passage.startVerse(),
                 passage.endVerse(),
                 passage.title(),
@@ -136,14 +143,14 @@ public class QtTodayPassageImportService {
      * @return 매핑 저장 성공 여부 (실패는 로그만 남기고 본문 반영은 유지)
      */
     private boolean replaceVerseMappings(QtPassage qtPassage, String bookCode,
-                                         short chapter, short startVerse, short endVerse) {
+                                         short startChapter, short endChapter,
+                                         short startVerse, short endVerse) {
         try {
-            BibleVerseRangeResponse range = getBibleVerseUseCase.getVerses(
-                    bookCode, chapter, (int) startVerse, (int) endVerse);
-            List<BibleVerseResponse> verses = range == null ? List.of() : range.verses();
-            if (verses == null || verses.isEmpty()) {
-                log.error("절 매핑 실패 — bible 절 범위 조회 결과 없음. qtPassageId={}, bookCode={}, chapter={}, verses={}~{}",
-                        qtPassage.getId(), bookCode, chapter, startVerse, endVerse);
+            List<BibleVerseResponse> verses = collectRangeVerses(
+                    bookCode, startChapter, endChapter, startVerse, endVerse);
+            if (verses.isEmpty()) {
+                log.error("절 매핑 실패 — bible 절 범위 조회 결과 없음. qtPassageId={}, bookCode={}, range={}:{}~{}:{}",
+                        qtPassage.getId(), bookCode, startChapter, startVerse, endChapter, endVerse);
                 return false;
             }
 
@@ -163,5 +170,41 @@ public class QtTodayPassageImportService {
                     exception.getClass().getSimpleName(), exception.getMessage());
             return false;
         }
+    }
+
+    /**
+     * 시작~종료 장을 아우르는 절을 bible api로 모은다.
+     *
+     * <p>bible api {@code getVerses(bookCode, chapter, from, to)}는 단일 장 전용이므로,
+     * 장 교차 범위는 장별로 조회하고 경계(시작 장의 시작 절 이전, 종료 장의 종료 절 이후)를
+     * 필터링해 이어 붙인다. 중간 장은 장 전체({@code from=null})를 가져온다. 권 교차는 현재
+     * 수집 소스에 없으므로 같은 권({@code bookCode}) 기준으로 처리한다.
+     */
+    private List<BibleVerseResponse> collectRangeVerses(String bookCode,
+                                                        short startChapter, short endChapter,
+                                                        short startVerse, short endVerse) {
+        if (startChapter == endChapter) {
+            BibleVerseRangeResponse range = getBibleVerseUseCase.getVerses(
+                    bookCode, startChapter, (int) startVerse, (int) endVerse);
+            return range == null || range.verses() == null ? List.of() : range.verses();
+        }
+
+        List<BibleVerseResponse> collected = new ArrayList<>();
+        for (int chapter = startChapter; chapter <= endChapter; chapter++) {
+            BibleVerseRangeResponse range = getBibleVerseUseCase.getVerses(bookCode, chapter, null, null);
+            List<BibleVerseResponse> chapterVerses =
+                    range == null || range.verses() == null ? List.of() : range.verses();
+            for (BibleVerseResponse verse : chapterVerses) {
+                int verseNo = verse.verseNo() == null ? 0 : verse.verseNo();
+                if (chapter == startChapter && verseNo < startVerse) {
+                    continue;
+                }
+                if (chapter == endChapter && verseNo > endVerse) {
+                    continue;
+                }
+                collected.add(verse);
+            }
+        }
+        return collected;
     }
 }

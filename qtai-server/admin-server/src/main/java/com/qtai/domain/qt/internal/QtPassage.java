@@ -27,8 +27,14 @@ public class QtPassage extends BaseEntity {
     @Column(name = "book_id", nullable = false)
     private Short bookId;
 
+    @Column(name = "end_book_id", nullable = false)
+    private Short endBookId;
+
     @Column(name = "chapter", nullable = false)
     private Short chapter;
+
+    @Column(name = "end_chapter", nullable = false)
+    private Short endChapter;
 
     @Column(name = "start_verse", nullable = false)
     private Short startVerse;
@@ -52,6 +58,7 @@ public class QtPassage extends BaseEntity {
     @Column(name = "hidden_at")
     private LocalDateTime hiddenAt;
 
+    /** 단일 권·장 범위 생성. 시작=종료로 저장한다. */
     public static QtPassage create(
             LocalDate qtDate,
             Short bookId,
@@ -61,13 +68,29 @@ public class QtPassage extends BaseEntity {
             String title,
             String mainVerseRef
     ) {
+        return create(qtDate, bookId, bookId, chapter, chapter, startVerse, endVerse, title, mainVerseRef);
+    }
+
+    /** 권·장 교차 범위 생성. */
+    public static QtPassage create(
+            LocalDate qtDate,
+            Short bookId,
+            Short endBookId,
+            Short chapter,
+            Short endChapter,
+            Short startVerse,
+            Short endVerse,
+            String title,
+            String mainVerseRef
+    ) {
         QtPassage passage = new QtPassage();
         passage.qtDate = qtDate;
-        passage.updateRange(bookId, chapter, startVerse, endVerse, title, mainVerseRef);
+        passage.updateRange(bookId, endBookId, chapter, endChapter, startVerse, endVerse, title, mainVerseRef);
         passage.status = QtPassageStatus.PENDING_REVIEW;
         return passage;
     }
 
+    /** 단일 권·장 범위 갱신. 시작=종료로 저장한다. */
     public void updateRange(
             Short bookId,
             Short chapter,
@@ -76,8 +99,24 @@ public class QtPassage extends BaseEntity {
             String title,
             String mainVerseRef
     ) {
+        updateRange(bookId, bookId, chapter, chapter, startVerse, endVerse, title, mainVerseRef);
+    }
+
+    /** 권·장 교차 범위 갱신. */
+    public void updateRange(
+            Short bookId,
+            Short endBookId,
+            Short chapter,
+            Short endChapter,
+            Short startVerse,
+            Short endVerse,
+            String title,
+            String mainVerseRef
+    ) {
         this.bookId = bookId;
+        this.endBookId = endBookId;
         this.chapter = chapter;
+        this.endChapter = endChapter;
         this.startVerse = startVerse;
         this.endVerse = endVerse;
         this.title = title;
