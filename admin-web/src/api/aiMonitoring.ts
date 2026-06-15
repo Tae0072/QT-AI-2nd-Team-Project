@@ -30,6 +30,9 @@ export interface FailureReason {
 
 export interface ValidationSummary {
   waitingAssets: number;
+  approvedAssets: number;
+  rejectedAssets: number;
+  hiddenAssets: number;
   passCount: number;
   failCount: number;
   needsReviewCount: number;

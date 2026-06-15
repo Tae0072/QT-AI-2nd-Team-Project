@@ -210,8 +210,8 @@ export default function AiMonitoringPage() {
               )}
 
               <Row gutter={[16, 16]}>
-                <Col xs={24} md={8}>
-                  <Card size="small" title="생성 작업">
+                <Col xs={24} sm={12} xl={6}>
+                  <Card size="small" title="생성 작업" style={{ height: '100%' }}>
                     <Row gutter={8}>
                       <Col span={6}>
                         <Statistic
@@ -246,8 +246,8 @@ export default function AiMonitoringPage() {
                     </Row>
                   </Card>
                 </Col>
-                <Col xs={24} md={8}>
-                  <Card size="small" title="검증">
+                <Col xs={24} sm={12} xl={6}>
+                  <Card size="small" title="산출물 상태" style={{ height: '100%' }}>
                     <Row gutter={8}>
                       <Col span={6}>
                         <Statistic
@@ -257,17 +257,47 @@ export default function AiMonitoringPage() {
                       </Col>
                       <Col span={6}>
                         <Statistic
+                          title="승인"
+                          value={data.validation.approvedAssets}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic
+                          title="반려"
+                          value={data.validation.rejectedAssets}
+                          valueStyle={{
+                            color:
+                              data.validation.rejectedAssets > 0
+                                ? '#cf1322'
+                                : undefined,
+                          }}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic
+                          title="숨김"
+                          value={data.validation.hiddenAssets}
+                        />
+                      </Col>
+                    </Row>
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} xl={6}>
+                  <Card size="small" title="검증 로그" style={{ height: '100%' }}>
+                    <Row gutter={8}>
+                      <Col span={8}>
+                        <Statistic
                           title="통과"
                           value={data.validation.passCount}
                         />
                       </Col>
-                      <Col span={6}>
+                      <Col span={8}>
                         <Statistic
                           title="실패"
                           value={data.validation.failCount}
                         />
                       </Col>
-                      <Col span={6}>
+                      <Col span={8}>
                         <Statistic
                           title="검토"
                           value={data.validation.needsReviewCount}
@@ -276,8 +306,8 @@ export default function AiMonitoringPage() {
                     </Row>
                   </Card>
                 </Col>
-                <Col xs={24} md={8}>
-                  <Card size="small" title="Q&amp;A">
+                <Col xs={24} sm={12} xl={6}>
+                  <Card size="small" title="Q&amp;A" style={{ height: '100%' }}>
                     <Row gutter={8}>
                       <Col span={6}>
                         <Statistic title="요청" value={data.qa.requested} />
@@ -298,7 +328,7 @@ export default function AiMonitoringPage() {
 
               <Row gutter={[16, 16]}>
                 <Col xs={24} md={12}>
-                  <Card size="small" title="검증 실패 사유">
+                  <Card size="small" title="검증 로그 실패 사유">
                     <TopReasonTable
                       rowKey="resultCode"
                       columns={failureCols}
