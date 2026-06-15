@@ -15,11 +15,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.client.RestClientException;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
@@ -34,6 +36,9 @@ import com.qtai.domain.ai.api.admin.evaluation.dto.GetLatestAiEvaluationRunQuery
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class AiEvaluationRunService implements
         CreateAiEvaluationRunUseCase,
@@ -42,6 +47,9 @@ public class AiEvaluationRunService implements
 
     private static final String ACTOR_TYPE_ADMIN = "ADMIN";
     private static final String TARGET_TYPE_RUN = "AI_EVALUATION_RUN";
+    private static final String LLM_PROVIDER_ERROR = "LLM_PROVIDER_ERROR";
+    private static final String LLM_RATE_LIMIT = "LLM_RATE_LIMIT";
+    private static final String LLM_TIMEOUT = "LLM_TIMEOUT";
 
     private final AiEvaluationSetRepository setRepository;
     private final AiEvaluationCaseRepository caseRepository;
@@ -207,6 +215,30 @@ public class AiEvaluationRunService implements
         }));
     }
 
+    int sweepStaleRunningRuns(long timeoutMillis, int batchSize) {
+        if (timeoutMillis <= 0 || batchSize < 1) {
+            return 0;
+        }
+        OffsetDateTime threshold = OffsetDateTime.now(clock).minusNanos(timeoutMillis * 1_000_000L);
+        List<Long> staleIds = runRepository.findStaleRunningRunIds(threshold, PageRequest.of(0, batchSize));
+        int sweptCount = 0;
+        for (Long runId : staleIds) {
+            boolean swept = Boolean.TRUE.equals(transactionTemplate.execute(status ->
+                    runRepository.findByIdAndStatus(runId, AiEvaluationRunStatus.RUNNING)
+                            .map(run -> {
+                                run.fail(OffsetDateTime.now(clock));
+                                return true;
+                            })
+                            .orElse(false)
+            ));
+            if (swept) {
+                log.warn("Stale AI evaluation RUNNING run marked FAILED. runId={}", runId);
+                sweptCount++;
+            }
+        }
+        return sweptCount;
+    }
+
     private EvaluationCaseResultDraft executeCase(
             AiPromptVersion promptVersion,
             AiEvaluationCase evaluationCase,
@@ -218,7 +250,7 @@ public class AiEvaluationRunService implements
             }
             Long targetId = requirePositive(evaluationCase.getTargetId(), "targetId");
             ExplanationGenerationJobHandler.GeneratedExplanation generated =
-                    explanationGenerationJobHandler.generateForEvaluation(
+                    generateWithSingleRetry(
                     promptVersion,
                     evaluationCase.getTargetType(),
                     targetId
@@ -232,6 +264,33 @@ public class AiEvaluationRunService implements
             );
         } catch (BusinessException exception) {
             return failedResult(evaluationCase, safeFailureReason(exception), createdAt);
+        }
+    }
+
+    private ExplanationGenerationJobHandler.GeneratedExplanation generateWithSingleRetry(
+            AiPromptVersion promptVersion,
+            AiTargetType targetType,
+            Long targetId
+    ) {
+        try {
+            return generateOnce(promptVersion, targetType, targetId);
+        } catch (BusinessException exception) {
+            if (!isRetryableLlmFailure(exception)) {
+                throw exception;
+            }
+            return generateOnce(promptVersion, targetType, targetId);
+        }
+    }
+
+    private ExplanationGenerationJobHandler.GeneratedExplanation generateOnce(
+            AiPromptVersion promptVersion,
+            AiTargetType targetType,
+            Long targetId
+    ) {
+        try {
+            return explanationGenerationJobHandler.generateForEvaluation(promptVersion, targetType, targetId);
+        } catch (RestClientException exception) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, LLM_PROVIDER_ERROR);
         }
     }
 
@@ -255,6 +314,14 @@ public class AiEvaluationRunService implements
             return exception.getErrorCode().name() + ":" + detail;
         }
         return exception.getErrorCode().name();
+    }
+
+    private static boolean isRetryableLlmFailure(BusinessException exception) {
+        if (exception.getErrorCode() != ErrorCode.INTERNAL_ERROR) {
+            return false;
+        }
+        String detail = exception.getMessage();
+        return LLM_TIMEOUT.equals(detail) || LLM_RATE_LIMIT.equals(detail) || LLM_PROVIDER_ERROR.equals(detail);
     }
 
     private String outputSummaryJson(

@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.ai.api.admin.prompt.dto.AiPromptVersionResponse;
 import com.qtai.domain.ai.api.admin.prompt.dto.ChangeAiPromptVersionStatusCommand;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
@@ -94,6 +95,48 @@ class AiPromptManagementServiceTest {
         assertThat(response.status()).isEqualTo("ACTIVE");
         assertThat(currentActive.getStatus()).isEqualTo(AiPromptVersionStatus.RETIRED);
         assertThat(draft.getStatus()).isEqualTo(AiPromptVersionStatus.ACTIVE);
+    }
+
+    @Test
+    void activateRejectsNonDraftPromptVersion() {
+        AiPromptVersion active = promptVersion(
+                2L,
+                "2026.06.2",
+                AiPromptVersionStatus.ACTIVE,
+                NOW.minusDays(1)
+        );
+        AiEvaluationRun run = AiEvaluationRun.start(10L, 2L, 99L, NOW.minusHours(1));
+        run.finish(1, 1, 0, 0, NOW.minusMinutes(30));
+
+        when(promptVersionRepository.findPromptTypeById(2L)).thenReturn(Optional.of(AiPromptType.EXPLANATION));
+        when(evaluationRunRepository.findFirstByPromptVersionIdAndStatusOrderByFinishedAtDescIdDesc(
+                2L,
+                AiEvaluationRunStatus.SUCCEEDED
+        )).thenReturn(Optional.of(run));
+        when(promptVersionRepository.findAllByPromptTypeForUpdate(AiPromptType.EXPLANATION))
+                .thenReturn(List.of(active));
+
+        assertThatThrownBy(() -> service.activateAiPromptVersion(command(2L)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+    }
+
+    @Test
+    void activateRejectsEvaluationRunWithFailedCases() {
+        AiEvaluationRun run = AiEvaluationRun.start(10L, 2L, 99L, NOW.minusHours(1));
+        run.finish(2, 1, 1, 0, NOW.minusMinutes(30));
+
+        when(promptVersionRepository.findPromptTypeById(2L)).thenReturn(Optional.of(AiPromptType.EXPLANATION));
+        when(evaluationRunRepository.findFirstByPromptVersionIdAndStatusOrderByFinishedAtDescIdDesc(
+                2L,
+                AiEvaluationRunStatus.SUCCEEDED
+        )).thenReturn(Optional.of(run));
+
+        assertThatThrownBy(() -> service.activateAiPromptVersion(command(2L)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+
+        verify(promptVersionRepository, never()).findAllByPromptTypeForUpdate(AiPromptType.EXPLANATION);
     }
 
     private static ChangeAiPromptVersionStatusCommand command(Long promptVersionId) {

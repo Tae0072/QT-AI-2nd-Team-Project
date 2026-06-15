@@ -2,6 +2,8 @@ package com.qtai.domain.ai.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
@@ -131,6 +133,7 @@ class AiEvaluationRunServiceTest {
         });
         when(runRepository.findById(200L)).thenAnswer(invocation -> Optional.of(savedRun.get()));
         when(explanationGenerationJobHandler.generateForEvaluation(promptVersion, AiTargetType.BIBLE_VERSE, 1001L))
+                .thenThrow(new BusinessException(ErrorCode.INTERNAL_ERROR, "LLM_TIMEOUT"))
                 .thenAnswer(invocation -> {
                     assertThat(transactionManager.isTransactionActive()).isFalse();
                     return new ExplanationGenerationJobHandler.GeneratedExplanation(
@@ -167,6 +170,8 @@ class AiEvaluationRunServiceTest {
                 .contains("\"explanationCount\":1")
                 .doesNotContain("raw body")
                 .doesNotContain("raw meaning");
+        verify(explanationGenerationJobHandler, times(2))
+                .generateForEvaluation(promptVersion, AiTargetType.BIBLE_VERSE, 1001L);
     }
 
     @Test
@@ -250,6 +255,20 @@ class AiEvaluationRunServiceTest {
         assertThat(savedResult.get().getReason())
                 .isEqualTo("INTERNAL_ERROR")
                 .doesNotContain("raw provider response body");
+    }
+
+    @Test
+    void sweepStaleRunningRunsMarksTimedOutRunFailed() throws Exception {
+        AiEvaluationRun run = AiEvaluationRun.start(10L, 2L, 99L, NOW.minusMinutes(10));
+        setId(run, 200L);
+        when(runRepository.findStaleRunningRunIds(any(), any())).thenReturn(List.of(200L));
+        when(runRepository.findByIdAndStatus(200L, AiEvaluationRunStatus.RUNNING)).thenReturn(Optional.of(run));
+
+        int sweptCount = service.sweepStaleRunningRuns(300_000L, 10);
+
+        assertThat(sweptCount).isEqualTo(1);
+        assertThat(run.getStatus()).isEqualTo(AiEvaluationRunStatus.FAILED);
+        assertThat(run.getFinishedAt()).isEqualTo(NOW);
     }
 
     private static void setId(Object target, Long id) throws ReflectiveOperationException {
