@@ -153,13 +153,15 @@ public class AiService implements CreateAiGenerationJobUseCase, RegenerateAiAsse
     /**
      * 관리자 해설 생성 트리거(F-02/F-06/F-14).
      *
-     * <p>특정 QT 본문의 미생성 해설 절에 대해 생성 job을 시딩한다. 시딩은
-     * {@link AiDailyQtVerseExplanationSeedService#seedForPassage}(propagation=NOT_SUPPORTED)로 위임되어
-     * 각 job이 개별 트랜잭션으로 커밋되며, 본 메서드의 트랜잭션은 그동안 잠시 보류됐다가
-     * 재개되어 마지막 감사 로그를 함께 커밋한다.
+     * <p>시딩은 {@link AiDailyQtVerseExplanationSeedService#seedForPassage}(propagation=NOT_SUPPORTED)로
+     * 위임되어 각 job이 개별 트랜잭션으로 커밋된다. 감사 로그는 그 뒤 {@link WriteAuditLogUseCase}의
+     * 자체 트랜잭션({@code AuditService#write @Transactional})으로 기록한다.
+     *
+     * <p>본 메서드에 {@code @Transactional}을 두지 않는 이유: 시딩(NOT_SUPPORTED)으로 이미 커밋된 job을
+     * 외부 트랜잭션이 감쌀 수 없어, 외부 tx 롤백 시 "job은 남고 감사만 사라지는" 잘못된 원자성 인상을
+     * 준다. 트랜잭션 경계를 분리하고, 재시도는 활성 job 유니크 제약으로 멱등 처리한다.
      */
     @Override
-    @Transactional
     public GenerateQtPassageExplanationResult generateQtPassageExplanation(
             GenerateQtPassageExplanationCommand command) {
         requireValidCommand(command);

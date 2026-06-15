@@ -29,6 +29,7 @@ class AiDailyQtVerseExplanationSeedService {
     private static final String SYSTEM_BATCH = "SYSTEM_BATCH";
     private static final String ACTIVE_PROMPT_NOT_FOUND = "ACTIVE_EXPLANATION_PROMPT_VERSION_NOT_FOUND";
     private static final String TODAY_PASSAGE_NOT_FOUND = "TODAY_QT_PASSAGE_NOT_FOUND";
+    private static final String PASSAGE_NOT_FOUND = "QT_PASSAGE_NOT_FOUND";
 
     private final GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
     private final ListApprovedVerseExplanationUseCase listApprovedVerseExplanationUseCase;
@@ -94,7 +95,9 @@ class AiDailyQtVerseExplanationSeedService {
         QtPassageContentContext context = getQtPassageContentContextUseCase
                 .getContentContext(requirePositive(qtPassageId, "qtPassageId"));
         if (context == null) {
-            return new AiDailyQtVerseExplanationSeedResult(0, 0, TODAY_PASSAGE_NOT_FOUND);
+            // 본문 미존재 — 본문 조회가 도메인 예외를 던지지 않고 null을 줄 때의 방어 분기.
+            // "오늘 본문" 의미의 TODAY_* 가 아니라 지정 본문 부재 사유를 쓴다.
+            return new AiDailyQtVerseExplanationSeedResult(0, 0, PASSAGE_NOT_FOUND);
         }
         return seedForContext(context, requireRequestedBy(requestedBy));
     }
