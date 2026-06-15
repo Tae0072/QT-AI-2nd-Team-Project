@@ -1,6 +1,7 @@
 package com.qtai.domain.ai.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,8 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.study.api.HidePublishedGlossaryTermsUseCase;
 import com.qtai.domain.study.api.HidePublishedSimulatorClipUseCase;
@@ -204,6 +207,56 @@ class AiAssetReviewServiceTest {
                           "sceneScript": { "scenes": [ { "id": 1, "type": "narration" } ] }
                         }
                         """,
+                "QT-AI Simulator",
+                CREATED_AT
+        );
+        setId(asset, 500L);
+        return asset;
+    }
+
+    @Test
+    void approveSimulatorWithoutSceneScriptThrows() {
+        AiGeneratedAsset asset = simulatorAssetWithPayload(
+                "{ \"title\": \"T\", \"componentLibraryVersionId\": 7 }");
+        stubPassedApproval(asset);
+
+        assertThatThrownBy(() -> service.reviewAiAsset(command("APPROVE", true)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(publishSimulatorUseCase, never()).publishApprovedSimulatorClip(any());
+    }
+
+    @Test
+    void approveSimulatorWithNonIntegerComponentVersionThrows() {
+        AiGeneratedAsset asset = simulatorAssetWithPayload(
+                "{ \"title\": \"T\", \"componentLibraryVersionId\": \"x\", \"sceneScript\": { \"scenes\": [] } }");
+        stubPassedApproval(asset);
+
+        assertThatThrownBy(() -> service.reviewAiAsset(command("APPROVE", true)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(publishSimulatorUseCase, never()).publishApprovedSimulatorClip(any());
+    }
+
+    @Test
+    void approveSimulatorWithBlankTitleThrows() {
+        AiGeneratedAsset asset = simulatorAssetWithPayload(
+                "{ \"title\": \"\", \"componentLibraryVersionId\": 7, \"sceneScript\": { \"scenes\": [] } }");
+        stubPassedApproval(asset);
+
+        assertThatThrownBy(() -> service.reviewAiAsset(command("APPROVE", true)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(publishSimulatorUseCase, never()).publishApprovedSimulatorClip(any());
+    }
+
+    private static AiGeneratedAsset simulatorAssetWithPayload(String payloadJson) {
+        AiGeneratedAsset asset = AiGeneratedAsset.create(
+                2L,
+                AiGeneratedAssetType.SIMULATOR,
+                AiTargetType.QT_PASSAGE,
+                2002L,
+                payloadJson,
                 "QT-AI Simulator",
                 CREATED_AT
         );

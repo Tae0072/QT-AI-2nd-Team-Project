@@ -239,7 +239,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             return objectMapper.writeValueAsString(sceneScript);
         } catch (JsonProcessingException exception) {
             throw new BusinessException(
-                    ErrorCode.INVALID_INPUT, "asset payloadJson sceneScript serialization failed");
+                    ErrorCode.INTERNAL_ERROR, "asset payloadJson sceneScript serialization failed");
         }
     }
 
