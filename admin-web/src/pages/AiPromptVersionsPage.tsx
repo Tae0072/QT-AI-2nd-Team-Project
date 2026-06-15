@@ -70,7 +70,6 @@ function statusTag(status: string) {
 
 interface CreatePromptFormValues {
   version: string;
-  systemPrompt: string;
   userPromptTemplate: string;
   modelName?: string;
   temperature: number;
@@ -131,7 +130,6 @@ export default function AiPromptVersionsPage() {
       await createAiPromptVersion({
         promptType: AI_PROMPT_MANAGED_TYPE,
         version: values.version.trim(),
-        systemPrompt: values.systemPrompt.trim(),
         userPromptTemplate: values.userPromptTemplate.trim(),
         modelName: values.modelName?.trim() || undefined,
         temperature: values.temperature,
@@ -379,13 +377,6 @@ export default function AiPromptVersionsPage() {
             <Input placeholder="버전 문자열" maxLength={50} />
           </Form.Item>
           <Form.Item
-            name="systemPrompt"
-            label="시스템 프롬프트"
-            rules={[{ required: true, message: '시스템 프롬프트를 입력하세요.' }]}
-          >
-            <Input.TextArea rows={5} placeholder="EXPLANATION 시스템 프롬프트" />
-          </Form.Item>
-          <Form.Item
             name="userPromptTemplate"
             label="추가 생성 지시사항"
             rules={[
@@ -471,7 +462,7 @@ export default function AiPromptVersionsPage() {
                 </Descriptions.Item>
               </Descriptions>
 
-              <Typography.Text strong>시스템 프롬프트</Typography.Text>
+              <Typography.Text strong>시스템 프롬프트(고정)</Typography.Text>
               <pre style={promptBlockStyle}>{detail.systemPrompt}</pre>
 
               <Typography.Text strong>추가 생성 지시사항</Typography.Text>

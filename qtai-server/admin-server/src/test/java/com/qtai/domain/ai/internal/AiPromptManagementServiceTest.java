@@ -54,7 +54,7 @@ class AiPromptManagementServiceTest {
     }
 
     @Test
-    void createKeepsNaturalInstructionInUserPromptTemplateContract() {
+    void createUsesDefaultSystemPromptAndKeepsNaturalInstructionInContract() {
         when(promptVersionRepository.existsByPromptTypeAndVersion(AiPromptType.EXPLANATION, "2026.06.3"))
                 .thenReturn(false);
         when(promptVersionRepository.save(any(AiPromptVersion.class)))
@@ -66,7 +66,7 @@ class AiPromptManagementServiceTest {
                 "REVIEWER",
                 "EXPLANATION",
                 "2026.06.3",
-                "JSON 객체만 반환하세요.",
+                "custom system prompt should be ignored",
                 "요약은 한 문장으로 작성하고 쉬운 표현을 사용하세요.",
                 "deepseek-chat",
                 0.2,
@@ -76,9 +76,32 @@ class AiPromptManagementServiceTest {
 
         assertThat(response.status()).isEqualTo("DRAFT");
         assertThat(response.promptType()).isEqualTo("EXPLANATION");
+        assertThat(response.systemPrompt()).isEqualTo(AiPromptVersion.defaultSystemPrompt());
         assertThat(response.userPromptTemplate())
                 .isEqualTo("요약은 한 문장으로 작성하고 쉬운 표현을 사용하세요.");
         assertThat(response.contentHash()).isNotBlank();
+    }
+
+    @Test
+    void contentHashUsesEffectiveDefaultsWhenOptionalGenerationSettingsAreNull() {
+        String withNullSettings = AiPromptManagementService.contentHash(
+                "EXPLANATION",
+                "2026.06.3",
+                "natural instruction",
+                null,
+                null,
+                null
+        );
+        String withExplicitDefaults = AiPromptManagementService.contentHash(
+                "EXPLANATION",
+                "2026.06.3",
+                "natural instruction",
+                null,
+                AiPromptVersion.DEFAULT_TEMPERATURE,
+                AiPromptVersion.DEFAULT_MAX_TOKENS
+        );
+
+        assertThat(withNullSettings).isEqualTo(withExplicitDefaults);
     }
 
     @Test

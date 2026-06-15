@@ -141,6 +141,12 @@ test('AI prompt version page uses EXPLANATION draft prompt contracts', () => {
   assert.match(page, /aiPromptVersionListParams\(AI_PROMPT_DEFAULT_STATUS\)/);
   assert.match(page, /AI_PROMPT_VERSION_STATUS_TAGS/);
   assert.match(page, /AI_PROMPT_MANAGED_TYPE/);
+  assert.doesNotMatch(page, /name="systemPrompt"/);
+  assert.doesNotMatch(page, /systemPrompt:\s*values\.systemPrompt/);
+
+  const createPayloadMatch = api.match(/export interface CreateAiPromptVersionPayload \{([\s\S]*?)\n\}/);
+  assert.ok(createPayloadMatch, 'CreateAiPromptVersionPayload must be declared');
+  assert.doesNotMatch(createPayloadMatch[1], /systemPrompt/);
   assert.match(api, /'\/admin\/ai\/prompt-versions'/);
   assert.match(api, /`\/admin\/ai\/prompt-versions\/\$\{id\}`/);
   assert.match(api, /`\/admin\/ai\/prompt-versions\/\$\{id\}\/activate`/);
