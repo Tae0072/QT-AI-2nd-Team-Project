@@ -2,6 +2,7 @@ package com.qtai.domain.ai.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,6 +25,7 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.ai.api.admin.prompt.dto.AiPromptVersionResponse;
 import com.qtai.domain.ai.api.admin.prompt.dto.ChangeAiPromptVersionStatusCommand;
+import com.qtai.domain.ai.api.admin.prompt.dto.CreateAiPromptVersionCommand;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +51,34 @@ class AiPromptManagementServiceTest {
                 new ObjectMapper(),
                 Clock.fixed(Instant.parse("2026-06-15T01:00:00Z"), ZoneId.of("Asia/Seoul"))
         );
+    }
+
+    @Test
+    void createKeepsNaturalInstructionInUserPromptTemplateContract() {
+        when(promptVersionRepository.existsByPromptTypeAndVersion(AiPromptType.EXPLANATION, "2026.06.3"))
+                .thenReturn(false);
+        when(promptVersionRepository.save(any(AiPromptVersion.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AiPromptVersionResponse response = service.createAiPromptVersion(new CreateAiPromptVersionCommand(
+                99L,
+                "ADMIN",
+                "REVIEWER",
+                "EXPLANATION",
+                "2026.06.3",
+                "JSON 객체만 반환하세요.",
+                "요약은 한 문장으로 작성하고 쉬운 표현을 사용하세요.",
+                "deepseek-chat",
+                0.2,
+                1200,
+                "natural instruction prompt"
+        ));
+
+        assertThat(response.status()).isEqualTo("DRAFT");
+        assertThat(response.promptType()).isEqualTo("EXPLANATION");
+        assertThat(response.userPromptTemplate())
+                .isEqualTo("요약은 한 문장으로 작성하고 쉬운 표현을 사용하세요.");
+        assertThat(response.contentHash()).isNotBlank();
     }
 
     @Test
