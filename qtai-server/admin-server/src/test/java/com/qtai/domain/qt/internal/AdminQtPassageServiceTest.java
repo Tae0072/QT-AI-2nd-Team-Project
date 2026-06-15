@@ -124,6 +124,52 @@ class AdminQtPassageServiceTest {
     }
 
     @Test
+    @DisplayName("create accepts a cross-chapter range whose ending verse is lower")
+    void create_acceptsCrossChapterRange() {
+        AdminQtPassageCommand command = command(
+                LocalDate.of(2026, 6, 15), (short) 9, (short) 10, (short) 20, (short) 5);
+        when(qtPassageRepository.existsByQtDate(command.qtDate())).thenReturn(false);
+        when(qtPassageRepository.save(any(QtPassage.class))).thenAnswer(invocation -> {
+            QtPassage passage = invocation.getArgument(0);
+            ReflectionTestUtils.setField(passage, "id", 30L);
+            return passage;
+        });
+
+        AdminQtPassageResponse response = service.create(command);
+
+        assertThat(response.chapter()).isEqualTo((short) 9);
+        assertThat(response.endChapter()).isEqualTo((short) 10);
+        assertThat(response.startVerse()).isEqualTo((short) 20);
+        assertThat(response.endVerse()).isEqualTo((short) 5);
+    }
+
+    @Test
+    @DisplayName("create rejects a cross-chapter range whose ending chapter is earlier")
+    void create_rejectsDescendingChapterRange() {
+        AdminQtPassageCommand command = command(
+                LocalDate.of(2026, 6, 15), (short) 10, (short) 9, (short) 1, (short) 20);
+
+        assertThatThrownBy(() -> service.create(command))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("종료 장")
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+    }
+
+    @Test
+    @DisplayName("create rejects reversed verses when the range stays in one chapter")
+    void create_rejectsDescendingVerseRangeWithinSameChapter() {
+        AdminQtPassageCommand command = command(
+                LocalDate.of(2026, 6, 15), (short) 9, (short) 9, (short) 20, (short) 5);
+
+        assertThatThrownBy(() -> service.create(command))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("같은 장")
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+    }
+
+    @Test
     @DisplayName("publish updates status, writes audit log, and evicts cache after commit")
     void publish_updatesStatusAndWritesAuditLog() {
         QtPassage passage = passage(20L, LocalDate.of(2026, 6, 12));
@@ -228,14 +274,24 @@ class AdminQtPassageServiceTest {
     }
 
     private static AdminQtPassageCommand command(LocalDate qtDate) {
+        return command(qtDate, (short) 23, (short) 23, (short) 1, (short) 6);
+    }
+
+    private static AdminQtPassageCommand command(
+            LocalDate qtDate,
+            short chapter,
+            short endChapter,
+            short startVerse,
+            short endVerse
+    ) {
         return new AdminQtPassageCommand(
                 3L,
                 qtDate,
                 (short) 19,
-                (short) 23,
-                (short) 23,
-                (short) 1,
-                (short) 6,
+                chapter,
+                endChapter,
+                startVerse,
+                endVerse,
                 "Admin QT",
                 "Ps 23:1-6"
         );

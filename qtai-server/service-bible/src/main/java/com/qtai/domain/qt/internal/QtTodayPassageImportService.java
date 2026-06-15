@@ -178,7 +178,8 @@ public class QtTodayPassageImportService {
      * <p>bible api {@code getVerses(bookCode, chapter, from, to)}는 단일 장 전용이므로,
      * 장 교차 범위는 장별로 조회하고 경계(시작 장의 시작 절 이전, 종료 장의 종료 절 이후)를
      * 필터링해 이어 붙인다. 중간 장은 장 전체({@code from=null})를 가져온다. 권 교차는 현재
-     * 수집 소스에 없으므로 같은 권({@code bookCode}) 기준으로 처리한다.
+     * 수집 소스에 없으므로 같은 권({@code bookCode}) 기준으로 처리한다. 한 장이라도 조회 결과나
+     * 경계 필터 결과가 비면 부분 매핑을 저장하지 않고 기존 매핑을 유지해 백필 재시도 대상으로 남긴다.
      */
     private List<BibleVerseResponse> collectRangeVerses(String bookCode,
                                                         short startChapter, short endChapter,
@@ -194,6 +195,10 @@ public class QtTodayPassageImportService {
             BibleVerseRangeResponse range = getBibleVerseUseCase.getVerses(bookCode, chapter, null, null);
             List<BibleVerseResponse> chapterVerses =
                     range == null || range.verses() == null ? List.of() : range.verses();
+            if (chapterVerses.isEmpty()) {
+                return List.of();
+            }
+            int collectedBeforeChapter = collected.size();
             for (BibleVerseResponse verse : chapterVerses) {
                 int verseNo = verse.verseNo() == null ? 0 : verse.verseNo();
                 if (chapter == startChapter && verseNo < startVerse) {
@@ -203,6 +208,9 @@ public class QtTodayPassageImportService {
                     continue;
                 }
                 collected.add(verse);
+            }
+            if (collected.size() == collectedBeforeChapter) {
+                return List.of();
             }
         }
         return collected;

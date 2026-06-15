@@ -14,5 +14,8 @@ ALTER TABLE qt_passages ADD COLUMN end_chapter SMALLINT NULL;
 UPDATE qt_passages SET end_book_id = book_id WHERE end_book_id IS NULL;
 UPDATE qt_passages SET end_chapter = chapter WHERE end_chapter IS NULL;
 
+ALTER TABLE qt_passages MODIFY COLUMN end_book_id SMALLINT NOT NULL;
+ALTER TABLE qt_passages MODIFY COLUMN end_chapter SMALLINT NOT NULL;
+
 ALTER TABLE qt_passages
     ADD CONSTRAINT fk_qt_passages_end_book FOREIGN KEY (end_book_id) REFERENCES bible_books(id);

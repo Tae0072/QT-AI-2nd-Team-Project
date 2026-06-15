@@ -1440,19 +1440,24 @@
 ```json
 {
   "qtDate": "2026-05-17",
-  "bookId": 19,
-  "chapter": 23,
-  "startVerse": 1,
-  "endVerse": 6,
+  "bookId": 46,
+  "chapter": 9,
+  "endChapter": 10,
+  "startVerse": 20,
+  "endVerse": 5,
   "title": "오늘의 QT",
-  "mainVerseRef": "시편 23:1-6",
+  "mainVerseRef": "고린도전서 9:20-10:5",
   "status": "pending_review"
 }
 ```
 
+- **범위 필드:** `chapter`는 시작 장, `endChapter`는 종료 장이다. `endChapter`를 생략하면 서버가 `chapter`와 같은 값으로 보정하여 기존 단일 장 클라이언트와 호환한다. 조회 응답에도 `endChapter`를 포함한다.
+- **검증:** `endChapter`는 `chapter` 이상이어야 한다. 같은 장이면 `startVerse <= endVerse`를 요구하고, 장 교차 범위에서는 다음 장의 종료 절이 시작 절보다 작을 수 있다(예: `9:20-10:5`).
 - **상태값:** `active`, `hidden`, `pending_review`, `deletion_notified`, `removed`
 
-> 2026-06-10 팀 결정 반영: 요청 본문을 `startVerseId/endVerseId` → `bookId`+`chapter`+`startVerse`+`endVerse`(+`mainVerseRef`)로 변경(이지윤 admin-server 구현 기준). 상태값은 5종(`active/hidden/pending_review/deletion_notified/removed`)으로 정렬하며, 3종 매핑(`DRAFT→pending_review`·`PUBLISHED→active`·`HIDDEN→hidden`)은 admin-web qt-passages 계약(`doc/workspaces/DevE_김지민/workflows/2026-06-10_admin-qt-passages-api-contract.md`) 참조. (별도 문서 저장소 SSoT 동기화 필요)
+> 2026-06-10 팀 결정 반영: 요청 본문을 `startVerseId/endVerseId` → `bookId`+`chapter`+`startVerse`+`endVerse`(+`mainVerseRef`)로 변경(이지윤 admin-server 구현 기준). 상태값은 5종(`active/hidden/pending_review/deletion_notified/removed`)으로 정렬하며, 3종 매핑(`DRAFT→pending_review`·`PUBLISHED→active`·`HIDDEN→hidden`)은 admin-web qt-passages 계약(`doc/workspaces/DevE_김지민/workflows/2026-06-10_admin-qt-passages-api-contract.md`) 참조.
+>
+> 2026-06-15 장 교차 계약 반영: F-01/F-06 및 `doc/workspaces/DevD_이승욱/workflows/2026-06-15_qt-cross-chapter-range.md` 합의에 따라 `endChapter`를 추가했다. 같은 권 내 장 교차만 활성화하며 권 교차는 현재 지원하지 않는다.
 
 ### 4.7.3 AI 산출물 검증
 
@@ -2421,6 +2426,7 @@
 | v1.9 | 2026-06-12 | T (강태오) / Codex | §4.7.7 공지 관리에 상세 조회 응답(`GET /api/v1/admin/notices/{id}`), 입력 검증, 상태 전이, 성공/실패 코드(`AD0003`, `C0004`, `C0007`)를 보강. 상단 AD-06 기능 표와 §9 전체 API 요약 표에 공지 상세 조회 행(#85)을 추가하고 이후 번호를 #90까지 재정렬. 코드 변경 없음. |
 | v1.10 | 2026-06-12 | 김지민 (DevE) | `07_요구사항_정의서.md` v3.7(F-03 QT 노트 단일 body 확정, Lead 합의 2026-06-12) 반영 — 원본 보존 원칙에 따라 본문은 수정하지 않고 아래 "개정 추가 (2026-06-12)" 절로 기록. 노트 API(§4.3)의 4섹션 필드(`rememberSection`·`interpretSection`·`applySection`·`praySection`)를 **deprecated**(서버 계약·`notes` 테이블에 하위호환으로 잔존, v1 클라이언트 미사용)로 표기하고, QT 노트도 단일 `body` 사용임을 명시. 4섹션 필드·컬럼의 실제 제거는 서버 정리 버전(별도 백엔드 작업)에서 본 명세와 함께 처리한다. 코드 변경 없음. |
 | v1.11 | 2026-06-12 | 김지민 (DevE) | §7.3 평가 케이스 생성/등록을 **식별자·메타 기반**으로 정렬(원문/프롬프트/민감정보 미저장, `07` §7 / CLAUDE.md §7). ① `POST /admin/ai/reports/{reportId}/evaluation-candidates`(신규) — 신고를 평가 케이스 후보로 등록, `sourceType=USER_REPORT`·`sourceId=reportId`, 백엔드가 신고+산출물 메타로 `inputJson` 조립. ② `POST /admin/ai/evaluation-sets/{setId}/cases`(수동 생성) 요청을 식별자 전용(`targetType`·`targetId`·`expectedPolicyJson`)으로 축소 — `inputJson`/`expectedOutputJson` 자유 텍스트 입력 제거, 서버가 `{targetType,targetId,sourceType}` 메타로 조립. 아래 "개정 추가 (2026-06-12) — 평가 케이스 식별자 기반" 절로 상세 기록. 코드 변경: 있음(admin-server + admin-web, FE/BE 동시). |
+| v1.12 | 2026-06-15 | 이승욱 (DevD) | §4.7.2 관리자 QT 본문 관리 요청·응답에 `endChapter`를 추가하고, 미지정 시 시작 장 보정·종료 장 역전 거부·같은 장에서만 절 순서 강제 규칙을 명시. F-01/F-06 장 교차 QT 범위 지원과 동기화. |
 
 ---
 

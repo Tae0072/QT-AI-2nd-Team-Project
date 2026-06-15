@@ -14,7 +14,7 @@
 | `…/qt/internal/QtPassage.java` (양 모듈) | `end_chapter`/`end_book_id` 컬럼 + 단일·교차 범위 생성/갱신 |
 | `…/qt/internal/QtTodayPassageImportService.java` (양 모듈) | `collectRangeVerses` 장별 조회·경계 필터로 교차 절 매핑 |
 | `…/qt/internal/TodayQtRangeMapper.java`, `api/dto/TodayQtRangeResponse.java` | 종료 장 포함 범위 응답·displayText |
-| `admin-server …/db/migration/V45__qt_passages_multi_chapter_range.sql` | `end_book_id`/`end_chapter` 추가 + 백필 + FK (admin-server 단독) |
+| `admin-server …/db/migration/V45__qt_passages_multi_chapter_range.sql` | `end_book_id`/`end_chapter` 추가 + 백필 + `NOT NULL` 승격 + FK (admin-server 단독) |
 | `admin-server …/qt/api/admin/dto/AdminQtPassageResponse.java`, `AdminQtPassageCommand.java`, `web/AdminQtPassageController.java`, `internal/AdminQtPassageService.java` | 관리자 API에 endChapter(미지정 시 시작 장 보정·같은 장만 절 순서 강제) |
 | `admin-web/src/api/qtPassages.ts`, `pages/QtPassagesPage.tsx` | 관리자 웹 타입·폼('종료 장')·표·검증 |
 | `doc/workspaces/DevD_이승욱/workflows/2026-06-15_qt-cross-chapter-range.md` | 작업 워크플로우 |
@@ -22,6 +22,9 @@
 ## 검증
 - `./gradlew :service-bible:test :admin-server:test` 전부 BUILD SUCCESSFUL.
 - 파서 단위 테스트 갱신: 같은 장 파싱, 장 교차(`요한복음 3:36-4:2`) 정상 파싱, 종료 장 역전 거부.
+- 교차 장 절 매핑 테스트: 시작·종료 장의 경계 절 포함, display order, 일부 장 누락 시 기존 매핑 보존 폴백 검증.
+- `TodayQtRangeMapper` 테스트: 교차 범위 `displayText`와 `endChapter` 검증.
+- `AdminQtPassageService` 테스트: 교차 범위 정상 입력, 종료 장 역전, 같은 장 절 역전 검증.
 - 교차 컬럼 추가로 깨지던 raw insert/픽스처(`QtVideoControllerTest`, `QtVideoClipPreparationEventIntegrationTest`, `dummy_today_qt_1co_verses.sql`) 및 admin 테스트(Command/Response/Request 생성자) 보강.
 - admin-web `npm run typecheck` 무이슈.
 - (라이브) 12:45 1회용 cron 재발사로 원인 재현 → 수정 후 단위/통합 테스트로 검증. 실DB 라이브 수집은 머지·배포 후.
@@ -32,7 +35,7 @@
 - admin 요청 `endChapter` 선택 필드 + 컨트롤러 보정으로 기존 단일 장 클라이언트 하위호환 유지.
 
 ## 미해결 / 후속
-- **DevA 협의**: admin-qt API `endChapter` 추가 → `04_API_명세서`·계약서 동기화 필요.
+- **API 계약**: `04_API_명세서.md` §4.7.2에 `endChapter`와 교차 장 검증 규칙 동기화 완료.
 - **배포**: 교차 본문 라이브 수집은 머지 후 admin-server(V45 적용)+service-bible 동시 배포 필요(현재 로컬 스택은 기존 코드로 복구).
 - PR 크기: 변경 파일이 가이드(10 files) 초과 → 필요 시 ①수집+스키마 ②관리자 API+웹 2개 PR로 분할 검토.
 
