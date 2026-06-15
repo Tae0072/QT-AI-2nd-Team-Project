@@ -19,7 +19,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class AdminAiMonitoringQueryRepositoryTest {
 
-    private static final OffsetDateTime NOW = OffsetDateTime.parse("2026-06-12T10:00:00+09:00");
+    private static final OffsetDateTime FROM = OffsetDateTime.parse("2026-06-15T00:00:00+09:00");
+    private static final OffsetDateTime TO = OffsetDateTime.parse("2026-06-16T00:00:00+09:00");
+    private static final OffsetDateTime CREATED_AT = OffsetDateTime.parse("2026-06-15T09:00:00+09:00");
+    private static final OffsetDateTime REVIEWED_AT = OffsetDateTime.parse("2026-06-15T10:00:00+09:00");
 
     @Autowired
     AdminAiMonitoringQueryRepository repository;
@@ -28,12 +31,16 @@ class AdminAiMonitoringQueryRepositoryTest {
     EntityManager entityManager;
 
     @Test
-    @DisplayName("AI 운영 모니터링은 산출물 상태별 카운트를 별도로 집계한다")
-    void summarizeCountsAssetStatuses() {
-        asset(1001L, AiGeneratedAssetStatus.VALIDATING);
-        asset(1002L, AiGeneratedAssetStatus.APPROVED);
-        asset(1003L, AiGeneratedAssetStatus.REJECTED);
-        asset(1004L, AiGeneratedAssetStatus.HIDDEN);
+    @DisplayName("AD-08은 산출물 관리 상태와 검증 로그 결과를 분리 집계한다")
+    void summarizeSeparatesReviewedAssetStatusesFromValidationLogResults() {
+        AiGeneratedAsset waiting = asset(1001L);
+        AiGeneratedAsset approved = asset(1002L);
+        approved.approve(REVIEWED_AT);
+        AiGeneratedAsset rejected = asset(1003L);
+        rejected.reject(REVIEWED_AT.plusMinutes(1));
+        AiGeneratedAsset hidden = asset(1004L);
+        hidden.hide(REVIEWED_AT.plusMinutes(2));
+        addValidationLog(waiting.getId(), AiValidationResult.REJECTED);
         entityManager.flush();
         entityManager.clear();
 
@@ -43,9 +50,14 @@ class AdminAiMonitoringQueryRepositoryTest {
         assertThat(summary.assetStatuses().approved()).isEqualTo(1);
         assertThat(summary.assetStatuses().rejected()).isEqualTo(1);
         assertThat(summary.assetStatuses().hidden()).isEqualTo(1);
+        assertThat(summary.validation().waitingAssets()).isEqualTo(1);
+        assertThat(summary.validation().approvedAssets()).isEqualTo(1);
+        assertThat(summary.validation().rejectedAssets()).isEqualTo(1);
+        assertThat(summary.validation().hiddenAssets()).isEqualTo(1);
+        assertThat(summary.validation().failCount()).isEqualTo(1);
     }
 
-    private AiGeneratedAsset asset(Long targetId, AiGeneratedAssetStatus status) {
+    private AiGeneratedAsset asset(Long targetId) {
         AiGenerationJob job = job(targetId);
         entityManager.flush();
 
@@ -56,16 +68,10 @@ class AdminAiMonitoringQueryRepositoryTest {
                 targetId,
                 "{\"explanations\":[],\"glossaryTerms\":[]}",
                 "test-source",
-                NOW.plusSeconds(targetId)
+                CREATED_AT.plusSeconds(targetId)
         );
-        switch (status) {
-            case VALIDATING -> {
-            }
-            case APPROVED -> asset.approve(NOW.plusMinutes(1));
-            case REJECTED -> asset.reject(NOW.plusMinutes(1));
-            case HIDDEN -> asset.hide(NOW.plusMinutes(1));
-        }
         entityManager.persist(asset);
+        entityManager.flush();
         return asset;
     }
 
@@ -76,7 +82,7 @@ class AdminAiMonitoringQueryRepositoryTest {
                 "v" + targetId,
                 "hash-" + targetId,
                 AiPromptVersionStatus.ACTIVE,
-                NOW
+                CREATED_AT
         );
         promptVersion = entityManager.merge(promptVersion);
 
@@ -85,18 +91,32 @@ class AdminAiMonitoringQueryRepositoryTest {
                 AiTargetType.BIBLE_VERSE,
                 targetId,
                 promptVersion.getId(),
-                NOW
+                CREATED_AT
         );
         entityManager.persist(job);
         return job;
     }
 
+    private void addValidationLog(Long assetId, AiValidationResult result) {
+        entityManager.persist(AiValidationLog.create(
+                assetId,
+                null,
+                1,
+                result,
+                AiValidationReviewerType.AUTO,
+                4L,
+                "{}",
+                "AUTO_VALIDATION_REJECTED",
+                REVIEWED_AT.plusMinutes(3)
+        ));
+    }
+
     private static AdminAiMonitoringQueryRepository.Filter filter() {
         return new AdminAiMonitoringQueryRepository.Filter(
-                NOW.minusDays(1),
-                NOW.plusDays(1),
-                LocalDateTime.of(2026, 6, 11, 0, 0),
-                LocalDateTime.of(2026, 6, 13, 0, 0)
+                FROM,
+                TO,
+                LocalDateTime.of(2026, 6, 15, 0, 0),
+                LocalDateTime.of(2026, 6, 16, 0, 0)
         );
     }
 }

@@ -27,7 +27,6 @@ import { formatDateTime } from '../utils/datetime';
 const ACTOR_TYPE_OPTIONS = [
   { label: 'ADMIN', value: 'ADMIN' },
   { label: 'SYSTEM_BATCH', value: 'SYSTEM_BATCH' },
-  { label: 'USER', value: 'USER' },
 ];
 
 const preStyle: CSSProperties = {

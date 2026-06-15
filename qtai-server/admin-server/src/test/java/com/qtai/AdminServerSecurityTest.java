@@ -68,6 +68,38 @@ class AdminServerSecurityTest {
     }
 
     @Test
+    @DisplayName("인증 없이 해설 생성 트리거 접근 시 거부된다(401 또는 403)")
+    void unauthenticated_explanation_generate_is_rejected() throws Exception {
+        int status = mockMvc.perform(post("/api/v1/admin/ai/qt-passages/1/explanations/generate"))
+                .andReturn().getResponse().getStatus();
+        assertThat(status).isIn(401, 403);
+    }
+
+    @Test
+    @DisplayName("ROLE_ADMIN이 아닌 인증 사용자는 해설 생성 트리거에서 403")
+    @WithMockUser(username = "7", roles = "USER")
+    void non_admin_role_is_denied_for_explanation_generate() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/ai/qt-passages/1/explanations/generate"))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(403));
+    }
+
+    @Test
+    @DisplayName("인증 없이 시뮬레이터 관리 접근 시 거부된다(401 또는 403)")
+    void unauthenticated_simulator_clips_is_rejected() throws Exception {
+        int status = mockMvc.perform(get("/api/v1/admin/simulator-clips"))
+                .andReturn().getResponse().getStatus();
+        assertThat(status).isIn(401, 403);
+    }
+
+    @Test
+    @DisplayName("ROLE_ADMIN이 아닌 인증 사용자는 시뮬레이터 숨김에서 403")
+    @WithMockUser(username = "7", roles = "USER")
+    void non_admin_role_is_denied_for_simulator_hide() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/simulator-clips/500/hide"))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(403));
+    }
+
+    @Test
     @DisplayName("ROLE_ADMIN이라도 admin_users 미등록이면 2차 admin_role 검증에서 403")
     @WithMockUser(username = "7", roles = "ADMIN")
     void admin_role_without_admin_user_record_is_denied_at_service_layer() throws Exception {

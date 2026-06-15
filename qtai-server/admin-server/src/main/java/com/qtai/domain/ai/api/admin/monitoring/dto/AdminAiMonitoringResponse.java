@@ -39,11 +39,23 @@ public record AdminAiMonitoringResponse(
 
     public record Validation(
             long waitingAssets,
+            long approvedAssets,
+            long rejectedAssets,
+            long hiddenAssets,
             long passCount,
             long failCount,
             long needsReviewCount,
             List<FailureReason> failureReasons
     ) {
+        public Validation(
+                long waitingAssets,
+                long passCount,
+                long failCount,
+                long needsReviewCount,
+                List<FailureReason> failureReasons
+        ) {
+            this(waitingAssets, 0, 0, 0, passCount, failCount, needsReviewCount, failureReasons);
+        }
     }
 
     public record FailureReason(

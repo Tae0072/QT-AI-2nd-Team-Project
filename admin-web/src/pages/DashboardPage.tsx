@@ -12,15 +12,19 @@ import {
   Descriptions,
   Table,
   Button,
+  Popconfirm,
   Empty,
+  message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import {
   getDashboard,
   type DashboardSummary,
   type RecentAuditLog,
 } from '../api/dashboard';
+import { generateQtPassageExplanation } from '../api/aiAssets';
 import { ApiClientError } from '../api/client';
 import { formatDateTime } from '../utils/datetime';
 
@@ -67,6 +71,16 @@ const auditColumns: ColumnsType<RecentAuditLog> = [
   },
 ];
 
+// 문제 상태에서 조치 화면으로 보내는 인라인 CTA 링크.
+function CtaLink({ label, to }: { label: string; to: string }) {
+  const navigate = useNavigate();
+  return (
+    <Button type="link" size="small" style={{ padding: 0, height: 'auto' }} onClick={() => navigate(to)}>
+      {label} <ArrowRightOutlined />
+    </Button>
+  );
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,6 +113,38 @@ export default function DashboardPage() {
   useEffect(() => load(), [load]);
 
   const todayQt = data?.todayQt;
+  // 오늘 QT 문제 조치 동선: qtPassageId 있으면 해당 본문으로 포커스, 없으면 목록으로.
+  const qtLink = todayQt?.qtPassageId
+    ? `/qt-passages?focusId=${todayQt.qtPassageId}`
+    : '/qt-passages';
+  // 시뮬레이터 문제 → 전용 관리 화면(AD-14). 본문 지정 필터로 진입.
+  const simulatorLink = todayQt?.qtPassageId
+    ? `/simulator-clips?qtPassageId=${todayQt.qtPassageId}`
+    : '/simulator-clips';
+
+  // 해설 "없음" → 관리자 해설 생성 트리거(F-02/F-06). 생성은 배치/시스템 처리라 즉시 완료가 아니다.
+  const [generating, setGenerating] = useState(false);
+  const onGenerateExplanation = async () => {
+    if (!todayQt?.qtPassageId) return;
+    setGenerating(true);
+    try {
+      const r = await generateQtPassageExplanation(todayQt.qtPassageId);
+      if (r.createdCount > 0) {
+        message.success(`해설 생성 요청됨: ${r.createdCount}건 (잠시 후 검증 대기 목록에 표시)`);
+      } else {
+        message.info(
+          r.reason
+            ? `생성할 해설이 없습니다 (${r.reason})`
+            : '생성 대상 절이 없습니다 (이미 생성/승인됨).',
+        );
+      }
+      load();
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '해설 생성 요청에 실패했습니다.');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <Card>
@@ -134,21 +180,31 @@ export default function DashboardPage() {
           <Spin spinning={loading}>
             {data && (
               <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                {/* 운영 카운트 3종 */}
-                <Row gutter={[16, 16]}>
+                {/* 운영 카운트 3종 — 대기 건이 있으면 처리 화면으로 가는 CTA 노출.
+                    align=stretch + Card height:100% 로 CTA 유무와 무관하게 3칸 높이를 맞춘다. */}
+                <Row gutter={[16, 16]} align="stretch">
                   <Col xs={24} sm={8}>
-                    <Card size="small">
+                    <Card size="small" style={{ height: '100%' }}>
                       <Statistic title="AI 검증 대기" value={data.pendingAiValidationCount} />
+                      {data.pendingAiValidationCount > 0 && (
+                        <CtaLink label="검증하러 가기" to="/ai-assets" />
+                      )}
                     </Card>
                   </Col>
                   <Col xs={24} sm={8}>
-                    <Card size="small">
+                    <Card size="small" style={{ height: '100%' }}>
                       <Statistic title="신고 접수" value={data.receivedReportCount} />
+                      {data.receivedReportCount > 0 && (
+                        <CtaLink label="신고 처리하기" to="/reports?status=RECEIVED" />
+                      )}
                     </Card>
                   </Col>
                   <Col xs={24} sm={8}>
-                    <Card size="small">
+                    <Card size="small" style={{ height: '100%' }}>
                       <Statistic title="신고 검토 중" value={data.reviewingReportCount} />
+                      {data.reviewingReportCount > 0 && (
+                        <CtaLink label="검토 이어가기" to="/reports?status=REVIEWING" />
+                      )}
                     </Card>
                   </Col>
                 </Row>
@@ -159,16 +215,58 @@ export default function DashboardPage() {
                     <Descriptions column={{ xs: 1, sm: 2 }} size="small">
                       <Descriptions.Item label="날짜">{todayQt.qtDate || '-'}</Descriptions.Item>
                       <Descriptions.Item label="상태">
-                        <Tag color={todayQt.status === 'READY' ? 'green' : 'orange'}>
-                          {todayQt.status}
-                        </Tag>
+                        <Space size={8}>
+                          <Tag color={todayQt.status === 'READY' ? 'green' : 'orange'}>
+                            {todayQt.status}
+                          </Tag>
+                          {todayQt.status !== 'READY' && (
+                            <CtaLink label="QT 관리" to={qtLink} />
+                          )}
+                        </Space>
                       </Descriptions.Item>
                       <Descriptions.Item label="제목">{todayQt.title || '-'}</Descriptions.Item>
                       <Descriptions.Item label="시뮬레이터">
-                        {todayQt.simulatorStatus || '-'}
+                        <Space size={8}>
+                          <Tag
+                            color={todayQt.simulatorStatus === 'READY' ? 'green' : 'orange'}
+                          >
+                            {todayQt.simulatorStatus || '-'}
+                          </Tag>
+                          {/* 시뮬레이터 전용 관리 화면(AD-14)으로 이동. */}
+                          {todayQt.simulatorStatus && todayQt.simulatorStatus !== 'READY' && (
+                            <CtaLink label="시뮬레이터 관리" to={simulatorLink} />
+                          )}
+                        </Space>
                       </Descriptions.Item>
                       <Descriptions.Item label="해설">
-                        {todayQt.hasExplanation ? '있음' : '없음'}
+                        <Space size={8} wrap>
+                          <span>{todayQt.hasExplanation ? '있음' : '없음'}</span>
+                          {!todayQt.hasExplanation && (
+                            <>
+                              {/* 미생성 해설 → 관리자 생성 트리거(배치/시스템 처리, 즉시 완료 아님) */}
+                              <Popconfirm
+                                title="이 본문의 해설 생성을 요청할까요?"
+                                description="미생성 절에 대해 해설 생성 job을 큐잉합니다."
+                                okText="생성 요청"
+                                cancelText="취소"
+                                onConfirm={onGenerateExplanation}
+                                disabled={!todayQt.qtPassageId}
+                              >
+                                <Button
+                                  type="link"
+                                  size="small"
+                                  loading={generating}
+                                  disabled={!todayQt.qtPassageId}
+                                  style={{ padding: 0, height: 'auto' }}
+                                >
+                                  해설 생성 요청
+                                </Button>
+                              </Popconfirm>
+                              {/* 이미 생성됐으나 미승인인 경우 → 검증 화면 */}
+                              <CtaLink label="검증하러 가기" to="/ai-assets" />
+                            </>
+                          )}
+                        </Space>
                       </Descriptions.Item>
                       <Descriptions.Item label="캐시">{todayQt.cacheStatus || '-'}</Descriptions.Item>
                     </Descriptions>

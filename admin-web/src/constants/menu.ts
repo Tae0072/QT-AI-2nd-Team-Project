@@ -92,4 +92,11 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'AI 평가 세트',
     requiredRoles: [ADMIN_ROLES.REVIEWER, ADMIN_ROLES.CONTENT_CREATOR],
   },
+  {
+    // AD-14 시뮬레이터 관리(조회+숨김) — AdminSimulatorClipController.requireReviewer
+    code: 'AD-14',
+    path: '/simulator-clips',
+    label: '시뮬레이터 관리',
+    requiredRoles: [ADMIN_ROLES.REVIEWER],
+  },
 ];

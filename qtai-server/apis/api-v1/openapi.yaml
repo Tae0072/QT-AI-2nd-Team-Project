@@ -3381,12 +3381,27 @@ components:
       type: object
       required:
         - waitingAssets
+        - approvedAssets
+        - rejectedAssets
+        - hiddenAssets
         - passCount
         - failCount
         - needsReviewCount
         - failureReasons
       properties:
         waitingAssets:
+          type: integer
+          format: int64
+          minimum: 0
+        approvedAssets:
+          type: integer
+          format: int64
+          minimum: 0
+        rejectedAssets:
+          type: integer
+          format: int64
+          minimum: 0
+        hiddenAssets:
           type: integer
           format: int64
           minimum: 0

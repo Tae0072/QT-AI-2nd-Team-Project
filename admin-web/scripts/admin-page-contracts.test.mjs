@@ -67,6 +67,17 @@ test('AI assets page starts and resets with the validating status filter', () =>
   assert.match(page, /applyFilters\(\{\s*status:\s*AI_ASSET_DEFAULT_STATUS\s*\}\)/);
 });
 
+test('AI monitoring separates asset status and validation log summary cards', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiMonitoringPage.tsx'), 'utf8');
+
+  assert.match(page, /title="생성 작업"/);
+  assert.match(page, /title="산출물 상태"/);
+  assert.match(page, /title="검증 로그"/);
+  assert.match(page, /title="Q&amp;A"/);
+  assert.doesNotMatch(page, /title="검증"/);
+  assert.equal((page.match(/xl=\{6\}/g) ?? []).length, 4);
+});
+
 test('admin page modals use destroyOnHidden instead of deprecated destroyOnClose', () => {
   const modalPages = [
     ['AiAssetsPage.tsx', 4],
@@ -81,6 +92,22 @@ test('admin page modals use destroyOnHidden instead of deprecated destroyOnClose
     assert.equal(page.includes('destroyOnClose'), false, fileName);
     assert.equal((page.match(/\bdestroyOnHidden\b/g) ?? []).length, expectedCount, fileName);
   }
+});
+
+test('audit log actor filter exposes only admin and system batch actors', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AuditLogsPage.tsx'), 'utf8');
+  const optionsMatch = page.match(/const ACTOR_TYPE_OPTIONS = \[([\s\S]*?)\];/);
+
+  assert.ok(optionsMatch, 'ACTOR_TYPE_OPTIONS must be declared in AuditLogsPage.tsx');
+
+  const optionsSource = optionsMatch[1];
+  assert.match(optionsSource, /label:\s*'ADMIN',\s*value:\s*'ADMIN'/);
+  assert.match(
+    optionsSource,
+    /label:\s*'SYSTEM_BATCH',\s*value:\s*'SYSTEM_BATCH'/,
+  );
+  assert.doesNotMatch(optionsSource, /label:\s*'USER'|value:\s*'USER'/);
+  assert.match(page, /options=\{ACTOR_TYPE_OPTIONS\}/);
 });
 
 test('AI asset action visibility follows review and regeneration contracts', () => {

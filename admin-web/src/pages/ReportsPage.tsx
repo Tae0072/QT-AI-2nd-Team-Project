@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ReloadOutlined } from '@ant-design/icons';
+import { useSearchParams } from 'react-router-dom';
 import {
   listReports,
   resolveReport,
@@ -66,10 +67,21 @@ function statusTag(status: string) {
 }
 
 export default function ReportsPage() {
-  const { rows, page, size, total, loading, applyFilters, changePage, reload } =
-    usePagedList<Report, ReportListParams>(listReports, { page: 0, size: 20 });
+  // 대시보드(AD-01) 신고 CTA가 ?status=RECEIVED|REVIEWING 으로 진입할 때 초기 필터를 맞춘다.
+  // 허용된 상태값만 수용하고, 그 외/없음이면 전체 조회.
+  const [searchParams] = useSearchParams();
+  const initialStatus = STATUS_OPTIONS.some((o) => o.value === searchParams.get('status'))
+    ? (searchParams.get('status') as string)
+    : undefined;
 
-  const [status, setStatus] = useState<string | undefined>(undefined);
+  const { rows, page, size, total, loading, applyFilters, changePage, reload } =
+    usePagedList<Report, ReportListParams>(listReports, {
+      page: 0,
+      size: 20,
+      status: initialStatus,
+    });
+
+  const [status, setStatus] = useState<string | undefined>(initialStatus);
   const [targetType, setTargetType] = useState<string | undefined>(undefined);
 
   // 처리/반려 모달 상태

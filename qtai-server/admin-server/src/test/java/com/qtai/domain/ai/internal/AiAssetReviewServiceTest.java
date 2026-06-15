@@ -74,6 +74,10 @@ class AiAssetReviewServiceTest {
         assertThat(glossaryCaptor.getValue().aiAssetId()).isEqualTo(500L);
         assertThat(glossaryCaptor.getValue().terms()).hasSize(1);
         assertThat(glossaryCaptor.getValue().terms().get(0).term()).isEqualTo("validated term");
+
+        ArgumentCaptor<AiValidationLog> validationLogCaptor = ArgumentCaptor.forClass(AiValidationLog.class);
+        verify(validationLogRepository).save(validationLogCaptor.capture());
+        assertAdminValidationLog(validationLogCaptor.getValue(), AiValidationResult.PASSED, null);
     }
 
     @Test
@@ -114,6 +118,22 @@ class AiAssetReviewServiceTest {
                 .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
         verify(publishGlossaryUseCase, never())
                 .publishApprovedGlossaryTerms(any(PublishApprovedGlossaryTermsCommand.class));
+        ArgumentCaptor<AiValidationLog> validationLogCaptor = ArgumentCaptor.forClass(AiValidationLog.class);
+        verify(validationLogRepository).save(validationLogCaptor.capture());
+        assertAdminValidationLog(validationLogCaptor.getValue(), AiValidationResult.REJECTED, null);
+    }
+
+    @Test
+    void rejectValidatingAssetWritesAdminValidationLog() {
+        AiGeneratedAsset asset = asset();
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+
+        service.reviewAiAsset(command("REJECT", false));
+
+        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.REJECTED);
+        ArgumentCaptor<AiValidationLog> validationLogCaptor = ArgumentCaptor.forClass(AiValidationLog.class);
+        verify(validationLogRepository).save(validationLogCaptor.capture());
+        assertAdminValidationLog(validationLogCaptor.getValue(), AiValidationResult.REJECTED, "review reason");
     }
 
     private void stubPassedApproval(AiGeneratedAsset asset) {
@@ -190,6 +210,22 @@ class AiAssetReviewServiceTest {
                 null,
                 REVIEWED_AT.minusMinutes(10)
         );
+    }
+
+    private static void assertAdminValidationLog(
+            AiValidationLog validationLog,
+            AiValidationResult result,
+            String errorMessage
+    ) {
+        assertThat(validationLog.getAiAssetId()).isEqualTo(500L);
+        assertThat(validationLog.getValidationReferenceJobId()).isNull();
+        assertThat(validationLog.getLayer()).isEqualTo(3);
+        assertThat(validationLog.getResult()).isEqualTo(result);
+        assertThat(validationLog.getReviewerType()).isEqualTo(AiValidationReviewerType.ADMIN);
+        assertThat(validationLog.getChecklistVersionId()).isNull();
+        assertThat(validationLog.getChecklistJson()).isEqualTo("{\"source\":\"ADMIN_ASSET_REVIEW\"}");
+        assertThat(validationLog.getErrorMessage()).isEqualTo(errorMessage);
+        assertThat(validationLog.getCreatedAt()).isEqualTo(REVIEWED_AT);
     }
 
     private static void setId(Object target, Long id) {

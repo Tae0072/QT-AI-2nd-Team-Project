@@ -18,6 +18,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ReloadOutlined, PlusOutlined } from '@ant-design/icons';
+import { useSearchParams } from 'react-router-dom';
 import {
   listQtPassages,
   createQtPassage,
@@ -61,6 +62,10 @@ function errMessage(e: unknown, fallback: string): string {
 }
 
 export default function QtPassagesPage() {
+  // 대시보드(AD-01) 오늘 QT CTA가 ?focusId={qtPassageId} 로 진입하면 해당 본문 행을 강조한다.
+  const [searchParams] = useSearchParams();
+  const focusId = Number(searchParams.get('focusId')) || undefined;
+
   const { rows, page, size, total, loading, error, applyFilters, changePage, reload } =
     usePagedList<QtPassage, QtPassageListParams>(listQtPassages, { page: 0, size: 20 });
 
@@ -295,6 +300,9 @@ export default function QtPassagesPage() {
           columns={columns}
           dataSource={rows}
           scroll={{ x: 'max-content' }}
+          onRow={(record) =>
+            focusId === record.id ? { style: { background: '#fffbe6' } } : {}
+          }
           pagination={{
             current: page + 1, // antd 1-based, 서버 0-based
             pageSize: size,
