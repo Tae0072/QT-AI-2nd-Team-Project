@@ -27,6 +27,7 @@ import {
   listMembers,
   listMemberComments,
   listMemberLikes,
+  listMemberNicknameHistory,
   listMemberNotes,
   listMemberPosts,
   updateMemberStatus,
@@ -39,6 +40,7 @@ import {
   type MemberListParams,
   type MemberStatus,
   type MissionProgress,
+  type NicknameHistoryItem,
 } from '../api/members';
 import type { Page, PageParams } from '../api/types';
 import { usePagedList } from '../hooks/usePagedList';
@@ -262,6 +264,12 @@ const likeColumns: ColumnsType<AdminMemberLikedPostItem> = [
   { title: '좋아요한 시각', dataIndex: 'likedAt', width: 160, render: (v: string) => formatDateTime(v) },
 ];
 
+const nicknameHistoryColumns: ColumnsType<NicknameHistoryItem> = [
+  { title: '이전 닉네임', dataIndex: 'oldNickname', render: (v: string | null) => v ?? '-' },
+  { title: '변경 후 닉네임', dataIndex: 'newNickname' },
+  { title: '변경 시각', dataIndex: 'changedAt', width: 180, render: (v: string) => formatDateTime(v) },
+];
+
 // 회원 상세 모달 본문 — 탭으로 요약/노트/공유글/댓글/좋아요/미션을 본다.
 function MemberDetailView({ memberId }: { memberId: number }) {
   return (
@@ -270,6 +278,16 @@ function MemberDetailView({ memberId }: { memberId: number }) {
       destroyInactiveTabPane
       items={[
         { key: 'summary', label: '요약', children: <MemberSummary memberId={memberId} /> },
+        {
+          key: 'nickname',
+          label: '닉네임 이력',
+          children: (
+            <PagedSubTable
+              fetcher={(p) => listMemberNicknameHistory(memberId, p)}
+              columns={nicknameHistoryColumns}
+            />
+          ),
+        },
         {
           key: 'notes',
           label: '노트',

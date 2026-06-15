@@ -168,3 +168,13 @@ export function getMemberMissions(id: number) {
     apiClient.get<ApiResponse<MissionProgress[]>>(`/admin/members/${id}/missions`),
   );
 }
+
+export interface NicknameHistoryItem {
+  oldNickname: string | null;
+  newNickname: string;
+  changedAt: string;
+}
+
+export function listMemberNicknameHistory(id: number, params: PageParams = {}) {
+  return listSub<NicknameHistoryItem>(id, 'nickname-history', params);
+}

@@ -29,6 +29,8 @@ class MemberServiceTest {
     @Mock
     private MemberRepository memberRepository;
     @Mock
+    private NicknameChangeHistoryRepository nicknameChangeHistoryRepository;
+    @Mock
     private ApplicationEventPublisher eventPublisher;
     @Spy
     private Clock clock = Clock.fixed(Instant.parse("2026-06-15T01:00:00Z"), ZoneId.of("Asia/Seoul"));

@@ -6,10 +6,12 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
 import com.qtai.domain.member.api.GetMemberDetailForAdminUseCase;
 import com.qtai.domain.member.api.ListMembersForAdminUseCase;
+import com.qtai.domain.member.api.ListNicknameHistoryForAdminUseCase;
 import com.qtai.domain.member.api.UpdateMemberStatusForAdminUseCase;
 import com.qtai.domain.member.api.dto.AdminMemberDetailResponse;
 import com.qtai.domain.member.api.dto.AdminMemberResponse;
 import com.qtai.domain.member.api.dto.MemberStatusUpdateRequest;
+import com.qtai.domain.member.api.dto.NicknameHistoryItem;
 import com.qtai.domain.mission.api.GetMemberMissionProgressUseCase;
 import com.qtai.domain.mission.api.dto.MissionProgressResponse;
 import com.qtai.domain.note.api.ListMemberNotesForAdminUseCase;
@@ -56,6 +58,7 @@ public class AdminMemberController {
     private final ListMemberNotesForAdminUseCase listMemberNotesForAdminUseCase;
     private final AdminMemberSharingQueryUseCase adminMemberSharingQueryUseCase;
     private final GetMemberMissionProgressUseCase getMemberMissionProgressUseCase;
+    private final ListNicknameHistoryForAdminUseCase listNicknameHistoryForAdminUseCase;
 
     /** GET /api/v1/admin/members?status=&q=&page=&size= */
     @GetMapping
@@ -148,6 +151,18 @@ public class AdminMemberController {
         requireOperator(authentication);
         return ResponseEntity.ok(ApiResponse.success(
                 getMemberMissionProgressUseCase.getMissionProgress(memberId)));
+    }
+
+    /** GET /api/v1/admin/members/{memberId}/nickname-history — 닉네임 변경 이력(최신순) */
+    @GetMapping("/{memberId}/nickname-history")
+    public ResponseEntity<ApiResponse<Page<NicknameHistoryItem>>> nicknameHistory(
+            @PathVariable Long memberId,
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        requireOperator(authentication);
+        return ResponseEntity.ok(ApiResponse.success(
+                listNicknameHistoryForAdminUseCase.listNicknameHistory(memberId, PageRequest.of(page, size))));
     }
 
     /** PATCH /api/v1/admin/members/{memberId}/status */

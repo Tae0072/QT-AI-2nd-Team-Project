@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.UUID;
 
@@ -43,6 +44,7 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
     private static final long MAX_PHOTO_BYTES = 5L * 1024 * 1024; // 5MB
 
     private final MemberRepository memberRepository;
+    private final NicknameChangeHistoryRepository nicknameChangeHistoryRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
@@ -233,6 +235,7 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
         if (memberRepository.existsByNickname(newNickname)) {
             throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
         }
+        String oldNickname = member.getNickname();
         try {
             member.changeNickname(newNickname, clock);
             memberRepository.flush();
@@ -240,6 +243,10 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
             // TOCTOU: existsByNickname 이후 동시 INSERT → UK 위반 시 비즈니스 예외로 변환
             throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
         }
+        // 닉네임 변경 이력 기록(append-only, F-04/F-10). 같은 트랜잭션에서 함께 커밋된다.
+        nicknameChangeHistoryRepository.save(
+                NicknameChangeHistory.of(member.getId(), oldNickname, newNickname,
+                        LocalDateTime.now(clock)));
     }
 
     private Member findMemberOrThrow(Long memberId) {
