@@ -10,6 +10,7 @@ import com.qtai.domain.music.api.ListAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.PublishAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.UpdateAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.dto.AdminMusicTrackCommand;
+import com.qtai.domain.music.api.dto.AdminMusicTrackListResponse;
 import com.qtai.domain.music.api.dto.AdminMusicTrackResponse;
 import java.io.IOException;
 import java.net.URI;
@@ -17,7 +18,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
@@ -41,6 +41,9 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class AdminMusicTrackController {
 
+    private static final List<String> MUSIC_TRACK_ADMIN_ROLES = List.of("OPERATOR", "SUPER_ADMIN");
+    private static final long MAX_AUDIO_FILE_BYTES = 10L * 1024 * 1024;
+
     private final ListAdminMusicTrackUseCase listAdminMusicTrackUseCase;
     private final CreateAdminMusicTrackUseCase createAdminMusicTrackUseCase;
     private final UpdateAdminMusicTrackUseCase updateAdminMusicTrackUseCase;
@@ -49,7 +52,7 @@ public class AdminMusicTrackController {
     private final VerifyAdminRoleUseCase verifyAdminRoleUseCase;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<AdminMusicTrackResponse>>> list(
+    public ResponseEntity<ApiResponse<AdminMusicTrackListResponse>> list(
             Authentication authentication,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
@@ -125,6 +128,7 @@ public class AdminMusicTrackController {
             boolean requireFile) {
         byte[] audioData = null;
         if (file != null && !file.isEmpty()) {
+            validateAudioFileSize(file);
             try {
                 audioData = file.getBytes();
             } catch (IOException exception) {
@@ -154,6 +158,13 @@ public class AdminMusicTrackController {
         return "audio/mpeg";
     }
 
+    private static void validateAudioFileSize(MultipartFile file) {
+        if (file.getSize() > MAX_AUDIO_FILE_BYTES) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "audio file size must be 10 MiB or less.");
+        }
+    }
+
     private Long requireOperator(Authentication requestAuthentication) {
         Authentication authentication = requestAuthentication != null
                 ? requestAuthentication
@@ -170,7 +181,7 @@ public class AdminMusicTrackController {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
         Long memberId = resolvePrincipalId(authentication);
-        return verifyAdminRoleUseCase.verifyAnyRole(memberId, List.of("OPERATOR")).adminUserId();
+        return verifyAdminRoleUseCase.verifyAnyRole(memberId, MUSIC_TRACK_ADMIN_ROLES).adminUserId();
     }
 
     private static Long resolvePrincipalId(Authentication authentication) {

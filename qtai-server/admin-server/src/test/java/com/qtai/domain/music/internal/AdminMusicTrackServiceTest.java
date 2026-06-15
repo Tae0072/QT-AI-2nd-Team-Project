@@ -3,6 +3,7 @@ package com.qtai.domain.music.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -11,9 +12,12 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.music.api.dto.AdminMusicTrackCommand;
+import com.qtai.domain.music.api.dto.AdminMusicTrackListResponse;
 import com.qtai.domain.music.api.dto.AdminMusicTrackResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +26,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,6 +49,26 @@ class AdminMusicTrackServiceTest {
                 auditLogUseCase,
                 new MusicTrackAuditSnapshotFactory(new ObjectMapper().findAndRegisterModules())
         );
+    }
+
+    @Test
+    @DisplayName("listAdmin returns documented page response")
+    void listAdmin_returnsDocumentedPageResponse() {
+        PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        when(musicTrackRepository.findAdminSummaries(eq(Boolean.TRUE), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(summary(10L, true)), pageable, 1));
+
+        AdminMusicTrackListResponse response = service.listAdmin("ACTIVE", pageable);
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).status()).isEqualTo("ACTIVE");
+        assertThat(response.page()).isZero();
+        assertThat(response.size()).isEqualTo(20);
+        assertThat(response.totalElements()).isEqualTo(1);
+        assertThat(response.totalPages()).isEqualTo(1);
+        assertThat(response.first()).isTrue();
+        assertThat(response.last()).isTrue();
+        assertThat(response.sort()).isEqualTo("createdAt,desc");
     }
 
     @Test
@@ -175,5 +202,65 @@ class AdminMusicTrackServiceTest {
 
     private static byte[] audio(String value) {
         return value.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static AdminMusicTrackSummary summary(Long id, boolean enabled) {
+        LocalDateTime now = LocalDateTime.of(2026, 6, 15, 10, 0);
+        return new AdminMusicTrackSummary() {
+            @Override
+            public Long getId() {
+                return id;
+            }
+
+            @Override
+            public String getTitle() {
+                return "Morning BGM";
+            }
+
+            @Override
+            public MusicCategory getCategory() {
+                return MusicCategory.BGM;
+            }
+
+            @Override
+            public String getMimeType() {
+                return "audio/mpeg";
+            }
+
+            @Override
+            public Long getByteSize() {
+                return 5L;
+            }
+
+            @Override
+            public Integer getDurationSec() {
+                return 180;
+            }
+
+            @Override
+            public Integer getSortOrder() {
+                return 5;
+            }
+
+            @Override
+            public Boolean getEnabled() {
+                return enabled;
+            }
+
+            @Override
+            public String getLicenseNote() {
+                return "license checked";
+            }
+
+            @Override
+            public LocalDateTime getCreatedAt() {
+                return now;
+            }
+
+            @Override
+            public LocalDateTime getUpdatedAt() {
+                return now;
+            }
+        };
     }
 }

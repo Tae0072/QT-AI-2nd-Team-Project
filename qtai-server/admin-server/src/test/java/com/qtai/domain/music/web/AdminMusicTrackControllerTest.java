@@ -21,6 +21,7 @@ import com.qtai.domain.music.api.HideAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.ListAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.PublishAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.UpdateAdminMusicTrackUseCase;
+import com.qtai.domain.music.api.dto.AdminMusicTrackListResponse;
 import com.qtai.domain.music.api.dto.AdminMusicTrackResponse;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,9 +31,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -44,6 +42,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 @ExtendWith(MockitoExtension.class)
 class AdminMusicTrackControllerTest {
+
+    private static final List<String> MUSIC_TRACK_ADMIN_ROLES = List.of("OPERATOR", "SUPER_ADMIN");
 
     @Mock
     private ListAdminMusicTrackUseCase listAdminMusicTrackUseCase;
@@ -93,7 +93,14 @@ class AdminMusicTrackControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content[0].id").value(10))
-                .andExpect(jsonPath("$.data.content[0].status").value("ACTIVE"));
+                .andExpect(jsonPath("$.data.content[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(20))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1))
+                .andExpect(jsonPath("$.data.first").value(true))
+                .andExpect(jsonPath("$.data.last").value(true))
+                .andExpect(jsonPath("$.data.sort").value("createdAt,desc"));
     }
 
     @Test
@@ -206,6 +213,20 @@ class AdminMusicTrackControllerTest {
     }
 
     @Test
+    @DisplayName("?깅줉 ?붿껌???뚯씪???덈Т ?щ㈃ 400")
+    void create_withOversizedFile_returnsBadRequest() throws Exception {
+        operator();
+
+        mockMvc.perform(multipart("/api/v1/admin/music-tracks")
+                        .file(oversizedAudioFile())
+                        .param("title", "??諛곌꼍?뚯븙")
+                        .param("category", "BGM")
+                        .principal(authentication("ROLE_ADMIN")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("C0002"));
+    }
+
+    @Test
     @DisplayName("인증이 없으면 401 M0002")
     void noPrincipal_returnsUnauthorized() throws Exception {
         mockMvc.perform(get("/api/v1/admin/music-tracks")
@@ -229,7 +250,7 @@ class AdminMusicTrackControllerTest {
     @DisplayName("admin_users 2차 권한이 부족하면 AD0003")
     void insufficientAdminRole_returnsForbidden() throws Exception {
         doThrow(new BusinessException(ErrorCode.ADMIN_ROLE_INSUFFICIENT))
-                .when(verifyAdminRoleUseCase).verifyAnyRole(eq(7L), eq(List.of("OPERATOR")));
+                .when(verifyAdminRoleUseCase).verifyAnyRole(eq(7L), eq(MUSIC_TRACK_ADMIN_ROLES));
 
         mockMvc.perform(get("/api/v1/admin/music-tracks")
                         .principal(authentication("ROLE_ADMIN")))
@@ -238,7 +259,7 @@ class AdminMusicTrackControllerTest {
     }
 
     private void operator() {
-        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("OPERATOR"))))
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(MUSIC_TRACK_ADMIN_ROLES)))
                 .thenReturn(new AdminUserInfo(3L, 7L, "OPERATOR"));
     }
 
@@ -257,9 +278,26 @@ class AdminMusicTrackControllerTest {
         );
     }
 
-    private static Page<AdminMusicTrackResponse> page(AdminMusicTrackResponse response) {
-        PageRequest pageable = PageRequest.of(0, 20);
-        return new PageImpl<>(List.of(response), pageable, 1);
+    private static MockMultipartFile oversizedAudioFile() {
+        return new MockMultipartFile(
+                "file",
+                "large.mp3",
+                MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                new byte[(10 * 1024 * 1024) + 1]
+        );
+    }
+
+    private static AdminMusicTrackListResponse page(AdminMusicTrackResponse response) {
+        return new AdminMusicTrackListResponse(
+                List.of(response),
+                0,
+                20,
+                1,
+                1,
+                true,
+                true,
+                "createdAt,desc"
+        );
     }
 
     private static AdminMusicTrackResponse response(Long id, String status) {

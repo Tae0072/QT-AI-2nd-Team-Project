@@ -1705,6 +1705,8 @@
 
 목록/상세 응답:
 
+`file` max upload size: 10 MiB.
+
 ```json
 {
   "content": [
@@ -1726,7 +1728,10 @@
   "page": 0,
   "size": 20,
   "totalElements": 1,
-  "totalPages": 1
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "sort": "createdAt,desc"
 }
 ```
 
@@ -2466,11 +2471,11 @@
 | 88 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
 | 89 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
 | 90 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
-| 91 | GET | `/api/v1/admin/music-tracks` | OPERATOR | 관리자 배경음악 목록 |
-| 92 | POST | `/api/v1/admin/music-tracks` | OPERATOR | 관리자 배경음악 등록 |
-| 93 | PATCH | `/api/v1/admin/music-tracks/{id}` | OPERATOR | 관리자 배경음악 수정/교체 |
-| 94 | POST | `/api/v1/admin/music-tracks/{id}/publish` | OPERATOR | 관리자 배경음악 노출 |
-| 95 | POST | `/api/v1/admin/music-tracks/{id}/hide` | OPERATOR | 관리자 배경음악 숨김 |
+| 91 | GET | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 목록 |
+| 92 | POST | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 등록 |
+| 93 | PATCH | `/api/v1/admin/music-tracks/{id}` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 수정/교체 |
+| 94 | POST | `/api/v1/admin/music-tracks/{id}/publish` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 노출 |
+| 95 | POST | `/api/v1/admin/music-tracks/{id}/hide` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 숨김 |
 
 ---
 

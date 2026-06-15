@@ -12,6 +12,7 @@ import com.qtai.domain.music.api.ListMusicTrackUseCase;
 import com.qtai.domain.music.api.PublishAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.UpdateAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.dto.AdminMusicTrackCommand;
+import com.qtai.domain.music.api.dto.AdminMusicTrackListResponse;
 import com.qtai.domain.music.api.dto.AdminMusicTrackResponse;
 import com.qtai.domain.music.api.dto.MusicTrackAudioResponse;
 import com.qtai.domain.music.api.dto.MusicTrackResponse;
@@ -63,10 +64,20 @@ public class MusicTrackService implements
     }
 
     @Override
-    public Page<AdminMusicTrackResponse> listAdmin(String status, Pageable pageable) {
+    public AdminMusicTrackListResponse listAdmin(String status, Pageable pageable) {
         Boolean enabled = MusicTrackStatus.enabledFilter(status);
-        return musicTrackRepository.findAdminSummaries(enabled, pageable)
+        Page<AdminMusicTrackResponse> page = musicTrackRepository.findAdminSummaries(enabled, pageable)
                 .map(this::toAdminResponse);
+        return new AdminMusicTrackListResponse(
+                page.getContent(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.isFirst(),
+                page.isLast(),
+                sort(pageable)
+        );
     }
 
     @Override
@@ -238,5 +249,15 @@ public class MusicTrackService implements
         if (audioData == null || audioData.length == 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "음원 파일은 필수입니다.");
         }
+    }
+
+    private static String sort(Pageable pageable) {
+        if (pageable == null || pageable.getSort().isUnsorted()) {
+            return "";
+        }
+        return pageable.getSort().stream()
+                .map(order -> order.getProperty() + "," + order.getDirection().name().toLowerCase())
+                .reduce((left, right) -> left + "," + right)
+                .orElse("");
     }
 }

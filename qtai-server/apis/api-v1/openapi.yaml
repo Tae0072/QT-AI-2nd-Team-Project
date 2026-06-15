@@ -3975,6 +3975,7 @@ components:
         file:
           type: string
           format: binary
+          maxLength: 10485760
           description: 서버가 music_tracks.audio_data에 저장하는 음원 파일.
     AdminMusicTrackUpdateMultipartRequest:
       type: object
@@ -4009,6 +4010,7 @@ components:
         file:
           type: string
           format: binary
+          maxLength: 10485760
           description: 포함하면 음원을 교체하고, 생략하면 기존 음원을 유지한다.
     AdminMusicTrackStatus:
       type: string
@@ -4028,6 +4030,9 @@ components:
         - size
         - totalElements
         - totalPages
+        - first
+        - last
+        - sort
       properties:
         content:
           type: array
@@ -4049,6 +4054,13 @@ components:
           type: integer
           format: int32
           minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          example: createdAt,desc
     AdminMusicTrackResponse:
       type: object
       required:
