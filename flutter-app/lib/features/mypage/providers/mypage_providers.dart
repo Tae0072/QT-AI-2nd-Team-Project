@@ -77,5 +77,3 @@ final settingsProvider = FutureProvider.autoDispose<SettingsData>((ref) {
   final repository = ref.watch(myPageRepositoryProvider);
   return repository.getSettings();
 });
-
-// ── 설정 끝 ──
