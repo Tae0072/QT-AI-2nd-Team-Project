@@ -12,7 +12,9 @@ import {
   Descriptions,
   Table,
   Button,
+  Popconfirm,
   Empty,
+  message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ReloadOutlined, ArrowRightOutlined } from '@ant-design/icons';
@@ -22,6 +24,7 @@ import {
   type DashboardSummary,
   type RecentAuditLog,
 } from '../api/dashboard';
+import { generateQtPassageExplanation } from '../api/aiAssets';
 import { ApiClientError } from '../api/client';
 import { formatDateTime } from '../utils/datetime';
 
@@ -114,6 +117,30 @@ export default function DashboardPage() {
   const qtLink = todayQt?.qtPassageId
     ? `/qt-passages?focusId=${todayQt.qtPassageId}`
     : '/qt-passages';
+
+  // 해설 "없음" → 관리자 해설 생성 트리거(F-02/F-06). 생성은 배치/시스템 처리라 즉시 완료가 아니다.
+  const [generating, setGenerating] = useState(false);
+  const onGenerateExplanation = async () => {
+    if (!todayQt?.qtPassageId) return;
+    setGenerating(true);
+    try {
+      const r = await generateQtPassageExplanation(todayQt.qtPassageId);
+      if (r.createdCount > 0) {
+        message.success(`해설 생성 요청됨: ${r.createdCount}건 (잠시 후 검증 대기 목록에 표시)`);
+      } else {
+        message.info(
+          r.reason
+            ? `생성할 해설이 없습니다 (${r.reason})`
+            : '생성 대상 절이 없습니다 (이미 생성/승인됨).',
+        );
+      }
+      load();
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '해설 생성 요청에 실패했습니다.');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <Card>
@@ -208,12 +235,32 @@ export default function DashboardPage() {
                         </Space>
                       </Descriptions.Item>
                       <Descriptions.Item label="해설">
-                        <Space size={8}>
+                        <Space size={8} wrap>
                           <span>{todayQt.hasExplanation ? '있음' : '없음'}</span>
-                          {/* /ai-assets 는 승인/재생성(검증) 화면. 미생성 해설의 수동 '생성 요청'은
-                              후속 PR(해설 생성 트리거)에서 추가하므로 라벨을 '검증'으로 둔다. */}
                           {!todayQt.hasExplanation && (
-                            <CtaLink label="해설 검증하러 가기" to="/ai-assets" />
+                            <>
+                              {/* 미생성 해설 → 관리자 생성 트리거(배치/시스템 처리, 즉시 완료 아님) */}
+                              <Popconfirm
+                                title="이 본문의 해설 생성을 요청할까요?"
+                                description="미생성 절에 대해 해설 생성 job을 큐잉합니다."
+                                okText="생성 요청"
+                                cancelText="취소"
+                                onConfirm={onGenerateExplanation}
+                                disabled={!todayQt.qtPassageId}
+                              >
+                                <Button
+                                  type="link"
+                                  size="small"
+                                  loading={generating}
+                                  disabled={!todayQt.qtPassageId}
+                                  style={{ padding: 0, height: 'auto' }}
+                                >
+                                  해설 생성 요청
+                                </Button>
+                              </Popconfirm>
+                              {/* 이미 생성됐으나 미승인인 경우 → 검증 화면 */}
+                              <CtaLink label="검증하러 가기" to="/ai-assets" />
+                            </>
                           )}
                         </Space>
                       </Descriptions.Item>

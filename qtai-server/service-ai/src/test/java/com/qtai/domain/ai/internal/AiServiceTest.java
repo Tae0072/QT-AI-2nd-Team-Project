@@ -27,12 +27,15 @@ class AiServiceTest {
     private final AiGenerationJobRepository generationJobRepository = mock(AiGenerationJobRepository.class);
     private final AiGeneratedAssetRepository generatedAssetRepository = mock(AiGeneratedAssetRepository.class);
     private final AiPromptVersionRepository promptVersionRepository = mock(AiPromptVersionRepository.class);
+    private final AiDailyQtVerseExplanationSeedService explanationSeedService =
+            mock(AiDailyQtVerseExplanationSeedService.class);
     private final WriteAuditLogUseCase auditLogUseCase = mock(WriteAuditLogUseCase.class);
 
     private final AiService aiService = new AiService(
             generationJobRepository,
             generatedAssetRepository,
             promptVersionRepository,
+            explanationSeedService,
             auditLogUseCase,
             new ObjectMapper());
 
