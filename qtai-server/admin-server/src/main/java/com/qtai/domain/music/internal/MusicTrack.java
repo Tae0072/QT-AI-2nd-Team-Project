@@ -103,4 +103,10 @@ public class MusicTrack extends BaseEntity {
     public void publish() {
         this.enabled = true;
     }
+
+    /** 소프트 삭제(관리자). deletedAt 기록 + 노출 비활성화. 목록·스트리밍 조회에서 제외된다. */
+    public void softDelete() {
+        markDeletedAt(java.time.LocalDateTime.now());
+        this.enabled = false;
+    }
 }

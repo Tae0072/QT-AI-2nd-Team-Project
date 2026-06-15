@@ -8,7 +8,6 @@ import QtPassagesPage from './pages/QtPassagesPage';
 import AiAssetsPage from './pages/AiAssetsPage';
 import ReportsPage from './pages/ReportsPage';
 import MembersPage from './pages/MembersPage';
-import PraiseSongsPage from './pages/PraiseSongsPage';
 import MusicTracksPage from './pages/MusicTracksPage';
 import NoticesPage from './pages/NoticesPage';
 import AuditLogsPage from './pages/AuditLogsPage';
@@ -61,10 +60,8 @@ export default function App() {
             path="/members"
             element={withRole('/members', <MembersPage />)}
           />
-          <Route
-            path="/praise-songs"
-            element={withRole('/praise-songs', <PraiseSongsPage />)}
-          />
+          {/* AD-05 찬양 큐레이션 → AD-12 배경음악 관리로 통합. 기존 경로는 리다이렉트. */}
+          <Route path="/praise-songs" element={<Navigate to="/music-tracks" replace />} />
           <Route
             path="/music-tracks"
             element={withRole('/music-tracks', <MusicTracksPage />)}

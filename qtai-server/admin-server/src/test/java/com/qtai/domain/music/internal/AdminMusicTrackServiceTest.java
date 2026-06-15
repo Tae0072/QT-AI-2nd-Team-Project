@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,10 +56,10 @@ class AdminMusicTrackServiceTest {
     @DisplayName("listAdmin은 문서화된 페이징 응답을 반환한다")
     void listAdmin_returnsDocumentedPageResponse() {
         PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
-        when(musicTrackRepository.findAdminSummaries(eq(Boolean.TRUE), eq(pageable)))
+        when(musicTrackRepository.findAdminSummaries(eq(Boolean.TRUE), isNull(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(summary(10L, true)), pageable, 1));
 
-        AdminMusicTrackListResponse response = service.listAdmin("ACTIVE", pageable);
+        AdminMusicTrackListResponse response = service.listAdmin("ACTIVE", null, pageable);
 
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).status()).isEqualTo("ACTIVE");
@@ -193,6 +194,31 @@ class AdminMusicTrackServiceTest {
         assertThat(track.getEnabled()).isFalse();
         assertThat(response.status()).isEqualTo("HIDDEN");
         verify(auditLogUseCase).write(any());
+    }
+
+    @Test
+    @DisplayName("deleteAdmin은 음원을 소프트 삭제하고 감사 로그를 남긴다")
+    void deleteAdmin_softDeletesTrack() {
+        MusicTrack track = track(10L, true, audio("mp3"));
+        when(musicTrackRepository.findById(10L)).thenReturn(Optional.of(track));
+
+        service.deleteAdmin(3L, 10L);
+
+        assertThat(track.getDeletedAt()).isNotNull();
+        assertThat(track.getEnabled()).isFalse();
+        verify(auditLogUseCase).write(any());
+    }
+
+    @Test
+    @DisplayName("listAdmin은 분류 필터를 레포지토리에 전달한다")
+    void listAdmin_withCategory_passesCategoryFilter() {
+        PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        when(musicTrackRepository.findAdminSummaries(isNull(), eq(MusicCategory.HYMN), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(summary(10L, true)), pageable, 1));
+
+        AdminMusicTrackListResponse response = service.listAdmin(null, "HYMN", pageable);
+
+        assertThat(response.content()).hasSize(1);
     }
 
     @Test

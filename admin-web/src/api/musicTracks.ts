@@ -21,6 +21,7 @@ export interface MusicTrack {
 
 export interface MusicTrackListParams extends PageParams {
   status?: MusicTrackStatus;
+  category?: MusicTrackCategory;
 }
 
 export interface MusicTrackFormValues {
@@ -115,4 +116,9 @@ export function hideMusicTrack(id: number) {
   return unwrap<MusicTrack>(
     apiClient.post<ApiResponse<MusicTrack>>(`/admin/music-tracks/${id}/hide`),
   );
+}
+
+// 소프트 삭제(목록·스트리밍에서 제외). 204 No Content.
+export function deleteMusicTrack(id: number) {
+  return apiClient.delete(`/admin/music-tracks/${id}`);
 }
