@@ -44,7 +44,7 @@ errorMessage=QT 본문 범위는 같은 장 안에서만 저장할 수 있습니
 
 ## 4. 제안 설계 (권+장 교차 대비, 장 교차 우선 활성화)
 
-### 4.1 스키마 — admin-server, 신규 `V44__qt_passages_multi_chapter_range.sql`
+### 4.1 스키마 — admin-server, 신규 `V45__qt_passages_multi_chapter_range.sql`
 
 `qt_passages`를 범위 모델로 확장한다. 호환을 위해 기존 컬럼을 시작값으로 승계한다.
 
@@ -106,7 +106,7 @@ for (chapter = startChapter; chapter <= endChapter; chapter++):
 ### 4.7 admin-server 동기화
 
 도메인 로직(파서·엔티티·import·mapper)은 **service-bible이 원본**, admin-server 복사본이
-따라간다. **Flyway 마이그레이션은 admin-server에만** 추가(V44). `doc/admin-server-sync-rules.md` 준수.
+따라간다. **Flyway 마이그레이션은 admin-server에만** 추가(V45). `doc/admin-server-sync-rules.md` 준수.
 
 ## 5. 영향도 (파일)
 
@@ -117,7 +117,7 @@ for (chapter = startChapter; chapter <= endChapter; chapter++):
 | import | `…/qt/internal/QtTodayPassageImportService.java` (양쪽) |
 | 범위 노출 | `…/qt/internal/TodayQtRangeMapper.java`, `TodayQtRangeResolver.java`, `…/qt/api/dto/TodayQtRangeResponse` |
 | bible API | `…/bible/api/GetBibleVerseUseCase.java` (장 교차/장끝 메서드 — DevA 협의) |
-| 스키마 | `admin-server …/db/migration/V44__qt_passages_multi_chapter_range.sql` (+ 2단계 정리 마이그레이션) |
+| 스키마 | `admin-server …/db/migration/V45__qt_passages_multi_chapter_range.sql` (+ 2단계 정리 마이그레이션) |
 | 테스트 | 파서/­import/­mapper/­ArchUnit·Modulith |
 
 ## 6. 테스트 계획 (CLAUDE.md §10)
@@ -132,7 +132,7 @@ for (chapter = startChapter; chapter <= endChapter; chapter++):
 
 - 신규 컬럼은 NULL 허용으로 추가 후 백필 → NOT NULL 승격(무중단 2단계).
 - 기존 `chapter`/`book_id` 제거는 코드 전환 배포 후 별도 마이그레이션(롤백 안전).
-- 롤백: V44는 컬럼 추가만이라 역호환. 코드 미배포 상태에서도 기존 컬럼으로 동작 유지.
+- 롤백: V45는 컬럼 추가만이라 역호환. 코드 미배포 상태에서도 기존 컬럼으로 동작 유지.
 
 ## 8. 검증 명령 (CLAUDE.md §11)
 
@@ -147,7 +147,7 @@ gitleaks detect --source . --redact --exit-code 1
 ## 9. 단계별 실행 계획 (승인 후)
 
 1. `dev` 최신화 → `feat/qt-multi-chapter-range` 브랜치 생성.
-2. admin-server V44 마이그레이션(컬럼 추가 + 백필).
+2. admin-server V45 마이그레이션(컬럼 추가 + 백필).
 3. service-bible: 파서·DTO·엔티티·import·mapper 수정 + bible API 협의 변경.
 4. admin-server 복사본 동기화.
 5. 테스트 추가/갱신 → §8 검증.

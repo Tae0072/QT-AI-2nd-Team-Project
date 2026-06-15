@@ -3,7 +3,7 @@
 ## 요약
 성서유니온 자동 수집이 장 교차 본문(예: `고린도전서 9:1-10:5`)을 "같은 장만 저장" 가드로 거부해
 해당 날짜 Today QT가 비던 문제를 수정했다. 파서·DTO·엔티티·절 매핑·범위 응답을 장 교차 지원으로 확장하고,
-`qt_passages`에 `end_chapter`/`end_book_id`를 추가(V44)했다. 관리자 QT 관리(admin REST + admin-web)도
+`qt_passages`에 `end_chapter`/`end_book_id`를 추가(V45)했다. 관리자 QT 관리(admin REST + admin-web)도
 `endChapter`를 지원해, 자동수집 교차 본문을 관리자가 수정해도 종료 장이 보존된다. 권 교차는 수집 소스에
 없어 스키마만 대비하고 파서는 같은 권 기준으로 활성화했다.
 
@@ -14,7 +14,7 @@
 | `…/qt/internal/QtPassage.java` (양 모듈) | `end_chapter`/`end_book_id` 컬럼 + 단일·교차 범위 생성/갱신 |
 | `…/qt/internal/QtTodayPassageImportService.java` (양 모듈) | `collectRangeVerses` 장별 조회·경계 필터로 교차 절 매핑 |
 | `…/qt/internal/TodayQtRangeMapper.java`, `api/dto/TodayQtRangeResponse.java` | 종료 장 포함 범위 응답·displayText |
-| `admin-server …/db/migration/V44__qt_passages_multi_chapter_range.sql` | `end_book_id`/`end_chapter` 추가 + 백필 + FK (admin-server 단독) |
+| `admin-server …/db/migration/V45__qt_passages_multi_chapter_range.sql` | `end_book_id`/`end_chapter` 추가 + 백필 + FK (admin-server 단독) |
 | `admin-server …/qt/api/admin/dto/AdminQtPassageResponse.java`, `AdminQtPassageCommand.java`, `web/AdminQtPassageController.java`, `internal/AdminQtPassageService.java` | 관리자 API에 endChapter(미지정 시 시작 장 보정·같은 장만 절 순서 강제) |
 | `admin-web/src/api/qtPassages.ts`, `pages/QtPassagesPage.tsx` | 관리자 웹 타입·폼('종료 장')·표·검증 |
 | `doc/workspaces/DevD_이승욱/workflows/2026-06-15_qt-cross-chapter-range.md` | 작업 워크플로우 |
@@ -33,7 +33,7 @@
 
 ## 미해결 / 후속
 - **DevA 협의**: admin-qt API `endChapter` 추가 → `04_API_명세서`·계약서 동기화 필요.
-- **배포**: 교차 본문 라이브 수집은 머지 후 admin-server(V44 적용)+service-bible 동시 배포 필요(현재 로컬 스택은 기존 코드로 복구).
+- **배포**: 교차 본문 라이브 수집은 머지 후 admin-server(V45 적용)+service-bible 동시 배포 필요(현재 로컬 스택은 기존 코드로 복구).
 - PR 크기: 변경 파일이 가이드(10 files) 초과 → 필요 시 ①수집+스키마 ②관리자 API+웹 2개 PR로 분할 검토.
 
 담당: DevD 이승욱
