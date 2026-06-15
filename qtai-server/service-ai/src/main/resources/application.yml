@@ -27,6 +27,10 @@ ai:
   scheduling:
     enabled: ${AI_SCHEDULING_ENABLED:false}
 
+qtai:
+  validation:
+    restricted-storage-root: ${QTAI_RESTRICTED_STORAGE_ROOT:./restricted}
+
 # 외부 LLM(DeepSeek, OpenAI 호환) 연동. API key는 env로만 주입하며 로그에 남기지 않는다(CLAUDE.md §7).
 external:
   llm:
