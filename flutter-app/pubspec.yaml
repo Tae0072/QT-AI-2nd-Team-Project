@@ -16,8 +16,8 @@ dependencies:
   intl: any
 
   # 상태 관리
-  flutter_riverpod: ^2.6.1
-  riverpod_annotation: ^2.6.1
+  flutter_riverpod: ^3.3.2
+  riverpod_annotation: ^4.0.3
 
   # 네트워크
   dio: ^5.7.0
@@ -47,8 +47,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  riverpod_generator: ^2.6.3
-  build_runner: ^2.4.14
+  riverpod_generator: ^4.0.4
+  build_runner: ^2.15.0
   http_mock_adapter: ^0.6.1
 
 flutter:
