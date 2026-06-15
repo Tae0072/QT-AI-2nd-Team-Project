@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface SharingPostRepository extends JpaRepository<SharingPost, Long> {
@@ -81,4 +82,11 @@ public interface SharingPostRepository extends JpaRepository<SharingPost, Long> 
     Page<SharingPost> findByMemberIdAndStatusIn(Long memberId,
                                                 Collection<SharingPostStatus> statuses,
                                                 Pageable pageable);
+
+    /** 회원이 작성한 공유글 수(전체 상태) — 관리자 회원 상세 통계용. */
+    long countByMemberId(Long memberId);
+
+    /** 회원이 작성한 공유글 ID 목록 — 받은 신고(POST) 집계용. */
+    @Query("SELECT sp.id FROM SharingPost sp WHERE sp.memberId = :memberId")
+    List<Long> findIdsByMemberId(@Param("memberId") Long memberId);
 }

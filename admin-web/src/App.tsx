@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage';
 import QtPassagesPage from './pages/QtPassagesPage';
 import AiAssetsPage from './pages/AiAssetsPage';
 import ReportsPage from './pages/ReportsPage';
+import MembersPage from './pages/MembersPage';
 import PraiseSongsPage from './pages/PraiseSongsPage';
 import MusicTracksPage from './pages/MusicTracksPage';
 import NoticesPage from './pages/NoticesPage';
@@ -56,6 +57,10 @@ export default function App() {
             element={withRole('/ai-assets', <AiAssetsPage />)}
           />
           <Route path="/reports" element={withRole('/reports', <ReportsPage />)} />
+          <Route
+            path="/members"
+            element={withRole('/members', <MembersPage />)}
+          />
           <Route
             path="/praise-songs"
             element={withRole('/praise-songs', <PraiseSongsPage />)}
