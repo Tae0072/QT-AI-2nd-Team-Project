@@ -112,9 +112,9 @@ export default function NoticesPage() {
     setMutating(true);
     try {
       const res = await publishNotice(r.id);
-      const { createdCount, failedCount } = res.notificationResult;
+      const { targetMemberCount, queuedCount, failedCount } = res.notificationResult;
       message.success(
-        `발행되었습니다 — 알림 ${createdCount}건 생성${failedCount > 0 ? `, ${failedCount}건 실패` : ''}`,
+        `발행되었습니다 — 대상 ${targetMemberCount}명, 알림함 ${queuedCount}건 생성${failedCount > 0 ? `, ${failedCount}건 실패` : ''}`,
       );
       reload();
     } catch (e) {

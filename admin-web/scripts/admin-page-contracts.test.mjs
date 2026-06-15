@@ -248,3 +248,16 @@ test('report evaluation candidate visibility and filters stay aligned', () => {
     size: 100,
   });
 });
+
+test('notice publish result exposes delivery confirmation fields', () => {
+  const api = fs.readFileSync(path.join(rootDir, 'src', 'api', 'notices.ts'), 'utf8');
+  const page = fs.readFileSync(path.join(pagesDir, 'NoticesPage.tsx'), 'utf8');
+
+  assert.match(api, /noticeId:\s*number/);
+  assert.match(api, /targetMemberCount:\s*number/);
+  assert.match(api, /queuedCount:\s*number/);
+  assert.match(page, /targetMemberCount/);
+  assert.match(page, /queuedCount/);
+  assert.match(page, /대상 \$\{targetMemberCount\}명/);
+  assert.match(page, /알림함 \$\{queuedCount\}건 생성/);
+});

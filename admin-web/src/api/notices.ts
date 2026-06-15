@@ -45,11 +45,14 @@ export interface NoticeRequest {
 // 발행 응답 — 알림 fan-out 결과 포함.
 export interface NoticePublishResult {
   requestedCount: number;
+  targetMemberCount: number;
   createdCount: number;
+  queuedCount: number;
   failedCount: number;
 }
 export interface NoticePublishResponse {
   id: number;
+  noticeId: number;
   status: NoticeStatus;
   publishedAt: string | null;
   notificationResult: NoticePublishResult;

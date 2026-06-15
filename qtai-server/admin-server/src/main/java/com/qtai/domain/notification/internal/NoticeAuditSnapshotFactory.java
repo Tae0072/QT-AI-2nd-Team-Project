@@ -32,11 +32,14 @@ class NoticeAuditSnapshotFactory {
     private String snapshot(Long id, String title, String status, NoticeNotificationFanoutResult result) {
         Map<String, Object> notificationResult = new LinkedHashMap<>();
         notificationResult.put("requestedCount", result.requestedCount());
+        notificationResult.put("targetMemberCount", result.requestedCount());
         notificationResult.put("createdCount", result.createdCount());
+        notificationResult.put("queuedCount", result.createdCount());
         notificationResult.put("failedCount", result.failedCount());
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("id", id);
+        payload.put("noticeId", id);
         payload.put("title", title);
         payload.put("status", status);
         payload.put("notificationResult", notificationResult);
