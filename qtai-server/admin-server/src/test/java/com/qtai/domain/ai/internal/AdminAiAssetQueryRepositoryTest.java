@@ -34,6 +34,22 @@ class AdminAiAssetQueryRepositoryTest {
     void findAllCountsAllAssetsWithoutChecklistVersionFilter() {
         AiGeneratedAsset first = asset(1001L);
         AiGeneratedAsset second = asset(1002L);
+        addValidationLog(
+                second.getId(),
+                10L,
+                1,
+                AiValidationResult.PASSED,
+                AiValidationReviewerType.AUTO,
+                NOW.minusMinutes(2)
+        );
+        addValidationLog(
+                second.getId(),
+                20L,
+                2,
+                AiValidationResult.NEEDS_REVIEW,
+                AiValidationReviewerType.ADVISOR,
+                NOW.minusMinutes(1)
+        );
         entityManager.flush();
         entityManager.clear();
 
@@ -45,6 +61,10 @@ class AdminAiAssetQueryRepositoryTest {
         assertThat(page.totalElements()).isEqualTo(2);
         assertThat(page.content()).extracting(AdminAiAssetQueryRepository.AdminAiAssetListRow::id)
                 .containsExactly(second.getId(), first.getId());
+        assertThat(page.content().get(0).latestValidationResult()).isEqualTo(AiValidationResult.NEEDS_REVIEW);
+        assertThat(page.content().get(0).checklistVersionId()).isEqualTo(20L);
+        assertThat(page.content().get(0).autoValidationResult()).isEqualTo(AiValidationResult.PASSED);
+        assertThat(page.content().get(0).advisorValidationResult()).isEqualTo(AiValidationResult.NEEDS_REVIEW);
     }
 
     @Test
@@ -68,11 +88,32 @@ class AdminAiAssetQueryRepositoryTest {
         assertThat(page.content()).singleElement().satisfies(row -> {
             assertThat(row.id()).isEqualTo(first.getId());
             assertThat(row.checklistVersionId()).isEqualTo(10L);
+            assertThat(row.autoValidationResult()).isEqualTo(AiValidationResult.PASSED);
+            assertThat(row.advisorValidationResult()).isNull();
         });
     }
 
     @Test
     @DisplayName("findActiveGenerationJob은 QUEUED/RUNNING 상태 job만 반환한다")
+    void findAllApprovedAssetsOrdersByReviewedAtDescending() {
+        AiGeneratedAsset recentlyReviewed = asset(1001L);
+        recentlyReviewed.approve(NOW.plusHours(2));
+        AiGeneratedAsset olderReviewed = asset(1002L);
+        olderReviewed.approve(NOW.plusHours(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        AdminAiAssetQueryRepository.AdminAiAssetPage page = repository.findAll(
+                query("APPROVED", null),
+                PageRequest.of(0, 20)
+        );
+
+        assertThat(page.content()).extracting(AdminAiAssetQueryRepository.AdminAiAssetListRow::id)
+                .containsExactly(recentlyReviewed.getId(), olderReviewed.getId());
+    }
+
+    @Test
+    @DisplayName("APPROVED 목록은 최근 reviewedAt 순으로 반환한다")
     void findActiveGenerationJobReturnsQueuedOrRunningOnly() {
         AiGenerationJob active = job(AiGenerationJobType.EXPLANATION, AiTargetType.QT_PASSAGE, 9001L, NOW);
         AiGenerationJob succeeded = job(AiGenerationJobType.EXPLANATION, AiTargetType.QT_PASSAGE, 9002L, NOW);
@@ -140,12 +181,30 @@ class AdminAiAssetQueryRepositoryTest {
     }
 
     private void addValidationLog(Long assetId, Long checklistVersionId, OffsetDateTime createdAt) {
-        entityManager.persist(AiValidationLog.create(
+        addValidationLog(
                 assetId,
-                null,
+                checklistVersionId,
                 1,
                 AiValidationResult.PASSED,
                 AiValidationReviewerType.AUTO,
+                createdAt
+        );
+    }
+
+    private void addValidationLog(
+            Long assetId,
+            Long checklistVersionId,
+            int layer,
+            AiValidationResult result,
+            AiValidationReviewerType reviewerType,
+            OffsetDateTime createdAt
+    ) {
+        entityManager.persist(AiValidationLog.create(
+                assetId,
+                null,
+                layer,
+                result,
+                reviewerType,
                 checklistVersionId,
                 "{}",
                 null,
@@ -154,13 +213,17 @@ class AdminAiAssetQueryRepositoryTest {
     }
 
     private static ListAdminAiAssetsQuery query(Long checklistVersionId) {
+        return query(null, checklistVersionId);
+    }
+
+    private static ListAdminAiAssetsQuery query(String status, Long checklistVersionId) {
         return new ListAdminAiAssetsQuery(
                 1L,
                 "ADMIN",
                 "REVIEWER",
                 null,
                 null,
-                null,
+                status,
                 null,
                 checklistVersionId,
                 0,

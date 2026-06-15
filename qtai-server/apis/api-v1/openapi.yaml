@@ -3288,6 +3288,7 @@ components:
       required:
         - period
         - generationJobs
+        - assetStatuses
         - validation
         - batchRuns
         - qa
@@ -3297,6 +3298,8 @@ components:
           $ref: "#/components/schemas/AdminAiMonitoringPeriod"
         generationJobs:
           $ref: "#/components/schemas/AdminAiMonitoringGenerationJobs"
+        assetStatuses:
+          $ref: "#/components/schemas/AdminAiMonitoringAssetStatuses"
         validation:
           $ref: "#/components/schemas/AdminAiMonitoringValidation"
         batchRuns:
@@ -3347,6 +3350,30 @@ components:
           format: int64
           minimum: 0
         failed:
+          type: integer
+          format: int64
+          minimum: 0
+    AdminAiMonitoringAssetStatuses:
+      type: object
+      required:
+        - validating
+        - approved
+        - rejected
+        - hidden
+      properties:
+        validating:
+          type: integer
+          format: int64
+          minimum: 0
+        approved:
+          type: integer
+          format: int64
+          minimum: 0
+        rejected:
+          type: integer
+          format: int64
+          minimum: 0
+        hidden:
           type: integer
           format: int64
           minimum: 0
@@ -3951,6 +3978,8 @@ components:
         - promptVersion
         - checklistVersionId
         - latestValidationResult
+        - autoValidationResult
+        - advisorValidationResult
         - sourceLabelPresent
         - createdAt
       properties:
@@ -3973,6 +4002,14 @@ components:
           format: int64
           nullable: true
         latestValidationResult:
+          allOf:
+            - $ref: "#/components/schemas/AiValidationResult"
+          nullable: true
+        autoValidationResult:
+          allOf:
+            - $ref: "#/components/schemas/AiValidationResult"
+          nullable: true
+        advisorValidationResult:
           allOf:
             - $ref: "#/components/schemas/AiValidationResult"
           nullable: true
@@ -4039,8 +4076,6 @@ components:
             $ref: "#/components/schemas/AdminAiValidationLogItem"
     AdminAiAssetReviewRequest:
       type: object
-      required:
-        - reason
       properties:
         reason:
           type: string

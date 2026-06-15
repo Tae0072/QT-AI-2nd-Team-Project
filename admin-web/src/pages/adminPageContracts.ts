@@ -36,6 +36,25 @@ export function isAiAssetReviewable(status: string) {
   return status === 'VALIDATING';
 }
 
+export function isAiAssetApprovable(
+  status: string,
+  autoValidationResult: string | null | undefined,
+  advisorValidationResult: string | null | undefined,
+) {
+  return (
+    isAiAssetReviewable(status) &&
+    autoValidationResult === 'PASSED' &&
+    advisorValidationResult === 'PASSED'
+  );
+}
+
+export function shouldShowAiAssetApproveButton(
+  status: string,
+  advisorValidationResult: string | null | undefined,
+) {
+  return isAiAssetReviewable(status) && advisorValidationResult !== 'REJECTED';
+}
+
 export function isAiAssetRegeneratable(status: string) {
   return status === 'REJECTED' || status === 'HIDDEN';
 }

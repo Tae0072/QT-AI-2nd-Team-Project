@@ -23,6 +23,7 @@ class AdminAiMonitoringQueryRepository {
     Summary summarize(Filter filter) {
         return new Summary(
                 countGenerationJobs(filter),
+                countAssetStatuses(),
                 countValidation(filter),
                 findFailureReasons(filter),
                 countBatchRuns(filter),
@@ -66,6 +67,23 @@ class AdminAiMonitoringQueryRepository {
                 activeCounts.getOrDefault(AiGenerationJobStatus.RUNNING, 0L),
                 terminalCounts.getOrDefault(AiGenerationJobStatus.SUCCEEDED, 0L),
                 terminalCounts.getOrDefault(AiGenerationJobStatus.FAILED, 0L)
+        );
+    }
+
+    private AssetStatusCounts countAssetStatuses() {
+        Map<AiGeneratedAssetStatus, Long> counts = enumCountMap(AiGeneratedAssetStatus.class,
+                entityManager.createQuery("""
+                                select asset.status, count(asset.id)
+                                from AiGeneratedAsset asset
+                                group by asset.status
+                                """, Object[].class)
+                        .getResultList());
+
+        return new AssetStatusCounts(
+                counts.getOrDefault(AiGeneratedAssetStatus.VALIDATING, 0L),
+                counts.getOrDefault(AiGeneratedAssetStatus.APPROVED, 0L),
+                counts.getOrDefault(AiGeneratedAssetStatus.REJECTED, 0L),
+                counts.getOrDefault(AiGeneratedAssetStatus.HIDDEN, 0L)
         );
     }
 
@@ -278,6 +296,7 @@ class AdminAiMonitoringQueryRepository {
 
     record Summary(
             GenerationJobCounts generationJobs,
+            AssetStatusCounts assetStatuses,
             ValidationCounts validation,
             List<FailureReasonRow> failureReasons,
             BatchRunCounts batchRuns,
@@ -291,6 +310,14 @@ class AdminAiMonitoringQueryRepository {
             long running,
             long succeeded,
             long failed
+    ) {
+    }
+
+    record AssetStatusCounts(
+            long validating,
+            long approved,
+            long rejected,
+            long hidden
     ) {
     }
 

@@ -23,6 +23,13 @@ export interface GenerationJobs {
   failed: number;
 }
 
+export interface AssetStatuses {
+  validating: number;
+  approved: number;
+  rejected: number;
+  hidden: number;
+}
+
 export interface FailureReason {
   resultCode: string;
   count: number;
@@ -77,6 +84,7 @@ export interface ChecklistSummary {
 export interface AiMonitoringSummary {
   period: AiMonitoringPeriod;
   generationJobs: GenerationJobs;
+  assetStatuses: AssetStatuses;
   validation: ValidationSummary;
   batchRuns: BatchRuns;
   qa: QaSummary;
