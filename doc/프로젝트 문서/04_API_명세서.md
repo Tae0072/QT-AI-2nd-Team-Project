@@ -1732,17 +1732,20 @@
 ```json
 {
   "id": 20,
+  "noticeId": 20,
   "status": "PUBLISHED",
   "publishedAt": "2026-05-17T10:20:00+09:00",
   "notificationResult": {
     "requestedCount": 1200,
+    "targetMemberCount": 1200,
     "createdCount": 1200,
+    "queuedCount": 1200,
     "failedCount": 0
   }
 }
 ```
 
-- **발행 정책:** `PUBLISHED` 전환 시 대상 회원에게 `notifications.type=NOTICE`, `notifications.notice_id=notices.id`를 생성한다. 알림 생성이 일부 실패하면 공지 상태는 `PUBLISHED`로 유지하고 `notificationResult.failedCount`와 감사 로그에 실패를 기록한다.
+- **발행 정책:** `PUBLISHED` 전환 시 대상 회원에게 `notifications.type=NOTICE`, `notifications.notice_id=notices.id`를 생성한다. `targetMemberCount`는 대상 활성 회원 수, `queuedCount`는 앱 알림함/폴링으로 전달 대기 상태가 된 `notifications` row 수다. 알림 생성이 일부 실패하면 공지 상태는 `PUBLISHED`로 유지하고 `notificationResult.failedCount`와 감사 로그에 실패를 기록한다.
 - **숨김 처리:** `POST /api/v1/admin/notices/{id}/hide`는 `notices.status=HIDDEN`으로 변경하고 본문 없이 `204 No Content`를 반환한다. 클라이언트가 변경된 `status=HIDDEN` 값을 화면에 반영하려면 목록 또는 상세를 재조회한다. 이미 생성된 알림은 삭제하지 않지만 링크 이동 시 숨김 안내를 반환한다.
 - **성공 코드:** 목록/상세/수정/발행 `200 OK`, 생성 `201 Created`, 숨김 `204 No Content`
 - **실패 코드:** `400 VALIDATION_ERROR` 또는 `C0002 INVALID_INPUT`(생성/수정 입력값 오류), `401 M0002 UNAUTHORIZED`, `403 M0003 FORBIDDEN`(ADMIN 아님), `403 AD0003 ADMIN_ROLE_INSUFFICIENT`(세부 관리자 권한 부족), `404 C0004 RESOURCE_NOT_FOUND`(없는 공지), `409 C0007 INVALID_STATUS_TRANSITION`, `500 C0001 INTERNAL_ERROR`
