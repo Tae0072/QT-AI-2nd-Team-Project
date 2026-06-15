@@ -18,6 +18,8 @@ import type { ApiResponse, Page, PageParams } from './types';
 export type EvalType = 'EXPLANATION' | 'SIMULATOR' | 'QA';
 export type EvalSetStatus = 'DRAFT' | 'ACTIVE' | 'RETIRED';
 export type EvalCaseStatus = 'CANDIDATE' | 'APPROVED' | 'REJECTED';
+export type EvaluationRunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+export type EvaluationRunResultStatus = 'PASSED' | 'FAILED' | 'NEEDS_REVIEW';
 
 // 백엔드 AiEvaluationSetResponse 와 1:1
 export interface EvaluationSet {
@@ -91,7 +93,7 @@ export interface EvaluationCaseStatus {
 export interface EvaluationRunResult {
   id: number;
   evaluationCaseId: number;
-  result: string;
+  result: EvaluationRunResultStatus;
   reason: string | null;
   outputSummaryJson: string | null;
   createdAt: string;
@@ -101,7 +103,7 @@ export interface EvaluationRun {
   id: number;
   evaluationSetId: number;
   promptVersionId: number;
-  status: string;
+  status: EvaluationRunStatus;
   totalCount: number;
   passedCount: number;
   failedCount: number;
