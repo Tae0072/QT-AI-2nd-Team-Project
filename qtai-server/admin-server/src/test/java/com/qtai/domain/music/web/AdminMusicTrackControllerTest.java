@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -18,6 +19,7 @@ import com.qtai.common.exception.GlobalExceptionHandler;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
 import com.qtai.domain.admin.api.dto.AdminUserInfo;
 import com.qtai.domain.music.api.CreateAdminMusicTrackUseCase;
+import com.qtai.domain.music.api.DeleteAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.HideAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.ListAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.PublishAdminMusicTrackUseCase;
@@ -64,6 +66,9 @@ class AdminMusicTrackControllerTest {
     private HideAdminMusicTrackUseCase hideAdminMusicTrackUseCase;
 
     @Mock
+    private DeleteAdminMusicTrackUseCase deleteAdminMusicTrackUseCase;
+
+    @Mock
     private VerifyAdminRoleUseCase verifyAdminRoleUseCase;
 
     private MockMvc mockMvc;
@@ -76,6 +81,7 @@ class AdminMusicTrackControllerTest {
                 updateAdminMusicTrackUseCase,
                 publishAdminMusicTrackUseCase,
                 hideAdminMusicTrackUseCase,
+                deleteAdminMusicTrackUseCase,
                 verifyAdminRoleUseCase
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -87,7 +93,7 @@ class AdminMusicTrackControllerTest {
     @DisplayName("OPERATOR는 배경음악 목록을 조회할 수 있다")
     void list_returnsOk() throws Exception {
         operator();
-        when(listAdminMusicTrackUseCase.listAdmin(eq("ACTIVE"), any()))
+        when(listAdminMusicTrackUseCase.listAdmin(eq("ACTIVE"), any(), any()))
                 .thenReturn(page(response(10L, "ACTIVE")));
 
         mockMvc.perform(get("/api/v1/admin/music-tracks")
@@ -203,6 +209,33 @@ class AdminMusicTrackControllerTest {
                         .principal(authentication("ROLE_ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("HIDDEN"));
+    }
+
+    @Test
+    @DisplayName("OPERATOR는 배경음악을 삭제할 수 있다 (204)")
+    void delete_returnsNoContent() throws Exception {
+        operator();
+
+        mockMvc.perform(delete("/api/v1/admin/music-tracks/10")
+                        .principal(authentication("ROLE_ADMIN")))
+                .andExpect(status().isNoContent());
+
+        verify(deleteAdminMusicTrackUseCase).deleteAdmin(3L, 10L);
+    }
+
+    @Test
+    @DisplayName("OPERATOR는 분류(category)로 목록을 필터링할 수 있다")
+    void list_withCategory_passesFilter() throws Exception {
+        operator();
+        when(listAdminMusicTrackUseCase.listAdmin(eq("ACTIVE"), eq("HYMN"), any()))
+                .thenReturn(page(response(10L, "ACTIVE")));
+
+        mockMvc.perform(get("/api/v1/admin/music-tracks")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .param("status", "ACTIVE")
+                        .param("category", "HYMN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].id").value(10));
     }
 
     @Test

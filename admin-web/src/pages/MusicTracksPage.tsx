@@ -7,6 +7,7 @@ import {
   InputNumber,
   Modal,
   Popconfirm,
+  Segmented,
   Select,
   Space,
   Table,
@@ -20,6 +21,7 @@ import type { UploadFile } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   CheckCircleOutlined,
+  DeleteOutlined,
   EditOutlined,
   EyeInvisibleOutlined,
   PlusOutlined,
@@ -28,6 +30,7 @@ import {
 } from '@ant-design/icons';
 import {
   createMusicTrack,
+  deleteMusicTrack,
   hideMusicTrack,
   listMusicTracks,
   publishMusicTrack,
@@ -108,6 +111,8 @@ export default function MusicTracksPage() {
     });
 
   const [status, setStatus] = useState<string | undefined>(undefined);
+  // 분류 탭(전체/배경음악/찬송가) — 서버 category 필터로 분리 관리.
+  const [categoryTab, setCategoryTab] = useState<'ALL' | MusicTrackCategory>('ALL');
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm] = Form.useForm<MusicTrackEditorValues>();
   const [submitting, setSubmitting] = useState(false);
@@ -116,12 +121,36 @@ export default function MusicTracksPage() {
   const [editForm] = Form.useForm<MusicTrackEditorValues>();
   const [editSubmitting, setEditSubmitting] = useState(false);
 
-  const onSearch = () =>
-    applyFilters({ status: (status as MusicTrackStatus) || undefined });
+  const buildFilters = (
+    nextStatus: string | undefined,
+    nextCategory: 'ALL' | MusicTrackCategory,
+  ): MusicTrackListParams => ({
+    status: (nextStatus as MusicTrackStatus) || undefined,
+    category: nextCategory === 'ALL' ? undefined : nextCategory,
+  });
+
+  const onSearch = () => applyFilters(buildFilters(status, categoryTab));
 
   const onReset = () => {
     setStatus(undefined);
-    applyFilters({ status: undefined });
+    setCategoryTab('ALL');
+    applyFilters({ status: undefined, category: undefined });
+  };
+
+  // 분류 탭 전환 — 즉시 재조회.
+  const onCategoryChange = (next: 'ALL' | MusicTrackCategory) => {
+    setCategoryTab(next);
+    applyFilters(buildFilters(status, next));
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteMusicTrack(id);
+      message.success('배경음악을 삭제했습니다.');
+      reload();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '삭제에 실패했습니다.');
+    }
   };
 
   const openCreate = () => {
@@ -252,7 +281,7 @@ export default function MusicTracksPage() {
     {
       title: '작업',
       key: 'actions',
-      width: 150,
+      width: 190,
       fixed: 'right',
       render: (_: unknown, record: MusicTrack) => {
         const actions = musicTrackActionsForStatus(record.status);
@@ -289,6 +318,18 @@ export default function MusicTracksPage() {
                 </Tooltip>
               </Popconfirm>
             )}
+            <Popconfirm
+              title="삭제 확인"
+              description="이 음원을 삭제하시겠습니까? 목록·앱에서 제외됩니다."
+              okText="삭제"
+              cancelText="취소"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => handleDelete(record.id)}
+            >
+              <Tooltip title="삭제">
+                <Button size="small" danger icon={<DeleteOutlined />} />
+              </Tooltip>
+            </Popconfirm>
           </Space>
         );
       },
@@ -304,6 +345,19 @@ export default function MusicTracksPage() {
             배경음악 관리
           </Typography.Title>
         </Space>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+          배경음악(브금)·찬송가를 분류별로 관리합니다. 등록·수정·노출/숨김·삭제와 찬양 음원 관리를 이 화면에서 통합 처리합니다.
+        </Typography.Paragraph>
+
+        <Segmented<'ALL' | MusicTrackCategory>
+          value={categoryTab}
+          onChange={onCategoryChange}
+          options={[
+            { label: '전체', value: 'ALL' },
+            { label: CATEGORY_LABELS.BGM, value: 'BGM' },
+            { label: CATEGORY_LABELS.HYMN, value: 'HYMN' },
+          ]}
+        />
 
         <Space wrap>
           <Select

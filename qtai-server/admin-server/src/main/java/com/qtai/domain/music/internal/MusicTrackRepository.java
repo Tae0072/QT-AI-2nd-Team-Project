@@ -37,6 +37,9 @@ public interface MusicTrackRepository extends JpaRepository<MusicTrack, Long> {
             from MusicTrack t
             where t.deletedAt is null
               and (:enabled is null or t.enabled = :enabled)
+              and (:category is null or t.category = :category)
             """)
-    Page<AdminMusicTrackSummary> findAdminSummaries(@Param("enabled") Boolean enabled, Pageable pageable);
+    Page<AdminMusicTrackSummary> findAdminSummaries(@Param("enabled") Boolean enabled,
+                                                    @Param("category") MusicCategory category,
+                                                    Pageable pageable);
 }

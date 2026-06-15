@@ -1,11 +1,6 @@
 import type { EvaluationSetListParams } from '../api/aiEvaluations';
 import type { AiPromptStatus, AiPromptVersionListParams } from '../api/aiPromptVersions';
 import type { MusicTrackStatus } from '../api/musicTracks';
-import type {
-  CreatePraiseSongRequest,
-  PraiseSongStatus,
-  UpdatePraiseSongRequest,
-} from '../api/praiseSongs';
 import type { ProcessReportPayload, Report } from '../api/reports';
 import type { QtPassageStatus } from '../api/qtPassages';
 
@@ -137,30 +132,6 @@ export function aiDraftPromptOptionsParams(): AiPromptVersionListParams {
 
 export function canRunAiEvaluation(adminRole: string | null | undefined) {
   return adminRole === 'REVIEWER' || adminRole === 'SUPER_ADMIN';
-}
-
-export const PRAISE_SONG_FILTERABLE_STATUSES: PraiseSongStatus[] = ['ACTIVE', 'HIDDEN'];
-
-export function buildPraiseSongCreatePayload(
-  values: CreatePraiseSongRequest,
-): CreatePraiseSongRequest {
-  return {
-    title: values.title,
-    artist: values.artist,
-    licenseNote: values.licenseNote,
-    status: values.status,
-  };
-}
-
-export function buildPraiseSongUpdatePayload(
-  values: UpdatePraiseSongRequest,
-): UpdatePraiseSongRequest {
-  return {
-    title: values.title,
-    artist: values.artist,
-    licenseNote: values.licenseNote,
-    status: values.status,
-  };
 }
 
 export const MUSIC_TRACK_FILTERABLE_STATUSES: MusicTrackStatus[] = ['ACTIVE', 'HIDDEN'];

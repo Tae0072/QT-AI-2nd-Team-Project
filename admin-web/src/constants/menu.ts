@@ -58,12 +58,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: '회원 관리',
     requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
-  {
-    code: 'AD-05',
-    path: '/praise-songs',
-    label: '찬양 큐레이션',
-    requiredRoles: [ADMIN_ROLES.OPERATOR],
-  },
+  // AD-05 찬양 큐레이션은 AD-12 '배경음악 관리'로 통합됨(2026-06-15). 메뉴/페이지 제거.
   {
     code: 'AD-06',
     path: '/notices',

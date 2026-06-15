@@ -5,6 +5,7 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
 import com.qtai.domain.music.api.CreateAdminMusicTrackUseCase;
+import com.qtai.domain.music.api.DeleteAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.HideAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.ListAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.PublishAdminMusicTrackUseCase;
@@ -26,6 +27,7 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -59,17 +61,20 @@ public class AdminMusicTrackController {
     private final UpdateAdminMusicTrackUseCase updateAdminMusicTrackUseCase;
     private final PublishAdminMusicTrackUseCase publishAdminMusicTrackUseCase;
     private final HideAdminMusicTrackUseCase hideAdminMusicTrackUseCase;
+    private final DeleteAdminMusicTrackUseCase deleteAdminMusicTrackUseCase;
     private final VerifyAdminRoleUseCase verifyAdminRoleUseCase;
 
     @GetMapping
     public ResponseEntity<ApiResponse<AdminMusicTrackListResponse>> list(
             Authentication authentication,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         requireOperator(authentication);
         PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return ResponseEntity.ok(ApiResponse.success(listAdminMusicTrackUseCase.listAdmin(status, pageable)));
+        return ResponseEntity.ok(
+                ApiResponse.success(listAdminMusicTrackUseCase.listAdmin(status, category, pageable)));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -125,6 +130,15 @@ public class AdminMusicTrackController {
             Authentication authentication) {
         Long adminUserId = requireOperator(authentication);
         return ResponseEntity.ok(ApiResponse.success(hideAdminMusicTrackUseCase.hideAdmin(adminUserId, id)));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id,
+            Authentication authentication) {
+        Long adminUserId = requireOperator(authentication);
+        deleteAdminMusicTrackUseCase.deleteAdmin(adminUserId, id);
+        return ResponseEntity.noContent().build();
     }
 
     private static AdminMusicTrackCommand toCommand(
