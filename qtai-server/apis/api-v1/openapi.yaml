@@ -649,6 +649,207 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/prompt-versions:
+    get:
+      tags:
+        - Admin AI
+      operationId: listAdminAiPromptVersions
+      summary: List admin AI prompt versions
+      description: >
+        Lists AI prompt versions. The first managed scope supports EXPLANATION only.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: promptType
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiPromptType"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiPromptVersionStatus"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Admin AI prompt version list returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiPromptVersionListApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - Admin AI
+      operationId: createAdminAiPromptVersion
+      summary: Create admin AI prompt version
+      description: >
+        Creates a DRAFT EXPLANATION prompt version. The prompt can become ACTIVE
+        only after a successful evaluation run with no failed or needs-review cases.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiPromptVersionRequest"
+      responses:
+        "201":
+          description: Admin AI prompt version created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiPromptVersionApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/prompt-versions/{id}:
+    get:
+      tags:
+        - Admin AI
+      operationId: getAdminAiPromptVersion
+      summary: Get admin AI prompt version
+      description: >
+        Returns one AI prompt version including prompt text and runtime settings.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI prompt version returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiPromptVersionApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/prompt-versions/{id}/activate:
+    post:
+      tags:
+        - Admin AI
+      operationId: activateAdminAiPromptVersion
+      summary: Activate admin AI prompt version
+      description: >
+        Activates a DRAFT EXPLANATION prompt version after a successful evaluation
+        run. Existing ACTIVE prompt versions of the same type are retired.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI prompt version activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiPromptVersionApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/prompt-versions/{id}/retire:
+    post:
+      tags:
+        - Admin AI
+      operationId: retireAdminAiPromptVersion
+      summary: Retire admin AI prompt version
+      description: >
+        Retires an EXPLANATION prompt version. Requires ROLE_ADMIN and one of
+        ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI prompt version retired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiPromptVersionApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/admin/ai/evaluation-sets:
     get:
       tags:
@@ -1077,6 +1278,125 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-sets/{setId}/runs:
+    post:
+      tags:
+        - Admin AI
+      operationId: createAdminAiEvaluationRun
+      summary: Execute admin AI evaluation set
+      description: >
+        Executes APPROVED cases in an ACTIVE EXPLANATION evaluation set against a
+        DRAFT or ACTIVE EXPLANATION prompt version. Evaluation output stores only
+        summary metadata and payload hashes, not raw prompt text or generated body.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_CONTENT_CREATOR,
+        ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: setId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiEvaluationRunRequest"
+      responses:
+        "201":
+          description: Admin AI evaluation run executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationRunApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-sets/{setId}/runs/latest:
+    get:
+      tags:
+        - Admin AI
+      operationId: getLatestAdminAiEvaluationRun
+      summary: Get latest admin AI evaluation run
+      description: >
+        Returns the latest evaluation run for one evaluation set. Requires ROLE_ADMIN
+        and one of ADMIN_ROLE_CONTENT_CREATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: setId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Latest admin AI evaluation run returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationRunApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-runs/{runId}:
+    get:
+      tags:
+        - Admin AI
+      operationId: getAdminAiEvaluationRun
+      summary: Get admin AI evaluation run
+      description: >
+        Returns one evaluation run and its per-case result summaries. Requires ROLE_ADMIN
+        and one of ADMIN_ROLE_CONTENT_CREATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI evaluation run returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationRunApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalServerError"
   /api/v1/admin/ai/batch-run-logs:
@@ -2588,6 +2908,54 @@ components:
           format: date-time
         traceId:
           type: string
+    AdminAiPromptVersionListApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiPromptVersionListResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiPromptVersionApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiPromptVersionResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
     AdminAiEvaluationSetApiResponse:
       type: object
       required:
@@ -2675,6 +3043,30 @@ components:
             - true
         data:
           $ref: "#/components/schemas/AdminAiEvaluationCaseStatusResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiEvaluationRunApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiEvaluationRunResponse"
         error:
           allOf:
             - $ref: "#/components/schemas/ErrorBody"
@@ -3627,6 +4019,159 @@ components:
           enum:
             - DRAFT
           nullable: true
+    AdminAiPromptVersionRequest:
+      type: object
+      required:
+        - promptType
+        - version
+        - systemPrompt
+        - userPromptTemplate
+      properties:
+        promptType:
+          $ref: "#/components/schemas/AiPromptType"
+        version:
+          type: string
+          minLength: 1
+          maxLength: 30
+          example: "2026.06.2"
+        systemPrompt:
+          type: string
+          minLength: 1
+          description: System prompt used for LLM completion.
+        userPromptTemplate:
+          type: string
+          minLength: 1
+          description: >
+            User prompt template. Supported variables include {{targetType}},
+            {{targetId}}, {{qtPassageBlock}}, {{versesBlock}}, and {{commentaryBlock}}.
+        modelName:
+          type: string
+          maxLength: 100
+          nullable: true
+          example: deepseek-chat
+        temperature:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 2
+          nullable: true
+          default: 0.2
+        maxTokens:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 20000
+          nullable: true
+          default: 2000
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+    AdminAiPromptVersionListResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiPromptVersionResponse"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          enum:
+            - createdAt,desc,id,desc
+    AdminAiPromptVersionResponse:
+      type: object
+      required:
+        - id
+        - promptType
+        - version
+        - contentHash
+        - status
+        - systemPrompt
+        - userPromptTemplate
+        - modelName
+        - temperature
+        - maxTokens
+        - description
+        - createdByAdminId
+        - createdAt
+        - activatedAt
+        - retiredAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        promptType:
+          $ref: "#/components/schemas/AiPromptType"
+        version:
+          type: string
+          maxLength: 30
+        contentHash:
+          type: string
+          maxLength: 100
+        status:
+          $ref: "#/components/schemas/AiPromptVersionStatus"
+        systemPrompt:
+          type: string
+        userPromptTemplate:
+          type: string
+        modelName:
+          type: string
+          nullable: true
+        temperature:
+          type: number
+          format: double
+        maxTokens:
+          type: integer
+          format: int32
+        description:
+          type: string
+          nullable: true
+        createdByAdminId:
+          type: integer
+          format: int64
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        activatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        retiredAt:
+          type: string
+          format: date-time
+          nullable: true
     AdminAiEvaluationSetRequest:
       type: object
       required:
@@ -3762,8 +4307,8 @@ components:
       type: object
       required:
         - targetType
+        - targetId
         - sourceType
-        - inputJson
       properties:
         targetType:
           $ref: "#/components/schemas/AiTargetType"
@@ -3771,24 +4316,9 @@ components:
           type: integer
           format: int64
           minimum: 1
-          nullable: true
+          nullable: false
         sourceType:
           $ref: "#/components/schemas/AiEvaluationSourceType"
-        sourceId:
-          type: integer
-          format: int64
-          minimum: 1
-          nullable: true
-        inputJson:
-          type: object
-          additionalProperties: true
-          description: Request input snapshot object. Stored response is returned as a JSON string.
-          example:
-            question: test
-        expectedOutputJson:
-          type: object
-          additionalProperties: true
-          nullable: true
         expectedPolicyJson:
           type: object
           additionalProperties: true
@@ -3940,6 +4470,107 @@ components:
           minimum: 1
         status:
           $ref: "#/components/schemas/AiEvaluationCaseStatus"
+    AdminAiEvaluationRunRequest:
+      type: object
+      required:
+        - promptVersionId
+      properties:
+        promptVersionId:
+          type: integer
+          format: int64
+          minimum: 1
+    AdminAiEvaluationRunResponse:
+      type: object
+      required:
+        - id
+        - evaluationSetId
+        - promptVersionId
+        - status
+        - totalCount
+        - passedCount
+        - failedCount
+        - needsReviewCount
+        - startedAt
+        - finishedAt
+        - requestedByAdminId
+        - results
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        evaluationSetId:
+          type: integer
+          format: int64
+          minimum: 1
+        promptVersionId:
+          type: integer
+          format: int64
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/AiEvaluationRunStatus"
+        totalCount:
+          type: integer
+          format: int32
+          minimum: 0
+        passedCount:
+          type: integer
+          format: int32
+          minimum: 0
+        failedCount:
+          type: integer
+          format: int32
+          minimum: 0
+        needsReviewCount:
+          type: integer
+          format: int32
+          minimum: 0
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        requestedByAdminId:
+          type: integer
+          format: int64
+          minimum: 1
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiEvaluationRunResultResponse"
+    AdminAiEvaluationRunResultResponse:
+      type: object
+      required:
+        - id
+        - evaluationCaseId
+        - result
+        - reason
+        - outputSummaryJson
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        evaluationCaseId:
+          type: integer
+          format: int64
+          minimum: 1
+        result:
+          $ref: "#/components/schemas/AiEvaluationResultStatus"
+        reason:
+          type: string
+          nullable: true
+          maxLength: 1000
+        outputSummaryJson:
+          type: string
+          nullable: true
+          description: Stored JSON summary. Does not include raw generated body.
+        createdAt:
+          type: string
+          format: date-time
     AdminAiAssetListItem:
       type: object
       required:
@@ -4220,6 +4851,18 @@ components:
         - DRAFT
         - ACTIVE
         - RETIRED
+    AiPromptType:
+      type: string
+      enum:
+        - EXPLANATION
+        - SIMULATOR
+        - QA
+    AiPromptVersionStatus:
+      type: string
+      enum:
+        - DRAFT
+        - ACTIVE
+        - RETIRED
     AiEvaluationType:
       type: string
       enum:
@@ -4244,6 +4887,18 @@ components:
         - VALIDATION_FAILURE
         - USER_REPORT
         - ADMIN_CREATED
+    AiEvaluationRunStatus:
+      type: string
+      enum:
+        - RUNNING
+        - SUCCEEDED
+        - FAILED
+    AiEvaluationResultStatus:
+      type: string
+      enum:
+        - PASSED
+        - FAILED
+        - NEEDS_REVIEW
     AiBatchName:
       type: string
       enum:

@@ -28,8 +28,6 @@ import com.qtai.external.llm.dto.LlmCompletionResponse;
 @Component
 class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
 
-    private static final int MAX_TOKENS = 2_000;
-    private static final double TEMPERATURE = 0.2;
     private static final String SOURCE_LABEL = "QT-AI DeepSeek";
 
     private final GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
@@ -63,24 +61,34 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
     @Override
     public AiGeneratedAsset generate(AiGenerationJob job, OffsetDateTime createdAt) {
         AiPromptVersion promptVersion = promptVersion(job.getPromptVersionId());
-        ExplanationInput input = input(job);
-        LlmCompletionResponse response = llmClient.complete(new LlmCompletionRequest(
-                null,
-                systemPrompt(),
-                userPrompt(input),
-                MAX_TOKENS,
-                TEMPERATURE
-        ));
-        String payloadJson = payloadJson(job, promptVersion, input, response);
+        GeneratedExplanation generated = generateForEvaluation(promptVersion, job.getTargetType(), job.getTargetId());
 
         return AiGeneratedAsset.create(
                 job.getId(),
                 AiGeneratedAssetType.EXPLANATION,
                 job.getTargetType(),
                 job.getTargetId(),
-                payloadJson,
+                generated.payloadJson(),
                 SOURCE_LABEL,
                 createdAt
+        );
+    }
+
+    GeneratedExplanation generateForEvaluation(AiPromptVersion promptVersion, AiTargetType targetType, Long targetId) {
+        if (promptVersion.getPromptType() != AiPromptType.EXPLANATION) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "PROMPT_VERSION_TYPE_MISMATCH");
+        }
+        ExplanationInput input = input(targetType, targetId);
+        LlmCompletionResponse response = llmClient.complete(new LlmCompletionRequest(
+                promptVersion.getModelName(),
+                promptVersion.getSystemPrompt(),
+                userPrompt(promptVersion, input),
+                promptVersion.getMaxTokens(),
+                promptVersion.getTemperature()
+        ));
+        return new GeneratedExplanation(
+                payloadJson(targetType, targetId, promptVersion, input, response),
+                response.model()
         );
     }
 
@@ -92,29 +100,29 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
                 ));
     }
 
-    private ExplanationInput input(AiGenerationJob job) {
-        if (job.getTargetType() == AiTargetType.QT_PASSAGE) {
-            QtPassageContentContext context = getQtPassageContentContextUseCase.getContentContext(job.getTargetId());
+    private ExplanationInput input(AiTargetType targetType, Long targetId) {
+        if (targetType == AiTargetType.QT_PASSAGE) {
+            QtPassageContentContext context = getQtPassageContentContextUseCase.getContentContext(targetId);
             List<Long> verseIds = requireVerseIds(context.verseIds());
             return new ExplanationInput(
                     context.qtPassageId(),
                     context.qtDate(),
                     context.title(),
-                    job.getTargetType(),
-                    job.getTargetId(),
+                    targetType,
+                    targetId,
                     verseIds,
                     bibleVerses(verseIds),
                     commentaryMaterialService.findPromptContextByVerseIds(verseIds)
             );
         }
-        if (job.getTargetType() == AiTargetType.BIBLE_VERSE) {
-            List<Long> verseIds = List.of(requirePositive(job.getTargetId(), "targetId"));
+        if (targetType == AiTargetType.BIBLE_VERSE) {
+            List<Long> verseIds = List.of(requirePositive(targetId, "targetId"));
             return new ExplanationInput(
                     null,
                     null,
                     "Single verse explanation",
-                    job.getTargetType(),
-                    job.getTargetId(),
+                    targetType,
+                    targetId,
                     verseIds,
                     bibleVerses(verseIds),
                     commentaryMaterialService.findPromptContextByVerseIds(verseIds)
@@ -144,7 +152,8 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
     }
 
     private String payloadJson(
-            AiGenerationJob job,
+            AiTargetType targetType,
+            Long targetId,
             AiPromptVersion promptVersion,
             ExplanationInput input,
             LlmCompletionResponse response
@@ -160,7 +169,7 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         payload.put("promptContentHash", promptVersion.getContentHash());
         payload.put("modelName", requireText(response.model(), "LLM_MODEL_NAME_MISSING"));
         payload.set("tokenUsage", tokenUsage(response));
-        payload.set("sourceMetadata", sourceMetadata(job, input));
+        payload.set("sourceMetadata", sourceMetadata(targetType, targetId, input));
 
         try {
             return objectMapper.writeValueAsString(payload);
@@ -249,10 +258,10 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         return tokenUsage;
     }
 
-    private ObjectNode sourceMetadata(AiGenerationJob job, ExplanationInput input) {
+    private ObjectNode sourceMetadata(AiTargetType targetType, Long targetId, ExplanationInput input) {
         ObjectNode sourceMetadata = objectMapper.createObjectNode();
-        sourceMetadata.put("targetType", job.getTargetType().name());
-        sourceMetadata.put("targetId", job.getTargetId());
+        sourceMetadata.put("targetType", targetType.name());
+        sourceMetadata.put("targetId", targetId);
         if (input.qtPassageId() != null) {
             sourceMetadata.put("qtPassageId", input.qtPassageId());
             sourceMetadata.put("qtDate", input.qtDate().toString());
@@ -297,17 +306,29 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         sourceMetadata.set("commentaryMaterialIds", materialIds);
     }
 
-    private String userPrompt(ExplanationInput input) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("Create explanation JSON for the following Bible verses.\n");
-        builder.append("Target type: ").append(input.targetType()).append('\n');
-        builder.append("Target id: ").append(input.targetId()).append('\n');
-        if (input.qtPassageId() != null) {
-            builder.append("QT passage id: ").append(input.qtPassageId()).append('\n');
-            builder.append("QT date: ").append(input.qtDate()).append('\n');
-            builder.append("QT title: ").append(input.title()).append('\n');
+    private String userPrompt(AiPromptVersion promptVersion, ExplanationInput input) {
+        return promptVersion.getUserPromptTemplate()
+                .replace("{{targetType}}", input.targetType().name())
+                .replace("{{targetId}}", String.valueOf(input.targetId()))
+                .replace("{{qtPassageId}}", nullToEmpty(input.qtPassageId()))
+                .replace("{{qtDate}}", input.qtDate() == null ? "" : input.qtDate().toString())
+                .replace("{{qtTitle}}", nullToEmpty(input.title()))
+                .replace("{{qtPassageBlock}}", qtPassageBlock(input))
+                .replace("{{versesBlock}}", versesBlock(input))
+                .replace("{{commentaryBlock}}", commentaryBlock(input));
+    }
+
+    private String qtPassageBlock(ExplanationInput input) {
+        if (input.qtPassageId() == null) {
+            return "";
         }
-        builder.append("Verses:\n");
+        return "QT passage id: " + input.qtPassageId() + '\n'
+                + "QT date: " + input.qtDate() + '\n'
+                + "QT title: " + input.title() + '\n';
+    }
+
+    private String versesBlock(ExplanationInput input) {
+        StringBuilder builder = new StringBuilder();
         for (BibleVerseResponse verse : input.verses()) {
             builder.append("- verseId=").append(verse.id())
                     .append(", bookCode=").append(verse.bookCode())
@@ -317,6 +338,11 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
                     .append(", englishText=").append(nullToEmpty(verse.englishText()))
                     .append('\n');
         }
+        return builder.toString();
+    }
+
+    private String commentaryBlock(ExplanationInput input) {
+        StringBuilder builder = new StringBuilder();
         if (input.commentary() != null && input.commentary().hasMaterials()) {
             builder.append("Commentary materials:\n");
             builder.append("Source: ").append(nullToEmpty(input.commentary().sourceName()))
@@ -331,16 +357,6 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
             }
         }
         return builder.toString();
-    }
-
-    private static String systemPrompt() {
-        return """
-                Return only a JSON object. The object must contain explanations[] and glossaryTerms[].
-                Each explanation item must contain verseId, summary, and explanation.
-                Each glossary term item must contain verseId, term, and meaning.
-                Use only the provided verseIds and keep the tone calm, factual, and beginner-friendly.
-                Do not include provider raw response, prompt text, validation reference text, secrets, or private data.
-                """;
     }
 
     private static void putNullable(ObjectNode node, String fieldName, Integer value) {
@@ -396,6 +412,16 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
             return "";
         }
         return value;
+    }
+
+    private static String nullToEmpty(Long value) {
+        if (value == null) {
+            return "";
+        }
+        return String.valueOf(value);
+    }
+
+    record GeneratedExplanation(String payloadJson, String modelName) {
     }
 
     private record ExplanationInput(
