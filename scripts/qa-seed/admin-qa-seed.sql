@@ -40,22 +40,22 @@ WHERE m.id IS NOT NULL
 INSERT INTO ai_batch_run_logs
     (batch_name, status, created_count, failed_count, processed_count,
      error_type, error_message, started_at, finished_at, created_at)
-SELECT 'QA_SAMPLE_EXPLANATION_SEED', 'SUCCEEDED', 3, 0, 3,
-       NULL, NULL, NOW() - INTERVAL 5 MINUTE, NOW() - INTERVAL 4 MINUTE, NOW()
+SELECT 'AI_DAILY_QT_VERSE_EXPLANATION_SEED', 'SUCCEEDED', 3, 0, 3,
+       NULL, '[QA-SAMPLE] success sample', NOW() - INTERVAL 5 MINUTE, NOW() - INTERVAL 4 MINUTE, NOW()
 WHERE NOT EXISTS (
     SELECT 1 FROM ai_batch_run_logs
-    WHERE batch_name = 'QA_SAMPLE_EXPLANATION_SEED' AND status = 'SUCCEEDED'
+    WHERE batch_name = 'AI_DAILY_QT_VERSE_EXPLANATION_SEED' AND status = 'SUCCEEDED'
 );
 
 INSERT INTO ai_batch_run_logs
     (batch_name, status, created_count, failed_count, processed_count,
      error_type, error_message, started_at, finished_at, created_at)
-SELECT 'QA_SAMPLE_EXPLANATION_SEED', 'FAILED', 0, 2, 2,
-       'DeepSeekTimeoutException', 'QA 샘플: 외부 AI 호출 타임아웃(검증용 가짜 로그)',
+SELECT 'AI_DAILY_QT_VERSE_EXPLANATION_SEED', 'FAILED', 0, 2, 2,
+       'DeepSeekTimeoutException', '[QA-SAMPLE] QA 샘플: 외부 AI 호출 타임아웃(검증용 가짜 로그)',
        NOW() - INTERVAL 3 MINUTE, NOW() - INTERVAL 2 MINUTE, NOW()
 WHERE NOT EXISTS (
     SELECT 1 FROM ai_batch_run_logs
-    WHERE batch_name = 'QA_SAMPLE_EXPLANATION_SEED' AND status = 'FAILED'
+    WHERE batch_name = 'AI_DAILY_QT_VERSE_EXPLANATION_SEED' AND status = 'FAILED'
 );
 
 -- 3) 확인용 조회
@@ -65,4 +65,4 @@ FROM reports WHERE detail LIKE 'QA 샘플%' ORDER BY id DESC LIMIT 5;
 
 SELECT '--- 배치 로그 샘플 ---' AS info;
 SELECT id, batch_name, status, created_count, failed_count, error_type, finished_at
-FROM ai_batch_run_logs WHERE batch_name = 'QA_SAMPLE_EXPLANATION_SEED' ORDER BY id DESC;
+FROM ai_batch_run_logs WHERE batch_name = 'AI_DAILY_QT_VERSE_EXPLANATION_SEED' ORDER BY id DESC;
