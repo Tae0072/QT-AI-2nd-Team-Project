@@ -67,6 +67,7 @@ class AdminAiMonitoringQueryService implements GetAdminAiMonitoringUseCase {
             AdminAiMonitoringQueryRepository.Summary summary
     ) {
         AdminAiMonitoringQueryRepository.GenerationJobCounts jobs = summary.generationJobs();
+        AdminAiMonitoringQueryRepository.AssetStatusCounts assetStatuses = summary.assetStatuses();
         AdminAiMonitoringQueryRepository.ValidationCounts validation = summary.validation();
         AdminAiMonitoringQueryRepository.BatchRunCounts batchRuns = summary.batchRuns();
         return new AdminAiMonitoringResponse(
@@ -76,6 +77,12 @@ class AdminAiMonitoringQueryService implements GetAdminAiMonitoringUseCase {
                         jobs.running(),
                         jobs.succeeded(),
                         jobs.failed()
+                ),
+                new AdminAiMonitoringResponse.AssetStatuses(
+                        assetStatuses.validating(),
+                        assetStatuses.approved(),
+                        assetStatuses.rejected(),
+                        assetStatuses.hidden()
                 ),
                 new AdminAiMonitoringResponse.Validation(
                         validation.waitingAssets(),

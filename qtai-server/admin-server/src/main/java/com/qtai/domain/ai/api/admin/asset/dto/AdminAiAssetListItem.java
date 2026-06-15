@@ -11,6 +11,8 @@ public record AdminAiAssetListItem(
         PromptVersionSummary promptVersion,
         Long checklistVersionId,
         String latestValidationResult,
+        String autoValidationResult,
+        String advisorValidationResult,
         boolean sourceLabelPresent,
         OffsetDateTime createdAt
 ) {

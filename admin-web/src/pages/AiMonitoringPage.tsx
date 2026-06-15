@@ -251,23 +251,23 @@ export default function AiMonitoringPage() {
                     <Row gutter={8}>
                       <Col span={6}>
                         <Statistic
-                          title="대기"
-                          value={data.validation.waitingAssets}
+                          title="검증중"
+                          value={data.assetStatuses.validating}
                         />
                       </Col>
                       <Col span={6}>
                         <Statistic
                           title="승인"
-                          value={data.validation.approvedAssets}
+                          value={data.assetStatuses.approved}
                         />
                       </Col>
                       <Col span={6}>
                         <Statistic
                           title="반려"
-                          value={data.validation.rejectedAssets}
+                          value={data.assetStatuses.rejected}
                           valueStyle={{
                             color:
-                              data.validation.rejectedAssets > 0
+                              data.assetStatuses.rejected > 0
                                 ? '#cf1322'
                                 : undefined,
                           }}
@@ -276,7 +276,7 @@ export default function AiMonitoringPage() {
                       <Col span={6}>
                         <Statistic
                           title="숨김"
-                          value={data.validation.hiddenAssets}
+                          value={data.assetStatuses.hidden}
                         />
                       </Col>
                     </Row>

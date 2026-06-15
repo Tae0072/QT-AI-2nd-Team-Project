@@ -1,7 +1,9 @@
 package com.qtai.domain.ai.internal;
 
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import jakarta.persistence.EntityManager;
@@ -39,7 +41,9 @@ public class AdminAiAssetQueryRepository {
             from AiGeneratedAsset asset
             join AiGenerationJob job on job.id = asset.generationJobId
             join AiPromptVersion promptVersion on promptVersion.id = job.promptVersionId
-            """ + LATEST_VALIDATION_JOIN;
+            """;
+
+    private static final String LIST_FROM_WITH_LATEST_VALIDATION = LIST_FROM + LATEST_VALIDATION_JOIN;
 
     private static final String COUNT_FROM = """
             from AiGeneratedAsset asset
@@ -76,33 +80,11 @@ public class AdminAiAssetQueryRepository {
         AiTargetType targetType = parseEnum(AiTargetType.class, query.targetType(), "targetType");
         AiGeneratedAssetStatus status = parseEnum(AiGeneratedAssetStatus.class, query.status(), "status");
 
-        List<Object[]> rows = entityManager.createQuery("""
-                        select asset.id,
-                               asset.assetType,
-                               asset.targetType,
-                               asset.targetId,
-                               asset.status,
-                               asset.sourceLabel,
-                               asset.createdAt,
-                               promptVersion.id,
-                               promptVersion.promptType,
-                               promptVersion.version,
-                               promptVersion.status,
-                               latestValidation.result,
-                               latestValidation.checklistVersionId
-                        """ + LIST_FROM + LIST_WHERE + """
-                        order by asset.createdAt desc, asset.id desc
-                        """, Object[].class)
-                .setParameter("assetType", assetType)
-                .setParameter("targetType", targetType)
-                .setParameter("status", status)
-                .setParameter("promptVersionId", query.promptVersionId())
-                .setParameter("checklistVersionId", query.checklistVersionId())
-                .setFirstResult((int) pageable.getOffset())
-                .setMaxResults(pageable.getPageSize())
-                .getResultList();
-
         boolean hasChecklistVersionFilter = query.checklistVersionId() != null;
+        List<AdminAiAssetListRow> content = hasChecklistVersionFilter
+                ? findAllWithLatestValidation(query, pageable, assetType, targetType, status)
+                : findAllPageThenLatestValidation(query, pageable, assetType, targetType, status);
+
         String countQueryString = """
                         select count(asset.id)
                         """ + countFrom(hasChecklistVersionFilter) + countWhere(hasChecklistVersionFilter);
@@ -116,9 +98,93 @@ public class AdminAiAssetQueryRepository {
         }
         Long totalElements = countQuery.getSingleResult();
 
-        return new AdminAiAssetPage(rows.stream()
+        return new AdminAiAssetPage(content, totalElements);
+    }
+
+    private List<AdminAiAssetListRow> findAllWithLatestValidation(
+            ListAdminAiAssetsQuery query,
+            Pageable pageable,
+            AiGeneratedAssetType assetType,
+            AiTargetType targetType,
+            AiGeneratedAssetStatus status
+    ) {
+        List<AdminAiAssetListRow> pageRows = entityManager.createQuery("""
+                        select asset.id,
+                               asset.assetType,
+                               asset.targetType,
+                               asset.targetId,
+                               asset.status,
+                               asset.sourceLabel,
+                               asset.createdAt,
+                               promptVersion.id,
+                               promptVersion.promptType,
+                               promptVersion.version,
+                               promptVersion.status,
+                               latestValidation.result,
+                               latestValidation.checklistVersionId
+                        """ + LIST_FROM_WITH_LATEST_VALIDATION + LIST_WHERE + orderBy(status), Object[].class)
+                .setParameter("assetType", assetType)
+                .setParameter("targetType", targetType)
+                .setParameter("status", status)
+                .setParameter("promptVersionId", query.promptVersionId())
+                .setParameter("checklistVersionId", query.checklistVersionId())
+                .setFirstResult((int) pageable.getOffset())
+                .setMaxResults(pageable.getPageSize())
+                .getResultList()
+                .stream()
                 .map(AdminAiAssetListRow::from)
-                .toList(), totalElements);
+                .toList();
+        return attachValidationSummaries(pageRows);
+    }
+
+    private List<AdminAiAssetListRow> findAllPageThenLatestValidation(
+            ListAdminAiAssetsQuery query,
+            Pageable pageable,
+            AiGeneratedAssetType assetType,
+            AiTargetType targetType,
+            AiGeneratedAssetStatus status
+    ) {
+        List<AdminAiAssetListRow> pageRows = entityManager.createQuery("""
+                        select asset.id,
+                               asset.assetType,
+                               asset.targetType,
+                               asset.targetId,
+                               asset.status,
+                               asset.sourceLabel,
+                               asset.createdAt,
+                               promptVersion.id,
+                               promptVersion.promptType,
+                               promptVersion.version,
+                               promptVersion.status
+                        """ + LIST_FROM + BASE_WHERE + orderBy(status), Object[].class)
+                .setParameter("assetType", assetType)
+                .setParameter("targetType", targetType)
+                .setParameter("status", status)
+                .setParameter("promptVersionId", query.promptVersionId())
+                .setFirstResult((int) pageable.getOffset())
+                .setMaxResults(pageable.getPageSize())
+                .getResultList()
+                .stream()
+                .map(AdminAiAssetListRow::fromPageRow)
+                .toList();
+        if (pageRows.isEmpty()) {
+            return pageRows;
+        }
+
+        return attachValidationSummaries(pageRows);
+    }
+
+    private List<AdminAiAssetListRow> attachValidationSummaries(List<AdminAiAssetListRow> pageRows) {
+        if (pageRows.isEmpty()) {
+            return pageRows;
+        }
+
+        Map<Long, ValidationSummary> validationSummaries = findValidationSummaries(
+                pageRows.stream().map(AdminAiAssetListRow::id).toList()
+        );
+        return pageRows.stream()
+                .map(row -> row.withValidationSummary(validationSummaries.get(row.id())))
+                .toList();
     }
 
     private static String countFrom(boolean hasChecklistVersionFilter) {
@@ -127,6 +193,23 @@ public class AdminAiAssetQueryRepository {
 
     private static String countWhere(boolean hasChecklistVersionFilter) {
         return hasChecklistVersionFilter ? COUNT_WHERE_WITH_CHECKLIST_VERSION : BASE_WHERE;
+    }
+
+    private static String orderBy(AiGeneratedAssetStatus status) {
+        if (isReviewedStatus(status)) {
+            return """
+                    order by asset.reviewedAt desc, asset.id desc
+                    """;
+        }
+        return """
+                order by asset.createdAt desc, asset.id desc
+                """;
+    }
+
+    private static boolean isReviewedStatus(AiGeneratedAssetStatus status) {
+        return status == AiGeneratedAssetStatus.APPROVED
+                || status == AiGeneratedAssetStatus.REJECTED
+                || status == AiGeneratedAssetStatus.HIDDEN;
     }
 
     public Optional<AdminAiAssetDetailRow> findDetail(Long assetId) {
@@ -223,6 +306,39 @@ public class AdminAiAssetQueryRepository {
                 .toList();
     }
 
+    private Map<Long, ValidationSummary> findValidationSummaries(List<Long> assetIds) {
+        List<Object[]> rows = entityManager.createQuery("""
+                        select validationLog.aiAssetId,
+                               validationLog.layer,
+                               validationLog.reviewerType,
+                               validationLog.result,
+                               validationLog.checklistVersionId
+                        from AiValidationLog validationLog
+                        where validationLog.aiAssetId in :assetIds
+                        order by validationLog.aiAssetId asc, validationLog.createdAt desc, validationLog.id desc
+                        """, Object[].class)
+                .setParameter("assetIds", assetIds)
+                .getResultList();
+
+        Map<Long, ValidationSummary> validationSummaries = new HashMap<>();
+        for (Object[] row : rows) {
+            Long aiAssetId = (Long) row[0];
+            int layer = ((Number) row[1]).intValue();
+            AiValidationReviewerType reviewerType = (AiValidationReviewerType) row[2];
+            AiValidationResult result = (AiValidationResult) row[3];
+            Long checklistVersionId = (Long) row[4];
+            ValidationSummary previous = validationSummaries.getOrDefault(
+                    aiAssetId,
+                    ValidationSummary.empty(aiAssetId)
+            );
+            validationSummaries.put(
+                    aiAssetId,
+                    previous.withLog(layer, reviewerType, result, checklistVersionId)
+            );
+        }
+        return validationSummaries;
+    }
+
     private static <E extends Enum<E>> E parseEnum(Class<E> enumType, String value, String fieldName) {
         if (value == null || value.isBlank()) {
             return null;
@@ -253,7 +369,9 @@ public class AdminAiAssetQueryRepository {
             String promptVersion,
             AiPromptVersionStatus promptVersionStatus,
             AiValidationResult latestValidationResult,
-            Long checklistVersionId
+            Long checklistVersionId,
+            AiValidationResult autoValidationResult,
+            AiValidationResult advisorValidationResult
     ) {
 
         private static AdminAiAssetListRow from(Object[] row) {
@@ -270,7 +388,94 @@ public class AdminAiAssetQueryRepository {
                     (String) row[9],
                     (AiPromptVersionStatus) row[10],
                     (AiValidationResult) row[11],
-                    (Long) row[12]
+                    (Long) row[12],
+                    null,
+                    null
+            );
+        }
+
+        private static AdminAiAssetListRow fromPageRow(Object[] row) {
+            return new AdminAiAssetListRow(
+                    (Long) row[0],
+                    (AiGeneratedAssetType) row[1],
+                    (AiTargetType) row[2],
+                    (Long) row[3],
+                    (AiGeneratedAssetStatus) row[4],
+                    (String) row[5],
+                    (OffsetDateTime) row[6],
+                    (Long) row[7],
+                    (AiPromptType) row[8],
+                    (String) row[9],
+                    (AiPromptVersionStatus) row[10],
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
+
+        private AdminAiAssetListRow withValidationSummary(ValidationSummary validationSummary) {
+            if (validationSummary == null) {
+                return this;
+            }
+            return new AdminAiAssetListRow(
+                    id,
+                    assetType,
+                    targetType,
+                    targetId,
+                    status,
+                    sourceLabel,
+                    createdAt,
+                    promptVersionId,
+                    promptType,
+                    promptVersion,
+                    promptVersionStatus,
+                    validationSummary.latestValidationResult(),
+                    validationSummary.checklistVersionId(),
+                    validationSummary.autoValidationResult(),
+                    validationSummary.advisorValidationResult()
+            );
+        }
+    }
+
+    private record ValidationSummary(
+            Long aiAssetId,
+            AiValidationResult latestValidationResult,
+            Long checklistVersionId,
+            AiValidationResult autoValidationResult,
+            AiValidationResult advisorValidationResult
+    ) {
+
+        private static ValidationSummary empty(Long aiAssetId) {
+            return new ValidationSummary(aiAssetId, null, null, null, null);
+        }
+
+        private ValidationSummary withLog(
+                int layer,
+                AiValidationReviewerType reviewerType,
+                AiValidationResult result,
+                Long checklistVersionId
+        ) {
+            AiValidationResult nextLatestValidationResult = latestValidationResult == null
+                    ? result
+                    : latestValidationResult;
+            Long nextChecklistVersionId = latestValidationResult == null
+                    ? checklistVersionId
+                    : this.checklistVersionId;
+            AiValidationResult nextAutoValidationResult = autoValidationResult;
+            if (nextAutoValidationResult == null && layer == 1 && reviewerType == AiValidationReviewerType.AUTO) {
+                nextAutoValidationResult = result;
+            }
+            AiValidationResult nextAdvisorValidationResult = advisorValidationResult;
+            if (nextAdvisorValidationResult == null && layer == 2 && reviewerType == AiValidationReviewerType.ADVISOR) {
+                nextAdvisorValidationResult = result;
+            }
+            return new ValidationSummary(
+                    aiAssetId,
+                    nextLatestValidationResult,
+                    nextChecklistVersionId,
+                    nextAutoValidationResult,
+                    nextAdvisorValidationResult
             );
         }
     }

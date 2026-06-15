@@ -117,6 +117,10 @@ export default function DashboardPage() {
   const qtLink = todayQt?.qtPassageId
     ? `/qt-passages?focusId=${todayQt.qtPassageId}`
     : '/qt-passages';
+  // 시뮬레이터 문제 → 전용 관리 화면(AD-14). 본문 지정 필터로 진입.
+  const simulatorLink = todayQt?.qtPassageId
+    ? `/simulator-clips?qtPassageId=${todayQt.qtPassageId}`
+    : '/simulator-clips';
 
   // 해설 "없음" → 관리자 해설 생성 트리거(F-02/F-06). 생성은 배치/시스템 처리라 즉시 완료가 아니다.
   const [generating, setGenerating] = useState(false);
@@ -228,9 +232,9 @@ export default function DashboardPage() {
                           >
                             {todayQt.simulatorStatus || '-'}
                           </Tag>
-                          {/* 시뮬레이터 전용 관리 화면은 후속 PR(B-1). 임시로 QT 본문 관리로 연결. */}
+                          {/* 시뮬레이터 전용 관리 화면(AD-14)으로 이동. */}
                           {todayQt.simulatorStatus && todayQt.simulatorStatus !== 'READY' && (
-                            <CtaLink label="QT 관리" to={qtLink} />
+                            <CtaLink label="시뮬레이터 관리" to={simulatorLink} />
                           )}
                         </Space>
                       </Descriptions.Item>

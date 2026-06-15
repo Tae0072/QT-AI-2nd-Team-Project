@@ -1,4 +1,4 @@
-import { apiClient, unwrap } from './client';
+import { ApiClientError, apiClient, unwrap } from './client';
 import type { ApiResponse, Page, PageParams } from './types';
 
 // ===== AD-11 AI 평가셋/평가케이스 관리 =====
@@ -9,12 +9,17 @@ import type { ApiResponse, Page, PageParams } from './types';
 //   GET  /evaluation-sets/{setId}/cases            평가케이스 목록
 //   POST /evaluation-sets/{setId}/cases            평가케이스 생성
 //   POST /evaluation-cases/{caseId}/approve|reject 케이스 승인/반려 (권한: REVIEWER, reviewReason 필수)
+//   POST /evaluation-sets/{setId}/runs             프롬프트 평가 실행
+//   GET  /evaluation-sets/{setId}/runs/latest      최근 평가 실행
+//   GET  /evaluation-runs/{runId}                  평가 실행 상세
 //   POST /assets/{assetId}/evaluation-candidates   asset → 평가 케이스 후보 등록
 // AI Q&A·해설 회귀 평가의 기준 메타데이터를 다룬다(04 §7.3). JSON 필드는 응답에서 문자열로 온다.
 
 export type EvalType = 'EXPLANATION' | 'SIMULATOR' | 'QA';
 export type EvalSetStatus = 'DRAFT' | 'ACTIVE' | 'RETIRED';
 export type EvalCaseStatus = 'CANDIDATE' | 'APPROVED' | 'REJECTED';
+export type EvaluationRunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+export type EvaluationRunResultStatus = 'PASSED' | 'FAILED' | 'NEEDS_REVIEW';
 
 // 백엔드 AiEvaluationSetResponse 와 1:1
 export interface EvaluationSet {
@@ -83,6 +88,34 @@ export interface CreateEvaluationCasePayload {
 export interface EvaluationCaseStatus {
   id: number;
   status: string;
+}
+
+export interface EvaluationRunResult {
+  id: number;
+  evaluationCaseId: number;
+  result: EvaluationRunResultStatus;
+  reason: string | null;
+  outputSummaryJson: string | null;
+  createdAt: string;
+}
+
+export interface EvaluationRun {
+  id: number;
+  evaluationSetId: number;
+  promptVersionId: number;
+  status: EvaluationRunStatus;
+  totalCount: number;
+  passedCount: number;
+  failedCount: number;
+  needsReviewCount: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  requestedByAdminId: number | null;
+  results: EvaluationRunResult[];
+}
+
+export interface CreateEvaluationRunPayload {
+  promptVersionId: number;
 }
 
 // ----- 평가 셋 -----
@@ -155,6 +188,48 @@ export function rejectEvaluationCase(caseId: number, reviewReason: string) {
     apiClient.post<ApiResponse<EvaluationCaseStatus>>(
       `/admin/ai/evaluation-cases/${caseId}/reject`,
       { reviewReason },
+    ),
+  );
+}
+
+// ----- 평가 실행 -----
+export function createEvaluationRun(
+  setId: number,
+  payload: CreateEvaluationRunPayload,
+) {
+  return unwrap<EvaluationRun>(
+    apiClient.post<ApiResponse<EvaluationRun>>(
+      `/admin/ai/evaluation-sets/${setId}/runs`,
+      payload,
+    ),
+  );
+}
+
+export async function getLatestEvaluationRun(
+  setId: number,
+): Promise<EvaluationRun | null> {
+  try {
+    const res = await apiClient.get<ApiResponse<EvaluationRun>>(
+      `/admin/ai/evaluation-sets/${setId}/runs/latest`,
+    );
+    if (!res.data.success) {
+      throw new Error(
+        res.data.error?.message ?? '최근 평가 실행을 불러오지 못했습니다.',
+      );
+    }
+    return res.data.data;
+  } catch (e) {
+    if (e instanceof ApiClientError && e.status === 404) {
+      return null;
+    }
+    throw e;
+  }
+}
+
+export function getEvaluationRun(runId: number) {
+  return unwrap<EvaluationRun>(
+    apiClient.get<ApiResponse<EvaluationRun>>(
+      `/admin/ai/evaluation-runs/${runId}`,
     ),
   );
 }

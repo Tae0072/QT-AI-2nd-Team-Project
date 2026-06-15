@@ -83,6 +83,7 @@ test('admin page modals use destroyOnHidden instead of deprecated destroyOnClose
     ['AiAssetsPage.tsx', 4],
     ['AiChecklistsPage.tsx', 1],
     ['AiEvaluationsPage.tsx', 4],
+    ['AiPromptVersionsPage.tsx', 2],
     ['PraiseSongsPage.tsx', 2],
     ['ReportsPage.tsx', 2],
   ];
@@ -92,6 +93,112 @@ test('admin page modals use destroyOnHidden instead of deprecated destroyOnClose
     assert.equal(page.includes('destroyOnClose'), false, fileName);
     assert.equal((page.match(/\bdestroyOnHidden\b/g) ?? []).length, expectedCount, fileName);
   }
+});
+
+test('AI prompt version route and menu stay reviewer-gated', () => {
+  const app = fs.readFileSync(path.join(rootDir, 'src', 'App.tsx'), 'utf8');
+  const menu = fs.readFileSync(path.join(rootDir, 'src', 'constants', 'menu.ts'), 'utf8');
+
+  assert.match(app, /import AiPromptVersionsPage from '\.\/pages\/AiPromptVersionsPage';/);
+  assert.match(app, /path="\/ai-prompt-versions"/);
+  assert.match(
+    app,
+    /element=\{withRole\('\/ai-prompt-versions', <AiPromptVersionsPage \/>\)\}/,
+  );
+  assert.match(
+    menu,
+    /code:\s*'AI-PROMPT'[\s\S]*?path:\s*'\/ai-prompt-versions'[\s\S]*?requiredRoles:\s*\[ADMIN_ROLES\.REVIEWER\]/,
+  );
+});
+
+test('AI prompt version page uses EXPLANATION draft prompt contracts', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiPromptVersionsPage.tsx'), 'utf8');
+  const api = fs.readFileSync(path.join(rootDir, 'src', 'api', 'aiPromptVersions.ts'), 'utf8');
+
+  assert.equal(contracts.AI_PROMPT_MANAGED_TYPE, 'EXPLANATION');
+  assert.equal(contracts.AI_PROMPT_DEFAULT_STATUS, 'DRAFT');
+  assert.deepEqual(Object.keys(contracts.AI_PROMPT_VERSION_STATUS_TAGS), [
+    'DRAFT',
+    'ACTIVE',
+    'RETIRED',
+  ]);
+  assert.deepEqual(contracts.aiPromptVersionListParams('DRAFT'), {
+    promptType: 'EXPLANATION',
+    status: 'DRAFT',
+  });
+  assert.deepEqual(contracts.aiPromptVersionListParams(undefined), {
+    promptType: 'EXPLANATION',
+    status: undefined,
+  });
+  assert.deepEqual(contracts.aiDraftPromptOptionsParams(), {
+    promptType: 'EXPLANATION',
+    status: 'DRAFT',
+    page: 0,
+    size: 100,
+  });
+
+  assert.match(page, /aiPromptVersionListParams\(AI_PROMPT_DEFAULT_STATUS\)/);
+  assert.match(page, /AI_PROMPT_VERSION_STATUS_TAGS/);
+  assert.match(page, /AI_PROMPT_MANAGED_TYPE/);
+  assert.match(api, /'\/admin\/ai\/prompt-versions'/);
+  assert.match(api, /`\/admin\/ai\/prompt-versions\/\$\{id\}`/);
+  assert.match(api, /`\/admin\/ai\/prompt-versions\/\$\{id\}\/activate`/);
+  assert.match(api, /`\/admin\/ai\/prompt-versions\/\$\{id\}\/retire`/);
+});
+
+test('AI evaluation run status contracts match backend enums', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiEvaluationsPage.tsx'), 'utf8');
+  const api = fs.readFileSync(path.join(rootDir, 'src', 'api', 'aiEvaluations.ts'), 'utf8');
+
+  assert.deepEqual(Object.keys(contracts.AI_EVALUATION_RUN_STATUS_TAGS), [
+    'RUNNING',
+    'SUCCEEDED',
+    'FAILED',
+  ]);
+  assert.deepEqual(Object.keys(contracts.AI_EVALUATION_RUN_RESULT_TAGS), [
+    'PASSED',
+    'FAILED',
+    'NEEDS_REVIEW',
+  ]);
+  assert.equal(hasOwn(contracts.AI_EVALUATION_RUN_STATUS_TAGS, 'COMPLETED'), false);
+  assert.equal(hasOwn(contracts.AI_EVALUATION_RUN_STATUS_TAGS, 'PARTIAL_FAILED'), false);
+  assert.equal(hasOwn(contracts.AI_EVALUATION_RUN_RESULT_TAGS, 'PASS'), false);
+  assert.equal(hasOwn(contracts.AI_EVALUATION_RUN_RESULT_TAGS, 'FAIL'), false);
+
+  assert.match(api, /export type EvaluationRunStatus = 'RUNNING' \| 'SUCCEEDED' \| 'FAILED';/);
+  assert.match(
+    api,
+    /export type EvaluationRunResultStatus = 'PASSED' \| 'FAILED' \| 'NEEDS_REVIEW';/,
+  );
+  assert.match(page, /AI_EVALUATION_RUN_STATUS_TAGS/);
+  assert.match(page, /AI_EVALUATION_RUN_RESULT_TAGS/);
+  assert.doesNotMatch(page, /\bCOMPLETED\b|\bPARTIAL_FAILED\b|\bPASS\b|\bFAIL\b/);
+});
+
+test('AI evaluation latest run lookup degrades per row', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiEvaluationsPage.tsx'), 'utf8');
+
+  assert.match(
+    page,
+    /Promise\.allSettled\(rows\.map\(\(row\) => getLatestEvaluationRun\(row\.id\)\)\)/,
+  );
+  assert.doesNotMatch(page, /Promise\.all\(/);
+  assert.match(page, /next\[setId\] = null/);
+  assert.match(page, /failedCount \+= 1/);
+  assert.match(page, /message\.warning/);
+});
+
+test('AI evaluation run action visibility follows reviewer contract', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiEvaluationsPage.tsx'), 'utf8');
+
+  assert.equal(contracts.canRunAiEvaluation('REVIEWER'), true);
+  assert.equal(contracts.canRunAiEvaluation('SUPER_ADMIN'), true);
+  assert.equal(contracts.canRunAiEvaluation('CONTENT_CREATOR'), false);
+  assert.equal(contracts.canRunAiEvaluation('OPERATOR'), false);
+  assert.equal(contracts.canRunAiEvaluation(null), false);
+  assert.match(page, /const canReview = canRunAiEvaluation\(adminInfo\?\.adminRole\)/);
+  assert.match(page, /canReview && r\.evalType === 'EXPLANATION'/);
+  assert.match(page, /aiDraftPromptOptionsParams\(\)/);
 });
 
 test('audit log actor filter exposes only admin and system batch actors', () => {
@@ -111,11 +218,32 @@ test('audit log actor filter exposes only admin and system batch actors', () => 
 });
 
 test('AI asset action visibility follows review and regeneration contracts', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiAssetsPage.tsx'), 'utf8');
+
   assert.equal(contracts.isAiAssetReviewable('VALIDATING'), true);
   assert.equal(contracts.isAiAssetReviewable('APPROVED'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'PASSED', 'PASSED'), true);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'NEEDS_REVIEW', 'PASSED'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'PASSED', 'NEEDS_REVIEW'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'PASSED', 'REJECTED'), false);
+  assert.equal(contracts.isAiAssetApprovable('APPROVED', 'PASSED', 'PASSED'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', null, 'PASSED'), false);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('VALIDATING', 'PASSED'), true);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('VALIDATING', 'NEEDS_REVIEW'), true);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('VALIDATING', 'REJECTED'), false);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('APPROVED', 'PASSED'), false);
   assert.equal(contracts.isAiAssetRegeneratable('REJECTED'), true);
   assert.equal(contracts.isAiAssetRegeneratable('HIDDEN'), true);
   assert.equal(contracts.isAiAssetRegeneratable('APPROVED'), false);
+  assert.match(
+    page,
+    /isAiAssetApprovable\(\s*r\.status,\s*r\.autoValidationResult,\s*r\.advisorValidationResult,\s*\)/,
+  );
+  assert.match(
+    page,
+    /shouldShowAiAssetApproveButton\(\s*r\.status,\s*r\.advisorValidationResult,\s*\)/,
+  );
+  assert.match(page, /disabled=\{!canApprove\}/);
 });
 
 test('AI asset active regeneration job prefers cached active jobs', () => {

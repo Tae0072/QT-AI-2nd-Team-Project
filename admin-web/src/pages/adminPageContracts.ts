@@ -1,4 +1,5 @@
 import type { EvaluationSetListParams } from '../api/aiEvaluations';
+import type { AiPromptStatus, AiPromptVersionListParams } from '../api/aiPromptVersions';
 import type {
   CreatePraiseSongRequest,
   PraiseSongStatus,
@@ -34,6 +35,25 @@ type GenerationJobLike =
 
 export function isAiAssetReviewable(status: string) {
   return status === 'VALIDATING';
+}
+
+export function isAiAssetApprovable(
+  status: string,
+  autoValidationResult: string | null | undefined,
+  advisorValidationResult: string | null | undefined,
+) {
+  return (
+    isAiAssetReviewable(status) &&
+    autoValidationResult === 'PASSED' &&
+    advisorValidationResult === 'PASSED'
+  );
+}
+
+export function shouldShowAiAssetApproveButton(
+  status: string,
+  advisorValidationResult: string | null | undefined,
+) {
+  return isAiAssetReviewable(status) && advisorValidationResult !== 'REJECTED';
 }
 
 export function isAiAssetRegeneratable(status: string) {
@@ -73,6 +93,49 @@ export function aiAssetEvaluationSetListParams(
     targetType: targetType ?? undefined,
     size: 100,
   };
+}
+
+export const AI_EVALUATION_RUN_STATUS_TAGS = {
+  RUNNING: { color: 'processing', text: '실행 중' },
+  SUCCEEDED: { color: 'green', text: '성공' },
+  FAILED: { color: 'red', text: '실패' },
+} as const;
+
+export const AI_EVALUATION_RUN_RESULT_TAGS = {
+  PASSED: { color: 'green', text: '통과' },
+  FAILED: { color: 'red', text: '실패' },
+  NEEDS_REVIEW: { color: 'gold', text: '검토 필요' },
+} as const;
+
+export const AI_PROMPT_MANAGED_TYPE = 'EXPLANATION' as const;
+export const AI_PROMPT_DEFAULT_STATUS = 'DRAFT' as const;
+
+export const AI_PROMPT_VERSION_STATUS_TAGS = {
+  DRAFT: { color: 'gold', text: '초안' },
+  ACTIVE: { color: 'green', text: '활성' },
+  RETIRED: { color: 'default', text: '폐기' },
+} as const;
+
+export function aiPromptVersionListParams(
+  status: AiPromptStatus | undefined,
+): Pick<AiPromptVersionListParams, 'promptType' | 'status'> {
+  return {
+    promptType: AI_PROMPT_MANAGED_TYPE,
+    status,
+  };
+}
+
+export function aiDraftPromptOptionsParams(): AiPromptVersionListParams {
+  return {
+    promptType: AI_PROMPT_MANAGED_TYPE,
+    status: AI_PROMPT_DEFAULT_STATUS,
+    page: 0,
+    size: 100,
+  };
+}
+
+export function canRunAiEvaluation(adminRole: string | null | undefined) {
+  return adminRole === 'REVIEWER' || adminRole === 'SUPER_ADMIN';
 }
 
 export const PRAISE_SONG_FILTERABLE_STATUSES: PraiseSongStatus[] = ['ACTIVE', 'HIDDEN'];
