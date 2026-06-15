@@ -46,7 +46,12 @@ import {
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
 import { useAuth } from '../auth/useAuth';
-import { ADMIN_ROLES, canAccessAdminRoute } from '../constants/roles';
+import {
+  AI_EVALUATION_RUN_RESULT_TAGS,
+  AI_EVALUATION_RUN_STATUS_TAGS,
+  aiDraftPromptOptionsParams,
+  canRunAiEvaluation,
+} from './adminPageContracts';
 
 // ===== AD-11 AI 평가셋/평가케이스 관리 =====
 // 평가셋(목록/생성/활성·폐기) → 셋 선택 시 케이스(목록/생성/승인·반려)를 드로어로 관리한다.
@@ -98,28 +103,18 @@ function caseStatusTag(status: string) {
 }
 
 function runStatusTag(status: string) {
-  const map: Record<string, { color: string; text: string }> = {
-    QUEUED: { color: 'blue', text: '대기' },
-    RUNNING: { color: 'processing', text: '실행 중' },
-    SUCCEEDED: { color: 'green', text: '성공' },
-    COMPLETED: { color: 'green', text: '완료' },
-    PARTIAL_FAILED: { color: 'gold', text: '부분 실패' },
-    FAILED: { color: 'red', text: '실패' },
-    CANCELLED: { color: 'default', text: '취소' },
-  };
-  const m = map[status] ?? { color: 'default', text: status };
+  const m =
+    AI_EVALUATION_RUN_STATUS_TAGS[
+      status as keyof typeof AI_EVALUATION_RUN_STATUS_TAGS
+    ] ?? { color: 'default', text: status };
   return <Tag color={m.color}>{m.text}</Tag>;
 }
 
 function runResultTag(result: string) {
-  const map: Record<string, { color: string; text: string }> = {
-    PASSED: { color: 'green', text: '통과' },
-    PASS: { color: 'green', text: '통과' },
-    FAILED: { color: 'red', text: '실패' },
-    FAIL: { color: 'red', text: '실패' },
-    NEEDS_REVIEW: { color: 'gold', text: '검토 필요' },
-  };
-  const m = map[result] ?? { color: 'default', text: result };
+  const m =
+    AI_EVALUATION_RUN_RESULT_TAGS[
+      result as keyof typeof AI_EVALUATION_RUN_RESULT_TAGS
+    ] ?? { color: 'default', text: result };
   return <Tag color={m.color}>{m.text}</Tag>;
 }
 
@@ -158,7 +153,7 @@ export default function AiEvaluationsPage() {
 
   // 케이스 승인/반려 권한(REVIEWER/SUPER_ADMIN). CONTENT_CREATOR는 셋·케이스 생성까지만.
   const { adminInfo } = useAuth();
-  const canReview = canAccessAdminRoute(adminInfo?.adminRole, [ADMIN_ROLES.REVIEWER]);
+  const canReview = canRunAiEvaluation(adminInfo?.adminRole);
 
   const [evalType, setEvalType] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<string | undefined>(undefined);
@@ -195,24 +190,24 @@ export default function AiEvaluationsPage() {
 
     let cancelled = false;
     setLatestLoading(true);
-    Promise.all(
-      rows.map(async (row) => ({
-        setId: row.id,
-        run: await getLatestEvaluationRun(row.id),
-      })),
-    )
-      .then((entries) => {
+    Promise.allSettled(rows.map((row) => getLatestEvaluationRun(row.id)))
+      .then((results) => {
         if (cancelled) return;
         const next: Record<number, EvaluationRun | null> = {};
-        for (const entry of entries) {
-          next[entry.setId] = entry.run;
-        }
+        let failedCount = 0;
+        results.forEach((result, index) => {
+          const setId = rows[index].id;
+          if (result.status === 'fulfilled') {
+            next[setId] = result.value;
+            return;
+          }
+          next[setId] = null;
+          failedCount += 1;
+        });
         setLatestRuns(next);
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          message.error(
-            e instanceof Error ? e.message : '최근 평가 실행을 불러오지 못했습니다.',
+        if (failedCount > 0) {
+          message.warning(
+            `${failedCount}개 최근 평가 실행 결과를 불러오지 못했습니다.`,
           );
         }
       })
@@ -293,12 +288,7 @@ export default function AiEvaluationsPage() {
   const loadDraftPrompts = async () => {
     setPromptLoading(true);
     try {
-      const res = await listAiPromptVersions({
-        promptType: 'EXPLANATION',
-        status: 'DRAFT',
-        page: 0,
-        size: 100,
-      });
+      const res = await listAiPromptVersions(aiDraftPromptOptionsParams());
       setPromptOptions(res.content);
     } catch (e) {
       message.error(
