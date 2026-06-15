@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -15,12 +16,16 @@ import java.util.Optional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.study.api.dto.AdminSimulatorClipListResponse;
 import com.qtai.domain.study.api.dto.HidePublishedSimulatorClipCommand;
 import com.qtai.domain.study.api.dto.HidePublishedSimulatorClipResult;
+import com.qtai.domain.study.api.dto.ListAdminSimulatorClipsQuery;
 import com.qtai.domain.study.api.dto.PublishApprovedSimulatorClipCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedSimulatorClipResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -158,5 +163,56 @@ class SimulatorClipPublishServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
         verify(simulatorClipRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("목록: page 음수 / size 범위 밖 / 미지원 status는 INVALID_INPUT (조회 안 함)")
+    void list_rejectsInvalidArguments() {
+        assertInvalidList(new ListAdminSimulatorClipsQuery(null, null, -1, 20));
+        assertInvalidList(new ListAdminSimulatorClipsQuery(null, null, 0, 0));
+        assertInvalidList(new ListAdminSimulatorClipsQuery(null, null, 0, 101));
+        assertInvalidList(new ListAdminSimulatorClipsQuery("NOT_A_STATUS", null, 0, 20));
+        verify(simulatorClipRepository, never()).findForAdmin(any(), any(), any());
+    }
+
+    private void assertInvalidList(ListAdminSimulatorClipsQuery query) {
+        assertThatThrownBy(() -> service.listAdminSimulatorClips(query))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+    }
+
+    @Test
+    @DisplayName("목록: approvedAt==null은 null로 매핑되고 envelope(page/size/total/first/last)가 전달된다")
+    void list_mapsNullApprovedAtAndEnvelope() {
+        SimulatorClip approved = mock(SimulatorClip.class);
+        when(approved.getId()).thenReturn(1L);
+        when(approved.getQtPassageId()).thenReturn(35L);
+        when(approved.getTitle()).thenReturn("승인 클립");
+        when(approved.getStatus()).thenReturn(SimulatorClipStatus.APPROVED);
+        when(approved.getAiAssetId()).thenReturn(900L);
+        when(approved.getApprovedAt()).thenReturn(LocalDateTime.of(2026, 6, 15, 9, 0));
+        SimulatorClip pending = mock(SimulatorClip.class);
+        when(pending.getId()).thenReturn(2L);
+        when(pending.getQtPassageId()).thenReturn(35L);
+        when(pending.getTitle()).thenReturn("대기 클립");
+        when(pending.getStatus()).thenReturn(SimulatorClipStatus.PENDING);
+        when(pending.getAiAssetId()).thenReturn(null);
+        when(pending.getApprovedAt()).thenReturn(null);
+        when(simulatorClipRepository.findForAdmin(any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(approved, pending), PageRequest.of(0, 20), 2));
+
+        AdminSimulatorClipListResponse response = service.listAdminSimulatorClips(
+                new ListAdminSimulatorClipsQuery(null, 35L, 0, 20));
+
+        assertThat(response.content()).hasSize(2);
+        assertThat(response.content().get(0).approvedAt()).isNotNull();
+        assertThat(response.content().get(1).approvedAt()).isNull();
+        assertThat(response.content().get(1).aiAssetId()).isNull();
+        assertThat(response.content().get(0).status()).isEqualTo("APPROVED");
+        assertThat(response.totalElements()).isEqualTo(2);
+        assertThat(response.page()).isZero();
+        assertThat(response.size()).isEqualTo(20);
+        assertThat(response.first()).isTrue();
+        assertThat(response.last()).isTrue();
     }
 }

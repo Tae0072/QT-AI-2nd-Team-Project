@@ -100,11 +100,13 @@ class SimulatorClipPublishService implements
             throw new BusinessException(ErrorCode.INVALID_INPUT, "size must be between 1 and 100");
         }
         SimulatorClipStatus status = parseStatus(query.status());
+        // 정렬은 NULL-safe 결정적 키인 id DESC 사용. approvedAt 은 PENDING/REJECTED에서 NULL이라
+        // 정렬키로 쓰면 DB별 NULL 순서(H2/MySQL) 차이로 결과가 흔들린다. id는 auto-increment라
+        // 사실상 최신순이며 NULL이 없어 안정적이다.
         Page<SimulatorClip> page = simulatorClipRepository.findForAdmin(
                 status,
                 query.qtPassageId(),
-                PageRequest.of(query.page(), query.size(),
-                        Sort.by(Sort.Direction.DESC, "approvedAt", "id")));
+                PageRequest.of(query.page(), query.size(), Sort.by(Sort.Direction.DESC, "id")));
 
         return new AdminSimulatorClipListResponse(
                 page.getContent().stream().map(SimulatorClipPublishService::toListItem).toList(),
