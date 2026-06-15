@@ -126,7 +126,7 @@ public class AiPromptManagementService implements
                 promptType,
                 command.version(),
                 contentHash(command),
-                command.systemPrompt(),
+                AiPromptVersion.defaultSystemPrompt(),
                 command.userPromptTemplate(),
                 command.modelName(),
                 command.temperature(),
@@ -293,7 +293,7 @@ public class AiPromptManagementService implements
         String content = String.join("\n",
                 command.promptType(),
                 command.version(),
-                command.systemPrompt(),
+                AiPromptVersion.defaultSystemPrompt(),
                 command.userPromptTemplate(),
                 nullToEmpty(command.modelName()),
                 String.valueOf(command.temperature()),
@@ -342,7 +342,6 @@ public class AiPromptManagementService implements
         requireText(command.adminRole(), "adminRole");
         requireText(command.promptType(), "promptType");
         requireText(command.version(), "version");
-        requireText(command.systemPrompt(), "systemPrompt");
         requireText(command.userPromptTemplate(), "userPromptTemplate");
         if (command.temperature() != null && (command.temperature() < 0.0 || command.temperature() > 2.0)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "temperature must be between 0 and 2");

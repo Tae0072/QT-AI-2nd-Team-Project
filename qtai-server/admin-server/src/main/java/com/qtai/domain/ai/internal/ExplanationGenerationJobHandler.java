@@ -81,7 +81,7 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         ExplanationInput input = input(targetType, targetId);
         LlmCompletionResponse response = llmClient.complete(new LlmCompletionRequest(
                 promptVersion.getModelName(),
-                promptVersion.getSystemPrompt(),
+                AiPromptVersion.defaultSystemPrompt(),
                 userPrompt(promptVersion, input),
                 promptVersion.getMaxTokens(),
                 promptVersion.getTemperature()

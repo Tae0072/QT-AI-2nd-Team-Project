@@ -88,7 +88,7 @@ class ExplanationGenerationJobHandlerTest {
         ArgumentCaptor<LlmCompletionRequest> requestCaptor = ArgumentCaptor.forClass(LlmCompletionRequest.class);
         org.mockito.Mockito.verify(llmClient).complete(requestCaptor.capture());
         assertThat(requestCaptor.getValue().model()).isEqualTo("deepseek-reasoner");
-        assertThat(requestCaptor.getValue().systemPrompt()).isEqualTo("custom system prompt");
+        assertThat(requestCaptor.getValue().systemPrompt()).isEqualTo(AiPromptVersion.defaultSystemPrompt());
         assertThat(requestCaptor.getValue().maxTokens()).isEqualTo(1234);
         assertThat(requestCaptor.getValue().temperature()).isEqualTo(0.4);
         assertThat(requestCaptor.getValue().prompt())

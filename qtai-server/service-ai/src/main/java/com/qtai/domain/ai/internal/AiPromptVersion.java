@@ -246,6 +246,14 @@ public class AiPromptVersion {
         return retiredAt;
     }
 
+    static String defaultSystemPrompt() {
+        return DEFAULT_SYSTEM_PROMPT;
+    }
+
+    static String defaultUserPromptTemplate() {
+        return DEFAULT_USER_PROMPT_TEMPLATE;
+    }
+
     private static Long requirePositive(Long value, String fieldName) {
         if (value == null || value <= 0) {
             throw new IllegalArgumentException(fieldName + " must be positive");
