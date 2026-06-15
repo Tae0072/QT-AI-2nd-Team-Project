@@ -1,6 +1,7 @@
 package com.qtai.domain.ai.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,8 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.study.api.HidePublishedGlossaryTermsUseCase;
 import com.qtai.domain.study.api.HidePublishedSimulatorClipUseCase;
@@ -41,9 +44,8 @@ class AiAssetReviewServiceTest {
     private HidePublishedVerseExplanationUseCase hideExplanationUseCase;
     private PublishApprovedGlossaryTermsUseCase publishGlossaryUseCase;
     private HidePublishedGlossaryTermsUseCase hideGlossaryUseCase;
-    private PublishApprovedSimulatorClipUseCase publishSimulatorClipUseCase;
-    private HidePublishedSimulatorClipUseCase hideSimulatorClipUseCase;
-    private ObjectMapper objectMapper;
+    private PublishApprovedSimulatorClipUseCase publishSimulatorUseCase;
+    private HidePublishedSimulatorClipUseCase hideSimulatorUseCase;
     private AiAssetReviewService service;
 
     @BeforeEach
@@ -54,9 +56,8 @@ class AiAssetReviewServiceTest {
         hideExplanationUseCase = mock(HidePublishedVerseExplanationUseCase.class);
         publishGlossaryUseCase = mock(PublishApprovedGlossaryTermsUseCase.class);
         hideGlossaryUseCase = mock(HidePublishedGlossaryTermsUseCase.class);
-        publishSimulatorClipUseCase = mock(PublishApprovedSimulatorClipUseCase.class);
-        hideSimulatorClipUseCase = mock(HidePublishedSimulatorClipUseCase.class);
-        objectMapper = new ObjectMapper();
+        publishSimulatorUseCase = mock(PublishApprovedSimulatorClipUseCase.class);
+        hideSimulatorUseCase = mock(HidePublishedSimulatorClipUseCase.class);
         service = new AiAssetReviewService(
                 generatedAssetRepository,
                 validationLogRepository,
@@ -64,10 +65,10 @@ class AiAssetReviewServiceTest {
                 hideExplanationUseCase,
                 publishGlossaryUseCase,
                 hideGlossaryUseCase,
-                publishSimulatorClipUseCase,
-                hideSimulatorClipUseCase,
+                publishSimulatorUseCase,
+                hideSimulatorUseCase,
                 mock(WriteAuditLogUseCase.class),
-                objectMapper
+                new ObjectMapper()
         );
     }
 
@@ -136,55 +137,6 @@ class AiAssetReviewServiceTest {
     }
 
     @Test
-    void approvePublishesSimulatorClip() throws Exception {
-        AiGeneratedAsset asset = simulatorAsset();
-        stubPassedApproval(asset);
-
-        service.reviewAiAsset(command("APPROVE", true));
-
-        ArgumentCaptor<PublishApprovedSimulatorClipCommand> simulatorCaptor =
-                ArgumentCaptor.forClass(PublishApprovedSimulatorClipCommand.class);
-        verify(publishSimulatorClipUseCase).publishApprovedSimulatorClip(simulatorCaptor.capture());
-
-        PublishApprovedSimulatorClipCommand publishCommand = simulatorCaptor.getValue();
-        assertThat(publishCommand.qtPassageId()).isEqualTo(3001L);
-        assertThat(publishCommand.title()).isEqualTo("validated simulator clip");
-        assertThat(publishCommand.componentLibraryVersionId()).isEqualTo(11L);
-        assertThat(publishCommand.aiAssetId()).isEqualTo(500L);
-        assertThat(publishCommand.approvedAt()).isEqualTo(REVIEWED_AT);
-        assertThat(objectMapper.readTree(publishCommand.sceneScriptJson()).get("steps")).hasSize(1);
-        verify(publishExplanationUseCase, never()).publishApprovedVerseExplanation(any());
-        verify(publishGlossaryUseCase, never()).publishApprovedGlossaryTerms(any());
-    }
-
-    @Test
-    void approveSimulatorClipWithoutActivationDoesNotPublish() {
-        AiGeneratedAsset asset = simulatorAsset();
-        stubPassedApproval(asset);
-
-        service.reviewAiAsset(command("APPROVE", false));
-
-        assertThat(asset.getStatus()).isEqualTo(AiGeneratedAssetStatus.APPROVED);
-        verify(publishSimulatorClipUseCase, never()).publishApprovedSimulatorClip(any());
-    }
-
-    @Test
-    void hideHidesSimulatorClip() {
-        AiGeneratedAsset asset = simulatorAsset();
-        asset.approve(REVIEWED_AT.minusMinutes(1));
-        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
-
-        service.reviewAiAsset(command("HIDE", false));
-
-        ArgumentCaptor<HidePublishedSimulatorClipCommand> simulatorCaptor =
-                ArgumentCaptor.forClass(HidePublishedSimulatorClipCommand.class);
-        verify(hideSimulatorClipUseCase).hidePublishedSimulatorClip(simulatorCaptor.capture());
-        assertThat(simulatorCaptor.getValue().aiAssetId()).isEqualTo(500L);
-        verify(hideExplanationUseCase, never()).hidePublishedVerseExplanation(any());
-        verify(hideGlossaryUseCase, never()).hidePublishedGlossaryTerms(any());
-    }
-
-    @Test
     void rejectValidatingAssetWritesAdminValidationLog() {
         AiGeneratedAsset asset = asset();
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
@@ -195,6 +147,121 @@ class AiAssetReviewServiceTest {
         ArgumentCaptor<AiValidationLog> validationLogCaptor = ArgumentCaptor.forClass(AiValidationLog.class);
         verify(validationLogRepository).save(validationLogCaptor.capture());
         assertAdminValidationLog(validationLogCaptor.getValue(), AiValidationResult.REJECTED, "review reason");
+    }
+
+    @Test
+    void approveSimulatorPublishesClip() {
+        AiGeneratedAsset asset = simulatorAsset();
+        stubPassedApproval(asset);
+
+        service.reviewAiAsset(command("APPROVE", true));
+
+        ArgumentCaptor<PublishApprovedSimulatorClipCommand> captor =
+                ArgumentCaptor.forClass(PublishApprovedSimulatorClipCommand.class);
+        verify(publishSimulatorUseCase).publishApprovedSimulatorClip(captor.capture());
+        PublishApprovedSimulatorClipCommand published = captor.getValue();
+        assertThat(published.qtPassageId()).isEqualTo(2002L);
+        assertThat(published.title()).isEqualTo("\uc624\ub298\uc758 QT \uc2dc\ubbac\ub808\uc774\ud130");
+        assertThat(published.componentLibraryVersionId()).isEqualTo(7L);
+        assertThat(published.aiAssetId()).isEqualTo(500L);
+        assertThat(published.sceneScriptJson()).contains("scenes");
+        verify(publishExplanationUseCase, never())
+                .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+    }
+
+    @Test
+    void approveSimulatorWithoutActivateDoesNotPublish() {
+        AiGeneratedAsset asset = simulatorAsset();
+        stubPassedApproval(asset);
+
+        service.reviewAiAsset(command("APPROVE", false));
+
+        verify(publishSimulatorUseCase, never()).publishApprovedSimulatorClip(any());
+    }
+
+    @Test
+    void hideSimulatorHidesClip() {
+        AiGeneratedAsset asset = simulatorAsset();
+        asset.approve(REVIEWED_AT.minusMinutes(1));
+        when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
+
+        service.reviewAiAsset(command("HIDE", false));
+
+        ArgumentCaptor<HidePublishedSimulatorClipCommand> captor =
+                ArgumentCaptor.forClass(HidePublishedSimulatorClipCommand.class);
+        verify(hideSimulatorUseCase).hidePublishedSimulatorClip(captor.capture());
+        assertThat(captor.getValue().aiAssetId()).isEqualTo(500L);
+        verify(hideExplanationUseCase, never()).hidePublishedVerseExplanation(any());
+    }
+
+    private static AiGeneratedAsset simulatorAsset() {
+        AiGeneratedAsset asset = AiGeneratedAsset.create(
+                2L,
+                AiGeneratedAssetType.SIMULATOR,
+                AiTargetType.QT_PASSAGE,
+                2002L,
+                """
+                        {
+                          "title": "\uc624\ub298\uc758 QT \uc2dc\ubbac\ub808\uc774\ud130",
+                          "componentLibraryVersionId": 7,
+                          "sceneScript": { "scenes": [ { "id": 1, "type": "narration" } ] }
+                        }
+                        """,
+                "QT-AI Simulator",
+                CREATED_AT
+        );
+        setId(asset, 500L);
+        return asset;
+    }
+
+    @Test
+    void approveSimulatorWithoutSceneScriptThrows() {
+        AiGeneratedAsset asset = simulatorAssetWithPayload(
+                "{ \"title\": \"T\", \"componentLibraryVersionId\": 7 }");
+        stubPassedApproval(asset);
+
+        assertThatThrownBy(() -> service.reviewAiAsset(command("APPROVE", true)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(publishSimulatorUseCase, never()).publishApprovedSimulatorClip(any());
+    }
+
+    @Test
+    void approveSimulatorWithNonIntegerComponentVersionThrows() {
+        AiGeneratedAsset asset = simulatorAssetWithPayload(
+                "{ \"title\": \"T\", \"componentLibraryVersionId\": \"x\", \"sceneScript\": { \"scenes\": [] } }");
+        stubPassedApproval(asset);
+
+        assertThatThrownBy(() -> service.reviewAiAsset(command("APPROVE", true)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(publishSimulatorUseCase, never()).publishApprovedSimulatorClip(any());
+    }
+
+    @Test
+    void approveSimulatorWithBlankTitleThrows() {
+        AiGeneratedAsset asset = simulatorAssetWithPayload(
+                "{ \"title\": \"\", \"componentLibraryVersionId\": 7, \"sceneScript\": { \"scenes\": [] } }");
+        stubPassedApproval(asset);
+
+        assertThatThrownBy(() -> service.reviewAiAsset(command("APPROVE", true)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        verify(publishSimulatorUseCase, never()).publishApprovedSimulatorClip(any());
+    }
+
+    private static AiGeneratedAsset simulatorAssetWithPayload(String payloadJson) {
+        AiGeneratedAsset asset = AiGeneratedAsset.create(
+                2L,
+                AiGeneratedAssetType.SIMULATOR,
+                AiTargetType.QT_PASSAGE,
+                2002L,
+                payloadJson,
+                "QT-AI Simulator",
+                CREATED_AT
+        );
+        setId(asset, 500L);
+        return asset;
     }
 
     private void stubPassedApproval(AiGeneratedAsset asset) {
@@ -250,36 +317,6 @@ class AiAssetReviewServiceTest {
                               "meaning": "validated meaning"
                             }
                           ]
-                        }
-                        """,
-                "QT-AI DeepSeek",
-                CREATED_AT
-        );
-        setId(asset, 500L);
-        return asset;
-    }
-
-    private static AiGeneratedAsset simulatorAsset() {
-        AiGeneratedAsset asset = AiGeneratedAsset.create(
-                1L,
-                AiGeneratedAssetType.SIMULATOR,
-                AiTargetType.QT_PASSAGE,
-                3001L,
-                """
-                        {
-                          "title": "validated simulator clip",
-                          "componentLibraryVersionId": 11,
-                          "sceneScript": {
-                            "version": "1.0",
-                            "steps": [
-                              {
-                                "component": "paragraph",
-                                "props": {
-                                  "body": "validated scene"
-                                }
-                              }
-                            ]
-                          }
                         }
                         """,
                 "QT-AI DeepSeek",

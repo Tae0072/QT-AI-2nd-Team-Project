@@ -81,7 +81,7 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         ExplanationInput input = input(targetType, targetId);
         LlmCompletionResponse response = llmClient.complete(new LlmCompletionRequest(
                 promptVersion.getModelName(),
-                promptVersion.getSystemPrompt(),
+                AiPromptVersion.defaultSystemPrompt(),
                 userPrompt(promptVersion, input),
                 promptVersion.getMaxTokens(),
                 promptVersion.getTemperature()
@@ -307,15 +307,99 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
     }
 
     private String userPrompt(AiPromptVersion promptVersion, ExplanationInput input) {
-        return promptVersion.getUserPromptTemplate()
-                .replace("{{targetType}}", input.targetType().name())
-                .replace("{{targetId}}", String.valueOf(input.targetId()))
-                .replace("{{qtPassageBlock}}", qtPassageBlock(input))
-                .replace("{{versesBlock}}", versesBlock(input))
-                .replace("{{commentaryBlock}}", commentaryBlock(input));
+        String instruction = promptVersion.getUserPromptTemplate();
+        if (hasLegacyPlaceholder(instruction)) {
+            return legacyUserPrompt(instruction, input);
+        }
+        return naturalInstructionPrompt(instruction, input);
     }
 
-    private String qtPassageBlock(ExplanationInput input) {
+    private String naturalInstructionPrompt(String instruction, ExplanationInput input) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("다음 성경 구절에 대한 해설 JSON을 생성하세요.\n");
+        builder.append("대상 유형: ").append(input.targetType().name()).append('\n');
+        builder.append("대상 ID: ").append(input.targetId()).append('\n');
+        builder.append('\n');
+
+        String qtPassageBlock = koreanQtPassageBlock(input);
+        if (!qtPassageBlock.isBlank()) {
+            builder.append(qtPassageBlock).append('\n');
+        }
+
+        builder.append("구절 목록:\n");
+        builder.append(koreanVersesBlock(input));
+
+        String commentaryBlock = koreanCommentaryBlock(input);
+        if (!commentaryBlock.isBlank()) {
+            builder.append('\n').append(commentaryBlock);
+        }
+
+        builder.append('\n');
+        builder.append("추가 생성 지시사항:\n");
+        builder.append(instruction.strip()).append('\n');
+        return builder.toString();
+    }
+
+    private String legacyUserPrompt(String template, ExplanationInput input) {
+        return template
+                .replace("{{targetType}}", input.targetType().name())
+                .replace("{{targetId}}", String.valueOf(input.targetId()))
+                .replace("{{qtPassageBlock}}", legacyQtPassageBlock(input))
+                .replace("{{versesBlock}}", legacyVersesBlock(input))
+                .replace("{{commentaryBlock}}", legacyCommentaryBlock(input));
+    }
+
+    private static boolean hasLegacyPlaceholder(String prompt) {
+        return prompt.contains("{{targetType}}")
+                || prompt.contains("{{targetId}}")
+                || prompt.contains("{{qtPassageBlock}}")
+                || prompt.contains("{{versesBlock}}")
+                || prompt.contains("{{commentaryBlock}}");
+    }
+
+    private String koreanQtPassageBlock(ExplanationInput input) {
+        if (input.qtPassageId() == null) {
+            return "";
+        }
+        return "QT 본문 정보:\n"
+                + "- QT 본문 ID: " + input.qtPassageId() + '\n'
+                + "- QT 날짜: " + input.qtDate() + '\n'
+                + "- QT 제목: " + input.title() + '\n';
+    }
+
+    private String koreanVersesBlock(ExplanationInput input) {
+        StringBuilder builder = new StringBuilder();
+        for (BibleVerseResponse verse : input.verses()) {
+            builder.append("- verseId=").append(verse.id())
+                    .append(", 성경책 코드=").append(verse.bookCode())
+                    .append(", 장=").append(verse.chapterNo())
+                    .append(", 절=").append(verse.verseNo())
+                    .append(", 한글 본문=").append(nullToEmpty(verse.koreanText()))
+                    .append(", 영어 본문=").append(nullToEmpty(verse.englishText()))
+                    .append('\n');
+        }
+        return builder.toString();
+    }
+
+    private String koreanCommentaryBlock(ExplanationInput input) {
+        StringBuilder builder = new StringBuilder();
+        if (input.commentary() != null && input.commentary().hasMaterials()) {
+            builder.append("참고 해설 자료:\n");
+            builder.append("출처: ").append(nullToEmpty(input.commentary().sourceName()))
+                    .append(" (").append(nullToEmpty(input.commentary().licenseLabel())).append(")\n");
+            for (CommentaryMaterialContext.MaterialExcerpt material : input.commentary().materials()) {
+                builder.append("- materialId=").append(material.materialId())
+                        .append(", refs=").append(material.refs())
+                        .append(", 제목=").append(nullToEmpty(material.title()))
+                        .append(", verseIds=").append(material.verseIds())
+                        .append(", 발췌=").append(nullToEmpty(material.excerpt()))
+                        .append('\n');
+            }
+        }
+        return builder.toString();
+    }
+
+    private String legacyQtPassageBlock(ExplanationInput input) {
         if (input.qtPassageId() == null) {
             return "";
         }
@@ -324,7 +408,7 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
                 + "QT title: " + input.title() + '\n';
     }
 
-    private String versesBlock(ExplanationInput input) {
+    private String legacyVersesBlock(ExplanationInput input) {
         StringBuilder builder = new StringBuilder();
         for (BibleVerseResponse verse : input.verses()) {
             builder.append("- verseId=").append(verse.id())
@@ -338,7 +422,7 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         return builder.toString();
     }
 
-    private String commentaryBlock(ExplanationInput input) {
+    private String legacyCommentaryBlock(ExplanationInput input) {
         StringBuilder builder = new StringBuilder();
         if (input.commentary() != null && input.commentary().hasMaterials()) {
             builder.append("Commentary materials:\n");

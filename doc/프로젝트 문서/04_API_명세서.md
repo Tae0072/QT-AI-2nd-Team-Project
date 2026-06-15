@@ -231,6 +231,7 @@
 | AD-06 | 시스템 공지 | `GET /api/v1/admin/notices`, `GET /api/v1/admin/notices/{id}`, `POST /api/v1/admin/notices`, `PATCH /api/v1/admin/notices/{id}`, `POST /api/v1/admin/notices/{id}/publish`, `POST /api/v1/admin/notices/{id}/hide` |
 | AD-07 | 감사 로그 | `GET /api/v1/admin/audit-logs` |
 | AD-08 | AI 운영 모니터링 | `GET /api/v1/admin/ai/monitoring` |
+| AD-12 | 배경음악 관리 | `GET /api/v1/admin/music-tracks`, `POST /api/v1/admin/music-tracks`, `PATCH /api/v1/admin/music-tracks/{id}`, `POST /api/v1/admin/music-tracks/{id}/publish`, `POST /api/v1/admin/music-tracks/{id}/hide` |
 
 ---
 
@@ -1678,7 +1679,71 @@
 - **성공 코드:** 생성 `201 Created`, 수정 `200 OK`, 숨김 `204 No Content`
 - **실패 코드:** `400 VALIDATION_ERROR`, `403 FORBIDDEN`, `404 NOT_FOUND`, `409 INVALID_STATUS_TRANSITION`
 
-### 4.7.7 공지 관리
+### 4.7.7 배경음악 관리
+
+- **Method + URL:** `GET /api/v1/admin/music-tracks?status=ACTIVE&page=0&size=20`
+- **Method + URL:** `POST /api/v1/admin/music-tracks`
+- **Method + URL:** `PATCH /api/v1/admin/music-tracks/{id}`
+- **Method + URL:** `POST /api/v1/admin/music-tracks/{id}/publish`
+- **Method + URL:** `POST /api/v1/admin/music-tracks/{id}/hide`
+- **인증:** ADMIN + OPERATOR/SUPER_ADMIN
+- **연결 화면:** AD-12
+- **ERD:** `music_tracks`, `audit_logs`
+- **정책:** 기존 앱 배경음악 흐름(`GET /api/v1/music/tracks`, `GET /api/v1/music/tracks/{id}/stream`)은 유지한다. 관리자 API는 `music_tracks`의 음원 바이트와 메타데이터를 관리하되, 목록 응답과 감사 로그에는 `audio_data` 원문 바이트를 포함하지 않는다.
+
+등록/수정 요청은 `multipart/form-data`를 사용한다.
+
+| 필드 | 필수 | 설명 |
+|---|---:|---|
+| `title` | Y | 제목, 1~150자 |
+| `category` | Y | `BGM` 또는 `HYMN` |
+| `mimeType` | N | 기본 `audio/mpeg` |
+| `durationSec` | N | 재생 길이(초) |
+| `sortOrder` | N | 정렬 순서, 기본 0 |
+| `licenseNote` | N | 라이선스/출처 메모, 300자 이하 |
+| `file` | POST Y / PATCH N | POST는 필수, PATCH는 포함 시 음원 교체 |
+
+목록/상세 응답:
+
+`file` max upload size: 10 MiB.
+Allowed `mimeType`: `audio/mpeg`, `audio/mp4`, `audio/aac`, `audio/ogg`, `audio/wav`, `audio/x-wav`, `audio/webm`, `audio/flac`.
+PATCH omitted fields keep the existing `music_tracks` values.
+
+```json
+{
+  "content": [
+    {
+      "id": 10,
+      "title": "Morning Embrace",
+      "category": "BGM",
+      "mimeType": "audio/mpeg",
+      "byteSize": 1234567,
+      "durationSec": 180,
+      "sortOrder": 5,
+      "licenseNote": "운영자가 라이선스를 확인함",
+      "status": "ACTIVE",
+      "streamUrl": "/api/v1/music/tracks/10/stream",
+      "createdAt": "2026-06-15T10:00:00",
+      "updatedAt": "2026-06-15T10:00:00"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "sort": "createdAt,desc"
+}
+```
+
+- **상태 값:** `ACTIVE`, `HIDDEN`. `ACTIVE`는 기존 사용자 앱 배경음악 목록/스트리밍 조회에 노출되고, `HIDDEN`은 사용자 조회에서 제외된다.
+- **상태 전이:** 등록은 `HIDDEN`으로 시작한다. `publish`는 `HIDDEN -> ACTIVE`, `hide`는 `ACTIVE -> HIDDEN`만 허용한다. 중복 전이는 `409 C0007 INVALID_STATUS_TRANSITION`으로 거절한다.
+- **감사 로그:** 등록/수정/노출/숨김은 `audit_logs.target_type=MUSIC_TRACK`, `action_type=MUSIC_TRACK_CREATE|MUSIC_TRACK_UPDATE|MUSIC_TRACK_PUBLISH|MUSIC_TRACK_HIDE`로 기록한다. snapshot에는 식별자, 제목, 분류, MIME, byteSize, durationSec, sortOrder, licenseNote, status만 저장하고 음원 바이트는 저장하지 않는다.
+- **성공 코드:** 생성 `201 Created`, 수정/노출/숨김 `200 OK`
+- **실패 코드:** `400 VALIDATION_ERROR`, `403 FORBIDDEN`, `404 NOT_FOUND`, `409 INVALID_STATUS_TRANSITION`
+
+### 4.7.8 공지 관리
 
 - **Method + URL:** `GET /api/v1/admin/notices?page=0&size=20`
 - **Method + URL:** `GET /api/v1/admin/notices/{id}`
@@ -2254,6 +2319,7 @@
 | 알림 | `/notifications` | `notifications`, `notices` | `type`, `title`, `body`, `link_type`, `link_id`, `read_at` |
 | 공지 | `/admin/notices` | `notices`, `notifications` | `title`, `body`, `status`, `published_at` |
 | 찬양 | `/praise-songs`, `/me/praise-songs`, `/admin/praise-songs` | `praise_songs`, `member_praise_songs` | `title`, `artist`, `source_type`, `license_note`, `status`, `device_song_key`, `display_title` |
+| 배경음악 | `/music/tracks`, `/admin/music-tracks` | `music_tracks`, `audit_logs` | `title`, `category`, `mime_type`, `byte_size`, `duration_sec`, `sort_order`, `enabled`, `license_note` |
 | 미션 | `/me/dashboard` | `mission_definitions`, `member_mission_progress` | `metric_type`, `progress_rate`, `period_start_date` |
 | AI 생성 | `/system/ai/generation-jobs`, `/system/ai/assets` | `ai_prompt_versions`, `ai_generation_jobs`, `ai_generated_assets` | `prompt_type`, `version`, `job_type`, `asset_type`, `status` |
 | AI 검증 | `/admin/ai/assets`, `/system/ai/validation-logs` | `ai_validation_logs`, `validation_reference_jobs`, `ai_validation_checklist_versions` | `layer`, `result`, `checklist_json`, `reviewer_type`, `checklist_version_id` |
@@ -2296,6 +2362,8 @@
 |---|---|---|
 | 신고 대상 | `reports.target_type`, `targetType` | `POST`, `COMMENT`, `AI_QA_REQUEST`, `AI_ASSET` |
 | 신고 상태 | `reports.status`, `status` | `RECEIVED`, `REVIEWING`, `RESOLVED`, `REJECTED` |
+| 배경음악 분류 | `music_tracks.category`, `category` | `BGM`, `HYMN` |
+| 배경음악 노출 상태 | `music_tracks.enabled`, `status` | `ACTIVE`(enabled=true), `HIDDEN`(enabled=false) |
 | 찬양 출처 | `praise_songs.source_type`, `sourceType` | `CURATED`, `DEVICE` |
 | AI 산출물 유형 | `ai_generated_assets.asset_type`, `assetType` | `EXPLANATION`, `SUMMARY`, `GLOSSARY`, `SIMULATOR`, `QA_RESPONSE` |
 | AI 산출물 대상 | `ai_generated_assets.target_type`, `targetType` | `BIBLE_VERSE`, `QT_PASSAGE`, `QA_REQUEST` |
@@ -2405,6 +2473,11 @@
 | 88 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
 | 89 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
 | 90 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
+| 91 | GET | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 목록 |
+| 92 | POST | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 등록 |
+| 93 | PATCH | `/api/v1/admin/music-tracks/{id}` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 수정/교체 |
+| 94 | POST | `/api/v1/admin/music-tracks/{id}/publish` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 노출 |
+| 95 | POST | `/api/v1/admin/music-tracks/{id}/hide` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 숨김 |
 
 ---
 
@@ -2424,6 +2497,7 @@
 | v1.9 | 2026-06-12 | T (강태오) / Codex | §4.7.7 공지 관리에 상세 조회 응답(`GET /api/v1/admin/notices/{id}`), 입력 검증, 상태 전이, 성공/실패 코드(`AD0003`, `C0004`, `C0007`)를 보강. 상단 AD-06 기능 표와 §9 전체 API 요약 표에 공지 상세 조회 행(#85)을 추가하고 이후 번호를 #90까지 재정렬. 코드 변경 없음. |
 | v1.10 | 2026-06-12 | 김지민 (DevE) | `07_요구사항_정의서.md` v3.7(F-03 QT 노트 단일 body 확정, Lead 합의 2026-06-12) 반영 — 원본 보존 원칙에 따라 본문은 수정하지 않고 아래 "개정 추가 (2026-06-12)" 절로 기록. 노트 API(§4.3)의 4섹션 필드(`rememberSection`·`interpretSection`·`applySection`·`praySection`)를 **deprecated**(서버 계약·`notes` 테이블에 하위호환으로 잔존, v1 클라이언트 미사용)로 표기하고, QT 노트도 단일 `body` 사용임을 명시. 4섹션 필드·컬럼의 실제 제거는 서버 정리 버전(별도 백엔드 작업)에서 본 명세와 함께 처리한다. 코드 변경 없음. |
 | v1.11 | 2026-06-12 | 김지민 (DevE) | §7.3 평가 케이스 생성/등록을 **식별자·메타 기반**으로 정렬(원문/프롬프트/민감정보 미저장, `07` §7 / CLAUDE.md §7). ① `POST /admin/ai/reports/{reportId}/evaluation-candidates`(신규) — 신고를 평가 케이스 후보로 등록, `sourceType=USER_REPORT`·`sourceId=reportId`, 백엔드가 신고+산출물 메타로 `inputJson` 조립. ② `POST /admin/ai/evaluation-sets/{setId}/cases`(수동 생성) 요청을 식별자 전용(`targetType`·`targetId`·`expectedPolicyJson`)으로 축소 — `inputJson`/`expectedOutputJson` 자유 텍스트 입력 제거, 서버가 `{targetType,targetId,sourceType}` 메타로 조립. 아래 "개정 추가 (2026-06-12) — 평가 케이스 식별자 기반" 절로 상세 기록. 코드 변경: 있음(admin-server + admin-web, FE/BE 동시). |
+| v1.12 | 2026-06-15 | 강상민 (DevC) / Codex | §3 AD-12와 §4.7.7 관리자 배경음악 관리 API 추가. 기존 `music_tracks` DB 음원 모델을 재사용하고, 관리자 등록/수정은 multipart 파일 업로드로 처리한다. 등록은 HIDDEN으로 시작하며 publish/hide로 ACTIVE/HIDDEN을 전환한다. 목록 응답과 감사 로그에는 `audio_data` 원문 바이트를 포함하지 않는다. |
 
 ---
 

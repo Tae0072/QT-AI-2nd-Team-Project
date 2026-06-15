@@ -6,6 +6,7 @@ import 'package:qtai_app/core/theme/app_theme.dart';
 import 'package:qtai_app/core/widgets/calm_paper.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
+import '../models/dashboard_response.dart';
 import '../providers/mypage_providers.dart';
 
 /// 마이페이지 대시보드 화면 (Calm Paper — DESIGN_PROTOTYPE.md s-my).
@@ -40,12 +41,6 @@ class MyPageScreen extends ConsumerWidget {
       body: dashboardAsync.whenOrDefault(
         data: (dashboard) {
           final stats = dashboard.stats;
-          // 통계는 별도 카드 대신 프로필 부제로 접는다(프로토타입과 동일).
-          final subtitle = stats != null
-              ? '${l.statsStreak} ${l.statsDays(stats.meditationStreakDays)} · '
-                  '${l.statsWeek} ${l.statsDays(stats.week.meditationDays)} · '
-                  '${l.statsMonth} ${l.statsDays(stats.month.meditationDays)}'
-              : l.mypageViewProfile;
 
           return RefreshIndicator(
             onRefresh: () async {
@@ -58,11 +53,17 @@ class MyPageScreen extends ConsumerWidget {
                 if (dashboard.profile != null)
                   _ProfileRow(
                     nickname: dashboard.profile!.nickname,
-                    subtitle: subtitle,
+                    subtitle: l.mypageViewProfile,
                     onTap: () =>
                         Navigator.of(context).pushNamed(AppRouter.profileEdit),
                   ),
-                const SizedBox(height: 18),
+                // 미션 블록 — 연속/이번주/이번달 묵상 목표를 별도 블록으로 표시.
+                if (stats != null) ...[
+                  CpSectionTitle(l.missionTitle),
+                  _MissionBlock(stats: stats),
+                  const SizedBox(height: 8),
+                ] else
+                  const SizedBox(height: 18),
                 CpGroup(children: [
                   CpRow(
                     leading: Icons.notifications_outlined,
@@ -77,15 +78,6 @@ class MyPageScreen extends ConsumerWidget {
                     chevron: true,
                     onTap: () => Navigator.of(context)
                         .pushNamed(AppRouter.notifications),
-                  ),
-                  CpRow(
-                    leading: Icons.music_note_outlined,
-                    title: l.qmMyPraise,
-                    meta: l.qmSongCount(
-                        dashboard.praiseSummary?.savedSongCount ?? 0),
-                    chevron: true,
-                    onTap: () =>
-                        Navigator.of(context).pushNamed(AppRouter.praise),
                   ),
                 ]),
                 CpGroup(children: [
@@ -158,6 +150,86 @@ class _ProfileRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 미션 블록 — 연속/이번 주/이번 달 묵상 일수를 한 박스에 모아 보여 준다.
+///
+/// 기존엔 프로필 닉네임 부제로 접혀 있던 통계를 별도 블록으로 분리했다.
+class _MissionBlock extends StatelessWidget {
+  final StatsWidget stats;
+  const _MissionBlock({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final c = context.appColors;
+    return CpSubBox(
+      child: Row(
+        children: [
+          Expanded(
+            child: _MissionMetric(
+              icon: Icons.local_fire_department,
+              value: l.statsDays(stats.meditationStreakDays),
+              label: l.statsStreak,
+            ),
+          ),
+          Container(width: 1, height: 38, color: c.hairline),
+          Expanded(
+            child: _MissionMetric(
+              icon: Icons.calendar_today,
+              value: l.statsDays(stats.week.meditationDays),
+              label: l.statsWeek,
+            ),
+          ),
+          Container(width: 1, height: 38, color: c.hairline),
+          Expanded(
+            child: _MissionMetric(
+              icon: Icons.calendar_month,
+              value: l.statsDays(stats.month.meditationDays),
+              label: l.statsMonth,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 미션 블록의 단일 지표(아이콘 + 값 + 라벨).
+class _MissionMetric extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  const _MissionMetric({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.appColors;
+    return Column(
+      children: [
+        Icon(icon, size: 22, color: c.text2),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(
+              fontFamily: 'GowunDodum',
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: c.text),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+              fontFamily: 'GowunDodum', fontSize: 12, color: c.textMuted),
+        ),
+      ],
     );
   }
 }

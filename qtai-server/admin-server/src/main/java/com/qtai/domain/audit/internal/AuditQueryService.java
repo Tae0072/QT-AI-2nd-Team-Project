@@ -29,23 +29,19 @@ class AuditQueryService implements ListAuditUseCase {
     private static final String QT_VIDEO_CLIP_TARGET_TYPE = "QT_VIDEO_CLIP";
     // 감사 조회가 허용하는 대상 유형 — AI 산출물 + 관리자 해설 생성 트리거(QT 본문 대상).
     private static final List<String> ALLOWED_TARGET_TYPES = List.of(
-            AI_ASSET_TARGET_TYPE,
-            QT_PASSAGE_TARGET_TYPE,
-            SOURCE_VIDEO_TARGET_TYPE,
-            QT_VIDEO_CLIP_TARGET_TYPE
-    );
-    private static final List<String> AI_ACTION_TYPES = List.of(
-            "AI_ASSET_APPROVE",
-            "AI_ASSET_REJECT",
-            "AI_ASSET_HIDE",
-            "AI_REGENERATE_REQUEST",
-            "AI_EXPLANATION_GENERATE_REQUEST",
-            "SIMULATOR_CLIP_HIDE",
-            "QT_VIDEO_SOURCE_CREATE",
-            "QT_VIDEO_SOURCE_UPDATE",
-            "QT_VIDEO_SEGMENTS_REPLACE",
-            "QT_VIDEO_CLIP_PREPARE",
-            "QT_VIDEO_CLIP_STATUS_CHANGE"
+            AI_ASSET_TARGET_TYPE, QT_PASSAGE_TARGET_TYPE, "REPORT", "NOTICE", "MUSIC_TRACK",
+            SOURCE_VIDEO_TARGET_TYPE, QT_VIDEO_CLIP_TARGET_TYPE);
+    // AD-07 admin audit allowlist (deny-by-default). Operational admin actions exposed;
+    // sensitive AI governance (VALIDATION_REFERENCE_JOB / evaluation / prompt) intentionally excluded.
+    private static final List<String> ADMIN_AUDIT_ACTION_TYPES = List.of(
+            "AI_ASSET_APPROVE", "AI_ASSET_REJECT", "AI_ASSET_HIDE",
+            "AI_REGENERATE_REQUEST", "AI_EXPLANATION_GENERATE_REQUEST", "SIMULATOR_CLIP_HIDE",
+            "REPORT_RESOLVE", "REPORT_REJECT",
+            "NOTICE_CREATE", "NOTICE_UPDATE", "NOTICE_PUBLISH", "NOTICE_HIDE",
+            "MUSIC_TRACK_CREATE", "MUSIC_TRACK_UPDATE", "MUSIC_TRACK_HIDE", "MUSIC_TRACK_PUBLISH", "MUSIC_TRACK_DELETE",
+            "QT_PASSAGE_CREATE", "QT_PASSAGE_UPDATE", "QT_PASSAGE_HIDE", "QT_PASSAGE_PUBLISH",
+            "QT_VIDEO_SOURCE_CREATE", "QT_VIDEO_SOURCE_UPDATE", "QT_VIDEO_SEGMENTS_REPLACE",
+            "QT_VIDEO_CLIP_PREPARE", "QT_VIDEO_CLIP_STATUS_CHANGE"
     );
     private static final int MAX_PAGE_SIZE = 100;
 
@@ -143,9 +139,9 @@ class AuditQueryService implements ListAuditUseCase {
 
     private static List<String> resolveActionTypes(String actionType) {
         if (actionType == null || actionType.isBlank()) {
-            return AI_ACTION_TYPES;
+            return ADMIN_AUDIT_ACTION_TYPES;
         }
-        if (!AI_ACTION_TYPES.contains(actionType)) {
+        if (!ADMIN_AUDIT_ACTION_TYPES.contains(actionType)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "actionType is not supported");
         }
         return List.of(actionType);

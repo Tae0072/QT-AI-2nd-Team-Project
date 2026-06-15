@@ -39,7 +39,6 @@ export interface AiPromptVersionListParams extends PageParams {
 export interface CreateAiPromptVersionPayload {
   promptType: AiPromptType;
   version: string;
-  systemPrompt: string;
   userPromptTemplate: string;
   modelName?: string;
   temperature: number;
