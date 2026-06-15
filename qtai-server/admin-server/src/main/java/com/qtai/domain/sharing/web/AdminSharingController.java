@@ -29,7 +29,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 관리자 나눔 공유글 운영 API (F-10, AD-15).
  *
- * <p>base path: {@code /api/v1/admin/sharing-posts}. 권한: ADMIN + admin_users OPERATOR.
+ * <p>base path: {@code /api/v1/admin/sharing-posts}. 권한: ROLE_ADMIN + admin_users OPERATOR.
+ * (SUPER_ADMIN은 {@code verifyAnyRole}의 우월권 규칙으로 자동 통과하므로 인자에 별도로 넣지 않는다.)
  * 모더레이션은 숨김/복원만 제공한다(하드 삭제 없음).
  * <ul>
  *   <li>GET   /api/v1/admin/sharing-posts             — 목록(status·q 필터, 페이징)</li>
@@ -80,7 +81,8 @@ public class AdminSharingController {
         return ResponseEntity.ok(ApiResponse.success(adminSharingPostUseCase.restore(postId)));
     }
 
-    // ── 관리자 인증/권한 (ADMIN + admin_users OPERATOR, SUPER_ADMIN 우월권) ──
+    // ── 관리자 인증/권한 (ROLE_ADMIN + admin_users OPERATOR) ──
+    // SUPER_ADMIN은 verifyAnyRole 내부 우월권 규칙으로 통과하므로 requiredRoles에 명시하지 않는다.
 
     private Long requireOperator(Authentication requestAuthentication) {
         Authentication authentication = requestAuthentication != null
