@@ -10,6 +10,14 @@ import com.qtai.domain.member.api.UpdateMemberStatusForAdminUseCase;
 import com.qtai.domain.member.api.dto.AdminMemberDetailResponse;
 import com.qtai.domain.member.api.dto.AdminMemberResponse;
 import com.qtai.domain.member.api.dto.MemberStatusUpdateRequest;
+import com.qtai.domain.mission.api.GetMemberMissionProgressUseCase;
+import com.qtai.domain.mission.api.dto.MissionProgressResponse;
+import com.qtai.domain.note.api.ListMemberNotesForAdminUseCase;
+import com.qtai.domain.note.api.dto.AdminNoteItem;
+import com.qtai.domain.sharing.api.AdminMemberSharingQueryUseCase;
+import com.qtai.domain.sharing.api.dto.AdminMemberCommentItem;
+import com.qtai.domain.sharing.api.dto.AdminMemberLikedPostItem;
+import com.qtai.domain.sharing.api.dto.AdminMemberPostItem;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Set;
@@ -45,6 +53,9 @@ public class AdminMemberController {
     private final UpdateMemberStatusForAdminUseCase updateMemberStatusForAdminUseCase;
     private final GetMemberDetailForAdminUseCase getMemberDetailForAdminUseCase;
     private final VerifyAdminRoleUseCase verifyAdminRoleUseCase;
+    private final ListMemberNotesForAdminUseCase listMemberNotesForAdminUseCase;
+    private final AdminMemberSharingQueryUseCase adminMemberSharingQueryUseCase;
+    private final GetMemberMissionProgressUseCase getMemberMissionProgressUseCase;
 
     /** GET /api/v1/admin/members?status=&q=&page=&size= */
     @GetMapping
@@ -78,6 +89,65 @@ public class AdminMemberController {
         requireOperator(authentication);
         return ResponseEntity.ok(
                 ApiResponse.success(getMemberDetailForAdminUseCase.getDetailForAdmin(memberId)));
+    }
+
+    /** GET /api/v1/admin/members/{memberId}/notes — 회원이 작성한 노트(메타데이터, 최신순) */
+    @GetMapping("/{memberId}/notes")
+    public ResponseEntity<ApiResponse<Page<AdminNoteItem>>> notes(
+            @PathVariable Long memberId,
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        requireOperator(authentication);
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return ResponseEntity.ok(ApiResponse.success(
+                listMemberNotesForAdminUseCase.listNotesByMember(memberId, pageable)));
+    }
+
+    /** GET /api/v1/admin/members/{memberId}/posts — 회원이 공유한 나눔글(전체 상태, 최신순) */
+    @GetMapping("/{memberId}/posts")
+    public ResponseEntity<ApiResponse<Page<AdminMemberPostItem>>> posts(
+            @PathVariable Long memberId,
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        requireOperator(authentication);
+        return ResponseEntity.ok(ApiResponse.success(
+                adminMemberSharingQueryUseCase.listPostsByMember(memberId, PageRequest.of(page, size))));
+    }
+
+    /** GET /api/v1/admin/members/{memberId}/comments — 회원이 작성한 댓글(삭제 포함, 최신순) */
+    @GetMapping("/{memberId}/comments")
+    public ResponseEntity<ApiResponse<Page<AdminMemberCommentItem>>> comments(
+            @PathVariable Long memberId,
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        requireOperator(authentication);
+        return ResponseEntity.ok(ApiResponse.success(
+                adminMemberSharingQueryUseCase.listCommentsByMember(memberId, PageRequest.of(page, size))));
+    }
+
+    /** GET /api/v1/admin/members/{memberId}/likes — 회원이 좋아요한 나눔글(최신순) */
+    @GetMapping("/{memberId}/likes")
+    public ResponseEntity<ApiResponse<Page<AdminMemberLikedPostItem>>> likes(
+            @PathVariable Long memberId,
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        requireOperator(authentication);
+        return ResponseEntity.ok(ApiResponse.success(
+                adminMemberSharingQueryUseCase.listLikedPostsByMember(memberId, PageRequest.of(page, size))));
+    }
+
+    /** GET /api/v1/admin/members/{memberId}/missions — 회원 미션 진행률 */
+    @GetMapping("/{memberId}/missions")
+    public ResponseEntity<ApiResponse<List<MissionProgressResponse>>> missions(
+            @PathVariable Long memberId,
+            Authentication authentication) {
+        requireOperator(authentication);
+        return ResponseEntity.ok(ApiResponse.success(
+                getMemberMissionProgressUseCase.getMissionProgress(memberId)));
     }
 
     /** PATCH /api/v1/admin/members/{memberId}/status */

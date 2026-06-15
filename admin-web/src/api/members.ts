@@ -88,3 +88,83 @@ export function updateMemberStatus(id: number, payload: MemberStatusUpdateReques
     apiClient.patch<ApiResponse<AdminMember>>(`/admin/members/${id}/status`, payload),
   );
 }
+
+// ===== 회원 상세 추가 조회 (노트·공유글·댓글·좋아요·미션) =====
+//   GET /api/v1/admin/members/{id}/notes|posts|comments|likes|missions
+
+export interface AdminNoteItem {
+  id: number;
+  qtPassageId: number | null;
+  category: string | null;
+  status: string | null;
+  visibility: string | null;
+  title: string | null;
+  createdAt: string;
+}
+
+export interface AdminMemberPostItem {
+  id: number;
+  status: string | null;
+  title: string | null;
+  category: string | null;
+  createdAt: string;
+}
+
+export interface AdminMemberCommentItem {
+  id: number;
+  sharingPostId: number;
+  body: string | null;
+  deleted: boolean;
+  createdAt: string;
+}
+
+export interface AdminMemberLikedPostItem {
+  postId: number;
+  title: string | null;
+  status: string | null;
+  likedAt: string;
+}
+
+export interface MissionProgress {
+  missionDefinitionId: number;
+  code: string;
+  title: string;
+  metricType: string;
+  periodType: string;
+  currentCount: number;
+  targetCount: number;
+  progressRate: number;
+  completed: boolean;
+  periodStartDate: string | null;
+  periodEndDate: string | null;
+  completedAt: string | null;
+}
+
+async function listSub<T>(id: number, sub: string, params: PageParams): Promise<Page<T>> {
+  const page = await unwrap<SpringPage<T>>(
+    apiClient.get<ApiResponse<SpringPage<T>>>(`/admin/members/${id}/${sub}`, { params }),
+  );
+  return normalizePage(page, params);
+}
+
+export function listMemberNotes(id: number, params: PageParams = {}) {
+  return listSub<AdminNoteItem>(id, 'notes', params);
+}
+
+export function listMemberPosts(id: number, params: PageParams = {}) {
+  return listSub<AdminMemberPostItem>(id, 'posts', params);
+}
+
+export function listMemberComments(id: number, params: PageParams = {}) {
+  return listSub<AdminMemberCommentItem>(id, 'comments', params);
+}
+
+export function listMemberLikes(id: number, params: PageParams = {}) {
+  return listSub<AdminMemberLikedPostItem>(id, 'likes', params);
+}
+
+export function getMemberMissions(id: number) {
+  return unwrap<MissionProgress[]>(
+    apiClient.get<ApiResponse<MissionProgress[]>>(`/admin/members/${id}/missions`),
+  );
+}
