@@ -3,6 +3,7 @@ package com.qtai.domain.qt.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -21,6 +22,7 @@ import com.qtai.domain.qt.api.admin.HideAdminQtPassageUseCase;
 import com.qtai.domain.qt.api.admin.ListAdminQtPassagesUseCase;
 import com.qtai.domain.qt.api.admin.PublishAdminQtPassageUseCase;
 import com.qtai.domain.qt.api.admin.UpdateAdminQtPassageUseCase;
+import com.qtai.domain.qt.api.admin.dto.AdminQtPassageCommand;
 import com.qtai.domain.qt.api.admin.dto.AdminQtPassageListResponse;
 import com.qtai.domain.qt.api.admin.dto.AdminQtPassageResponse;
 import java.time.LocalDate;
@@ -29,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
@@ -122,6 +125,48 @@ class AdminQtPassageControllerTest {
                         .content(objectMapper.writeValueAsBytes(request())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.status").value("pending_review"));
+    }
+
+    @Test
+    @DisplayName("endChapter 미지정 등록 요청은 종료 장을 시작 장으로 보정해 전달한다")
+    void create_withoutEndChapter_defaultsEndChapterToChapter() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(requiredRoles())))
+                .thenReturn(new AdminUserInfo(3L, 7L, "OPERATOR"));
+        when(createUseCase.create(any())).thenReturn(response(10L, "pending_review"));
+
+        mockMvc.perform(post("/api/v1/admin/qt-passages")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"qtDate":"2026-06-10","bookId":46,"chapter":9,"startVerse":1,"endVerse":17,"title":"오늘 QT"}
+                                """))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<AdminQtPassageCommand> captor = ArgumentCaptor.forClass(AdminQtPassageCommand.class);
+        verify(createUseCase).create(captor.capture());
+        assertThat(captor.getValue().chapter()).isEqualTo((short) 9);
+        assertThat(captor.getValue().endChapter()).isEqualTo((short) 9);
+    }
+
+    @Test
+    @DisplayName("endChapter 지정 등록 요청은 종료 장을 그대로 전달한다")
+    void create_withEndChapter_passesThrough() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(requiredRoles())))
+                .thenReturn(new AdminUserInfo(3L, 7L, "OPERATOR"));
+        when(createUseCase.create(any())).thenReturn(response(10L, "pending_review"));
+
+        mockMvc.perform(post("/api/v1/admin/qt-passages")
+                        .principal(authentication("ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"qtDate":"2026-06-10","bookId":46,"chapter":9,"endChapter":10,"startVerse":1,"endVerse":5,"title":"오늘 QT"}
+                                """))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<AdminQtPassageCommand> captor = ArgumentCaptor.forClass(AdminQtPassageCommand.class);
+        verify(createUseCase).create(captor.capture());
+        assertThat(captor.getValue().chapter()).isEqualTo((short) 9);
+        assertThat(captor.getValue().endChapter()).isEqualTo((short) 10);
     }
 
     @Test

@@ -6,6 +6,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.bible.api.GetBibleVerseUseCase;
 import com.qtai.domain.bible.api.ListBibleBooksUseCase;
 import com.qtai.domain.bible.api.dto.BibleBookResponse;
@@ -79,12 +81,14 @@ class QtTodayPassageImportServiceTest {
     }
 
     @Test
-    @DisplayName("장 교차 범위 중 한 장이라도 비면 기존 매핑을 유지하고 백필 재시도 대상으로 남긴다")
+    @DisplayName("장 교차 범위 중 한 장이 비면(getVerses가 BIBLE_VERSE_NOT_FOUND throw) 기존 매핑을 유지하고 백필 재시도 대상으로 남긴다")
     void importToday_keepsExistingMappingsWhenAnyChapterIsMissing() {
         when(getBibleVerseUseCase.getVerses("1CO", 9, null, null)).thenReturn(range(
                 verse(902L, 9, 2), verse(903L, 9, 3)
         ));
-        when(getBibleVerseUseCase.getVerses("1CO", 10, null, null)).thenReturn(range());
+        // 실제 계약: 절이 없는 장이면 getVerses는 빈 결과가 아니라 예외를 던진다.
+        when(getBibleVerseUseCase.getVerses("1CO", 10, null, null))
+                .thenThrow(new BusinessException(ErrorCode.BIBLE_VERSE_NOT_FOUND));
 
         service.importToday(LocalDate.of(2026, 6, 15), passage((short) 9, (short) 11, (short) 2, (short) 2));
 
