@@ -155,6 +155,46 @@ export function listMemberPosts(id: number, params: PageParams = {}) {
   return listSub<AdminMemberPostItem>(id, 'posts', params);
 }
 
+export interface AdminNoteDetail {
+  id: number;
+  qtPassageId: number | null;
+  category: string | null;
+  status: string | null;
+  visibility: string | null;
+  title: string | null;
+  body: string | null;
+  rememberSection: string | null;
+  interpretSection: string | null;
+  applySection: string | null;
+  praySection: string | null;
+  createdAt: string;
+}
+
+export interface AdminMemberPostDetail {
+  id: number;
+  status: string | null;
+  title: string | null;
+  body: string | null;
+  category: string | null;
+  verseLabel: string | null;
+  noteId: number | null;
+  likeCount: number;
+  commentCount: number;
+  createdAt: string;
+}
+
+export function getMemberNote(memberId: number, noteId: number) {
+  return unwrap<AdminNoteDetail>(
+    apiClient.get<ApiResponse<AdminNoteDetail>>(`/admin/members/${memberId}/notes/${noteId}`),
+  );
+}
+
+export function getMemberPost(memberId: number, postId: number) {
+  return unwrap<AdminMemberPostDetail>(
+    apiClient.get<ApiResponse<AdminMemberPostDetail>>(`/admin/members/${memberId}/posts/${postId}`),
+  );
+}
+
 export function listMemberComments(id: number, params: PageParams = {}) {
   return listSub<AdminMemberCommentItem>(id, 'comments', params);
 }

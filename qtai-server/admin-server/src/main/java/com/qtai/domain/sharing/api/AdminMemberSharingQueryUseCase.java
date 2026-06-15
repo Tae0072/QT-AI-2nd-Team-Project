@@ -2,6 +2,7 @@ package com.qtai.domain.sharing.api;
 
 import com.qtai.domain.sharing.api.dto.AdminMemberCommentItem;
 import com.qtai.domain.sharing.api.dto.AdminMemberLikedPostItem;
+import com.qtai.domain.sharing.api.dto.AdminMemberPostDetail;
 import com.qtai.domain.sharing.api.dto.AdminMemberPostItem;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,4 +22,7 @@ public interface AdminMemberSharingQueryUseCase {
 
     /** 회원이 좋아요한 나눔글을 좋아요 누른 시각 최신순으로 페이징 조회한다. */
     Page<AdminMemberLikedPostItem> listLikedPostsByMember(Long memberId, Pageable pageable);
+
+    /** 회원이 공유한 나눔글 1건의 전체 내용을 조회한다. 해당 회원의 글이 아니면 SHARING_POST_NOT_FOUND. */
+    AdminMemberPostDetail getPostDetailForMember(Long memberId, Long postId);
 }
