@@ -83,6 +83,22 @@ test('admin page modals use destroyOnHidden instead of deprecated destroyOnClose
   }
 });
 
+test('audit log actor filter exposes only admin and system batch actors', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AuditLogsPage.tsx'), 'utf8');
+  const optionsMatch = page.match(/const ACTOR_TYPE_OPTIONS = \[([\s\S]*?)\];/);
+
+  assert.ok(optionsMatch, 'ACTOR_TYPE_OPTIONS must be declared in AuditLogsPage.tsx');
+
+  const optionsSource = optionsMatch[1];
+  assert.match(optionsSource, /label:\s*'ADMIN',\s*value:\s*'ADMIN'/);
+  assert.match(
+    optionsSource,
+    /label:\s*'SYSTEM_BATCH',\s*value:\s*'SYSTEM_BATCH'/,
+  );
+  assert.doesNotMatch(optionsSource, /label:\s*'USER'|value:\s*'USER'/);
+  assert.match(page, /options=\{ACTOR_TYPE_OPTIONS\}/);
+});
+
 test('AI asset action visibility follows review and regeneration contracts', () => {
   assert.equal(contracts.isAiAssetReviewable('VALIDATING'), true);
   assert.equal(contracts.isAiAssetReviewable('APPROVED'), false);

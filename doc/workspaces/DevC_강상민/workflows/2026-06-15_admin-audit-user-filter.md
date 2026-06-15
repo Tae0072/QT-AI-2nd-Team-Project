@@ -64,6 +64,7 @@ AD-07 감사 로그 화면은 현재 관리자와 시스템 배치의 주요 행
 | --- | --- | --- |
 | 타입 체크 | `npm run typecheck` (`admin-web`) | 성공 |
 | 테스트 | `npm test` (`admin-web`) | 성공 |
+| 계약 테스트 | `admin-page-contracts.test.mjs`에서 AD-07 행위자 필터 옵션 검증 | `ADMIN`, `SYSTEM_BATCH`만 포함하고 `USER` 없음 |
 | 정적 확인 | `rg -n "label: 'USER'|value: 'USER'|ADMIN, SYSTEM_BATCH, USER" admin-web/src` | 결과 없음 |
 | 수동 확인 | `/audit-logs` 행위자 필터 확인 | `ADMIN`, `SYSTEM_BATCH`만 표시 |
 
