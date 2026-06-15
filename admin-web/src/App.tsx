@@ -9,6 +9,7 @@ import AiAssetsPage from './pages/AiAssetsPage';
 import ReportsPage from './pages/ReportsPage';
 import MembersPage from './pages/MembersPage';
 import MissionsPage from './pages/MissionsPage';
+import SharingPostsPage from './pages/SharingPostsPage';
 import MusicTracksPage from './pages/MusicTracksPage';
 import NoticesPage from './pages/NoticesPage';
 import AuditLogsPage from './pages/AuditLogsPage';
@@ -65,6 +66,10 @@ export default function App() {
           <Route
             path="/missions"
             element={withRole('/missions', <MissionsPage />)}
+          />
+          <Route
+            path="/sharing-posts"
+            element={withRole('/sharing-posts', <SharingPostsPage />)}
           />
           {/* AD-05 찬양 큐레이션 → AD-12 배경음악 관리로 통합. 기존 경로는 리다이렉트. */}
           <Route path="/praise-songs" element={<Navigate to="/music-tracks" replace />} />

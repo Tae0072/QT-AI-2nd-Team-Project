@@ -83,6 +83,23 @@ public interface SharingPostRepository extends JpaRepository<SharingPost, Long> 
                                                 Collection<SharingPostStatus> statuses,
                                                 Pageable pageable);
 
+    /**
+     * 관리자 나눔 운영 검색(AD-15). 사용자 피드 {@link #search}와 달리 status가 null이면 전체 상태를 본다.
+     * q가 null이면 검색어 필터를 건너뛴다. q는 호출부(Service)에서 LIKE 와일드카드(%, _, \)를
+     * 이스케이프한 값으로 넘기고, 여기서 CONCAT('%', :q, '%')로 감싸 제목·닉네임 "포함" 검색한다.
+     * 정렬은 Pageable이 처리한다.
+     */
+    @Query("""
+            SELECT sp FROM SharingPost sp
+            WHERE (:status IS NULL OR sp.status = :status)
+              AND (:q IS NULL
+                   OR sp.snapshotTitle LIKE CONCAT('%', :q, '%') ESCAPE '\\'
+                   OR sp.nicknameSnapshot LIKE CONCAT('%', :q, '%') ESCAPE '\\')
+            """)
+    Page<SharingPost> searchForAdmin(@Param("status") SharingPostStatus status,
+                                     @Param("q") String q,
+                                     Pageable pageable);
+
     /** 회원이 작성한 공유글 수(전체 상태) — 관리자 회원 상세 통계용. */
     long countByMemberId(Long memberId);
 

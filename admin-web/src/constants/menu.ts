@@ -64,6 +64,12 @@ export const MENU_ITEMS: MenuItem[] = [
     label: '미션 관리',
     requiredRoles: [ADMIN_ROLES.CONTENT_CREATOR, ADMIN_ROLES.OPERATOR],
   },
+  {
+    code: 'AD-15',
+    path: '/sharing-posts',
+    label: '나눔 공유글 관리',
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
+  },
   // AD-05 찬양 큐레이션은 AD-12 '배경음악 관리'로 통합됨(2026-06-15). 메뉴/페이지 제거.
   {
     code: 'AD-06',
