@@ -155,6 +155,10 @@ class AiAssetReviewServiceTest {
                         "password",
                         "privateKey"
                 );
+
+        ArgumentCaptor<AiValidationLog> validationLogCaptor = ArgumentCaptor.forClass(AiValidationLog.class);
+        verify(validationLogRepository).save(validationLogCaptor.capture());
+        assertAdminValidationLog(validationLogCaptor.getValue(), AiValidationResult.PASSED, null);
     }
 
     @Test
@@ -363,7 +367,7 @@ class AiAssetReviewServiceTest {
     }
 
     @Test
-    void rejectValidatingAssetWritesRejectAuditOnly() {
+    void rejectValidatingAssetWritesAdminValidationLogAndRejectAudit() {
         AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
 
@@ -376,6 +380,9 @@ class AiAssetReviewServiceTest {
         ArgumentCaptor<AuditLogWriteRequest> auditCaptor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
         verify(auditLogUseCase).write(auditCaptor.capture());
         assertThat(auditCaptor.getValue().actionType()).isEqualTo("AI_ASSET_REJECT");
+        ArgumentCaptor<AiValidationLog> validationLogCaptor = ArgumentCaptor.forClass(AiValidationLog.class);
+        verify(validationLogRepository).save(validationLogCaptor.capture());
+        assertAdminValidationLog(validationLogCaptor.getValue(), AiValidationResult.REJECTED, "review reason");
     }
 
     @Test
@@ -625,6 +632,22 @@ class AiAssetReviewServiceTest {
                 null,
                 REVIEWED_AT.minusMinutes(5)
         );
+    }
+
+    private static void assertAdminValidationLog(
+            AiValidationLog validationLog,
+            AiValidationResult result,
+            String errorMessage
+    ) {
+        assertThat(validationLog.getAiAssetId()).isEqualTo(500L);
+        assertThat(validationLog.getValidationReferenceJobId()).isNull();
+        assertThat(validationLog.getLayer()).isEqualTo(3);
+        assertThat(validationLog.getResult()).isEqualTo(result);
+        assertThat(validationLog.getReviewerType()).isEqualTo(AiValidationReviewerType.ADMIN);
+        assertThat(validationLog.getChecklistVersionId()).isNull();
+        assertThat(validationLog.getChecklistJson()).isEqualTo("{\"source\":\"ADMIN_ASSET_REVIEW\"}");
+        assertThat(validationLog.getErrorMessage()).isEqualTo(errorMessage);
+        assertThat(validationLog.getCreatedAt()).isEqualTo(REVIEWED_AT);
     }
 
     private static AiValidationChecklistVersion activeChecklist(AiValidationChecklistType checklistType) {
