@@ -110,6 +110,7 @@ export default function QtPassagesPage() {
       qtDate: r.qtDate,
       bookId: r.bookId,
       chapter: r.chapter,
+      endChapter: r.endChapter,
       startVerse: r.startVerse,
       endVerse: r.endVerse,
       title: r.title,
@@ -162,7 +163,10 @@ export default function QtPassagesPage() {
       title: '본문',
       width: 200,
       render: (_, r) =>
-        r.mainVerseRef ?? `#${r.bookId} ${r.chapter}:${r.startVerse}-${r.endVerse}`,
+        r.mainVerseRef ??
+        `#${r.bookId} ${r.chapter}:${r.startVerse}-${
+          r.chapter === r.endChapter ? '' : `${r.endChapter}:`
+        }${r.endVerse}`,
     },
     { title: '제목', dataIndex: 'title', ellipsis: true },
     {
@@ -344,8 +348,25 @@ export default function QtPassagesPage() {
             >
               <InputNumber min={1} max={66} style={{ width: 120 }} />
             </Form.Item>
-            <Form.Item label="장" name="chapter" rules={[{ required: true, message: '장' }]}>
+            <Form.Item label="시작 장" name="chapter" rules={[{ required: true, message: '장' }]}>
               <InputNumber min={1} style={{ width: 100 }} />
+            </Form.Item>
+            <Form.Item
+              label="종료 장"
+              name="endChapter"
+              dependencies={['chapter']}
+              tooltip="장을 넘기는 본문(예: 9:1-10:5)이면 종료 장을 입력하세요. 비우면 시작 장과 동일하게 저장됩니다."
+              rules={[
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    const start = getFieldValue('chapter');
+                    if (value == null || start == null || value >= start) return Promise.resolve();
+                    return Promise.reject(new Error('종료 장은 시작 장 이상이어야 합니다'));
+                  },
+                }),
+              ]}
+            >
+              <InputNumber min={1} style={{ width: 100 }} placeholder="(같은 장)" />
             </Form.Item>
           </Space>
           <Space size="middle" style={{ display: 'flex' }} align="start">
@@ -359,14 +380,19 @@ export default function QtPassagesPage() {
             <Form.Item
               label="종료 절"
               name="endVerse"
-              dependencies={['startVerse']}
+              dependencies={['startVerse', 'chapter', 'endChapter']}
               rules={[
                 { required: true, message: '종료 절' },
                 ({ getFieldValue }) => ({
                   validator(_, value) {
                     const start = getFieldValue('startVerse');
+                    const ch = getFieldValue('chapter');
+                    const endCh = getFieldValue('endChapter');
+                    // 장 교차(예: 9:1-10:5)면 종료 절이 시작 절보다 작아도 된다(다음 장의 절).
+                    const sameChapter = endCh == null || endCh === ch;
+                    if (!sameChapter) return Promise.resolve();
                     if (value == null || start == null || value >= start) return Promise.resolve();
-                    return Promise.reject(new Error('종료 절은 시작 절 이상이어야 합니다'));
+                    return Promise.reject(new Error('같은 장에서는 종료 절이 시작 절 이상이어야 합니다'));
                   },
                 }),
               ]}

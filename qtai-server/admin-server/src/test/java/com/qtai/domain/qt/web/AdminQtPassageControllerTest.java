@@ -242,6 +242,7 @@ class AdminQtPassageControllerTest {
                 LocalDate.of(2026, 6, 10),
                 (short) 19,
                 (short) 23,
+                (short) 23,
                 (short) 1,
                 (short) 6,
                 "관리자 QT",
@@ -258,6 +259,7 @@ class AdminQtPassageControllerTest {
         return new AdminQtPassageController.AdminQtPassageRequest(
                 LocalDate.of(2026, 6, 10),
                 (short) 19,
+                (short) 23,
                 (short) 23,
                 (short) 1,
                 (short) 6,

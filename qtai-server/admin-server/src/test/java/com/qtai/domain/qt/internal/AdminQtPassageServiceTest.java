@@ -233,6 +233,7 @@ class AdminQtPassageServiceTest {
                 qtDate,
                 (short) 19,
                 (short) 23,
+                (short) 23,
                 (short) 1,
                 (short) 6,
                 "Admin QT",

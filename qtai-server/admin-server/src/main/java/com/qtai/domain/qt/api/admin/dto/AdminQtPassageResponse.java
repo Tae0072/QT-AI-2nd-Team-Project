@@ -8,6 +8,7 @@ public record AdminQtPassageResponse(
         LocalDate qtDate,
         Short bookId,
         Short chapter,
+        Short endChapter,
         Short startVerse,
         Short endVerse,
         String title,

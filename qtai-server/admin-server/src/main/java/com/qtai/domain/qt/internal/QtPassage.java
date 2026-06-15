@@ -127,13 +127,15 @@ public class QtPassage extends BaseEntity {
             LocalDate qtDate,
             Short bookId,
             Short chapter,
+            Short endChapter,
             Short startVerse,
             Short endVerse,
             String title,
             String mainVerseRef
     ) {
         this.qtDate = qtDate;
-        updateRange(bookId, chapter, startVerse, endVerse, title, mainVerseRef);
+        // 관리자 수정은 같은 권 기준 → 종료 권 = 시작 권.
+        updateRange(bookId, bookId, chapter, endChapter, startVerse, endVerse, title, mainVerseRef);
     }
 
     public void publish(LocalDateTime publishedAt) {
