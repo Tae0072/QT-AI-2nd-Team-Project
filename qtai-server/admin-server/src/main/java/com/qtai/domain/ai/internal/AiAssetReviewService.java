@@ -21,12 +21,16 @@ import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetResult;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 import com.qtai.domain.study.api.HidePublishedGlossaryTermsUseCase;
+import com.qtai.domain.study.api.HidePublishedSimulatorClipUseCase;
 import com.qtai.domain.study.api.HidePublishedVerseExplanationUseCase;
 import com.qtai.domain.study.api.PublishApprovedGlossaryTermsUseCase;
+import com.qtai.domain.study.api.PublishApprovedSimulatorClipUseCase;
 import com.qtai.domain.study.api.PublishApprovedVerseExplanationUseCase;
 import com.qtai.domain.study.api.dto.HidePublishedGlossaryTermsCommand;
+import com.qtai.domain.study.api.dto.HidePublishedSimulatorClipCommand;
 import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedGlossaryTermsCommand;
+import com.qtai.domain.study.api.dto.PublishApprovedSimulatorClipCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 
 @Slf4j
@@ -49,6 +53,8 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     private final HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase;
     private final PublishApprovedGlossaryTermsUseCase publishApprovedGlossaryTermsUseCase;
     private final HidePublishedGlossaryTermsUseCase hidePublishedGlossaryTermsUseCase;
+    private final PublishApprovedSimulatorClipUseCase publishApprovedSimulatorClipUseCase;
+    private final HidePublishedSimulatorClipUseCase hidePublishedSimulatorClipUseCase;
     private final WriteAuditLogUseCase auditLogUseCase;
     private final ObjectMapper objectMapper;
 
@@ -59,6 +65,8 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase,
             PublishApprovedGlossaryTermsUseCase publishApprovedGlossaryTermsUseCase,
             HidePublishedGlossaryTermsUseCase hidePublishedGlossaryTermsUseCase,
+            PublishApprovedSimulatorClipUseCase publishApprovedSimulatorClipUseCase,
+            HidePublishedSimulatorClipUseCase hidePublishedSimulatorClipUseCase,
             WriteAuditLogUseCase auditLogUseCase,
             ObjectMapper objectMapper
     ) {
@@ -68,6 +76,8 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         this.hidePublishedVerseExplanationUseCase = hidePublishedVerseExplanationUseCase;
         this.publishApprovedGlossaryTermsUseCase = publishApprovedGlossaryTermsUseCase;
         this.hidePublishedGlossaryTermsUseCase = hidePublishedGlossaryTermsUseCase;
+        this.publishApprovedSimulatorClipUseCase = publishApprovedSimulatorClipUseCase;
+        this.hidePublishedSimulatorClipUseCase = hidePublishedSimulatorClipUseCase;
         this.auditLogUseCase = auditLogUseCase;
         this.objectMapper = objectMapper;
     }
@@ -119,6 +129,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         );
 
         PublishCommands publishCommands = publishCommandsForTarget(command, asset);
+        PublishApprovedSimulatorClipCommand simulatorCommand = simulatorCommandForTarget(command, asset);
         asset.approve(command.reviewedAt());
         // study publish commands replace by aiAssetId/verse; a failed later call rolls back locally and retry replays both.
         if (publishCommands.verseExplanationCommand() != null) {
@@ -126,6 +137,9 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         }
         if (publishCommands.glossaryTermsCommand() != null) {
             publishGlossaryTerms(publishCommands.glossaryTermsCommand());
+        }
+        if (simulatorCommand != null) {
+            publishSimulatorClip(simulatorCommand);
         }
     }
 
@@ -146,6 +160,17 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         } catch (RuntimeException exception) {
             log.warn("AI asset glossary publish failed. aiAssetId={}, termCount={}, errorType={}, errorMessage={}",
                     command.aiAssetId(), command.terms().size(), exception.getClass().getSimpleName(),
+                    exception.getMessage());
+            throw exception;
+        }
+    }
+
+    private void publishSimulatorClip(PublishApprovedSimulatorClipCommand command) {
+        try {
+            publishApprovedSimulatorClipUseCase.publishApprovedSimulatorClip(command);
+        } catch (RuntimeException exception) {
+            log.warn("AI asset simulator clip publish failed. aiAssetId={}, qtPassageId={}, errorType={}, errorMessage={}",
+                    command.aiAssetId(), command.qtPassageId(), exception.getClass().getSimpleName(),
                     exception.getMessage());
             throw exception;
         }
@@ -182,6 +207,42 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         );
     }
 
+    private PublishApprovedSimulatorClipCommand simulatorCommandForTarget(
+            ReviewAiAssetCommand command,
+            AiGeneratedAsset asset
+    ) {
+        if (!command.activateForTarget() || !isSimulatorQtPassageAsset(asset)) {
+            return null;
+        }
+        JsonNode root = payloadRoot(asset);
+        JsonNode sceneScript = root.get("sceneScript");
+        if (sceneScript == null || sceneScript.isNull()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson sceneScript is required");
+        }
+        JsonNode versionNode = root.get("componentLibraryVersionId");
+        if (versionNode == null || !versionNode.canConvertToLong()) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT, "asset payloadJson componentLibraryVersionId is required");
+        }
+        return new PublishApprovedSimulatorClipCommand(
+                asset.getTargetId(),
+                requireText(textValue(root.get("title")), "title"),
+                versionNode.asLong(),
+                writeSceneScriptJson(sceneScript),
+                asset.getId(),
+                command.reviewedAt()
+        );
+    }
+
+    private String writeSceneScriptJson(JsonNode sceneScript) {
+        try {
+            return objectMapper.writeValueAsString(sceneScript);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT, "asset payloadJson sceneScript serialization failed");
+        }
+    }
+
     private void hide(ReviewAiAssetCommand command, AiGeneratedAsset asset) {
         asset.hide(command.reviewedAt());
         if (isVerseExplanationBibleVerseAsset(asset)) {
@@ -190,6 +251,11 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             );
             hidePublishedGlossaryTermsUseCase.hidePublishedGlossaryTerms(
                     new HidePublishedGlossaryTermsCommand(asset.getId())
+            );
+        }
+        if (isSimulatorQtPassageAsset(asset)) {
+            hidePublishedSimulatorClipUseCase.hidePublishedSimulatorClip(
+                    new HidePublishedSimulatorClipCommand(asset.getId())
             );
         }
     }
@@ -236,6 +302,11 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     private static boolean isVerseExplanationBibleVerseAsset(AiGeneratedAsset asset) {
         return asset.getAssetType() == AiGeneratedAssetType.EXPLANATION
                 && asset.getTargetType() == AiTargetType.BIBLE_VERSE;
+    }
+
+    private static boolean isSimulatorQtPassageAsset(AiGeneratedAsset asset) {
+        return asset.getAssetType() == AiGeneratedAssetType.SIMULATOR
+                && asset.getTargetType() == AiTargetType.QT_PASSAGE;
     }
 
     private ExplanationItem explanationItemForTarget(AiGeneratedAsset asset, JsonNode root) {
