@@ -13,4 +13,10 @@ public interface MissionDefinitionRepository extends JpaRepository<MissionDefini
 
     /** 특정 상태의 미션 정의 조회 (배치 계산은 ACTIVE만 대상). */
     List<MissionDefinition> findByStatus(MissionDefinitionStatus status);
+
+    /** 관리자 목록 — 전체 미션 정의를 id 순으로. */
+    List<MissionDefinition> findAllByOrderByIdAsc();
+
+    /** 코드 중복 검사(생성 시). */
+    boolean existsByCode(String code);
 }
