@@ -217,8 +217,12 @@ class AdminNoticeControllerTest {
 
         mockMvc.perform(post("/api/v1/admin/notices/1/publish"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.noticeId").value(1))
                 .andExpect(jsonPath("$.data.status").value("PUBLISHED"))
-                .andExpect(jsonPath("$.data.notificationResult.createdCount").value(2));
+                .andExpect(jsonPath("$.data.notificationResult.targetMemberCount").value(2))
+                .andExpect(jsonPath("$.data.notificationResult.createdCount").value(2))
+                .andExpect(jsonPath("$.data.notificationResult.queuedCount").value(2))
+                .andExpect(jsonPath("$.data.notificationResult.failedCount").value(0));
     }
 
     @Test

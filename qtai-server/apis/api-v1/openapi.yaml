@@ -3642,6 +3642,7 @@ components:
       type: object
       required:
         - id
+        - noticeId
         - status
         - publishedAt
         - notificationResult
@@ -3650,6 +3651,12 @@ components:
           type: integer
           format: int64
           minimum: 1
+          description: 공지 ID. 기존 클라이언트 호환용 필드다.
+        noticeId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: 발행된 공지 ID.
         status:
           type: string
           enum:
@@ -3663,21 +3670,36 @@ components:
       type: object
       required:
         - requestedCount
+        - targetMemberCount
         - createdCount
+        - queuedCount
         - failedCount
       properties:
         requestedCount:
           type: integer
           format: int64
           minimum: 0
+          description: 알림 fan-out 요청 대상 활성 회원 수. 기존 클라이언트 호환용 필드다.
+        targetMemberCount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 공지 발행 시 알림 생성 대상이 된 활성 회원 수.
         createdCount:
           type: integer
           format: int64
           minimum: 0
+          description: 생성된 NOTICE 알림 row 수. 기존 클라이언트 호환용 필드다.
+        queuedCount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 사용자 앱 알림함/폴링으로 전달 대기 상태가 된 NOTICE 알림 row 수.
         failedCount:
           type: integer
           format: int64
           minimum: 0
+          description: 알림 row 생성에 실패한 회원 수.
     AdminAiMonitoringResponse:
       type: object
       required:

@@ -123,10 +123,13 @@ class NoticeServiceTest {
 
         var response = noticeService.publishNotice(100L, 1L);
 
+        assertThat(response.noticeId()).isEqualTo(1L);
         assertThat(response.status()).isEqualTo("PUBLISHED");
         assertThat(response.publishedAt()).isEqualTo(LocalDateTime.of(2026, 6, 10, 10, 30));
         assertThat(response.notificationResult().requestedCount()).isEqualTo(2);
+        assertThat(response.notificationResult().targetMemberCount()).isEqualTo(2);
         assertThat(response.notificationResult().createdCount()).isEqualTo(2);
+        assertThat(response.notificationResult().queuedCount()).isEqualTo(2);
         assertThat(response.notificationResult().failedCount()).isZero();
         verify(noticeRepository, never()).findById(1L);
     }
@@ -208,7 +211,9 @@ class NoticeServiceTest {
         assertThat(captor.getValue().afterJson())
                 .contains("\"notificationResult\"")
                 .contains("\"requestedCount\":2")
+                .contains("\"targetMemberCount\":2")
                 .contains("\"createdCount\":1")
+                .contains("\"queuedCount\":1")
                 .contains("\"failedCount\":1");
     }
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../models/notification_response.dart';
 import '../providers/mypage_providers.dart';
 
 /// 알림 목록 화면 (M-02).
@@ -105,6 +106,8 @@ class _NotificationListScreenState
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final item = response.items[index];
+                      final title = _notificationTitle(item);
+                      final createdAtText = _formatDate(l, item.createdAt);
                       return ListTile(
                         leading: Icon(
                           item.read
@@ -115,7 +118,7 @@ class _NotificationListScreenState
                               : theme.colorScheme.primary,
                         ),
                         title: Text(
-                          item.title.isNotEmpty ? item.title : item.message,
+                          title,
                           style: TextStyle(
                             fontWeight:
                                 item.read ? FontWeight.normal : FontWeight.bold,
@@ -123,9 +126,16 @@ class _NotificationListScreenState
                         ),
                         subtitle: _NotificationSubtitle(
                           body: item.body,
-                          createdAtText: _formatDate(l, item.createdAt),
+                          createdAtText: createdAtText,
                         ),
                         onTap: () async {
+                          await _showNotificationDetail(
+                            context,
+                            item,
+                            title,
+                            createdAtText,
+                          );
+                          if (!mounted) return;
                           if (!item.read) {
                             final repository =
                                 ref.read(myPageRepositoryProvider);
@@ -167,6 +177,50 @@ class _NotificationListScreenState
       return '${l.timeDaysAgo(diff.inDays)} · $clockText';
     }
     return _absoluteDateTimeLabel(dateTime);
+  }
+
+  String _notificationTitle(NotificationItem item) {
+    final title = item.title.trim();
+    if (title.isNotEmpty) return title;
+    final message = item.message.trim();
+    if (message.isNotEmpty) return message;
+    return item.type == 'NOTICE' ? '시스템 공지' : '알림';
+  }
+
+  Future<void> _showNotificationDetail(
+    BuildContext context,
+    NotificationItem item,
+    String title,
+    String createdAtText,
+  ) {
+    final body = item.body.trim();
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(body.isEmpty ? '상세 내용이 없습니다.' : body),
+            const SizedBox(height: 12),
+            Text(
+              createdAtText,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _clockText(DateTime dateTime) {

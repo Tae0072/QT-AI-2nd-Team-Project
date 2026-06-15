@@ -56,6 +56,55 @@ void main() {
     expect(find.text('1분 전 · 09:59'), findsOneWidget);
   });
 
+  testWidgets('알림 목록은 제목과 본문을 함께 표시한다', (tester) async {
+    final response = NotificationListResponse(
+      items: [
+        NotificationItem(
+          id: 1,
+          type: 'NOTICE',
+          title: '[공지] 시스템 알림 테스트',
+          body: '공지 알림이 정상적으로 도착했습니다.',
+          read: false,
+          createdAt: DateTime(2026, 6, 12, 10),
+        ),
+      ],
+      totalElements: 1,
+      hasNext: false,
+    );
+
+    await tester.pumpWidget(
+      buildScreen(response, now: () => DateTime(2026, 6, 12, 10)),
+    );
+    await tester.pump();
+
+    expect(find.text('[공지] 시스템 알림 테스트'), findsOneWidget);
+    expect(find.text('공지 알림이 정상적으로 도착했습니다.'), findsOneWidget);
+  });
+
+  testWidgets('본문 없는 공지는 공지 제목이라도 표시한다', (tester) async {
+    final response = NotificationListResponse(
+      items: [
+        NotificationItem(
+          id: 1,
+          type: 'NOTICE',
+          title: '',
+          body: '',
+          read: false,
+          createdAt: DateTime(2026, 6, 12, 10),
+        ),
+      ],
+      totalElements: 1,
+      hasNext: false,
+    );
+
+    await tester.pumpWidget(
+      buildScreen(response, now: () => DateTime(2026, 6, 12, 10)),
+    );
+    await tester.pump();
+
+    expect(find.text('시스템 공지'), findsOneWidget);
+  });
+
   testWidgets('미래 timestamp는 방금 전으로 숨기지 않고 절대 시각을 표시한다', (tester) async {
     final response = NotificationListResponse(
       items: [
