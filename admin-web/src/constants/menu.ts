@@ -53,6 +53,12 @@ export const MENU_ITEMS: MenuItem[] = [
     requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
   {
+    code: 'AD-13',
+    path: '/members',
+    label: '회원 관리',
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
+  },
+  {
     code: 'AD-05',
     path: '/praise-songs',
     label: '찬양 큐레이션',
