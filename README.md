@@ -222,3 +222,63 @@ QT-AI의 AI는 사용자와 실시간으로 대화하는 챗봇이 아닙니다.
 4. 해설·시뮬레이터 AI는 배치·관리자 트리거로 구현하고, F-15 사실 기반 Q&A는 단발·검증 흐름으로 구현합니다.
 5. 성경·주석·찬양 데이터는 라이선스와 출처 표기 기준을 통과한 뒤 적재합니다.
 6. 문서와 구현이 달라지면 구현을 우선 고치는 것이 아니라, 기준 문서 변경 필요성을 먼저 검토합니다.
+
+---
+
+## 변경 이력 (구현 진행 순서)
+
+위쪽 본문은 구현 저장소의 "최종 실행 기준"이고, 아래 표는 그 기준에 도달하기까지 코드·구조가 어떤 순서로 바뀌고 더해졌는지를 정리한 것입니다.
+
+| 날짜 | 구분 | 변경·추가 내용 |
+| --- | --- | --- |
+| 2026-05-19 | 패키지 표준 | `api`/`internal`/`client`/`web` 4계층 도메인 표준 적용, 도메인 간 직접 import 금지 규칙을 ArchUnit·Modulith로 검증 |
+| 2026-05-20 | CI 자동화 | PR 검증·자동 머지 봇, `ci-all` 집계 잡(build/test/jacoco/gitleaks/spectral/Requirements Guard) 도입 |
+| 2026-05-21 | 도메인 골격 | member·bible·qt·study·note·sharing·report·notification·praise·mission·ai·admin·audit 도메인 골격 구현 |
+| 2026-05-27 | TTS·시뮬레이터 | QT 본문 TTS, 장면 시뮬레이터(`qtvideo`) 작업 시작 |
+| 2026-06-01 | 작업 재분배 | 6/1 기준 팀원별 일정 재분배 반영 |
+| 2026-06-07 | music 도메인 | 앱 전역 배경음악용 `domain.music` 추가(로열티프리·직접 제작 음원 한정) |
+| 2026-06-08 | MSA 전환 시작 | Strangler 패턴으로 모놀리식 `qtai-server/src`를 도메인 서비스로 추출 시작 |
+| 2026-06-09~10 | 로컬 k8s | 로컬 배포용 Kubernetes 매니페스트(`k8s/`) 추가, CI의 K8s/Helm 차단을 비차단으로 완화 |
+| 2026-06-10 | 시스템 인증 | 사용자 토큰(RS256)과 시스템 배치 토큰(HS256 `SYSTEM_BATCH`) 분리, 공통 필터 폴백 검증 |
+| 2026-06-11 | 관리자 로그인·동기화 | 관리자 카카오 → **자체 아이디/비밀번호 로그인**(`/api/v1/admin/auth/login`)으로 대체, `admin-server` 동기화 규칙 확정 |
+| 2026-06 (마무리) | MSA 추출 완료 | 옛 모놀리식 root 소스 제거, 루트는 빌드 묶음(aggregator)만 담당. 5개 서비스 + nginx 게이트웨이 구조로 정리 |
+
+> 각 변경의 원문 근거는 `doc/workspaces/Lead_강태오/workflows/`, `reports/`의 워크플로우·리포트 문서에 있습니다.
+
+## 프로젝트 완료 현황 (2026-06-16)
+
+프로젝트 종료 시점의 실제 구현 상태입니다.
+
+**서버 구조 — `qtai-server` 멀티모듈(MSA)**
+
+| 모듈 | 포트 | 담당 도메인 |
+| --- | --- | --- |
+| `lib-common` | — | 공통 응답·예외, JWT 검증 필터, RestClient 설정 |
+| `service-user` | 8081 | member, notification, mission (JWT 발급) |
+| `service-bible` | 8082 | bible, qt, study, music, praise, qtvideo (읽기전용 콘텐츠) |
+| `service-note` | 8083 | note, sharing, report(제출) |
+| `service-ai` | 8084 | ai (사전 생성·검증, F-15 단발 Q&A) |
+| `admin-server` | 8090 | admin·audit·appversion + 전 도메인 복사본(관리자 컨트롤러, Flyway 단독 소유) |
+| gateway (nginx) | 8080 | 클라이언트 단일 진입점 |
+
+**구현 완료 도메인(16종)**
+
+member, notification, mission, bible, qt, study, music, praise, qtvideo, note, sharing, report, ai, admin, audit, appversion.
+
+**클라이언트**
+
+- `flutter-app` — 사용자 앱(Android/디버그 빌드 시연 기준).
+- `admin-web` — 관리자 웹 프런트엔드(React + Vite). 게이트웨이 `8080` 단일 baseURL로 `/api/v1/admin/**` 호출.
+
+**인증 체계(3원화)**
+
+- 사용자: 카카오 토큰을 `POST /api/v1/auth/kakao`로 전달 → 서버가 RS256 사용자 토큰 발급.
+- 관리자: `POST /api/v1/admin/auth/login` 자체 아이디/비밀번호(BCrypt) 검증 후 ADMIN 토큰 발급.
+- 시스템 배치: 공유 시크릿 기반 HS256 단명 `SYSTEM_BATCH` 토큰.
+
+**인프라·품질 게이트**
+
+- Docker Compose(기본) + 로컬 한정 Kubernetes 매니페스트(`k8s/`).
+- CI `ci-all`: spring build/test/jacoco(커버리지 KPI), flutter-test, gitleaks, spectral(OpenAPI), docker-compose config, Requirements Guard. 통과 시 PR 리뷰봇이 자동 머지.
+
+> 실행 방법은 위쪽 "백엔드 로컬 실행 (Docker Compose, MSA)" 절을 참고하세요. 프로젝트 기준 문서는 문서 저장소 [2nd-Team-Project](https://github.com/Tae0072/2nd-Team-Project)에 있습니다.
