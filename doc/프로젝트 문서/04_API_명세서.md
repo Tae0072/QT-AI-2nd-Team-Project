@@ -231,6 +231,7 @@
 | AD-06 | 시스템 공지 | `GET /api/v1/admin/notices`, `GET /api/v1/admin/notices/{id}`, `POST /api/v1/admin/notices`, `PATCH /api/v1/admin/notices/{id}`, `POST /api/v1/admin/notices/{id}/publish`, `POST /api/v1/admin/notices/{id}/hide` |
 | AD-07 | 감사 로그 | `GET /api/v1/admin/audit-logs` |
 | AD-08 | AI 운영 모니터링 | `GET /api/v1/admin/ai/monitoring` |
+| AD-20 | QT 영상 관리 | `DELETE /api/v1/admin/qt-videos/source-videos/{sourceVideoId}`, `DELETE /api/v1/admin/qt-videos/clips/{clipId}` |
 | AD-12 | 배경음악 관리 | `GET /api/v1/admin/music-tracks`, `POST /api/v1/admin/music-tracks`, `PATCH /api/v1/admin/music-tracks/{id}`, `POST /api/v1/admin/music-tracks/{id}/publish`, `POST /api/v1/admin/music-tracks/{id}/hide` |
 
 ---
@@ -1820,7 +1821,18 @@ PATCH omitted fields keep the existing `music_tracks` values.
 - **성공 코드:** 목록/상세/수정/발행 `200 OK`, 생성 `201 Created`, 숨김 `204 No Content`
 - **실패 코드:** `400 VALIDATION_ERROR` 또는 `C0002 INVALID_INPUT`(생성/수정 입력값 오류), `401 M0002 UNAUTHORIZED`, `403 M0003 FORBIDDEN`(ADMIN 아님), `403 AD0003 ADMIN_ROLE_INSUFFICIENT`(세부 관리자 권한 부족), `404 C0004 RESOURCE_NOT_FOUND`(없는 공지), `409 C0007 INVALID_STATUS_TRANSITION`, `500 C0001 INTERNAL_ERROR`
 
-### 4.7.8 감사 로그 조회
+### 4.7.8 QT 영상 관리
+
+- **Method + URL:** `DELETE /api/v1/admin/qt-videos/source-videos/{sourceVideoId}`
+- **Method + URL:** `DELETE /api/v1/admin/qt-videos/clips/{clipId}`
+- **인증:** ADMIN + OPERATOR/REVIEWER/CONTENT_CREATOR/SUPER_ADMIN
+- **ERD:** `source_videos`, `bible_verse_video_segments`, `qt_video_clips`, `audit_logs`
+- **원본 영상 삭제:** 원본 영상을 삭제하면 해당 원본으로 만든 `qt_video_clips`와 `bible_verse_video_segments`도 함께 삭제한다. 삭제 성공 시 본문 없이 `204 No Content`를 반환하고 `QT_VIDEO_SOURCE_DELETE` 감사 로그를 기록한다.
+- **QT 클립 삭제:** QT 클립만 삭제한다. 원본 영상과 절별 구간은 유지한다. 삭제 성공 시 본문 없이 `204 No Content`를 반환하고 `QT_VIDEO_CLIP_DELETE` 감사 로그를 기록한다.
+- **운영 주의:** MySQL auto increment 값은 삭제 후 1부터 재사용되지 않는다. 따라서 QT 본문 ID와 QT 클립 ID는 일치하지 않을 수 있으며, 관리자 화면은 `클립 ID`, `QT 본문 ID`, `원본 영상 ID`를 분리 표기한다.
+- **실패 코드:** `401 M0002 UNAUTHORIZED`, `403 M0003 FORBIDDEN`(ADMIN 아님), `403 AD0003 ADMIN_ROLE_INSUFFICIENT`(세부 관리자 권한 부족), `404 C0004 RESOURCE_NOT_FOUND` 또는 `400 C0002 INVALID_INPUT`(없는 대상/잘못된 id), `500 C0001 INTERNAL_ERROR`
+
+### 4.7.9 감사 로그 조회
 
 - **Method + URL:** `GET /api/v1/admin/audit-logs?actorType=ADMIN&actionType=AI_ASSET_APPROVE&from=2026-05-01&to=2026-05-17&page=0&size=50`
 - **인증:** ADMIN + OPERATOR/REVIEWER/SUPER_ADMIN
@@ -2477,12 +2489,14 @@ PATCH omitted fields keep the existing `music_tracks` values.
 | 87 | PATCH | `/api/v1/admin/notices/{id}` | OPERATOR | 공지 수정 |
 | 88 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
 | 89 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
-| 90 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
-| 91 | GET | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 목록 |
-| 92 | POST | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 등록 |
-| 93 | PATCH | `/api/v1/admin/music-tracks/{id}` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 수정/교체 |
-| 94 | POST | `/api/v1/admin/music-tracks/{id}/publish` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 노출 |
-| 95 | POST | `/api/v1/admin/music-tracks/{id}/hide` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 숨김 |
+| 90 | DELETE | `/api/v1/admin/qt-videos/source-videos/{sourceVideoId}` | OPERATOR/REVIEWER/CONTENT_CREATOR/SUPER_ADMIN | QT 원본 영상 삭제 |
+| 91 | DELETE | `/api/v1/admin/qt-videos/clips/{clipId}` | OPERATOR/REVIEWER/CONTENT_CREATOR/SUPER_ADMIN | QT 클립 삭제 |
+| 92 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
+| 93 | GET | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 목록 |
+| 94 | POST | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 등록 |
+| 95 | PATCH | `/api/v1/admin/music-tracks/{id}` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 수정/교체 |
+| 96 | POST | `/api/v1/admin/music-tracks/{id}/publish` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 노출 |
+| 97 | POST | `/api/v1/admin/music-tracks/{id}/hide` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 숨김 |
 
 ---
 

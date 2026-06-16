@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -23,6 +24,7 @@ import com.qtai.domain.qtvideo.api.dto.PrepareQtVideoClipResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class AdminQtVideoServiceTest {
@@ -108,6 +110,40 @@ class AdminQtVideoServiceTest {
         assertThat(result.prepared()).isFalse();
         assertThat(result.clipId()).isNull();
         verify(clipRepository, never()).save(any());
+    }
+
+    @Test
+    void deleteSourceVideoRemovesClipsAndSegmentsBeforeSourceVideo() {
+        SourceVideo sourceVideo = activeSourceVideo(3L);
+        when(sourceVideoRepository.findById(3L)).thenReturn(Optional.of(sourceVideo));
+
+        service.deleteSourceVideo(3L);
+
+        InOrder inOrder = inOrder(clipRepository, segmentRepository, sourceVideoRepository);
+        inOrder.verify(clipRepository).deleteBySourceVideo_Id(3L);
+        inOrder.verify(segmentRepository).deleteBySourceVideo_Id(3L);
+        inOrder.verify(segmentRepository).flush();
+        inOrder.verify(sourceVideoRepository).delete(sourceVideo);
+    }
+
+    @Test
+    void deleteClipRemovesClip() {
+        SourceVideo sourceVideo = activeSourceVideo(3L);
+        QtVideoClip clip = QtVideoClip.approvedSingleCut(
+                10L,
+                "QT video 2026-06-15",
+                sourceVideo,
+                sourceVideo.getVideoUrl(),
+                new BigDecimal("10.000"),
+                new BigDecimal("20.000"),
+                null
+        );
+        ReflectionTestUtils.setField(clip, "id", 700L);
+        when(clipRepository.findById(700L)).thenReturn(Optional.of(clip));
+
+        service.deleteClip(700L);
+
+        verify(clipRepository).delete(clip);
     }
 
     private static SourceVideo activeSourceVideo(Long id) {

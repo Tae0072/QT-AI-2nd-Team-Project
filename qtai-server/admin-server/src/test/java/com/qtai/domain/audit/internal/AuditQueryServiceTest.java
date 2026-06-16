@@ -44,7 +44,8 @@ class AuditQueryServiceTest {
         verify(repository).findAll(captor.capture(), any());
         assertThat(captor.getValue().actionTypes())
                 .contains("REPORT_RESOLVE", "REPORT_REJECT", "NOTICE_PUBLISH",
-                        "MUSIC_TRACK_CREATE", "QT_PASSAGE_PUBLISH", "AI_ASSET_APPROVE");
+                        "MUSIC_TRACK_CREATE", "QT_PASSAGE_PUBLISH", "AI_ASSET_APPROVE",
+                        "QT_VIDEO_SOURCE_DELETE", "QT_VIDEO_CLIP_DELETE");
     }
 
     @Test

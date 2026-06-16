@@ -24,4 +24,6 @@ interface QtVideoClipRepository extends JpaRepository<QtVideoClip, Long> {
     Optional<QtVideoClip> findByQtPassageIdAndActiveUniqueKey(Long qtPassageId, String activeUniqueKey);
 
     boolean existsByQtPassageIdAndStatus(Long qtPassageId, QtVideoClipStatus status);
+
+    void deleteBySourceVideo_Id(Long sourceVideoId);
 }

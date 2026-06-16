@@ -133,6 +133,23 @@ public class AdminQtVideoService {
         return toSourceItem(sourceVideo);
     }
 
+    @Transactional
+    public void deleteSourceVideo(Long sourceVideoId) {
+        SourceVideo sourceVideo = requireSourceVideo(sourceVideoId);
+        // 원본 영상을 지우면 그 원본으로 만든 QT 클립과 절별 구간도 함께 삭제한다.
+        clipRepository.deleteBySourceVideo_Id(sourceVideoId);
+        segmentRepository.deleteBySourceVideo_Id(sourceVideoId);
+        segmentRepository.flush();
+        sourceVideoRepository.delete(sourceVideo);
+    }
+
+    @Transactional
+    public void deleteClip(Long clipId) {
+        QtVideoClip clip = clipRepository.findById(requirePositive(clipId, "clipId"))
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "qt video clip not found"));
+        clipRepository.delete(clip);
+    }
+
     public List<AdminQtVideoSegmentItem> listSegments(Long sourceVideoId) {
         requireSourceVideo(sourceVideoId);
         return segmentRepository.findBySourceVideo_IdOrderByStartTimeSecAscIdAsc(sourceVideoId)

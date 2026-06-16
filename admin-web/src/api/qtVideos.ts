@@ -32,7 +32,12 @@ export interface SourceVideoPayload {
   durationSec: number;
 }
 
-export interface SourceVideoUpdatePayload extends SourceVideoPayload {
+// 수정 요청에는 bibleBookId(성경권)를 보내지 않는다. 성경권은 변경 불가이고,
+// 서버 SourceVideoUpdateRequest에 없는 필드라 함께 보내면 unknown 속성으로 400(C0002)이 된다.
+export interface SourceVideoUpdatePayload {
+  title: string;
+  videoUrl: string;
+  durationSec: number;
   status: string;
 }
 
@@ -104,6 +109,10 @@ export function updateSourceVideo(id: number, payload: SourceVideoUpdatePayload)
   );
 }
 
+export function deleteSourceVideo(id: number) {
+  return apiClient.delete(`/admin/qt-videos/source-videos/${id}`);
+}
+
 export function listSegments(sourceVideoId: number) {
   return unwrap<VideoSegment[]>(
     apiClient.get<ApiResponse<VideoSegment[]>>(
@@ -136,6 +145,10 @@ export function prepareQtVideoClip(qtPassageId: number) {
       {},
     ),
   );
+}
+
+export function deleteQtVideoClip(clipId: number) {
+  return apiClient.delete(`/admin/qt-videos/clips/${clipId}`);
 }
 
 export function changeQtVideoClipStatus(clipId: number, status: string) {

@@ -20,6 +20,8 @@ import { useSearchParams } from 'react-router-dom';
 import {
   changeQtVideoClipStatus,
   createSourceVideo,
+  deleteQtVideoClip,
+  deleteSourceVideo,
   listBibleBooks,
   listQtVideoClips,
   listSegments,
@@ -154,8 +156,11 @@ export default function QtVideosPage() {
     setSubmitting(true);
     try {
       if (editingSource) {
+        // bibleBookId(성경권)는 수정 불가이며 서버가 받지 않는 필드라 보내지 않는다.
         await updateSourceVideo(editingSource.id, {
-          ...values,
+          title: values.title,
+          videoUrl: values.videoUrl,
+          durationSec: values.durationSec,
           status: values.status ?? 'ACTIVE',
         });
         message.success('원본 영상을 수정했습니다.');
@@ -172,13 +177,26 @@ export default function QtVideosPage() {
     }
   };
 
+  const onDeleteSource = async (source: SourceVideo) => {
+    setSubmitting(true);
+    try {
+      await deleteSourceVideo(source.id);
+      message.success('원본 영상을 삭제했습니다.');
+      sources.reload();
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '원본 영상 삭제에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const openSegments = async (source: SourceVideo) => {
     setSegmentSource(source);
     try {
       const rows = await listSegments(source.id);
       setSegmentText(
         rows.length === 0
-          ? segmentTemplate()
+          ? '[]'
           : JSON.stringify(
               rows.map((row) => ({
                 bibleVerseId: row.bibleVerseId,
@@ -196,6 +214,12 @@ export default function QtVideosPage() {
 
   const submitSegments = async () => {
     if (!segmentSource) return;
+    if (segmentText.trim() === segmentTemplate().trim()) {
+      message.warning(
+        '기본 예시(2건)를 그대로 저장하려고 합니다. 실제 본문 절·시간으로 바꾼 뒤 저장하세요.',
+      );
+      return;
+    }
     let parsed: SegmentPayload[];
     try {
       parsed = JSON.parse(segmentText) as SegmentPayload[];
@@ -232,6 +256,19 @@ export default function QtVideosPage() {
       clips.applyFilters({ qtPassageId: clipPassageId });
     } catch (e) {
       message.error(e instanceof Error ? e.message : '클립 생성에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onDeleteClip = async (clipId: number) => {
+    setSubmitting(true);
+    try {
+      await deleteQtVideoClip(clipId);
+      message.success('QT 클립을 삭제했습니다.');
+      clips.reload();
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'QT 클립 삭제에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
@@ -275,7 +312,7 @@ export default function QtVideosPage() {
     },
     {
       title: '작업',
-      width: 160,
+      width: 220,
       render: (_, row) => (
         <Space>
           <Button size="small" onClick={() => openEditSource(row)}>
@@ -284,16 +321,36 @@ export default function QtVideosPage() {
           <Button size="small" onClick={() => openSegments(row)}>
             구간
           </Button>
+          <Popconfirm
+            title="이 원본 영상을 삭제할까요?"
+            description="절별 구간과 이 원본으로 만든 QT 클립도 함께 삭제됩니다."
+            okText="삭제"
+            cancelText="취소"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => onDeleteSource(row)}
+          >
+            <Button size="small" danger disabled={submitting}>
+              삭제
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },
   ];
 
   const clipColumns: ColumnsType<QtVideoClip> = [
-    { title: 'ID', dataIndex: 'id', width: 80, render: (v: number) => `#${v}` },
-    { title: 'QT 본문', dataIndex: 'qtPassageId', width: 100, render: (v: number) => `#${v}` },
-    { title: '제목', dataIndex: 'title', width: 180, ellipsis: true },
-    { title: '원본', dataIndex: 'sourceVideoId', width: 90, render: (v: number) => `#${v}` },
+    { title: '클립 ID', dataIndex: 'id', width: 90, render: (v: number) => `#${v}` },
+    {
+      title: 'QT 본문(날짜)',
+      dataIndex: 'title',
+      width: 200,
+      ellipsis: true,
+      render: (title: string, row) => {
+        const date = (title ?? '').replace(/^QT video\s*/i, '').trim();
+        return `${date || title} (본문 #${row.qtPassageId})`;
+      },
+    },
+    { title: '원본 영상 ID', dataIndex: 'sourceVideoId', width: 110, render: (v: number) => `#${v}` },
     { title: '시작', dataIndex: 'startTimeSec', width: 90 },
     { title: '끝', dataIndex: 'endTimeSec', width: 90 },
     {
@@ -310,7 +367,7 @@ export default function QtVideosPage() {
     },
     {
       title: '작업',
-      width: 170,
+      width: 240,
       render: (_, row) => (
         <Space>
           {row.status !== 'APPROVED' && (
@@ -335,6 +392,18 @@ export default function QtVideosPage() {
               실패
             </Button>
           )}
+          <Popconfirm
+            title="이 QT 클립을 삭제할까요?"
+            description="삭제하면 앱에서도 더 이상 노출되지 않습니다."
+            okText="삭제"
+            cancelText="취소"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => onDeleteClip(row.id)}
+          >
+            <Button size="small" danger disabled={submitting}>
+              삭제
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },
@@ -517,6 +586,7 @@ export default function QtVideosPage() {
         <Input.TextArea
           rows={14}
           value={segmentText}
+          placeholder={segmentTemplate()}
           onChange={(event) => setSegmentText(event.target.value)}
           style={{ fontFamily: 'monospace' }}
         />

@@ -30,6 +30,7 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -50,9 +51,11 @@ public class AdminQtVideoController {
     private static final String TARGET_TYPE_QT_PASSAGE = "QT_PASSAGE";
     private static final String ACTION_SOURCE_VIDEO_CREATE = "QT_VIDEO_SOURCE_CREATE";
     private static final String ACTION_SOURCE_VIDEO_UPDATE = "QT_VIDEO_SOURCE_UPDATE";
+    private static final String ACTION_SOURCE_VIDEO_DELETE = "QT_VIDEO_SOURCE_DELETE";
     private static final String ACTION_SEGMENTS_REPLACE = "QT_VIDEO_SEGMENTS_REPLACE";
     private static final String ACTION_CLIP_PREPARE = "QT_VIDEO_CLIP_PREPARE";
     private static final String ACTION_CLIP_STATUS_CHANGE = "QT_VIDEO_CLIP_STATUS_CHANGE";
+    private static final String ACTION_CLIP_DELETE = "QT_VIDEO_CLIP_DELETE";
 
     private final AdminQtVideoService adminQtVideoService;
     private final VerifyAdminRoleUseCase verifyAdminRoleUseCase;
@@ -127,6 +130,17 @@ public class AdminQtVideoController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
+    @DeleteMapping("/source-videos/{sourceVideoId}")
+    public ResponseEntity<Void> deleteSourceVideo(
+            Authentication authentication,
+            @PathVariable Long sourceVideoId
+    ) {
+        Long adminUserId = requireManager(authentication);
+        adminQtVideoService.deleteSourceVideo(sourceVideoId);
+        writeAudit(adminUserId, ACTION_SOURCE_VIDEO_DELETE, TARGET_TYPE_SOURCE_VIDEO, sourceVideoId, null);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/source-videos/{sourceVideoId}/segments")
     public ResponseEntity<ApiResponse<List<AdminQtVideoSegmentItem>>> listSegments(
             Authentication authentication,
@@ -182,6 +196,17 @@ public class AdminQtVideoController {
         writeAudit(adminUserId, ACTION_CLIP_PREPARE, TARGET_TYPE_QT_PASSAGE, qtPassageId,
                 "{\"qtPassageId\":" + result.qtPassageId() + ",\"prepared\":" + result.prepared() + "}");
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @DeleteMapping("/clips/{clipId}")
+    public ResponseEntity<Void> deleteClip(
+            Authentication authentication,
+            @PathVariable Long clipId
+    ) {
+        Long adminUserId = requireManager(authentication);
+        adminQtVideoService.deleteClip(clipId);
+        writeAudit(adminUserId, ACTION_CLIP_DELETE, TARGET_TYPE_QT_VIDEO_CLIP, clipId, null);
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/clips/{clipId}/status")
