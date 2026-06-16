@@ -224,6 +224,7 @@
   "qmSongCount": "{count} songs",
   "@qmSongCount": { "placeholders": { "count": { "type": "int" } } },
   "statsTitle": "My meditation",
+  "missionTitle": "Mission",
   "statsWeek": "This week",
   "statsMonth": "This month",
   "statsStreak": "Streak",

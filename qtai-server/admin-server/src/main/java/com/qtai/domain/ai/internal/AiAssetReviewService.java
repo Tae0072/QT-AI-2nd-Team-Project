@@ -129,6 +129,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         );
 
         PublishCommands publishCommands = publishCommandsForTarget(command, asset);
+        PublishApprovedSimulatorClipCommand simulatorCommand = simulatorCommandForTarget(command, asset);
         asset.approve(command.reviewedAt());
         // study publish commands replace by aiAssetId/verse; a failed later call rolls back locally and retry replays both.
         if (publishCommands.verseExplanationCommand() != null) {
@@ -137,8 +138,8 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         if (publishCommands.glossaryTermsCommand() != null) {
             publishGlossaryTerms(publishCommands.glossaryTermsCommand());
         }
-        if (publishCommands.simulatorClipCommand() != null) {
-            publishSimulatorClip(publishCommands.simulatorClipCommand());
+        if (simulatorCommand != null) {
+            publishSimulatorClip(simulatorCommand);
         }
     }
 
@@ -179,22 +180,15 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             ReviewAiAssetCommand command,
             AiGeneratedAsset asset
     ) {
-        if (!command.activateForTarget()) {
-            return PublishCommands.empty();
+        if (!command.activateForTarget() || !isVerseExplanationBibleVerseAsset(asset)) {
+            return new PublishCommands(null, null);
         }
 
-        if (isVerseExplanationBibleVerseAsset(asset)) {
-            JsonNode root = payloadRoot(asset);
-            return new PublishCommands(
-                    publishCommandForTarget(command, asset, root),
-                    glossaryCommand(command, asset, root),
-                    null
-            );
-        }
-        if (isSimulatorQtPassageAsset(asset)) {
-            return new PublishCommands(null, null, simulatorClipCommand(command, asset, payloadRoot(asset)));
-        }
-        return PublishCommands.empty();
+        JsonNode root = payloadRoot(asset);
+        return new PublishCommands(
+                publishCommandForTarget(command, asset, root),
+                glossaryCommand(command, asset, root)
+        );
     }
 
     private PublishApprovedVerseExplanationCommand publishCommandForTarget(
@@ -211,6 +205,42 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
                 asset.getId(),
                 command.reviewedAt()
         );
+    }
+
+    private PublishApprovedSimulatorClipCommand simulatorCommandForTarget(
+            ReviewAiAssetCommand command,
+            AiGeneratedAsset asset
+    ) {
+        if (!command.activateForTarget() || !isSimulatorQtPassageAsset(asset)) {
+            return null;
+        }
+        JsonNode root = payloadRoot(asset);
+        JsonNode sceneScript = root.get("sceneScript");
+        if (sceneScript == null || sceneScript.isNull()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson sceneScript is required");
+        }
+        JsonNode versionNode = root.get("componentLibraryVersionId");
+        if (versionNode == null || !versionNode.canConvertToLong()) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT, "asset payloadJson componentLibraryVersionId is required");
+        }
+        return new PublishApprovedSimulatorClipCommand(
+                asset.getTargetId(),
+                requireText(textValue(root.get("title")), "title"),
+                versionNode.asLong(),
+                writeSceneScriptJson(sceneScript),
+                asset.getId(),
+                command.reviewedAt()
+        );
+    }
+
+    private String writeSceneScriptJson(JsonNode sceneScript) {
+        try {
+            return objectMapper.writeValueAsString(sceneScript);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(
+                    ErrorCode.INTERNAL_ERROR, "asset payloadJson sceneScript serialization failed");
+        }
     }
 
     private void hide(ReviewAiAssetCommand command, AiGeneratedAsset asset) {
@@ -277,38 +307,6 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     private static boolean isSimulatorQtPassageAsset(AiGeneratedAsset asset) {
         return asset.getAssetType() == AiGeneratedAssetType.SIMULATOR
                 && asset.getTargetType() == AiTargetType.QT_PASSAGE;
-    }
-
-    private PublishApprovedSimulatorClipCommand simulatorClipCommand(
-            ReviewAiAssetCommand command,
-            AiGeneratedAsset asset,
-            JsonNode root
-    ) {
-        return new PublishApprovedSimulatorClipCommand(
-                asset.getTargetId(),
-                requireText(textValue(root.get("title")), "title"),
-                requirePositiveLong(root.get("componentLibraryVersionId"), "componentLibraryVersionId"),
-                sceneScriptJson(root),
-                asset.getId(),
-                command.reviewedAt()
-        );
-    }
-
-    private String sceneScriptJson(JsonNode root) {
-        JsonNode sceneScriptJson = root.get("sceneScriptJson");
-        if (sceneScriptJson != null) {
-            return requireText(textValue(sceneScriptJson), "sceneScriptJson");
-        }
-
-        JsonNode sceneScript = root.get("sceneScript");
-        if (sceneScript == null || sceneScript.isNull()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson sceneScript is required");
-        }
-        try {
-            return objectMapper.writeValueAsString(sceneScript);
-        } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "sceneScript serialization failed");
-        }
     }
 
     private ExplanationItem explanationItemForTarget(AiGeneratedAsset asset, JsonNode root) {
@@ -498,13 +496,6 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         return value;
     }
 
-    private static Long requirePositiveLong(JsonNode node, String fieldName) {
-        if (node == null || !node.canConvertToLong() || node.asLong() <= 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, fieldName + " must be positive");
-        }
-        return node.asLong();
-    }
-
     private static String textValue(JsonNode node) {
         if (node == null || !node.isTextual()) {
             return null;
@@ -536,11 +527,7 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
 
     private record PublishCommands(
             PublishApprovedVerseExplanationCommand verseExplanationCommand,
-            PublishApprovedGlossaryTermsCommand glossaryTermsCommand,
-            PublishApprovedSimulatorClipCommand simulatorClipCommand
+            PublishApprovedGlossaryTermsCommand glossaryTermsCommand
     ) {
-        static PublishCommands empty() {
-            return new PublishCommands(null, null, null);
-        }
     }
 }

@@ -161,7 +161,7 @@ public class AdminAiPromptVersionController {
     public record AiPromptVersionRequest(
             @NotBlank String promptType,
             @NotBlank String version,
-            @NotBlank String systemPrompt,
+            String systemPrompt,
             @NotBlank String userPromptTemplate,
             String modelName,
             @DecimalMin("0.0") @DecimalMax("2.0") Double temperature,

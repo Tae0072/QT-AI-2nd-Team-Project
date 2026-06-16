@@ -1,5 +1,7 @@
 package com.qtai.domain.sharing.internal;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -8,6 +10,9 @@ import java.util.Collection;
 import java.util.List;
 
 public interface PostLikeRepository extends JpaRepository<PostLike, Long> {
+
+  /** 회원이 좋아요한 기록을 누른 시각 최신순으로 — 관리자 회원 상세 목록용. */
+  Page<PostLike> findByMemberIdOrderByCreatedAtDesc(Long memberId, Pageable pageable);
 
   /**
    * likedByMe 배치 조회. 피드 한 페이지의 게시글 id들(postIds) 중

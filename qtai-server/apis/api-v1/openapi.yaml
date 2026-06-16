@@ -23,6 +23,8 @@ tags:
     description: Admin audit log lookup API
   - name: Admin Notice
     description: 관리자 시스템 공지 관리 API
+  - name: Admin Music
+    description: 관리자 배경음악 관리 API
   - name: System AI
     description: 시스템 배치가 AI 생성 작업, 산출물, 검증 로그를 접수하는 내부 운영 API
 paths:
@@ -1745,6 +1747,196 @@ paths:
       responses:
         "204":
           description: 관리자 공지 숨김 성공
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/music-tracks:
+    get:
+      tags:
+        - Admin Music
+      operationId: listAdminMusicTracks
+      summary: 관리자 배경음악 목록 조회
+      description: >
+        관리자 웹에서 배경음악 음원 메타데이터를 조회한다. audio_data 바이트는 목록 응답에
+        포함하지 않는다. ROLE_ADMIN과 OPERATOR 또는 SUPER_ADMIN 권한이 필요하다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AdminMusicTrackStatus"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: 관리자 배경음악 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMusicTrackPageApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - Admin Music
+      operationId: createAdminMusicTrack
+      summary: 관리자 배경음악 등록
+      description: >
+        multipart/form-data로 음원 파일과 메타데이터를 등록한다. 생성된 음원은 HIDDEN 상태로
+        시작하며 publish API 호출 전까지 사용자 배경음악 목록에 노출되지 않는다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/AdminMusicTrackCreateMultipartRequest"
+      responses:
+        "201":
+          description: 관리자 배경음악 등록 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMusicTrackApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/music-tracks/{id}:
+    patch:
+      tags:
+        - Admin Music
+      operationId: updateAdminMusicTrack
+      summary: 관리자 배경음악 수정/교체
+      description: >
+        배경음악 메타데이터를 수정하고, file 파트가 있으면 음원 바이트를 교체한다.
+        file 파트가 없으면 기존 음원을 유지한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/AdminMusicTrackUpdateMultipartRequest"
+      responses:
+        "200":
+          description: 관리자 배경음악 수정 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMusicTrackApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/music-tracks/{id}/publish:
+    post:
+      tags:
+        - Admin Music
+      operationId: publishAdminMusicTrack
+      summary: 관리자 배경음악 노출 처리
+      description: HIDDEN 배경음악을 ACTIVE로 전환한다. 이미 ACTIVE이면 C0007을 반환한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 관리자 배경음악 노출 처리 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMusicTrackApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/music-tracks/{id}/hide:
+    post:
+      tags:
+        - Admin Music
+      operationId: hideAdminMusicTrack
+      summary: 관리자 배경음악 숨김 처리
+      description: ACTIVE 배경음악을 HIDDEN으로 전환한다. 이미 HIDDEN이면 C0007을 반환한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 관리자 배경음악 숨김 처리 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMusicTrackApiResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -3700,6 +3892,245 @@ components:
           format: int64
           minimum: 0
           description: 알림 row 생성에 실패한 회원 수.
+    AdminMusicTrackPageApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminMusicTrackPageResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminMusicTrackApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminMusicTrackResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminMusicTrackCreateMultipartRequest:
+      type: object
+      required:
+        - title
+        - category
+        - file
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: Morning Embrace
+        category:
+          $ref: "#/components/schemas/AdminMusicTrackCategory"
+        mimeType:
+          type: string
+          maxLength: 60
+          enum:
+            - audio/mpeg
+            - audio/mp4
+            - audio/aac
+            - audio/ogg
+            - audio/wav
+            - audio/x-wav
+            - audio/webm
+            - audio/flac
+          default: audio/mpeg
+        durationSec:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          minimum: 0
+          default: 0
+        licenseNote:
+          type: string
+          maxLength: 300
+          nullable: true
+        file:
+          type: string
+          format: binary
+          maxLength: 10485760
+          description: 서버가 music_tracks.audio_data에 저장하는 음원 파일.
+    AdminMusicTrackUpdateMultipartRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+        category:
+          $ref: "#/components/schemas/AdminMusicTrackCategory"
+        mimeType:
+          type: string
+          maxLength: 60
+          enum:
+            - audio/mpeg
+            - audio/mp4
+            - audio/aac
+            - audio/ogg
+            - audio/wav
+            - audio/x-wav
+            - audio/webm
+            - audio/flac
+        durationSec:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          minimum: 0
+        licenseNote:
+          type: string
+          maxLength: 300
+          nullable: true
+        file:
+          type: string
+          format: binary
+          maxLength: 10485760
+          description: 포함하면 음원을 교체하고, 생략하면 기존 음원을 유지한다.
+    AdminMusicTrackStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - HIDDEN
+    AdminMusicTrackCategory:
+      type: string
+      enum:
+        - BGM
+        - HYMN
+    AdminMusicTrackPageResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminMusicTrackResponse"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          example: createdAt,desc
+    AdminMusicTrackResponse:
+      type: object
+      required:
+        - id
+        - title
+        - category
+        - mimeType
+        - byteSize
+        - durationSec
+        - sortOrder
+        - licenseNote
+        - status
+        - streamUrl
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        title:
+          type: string
+          maxLength: 150
+        category:
+          $ref: "#/components/schemas/AdminMusicTrackCategory"
+        mimeType:
+          type: string
+          maxLength: 60
+        byteSize:
+          type: integer
+          format: int64
+          minimum: 0
+        durationSec:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 0
+        sortOrder:
+          type: integer
+          format: int32
+          minimum: 0
+        licenseNote:
+          type: string
+          maxLength: 300
+          nullable: true
+        status:
+          $ref: "#/components/schemas/AdminMusicTrackStatus"
+        streamUrl:
+          type: string
+          example: /api/v1/music/tracks/10/stream
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
     AdminAiMonitoringResponse:
       type: object
       required:

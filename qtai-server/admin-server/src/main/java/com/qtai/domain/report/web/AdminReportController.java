@@ -3,12 +3,15 @@ package com.qtai.domain.report.web;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.report.api.CreateReportUseCase;
 import com.qtai.domain.report.api.ListAdminReportsUseCase;
 import com.qtai.domain.report.api.ProcessReportUseCase;
 import com.qtai.domain.report.api.dto.AdminReportListQuery;
 import com.qtai.domain.report.api.dto.AdminReportListResponse;
 import com.qtai.domain.report.api.dto.ProcessReportCommand;
 import com.qtai.domain.report.api.dto.ProcessReportResult;
+import com.qtai.domain.report.api.dto.ReportCreateRequest;
+import com.qtai.domain.report.api.dto.ReportResponse;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -45,6 +48,7 @@ public class AdminReportController {
 
     private final ListAdminReportsUseCase listAdminReportsUseCase;
     private final ProcessReportUseCase processReportUseCase;
+    private final CreateReportUseCase createReportUseCase;
     private final com.qtai.domain.admin.api.VerifyAdminRoleUseCase verifyAdminRoleUseCase;
 
     /** 후속 조치 요청 본문(resolve/reject 공통). */
@@ -82,6 +86,24 @@ public class AdminReportController {
         Long adminId = requireOperator(authentication);
         ProcessReportResult result = processReportUseCase.reject(toCommand(adminId, reportId, request));
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    /**
+     * POST /api/v1/admin/reports/test-seed — 자가진단(기능 테스트, AD-18)용 테스트 신고 생성.
+     *
+     * <p>대상 존재 검증이 없는 COMMENT 타입 + 매 호출 고유 targetId, 사유 TEST로 접수한다.
+     * 신고자는 호출한 관리자 본인(members.id)이다. 운영 신고 흐름(목록→처리)을 안전하게 점검하기 위한 용도.
+     */
+    @PostMapping("/test-seed")
+    public ResponseEntity<ApiResponse<ReportResponse>> testSeed(Authentication authentication) {
+        requireOperator(authentication);
+        Long reporterMemberId = resolvePrincipalId(authentication);
+        long uniqueTargetId = System.currentTimeMillis();
+        ReportResponse response = createReportUseCase.createReport(
+                reporterMemberId,
+                new ReportCreateRequest("COMMENT", uniqueTargetId, "TEST",
+                        "자가진단(기능 테스트)에서 생성한 테스트 신고입니다."));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     private ProcessReportCommand toCommand(Long adminId, Long reportId, ProcessReportRequest request) {

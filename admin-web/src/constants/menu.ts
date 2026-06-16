@@ -25,6 +25,7 @@ export interface MenuItem {
 //  - AD-09 검증체크리스트: REVIEWER           (AdminAiValidationChecklistController.requireReviewer)
 //  - AD-10 배치실행로그  : OPERATOR/REVIEWER   (AdminAiBatchRunLogController.requireMonitoring)
 //  - AD-11 평가셋/케이스 : REVIEWER/CONTENT_CREATOR (AdminAiAuthentication.requireEvaluationManager)
+//  - AD-12 배경음악 관리: OPERATOR            (AdminMusicTrackController.requireOperator)
 //  - AI 프롬프트 관리    : REVIEWER           (AdminAiPromptController)
 export const MENU_ITEMS: MenuItem[] = [
   {
@@ -52,15 +53,34 @@ export const MENU_ITEMS: MenuItem[] = [
     requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
   {
-    code: 'AD-05',
-    path: '/praise-songs',
-    label: '찬양 큐레이션',
+    code: 'AD-13',
+    path: '/members',
+    label: '회원 관리',
     requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
+  {
+    code: 'AD-16',
+    path: '/missions',
+    label: '미션 관리',
+    requiredRoles: [ADMIN_ROLES.CONTENT_CREATOR, ADMIN_ROLES.OPERATOR],
+  },
+  {
+    code: 'AD-15',
+    path: '/sharing-posts',
+    label: '나눔 공유글 관리',
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
+  },
+  // AD-05 찬양 큐레이션은 AD-12 '배경음악 관리'로 통합됨(2026-06-15). 메뉴/페이지 제거.
   {
     code: 'AD-06',
     path: '/notices',
     label: '시스템 공지',
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
+  },
+  {
+    code: 'AD-12',
+    path: '/music-tracks',
+    label: '배경음악 관리',
     requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
   {
@@ -111,5 +131,11 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/qt-videos',
     label: 'QT 영상 관리',
     requiredRoles: [ADMIN_ROLES.OPERATOR, ADMIN_ROLES.REVIEWER, ADMIN_ROLES.CONTENT_CREATOR],
+  },
+  {
+    code: 'AD-18',
+    path: '/self-test',
+    label: '자가진단',
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
 ];

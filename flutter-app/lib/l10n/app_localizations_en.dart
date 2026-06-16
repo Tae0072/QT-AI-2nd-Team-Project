@@ -570,6 +570,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statsTitle => 'My meditation';
 
   @override
+  String get missionTitle => 'Mission';
+
+  @override
   String get statsWeek => 'This week';
 
   @override
