@@ -1,6 +1,7 @@
 package com.qtai.domain.qtvideo.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -17,9 +18,18 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
-import com.qtai.domain.bible.internal.BibleVerseRepository;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.domain.bible.api.GetBibleVerseUseCase;
+import com.qtai.domain.bible.api.ListBibleBooksUseCase;
+import com.qtai.domain.bible.api.dto.BibleBookResponse;
+import com.qtai.domain.bible.api.dto.BibleVerseBookResponse;
+import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
+import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
 import com.qtai.domain.qt.api.dto.QtPassageContentContext;
+import com.qtai.domain.qtvideo.api.dto.AdminQtVideoClipItem;
+import com.qtai.domain.qtvideo.api.dto.AdminQtVideoSegmentItem;
+import com.qtai.domain.qtvideo.api.dto.AdminQtVideoSourceItem;
 import com.qtai.domain.qtvideo.api.dto.PrepareQtVideoClipResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +42,8 @@ class AdminQtVideoServiceTest {
     private SourceVideoRepository sourceVideoRepository;
     private BibleVerseVideoSegmentRepository segmentRepository;
     private QtVideoClipRepository clipRepository;
+    private ListBibleBooksUseCase listBibleBooksUseCase;
+    private GetBibleVerseUseCase getBibleVerseUseCase;
     private GetQtPassageContentContextUseCase contentContextUseCase;
     private AdminQtVideoService service;
 
@@ -40,15 +52,106 @@ class AdminQtVideoServiceTest {
         sourceVideoRepository = mock(SourceVideoRepository.class);
         segmentRepository = mock(BibleVerseVideoSegmentRepository.class);
         clipRepository = mock(QtVideoClipRepository.class);
+        listBibleBooksUseCase = mock(ListBibleBooksUseCase.class);
+        getBibleVerseUseCase = mock(GetBibleVerseUseCase.class);
         contentContextUseCase = mock(GetQtPassageContentContextUseCase.class);
         service = new AdminQtVideoService(
                 sourceVideoRepository,
                 segmentRepository,
                 clipRepository,
-                mock(BibleVerseRepository.class),
+                listBibleBooksUseCase,
+                getBibleVerseUseCase,
                 contentContextUseCase,
                 Clock.fixed(Instant.parse("2026-06-15T00:00:00Z"), ZoneId.of("UTC"))
         );
+    }
+
+    @Test
+    void createSourceVideoDeactivatesPreviousActiveSourceForSameBook() {
+        SourceVideo previous = activeSourceVideo(1L);
+        when(sourceVideoRepository.findByBibleBookIdAndActiveUniqueKey((short) 46, SourceVideo.ACTIVE_UNIQUE_KEY))
+                .thenReturn(Optional.of(previous));
+        when(sourceVideoRepository.save(any(SourceVideo.class))).thenAnswer(invocation -> {
+            SourceVideo sourceVideo = invocation.getArgument(0);
+            ReflectionTestUtils.setField(sourceVideo, "id", 2L);
+            return sourceVideo;
+        });
+
+        AdminQtVideoSourceItem result = service.createSourceVideo(
+                (short) 46,
+                "new source",
+                "https://example.com/new.mp4",
+                new BigDecimal("100.000")
+        );
+
+        assertThat(previous.getStatus()).isEqualTo(SourceVideoStatus.INACTIVE);
+        assertThat(previous.getActiveUniqueKey()).isNull();
+        assertThat(result.id()).isEqualTo(2L);
+        assertThat(result.status()).isEqualTo(SourceVideoStatus.ACTIVE.name());
+        verify(sourceVideoRepository).saveAndFlush(previous);
+    }
+
+    @Test
+    void updateSourceVideoActivatesTargetAndDeactivatesPreviousActiveSource() {
+        SourceVideo target = activeSourceVideo(3L);
+        target.deactivate();
+        SourceVideo previousActive = activeSourceVideo(4L);
+        when(sourceVideoRepository.findById(3L)).thenReturn(Optional.of(target));
+        when(sourceVideoRepository.findByBibleBookIdAndActiveUniqueKey((short) 46, SourceVideo.ACTIVE_UNIQUE_KEY))
+                .thenReturn(Optional.of(previousActive));
+
+        AdminQtVideoSourceItem result = service.updateSourceVideo(
+                3L,
+                "updated source",
+                "https://example.com/updated.mp4",
+                new BigDecimal("120.000"),
+                "ACTIVE"
+        );
+
+        assertThat(previousActive.getStatus()).isEqualTo(SourceVideoStatus.INACTIVE);
+        assertThat(target.getStatus()).isEqualTo(SourceVideoStatus.ACTIVE);
+        assertThat(result.title()).isEqualTo("updated source");
+        assertThat(result.videoUrl()).isEqualTo("https://example.com/updated.mp4");
+        verify(sourceVideoRepository).saveAndFlush(previousActive);
+    }
+
+    @Test
+    void replaceSegmentsResolvesBibleVerseThroughBiblePublicUseCases() {
+        SourceVideo sourceVideo = activeSourceVideo(3L);
+        when(sourceVideoRepository.findById(3L)).thenReturn(Optional.of(sourceVideo));
+        when(listBibleBooksUseCase.listBibleBooks()).thenReturn(List.of(
+                new BibleBookResponse(46, "NT", "1CO", "고린도전서", "1 Corinthians", 46)
+        ));
+        when(getBibleVerseUseCase.getVerses("1CO", 10, 14, null)).thenReturn(new BibleVerseRangeResponse(
+                new BibleVerseBookResponse("1CO", "고린도전서", "1 Corinthians", 10),
+                List.of(new BibleVerseResponse(28582L, "1CO", 10, 14, "", ""))
+        ));
+        when(segmentRepository.save(any(BibleVerseVideoSegment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<AdminQtVideoSegmentItem> result = service.replaceSegments(3L, List.of(
+                new AdminQtVideoService.SegmentCommand(
+                        null,
+                        (short) 10,
+                        (short) 14,
+                        new BigDecimal("0.000"),
+                        new BigDecimal("10.000")
+                )
+        ));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).bibleVerseId()).isEqualTo(28582L);
+        verify(getBibleVerseUseCase).getVerses("1CO", 10, 14, null);
+        verify(segmentRepository).deleteBySourceVideo_Id(3L);
+        verify(segmentRepository).flush();
+    }
+
+    @Test
+    void replaceSegmentsRejectsEmptySegments() {
+        when(sourceVideoRepository.findById(3L)).thenReturn(Optional.of(activeSourceVideo(3L)));
+
+        assertThatThrownBy(() -> service.replaceSegments(3L, List.of()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("segments must not be empty");
     }
 
     @Test
@@ -144,6 +247,42 @@ class AdminQtVideoServiceTest {
         service.deleteClip(700L);
 
         verify(clipRepository).delete(clip);
+    }
+
+    @Test
+    void changeClipStatusApprovesTargetAndHidesPreviousActiveClip() {
+        SourceVideo sourceVideo = activeSourceVideo(3L);
+        QtVideoClip target = QtVideoClip.approvedSingleCut(
+                10L,
+                "old",
+                sourceVideo,
+                sourceVideo.getVideoUrl(),
+                new BigDecimal("10.000"),
+                new BigDecimal("20.000"),
+                null
+        );
+        target.hide();
+        ReflectionTestUtils.setField(target, "id", 700L);
+        QtVideoClip previousActive = QtVideoClip.approvedSingleCut(
+                10L,
+                "active",
+                sourceVideo,
+                sourceVideo.getVideoUrl(),
+                new BigDecimal("30.000"),
+                new BigDecimal("40.000"),
+                null
+        );
+        ReflectionTestUtils.setField(previousActive, "id", 701L);
+        when(clipRepository.findById(700L)).thenReturn(Optional.of(target));
+        when(clipRepository.findByQtPassageIdAndActiveUniqueKey(10L, QtVideoClip.ACTIVE_UNIQUE_KEY))
+                .thenReturn(Optional.of(previousActive));
+
+        AdminQtVideoClipItem result = service.changeClipStatus(700L, "APPROVED");
+
+        assertThat(previousActive.getStatus()).isEqualTo(QtVideoClipStatus.HIDDEN);
+        assertThat(target.getStatus()).isEqualTo(QtVideoClipStatus.APPROVED);
+        assertThat(result.status()).isEqualTo(QtVideoClipStatus.APPROVED.name());
+        verify(clipRepository).saveAndFlush(previousActive);
     }
 
     private static SourceVideo activeSourceVideo(Long id) {

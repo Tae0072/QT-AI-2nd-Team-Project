@@ -15,8 +15,11 @@ import java.util.stream.Collectors;
 
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
-import com.qtai.domain.bible.internal.BibleVerse;
-import com.qtai.domain.bible.internal.BibleVerseRepository;
+import com.qtai.domain.bible.api.GetBibleVerseUseCase;
+import com.qtai.domain.bible.api.ListBibleBooksUseCase;
+import com.qtai.domain.bible.api.dto.BibleBookResponse;
+import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
+import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
 import com.qtai.domain.qt.api.dto.QtPassageContentContext;
 import com.qtai.domain.qtvideo.api.dto.AdminQtVideoClipItem;
@@ -46,7 +49,8 @@ public class AdminQtVideoService {
     private final SourceVideoRepository sourceVideoRepository;
     private final BibleVerseVideoSegmentRepository segmentRepository;
     private final QtVideoClipRepository clipRepository;
-    private final BibleVerseRepository bibleVerseRepository;
+    private final ListBibleBooksUseCase listBibleBooksUseCase;
+    private final GetBibleVerseUseCase getBibleVerseUseCase;
     private final GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
     private final Clock clock;
 
@@ -282,15 +286,7 @@ public class AdminQtVideoService {
         }
         Long bibleVerseId = segment.bibleVerseId();
         if (bibleVerseId == null) {
-            requirePositive(segment.chapter() == null ? null : segment.chapter().longValue(), "chapter");
-            requirePositive(segment.verse() == null ? null : segment.verse().longValue(), "verse");
-            bibleVerseId = bibleVerseRepository.findByBook_IdAndChapterNoAndVerseNo(
-                            sourceVideo.getBibleBookId(),
-                            segment.chapter(),
-                            segment.verse()
-                    )
-                    .map(BibleVerse::getId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "bible verse not found"));
+            bibleVerseId = resolveBibleVerseId(sourceVideo.getBibleBookId(), segment);
         }
         requirePositive(bibleVerseId, "bibleVerseId");
         requireTimeRange(segment.startTimeSec(), segment.endTimeSec());
@@ -300,6 +296,41 @@ public class AdminQtVideoService {
                 segment.startTimeSec(),
                 segment.endTimeSec()
         );
+    }
+
+    private Long resolveBibleVerseId(Short bibleBookId, SegmentCommand segment) {
+        int chapter = requirePositive(segment.chapter() == null ? null : segment.chapter().longValue(), "chapter")
+                .intValue();
+        int verse = requirePositive(segment.verse() == null ? null : segment.verse().longValue(), "verse")
+                .intValue();
+        String bookCode = findBibleBookCode(bibleBookId);
+        BibleVerseRangeResponse range = getBibleVerseUseCase.getVerses(bookCode, chapter, verse, null);
+        if (range == null || range.verses() == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "bible verse not found");
+        }
+        return range.verses().stream()
+                .filter(candidate -> isSameVerse(candidate, chapter, verse))
+                .findFirst()
+                .map(BibleVerseResponse::id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "bible verse not found"));
+    }
+
+    private String findBibleBookCode(Short bibleBookId) {
+        requirePositive(bibleBookId == null ? null : bibleBookId.longValue(), "bibleBookId");
+        return listBibleBooksUseCase.listBibleBooks().stream()
+                .filter(book -> book.id() != null && Objects.equals(book.id(), bibleBookId.intValue()))
+                .findFirst()
+                .map(BibleBookResponse::code)
+                .filter(code -> code != null && !code.isBlank())
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "bible book not found"));
+    }
+
+    private static boolean isSameVerse(BibleVerseResponse candidate, int chapter, int verse) {
+        return candidate != null
+                && candidate.chapterNo() != null
+                && candidate.verseNo() != null
+                && candidate.chapterNo() == chapter
+                && candidate.verseNo() == verse;
     }
 
     private Optional<SegmentGroup> findCompleteSegmentGroup(List<Long> verseIds) {

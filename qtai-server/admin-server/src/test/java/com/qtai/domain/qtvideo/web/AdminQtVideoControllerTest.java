@@ -3,6 +3,7 @@ package com.qtai.domain.qtvideo.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -97,6 +98,33 @@ class AdminQtVideoControllerTest {
         assertThat(audit.targetType()).isEqualTo("QT_VIDEO_CLIP");
         assertThat(audit.targetId()).isEqualTo(7L);
         assertThat(audit.actorId()).isEqualTo(100L);
+    }
+
+    @Test
+    @DisplayName("SUPER_ADMIN도 verifyAnyRole 우월권 결과로 QT 영상 삭제 API를 통과한다")
+    void deleteClip_allowsSuperAdminResultFromAdminRoleUseCase() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("OPERATOR", "REVIEWER", "CONTENT_CREATOR"))))
+                .thenReturn(new AdminUserInfo(100L, 7L, "SUPER_ADMIN"));
+
+        mockMvc.perform(delete("/api/v1/admin/qt-videos/clips/7")
+                        .principal(authentication()))
+                .andExpect(status().isNoContent());
+
+        verify(adminQtVideoService).deleteClip(7L);
+    }
+
+    @Test
+    @DisplayName("ROLE_ADMIN 권한이 없으면 QT 영상 삭제 API를 차단한다")
+    void deleteClip_rejectsNonAdminRoleBeforeServiceCall() throws Exception {
+        TestingAuthenticationToken user = new TestingAuthenticationToken("7", "n/a", "ROLE_USER");
+        user.setAuthenticated(true);
+
+        mockMvc.perform(delete("/api/v1/admin/qt-videos/clips/7")
+                        .principal(user))
+                .andExpect(status().isForbidden());
+
+        verify(adminQtVideoService, never()).deleteClip(any());
+        verify(auditLogUseCase, never()).write(any());
     }
 
     private void manager() {
