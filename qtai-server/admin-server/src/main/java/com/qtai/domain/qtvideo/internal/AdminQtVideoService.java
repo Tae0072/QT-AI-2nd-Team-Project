@@ -138,20 +138,27 @@ public class AdminQtVideoService {
     }
 
     @Transactional
-    public void deleteSourceVideo(Long sourceVideoId) {
+    public DeletedSourceVideoSummary deleteSourceVideo(Long sourceVideoId) {
         SourceVideo sourceVideo = requireSourceVideo(sourceVideoId);
+        // 삭제 전 상태를 스냅샷으로 남겨 감사 로그 before-state로 기록한다.
+        Short bibleBookId = sourceVideo.getBibleBookId();
+        String status = sourceVideo.getStatus().name();
         // 원본 영상을 지우면 그 원본으로 만든 QT 클립과 절별 구간도 함께 삭제한다.
-        clipRepository.deleteBySourceVideo_Id(sourceVideoId);
-        segmentRepository.deleteBySourceVideo_Id(sourceVideoId);
+        long deletedClips = clipRepository.deleteBySourceVideo_Id(sourceVideoId);
+        long deletedSegments = segmentRepository.deleteBySourceVideo_Id(sourceVideoId);
         segmentRepository.flush();
         sourceVideoRepository.delete(sourceVideo);
+        return new DeletedSourceVideoSummary(sourceVideoId, bibleBookId, status, deletedClips, deletedSegments);
     }
 
     @Transactional
-    public void deleteClip(Long clipId) {
+    public DeletedClipSummary deleteClip(Long clipId) {
         QtVideoClip clip = clipRepository.findById(requirePositive(clipId, "clipId"))
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "qt video clip not found"));
+        DeletedClipSummary summary = new DeletedClipSummary(
+                clip.getId(), clip.getQtPassageId(), clip.getStatus().name(), clip.getSourceVideo().getId());
         clipRepository.delete(clip);
+        return summary;
     }
 
     public List<AdminQtVideoSegmentItem> listSegments(Long sourceVideoId) {
@@ -517,5 +524,24 @@ public class AdminQtVideoService {
     }
 
     private record SegmentGroup(SourceVideo sourceVideo, BigDecimal startTimeSec, BigDecimal endTimeSec) {
+    }
+
+    /** 원본 영상 삭제 직전 상태(감사 before-state용). 동반 삭제된 클립·구간 수를 포함한다. */
+    public record DeletedSourceVideoSummary(
+            Long sourceVideoId,
+            Short bibleBookId,
+            String status,
+            long deletedClips,
+            long deletedSegments
+    ) {
+    }
+
+    /** QT 클립 삭제 직전 상태(감사 before-state용). */
+    public record DeletedClipSummary(
+            Long clipId,
+            Long qtPassageId,
+            String status,
+            Long sourceVideoId
+    ) {
     }
 }

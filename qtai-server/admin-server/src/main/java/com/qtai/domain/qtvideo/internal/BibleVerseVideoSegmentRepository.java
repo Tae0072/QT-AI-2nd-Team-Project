@@ -2,7 +2,6 @@ package com.qtai.domain.qtvideo.internal;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -12,9 +11,7 @@ interface BibleVerseVideoSegmentRepository extends JpaRepository<BibleVerseVideo
 
     List<BibleVerseVideoSegment> findBySourceVideo_IdOrderByStartTimeSecAscIdAsc(Long sourceVideoId);
 
-    Optional<BibleVerseVideoSegment> findByBibleVerseIdAndSourceVideo_Id(Long bibleVerseId, Long sourceVideoId);
-
-    void deleteBySourceVideo_Id(Long sourceVideoId);
+    long deleteBySourceVideo_Id(Long sourceVideoId);
 
     @Query("""
             select segment

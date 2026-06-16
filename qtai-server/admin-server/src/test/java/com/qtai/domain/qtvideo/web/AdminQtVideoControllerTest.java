@@ -64,6 +64,8 @@ class AdminQtVideoControllerTest {
     @DisplayName("관리자는 원본 영상을 삭제할 수 있고 감사 로그를 남긴다")
     void deleteSourceVideo_returnsNoContentAndWritesAudit() throws Exception {
         manager();
+        when(adminQtVideoService.deleteSourceVideo(4L)).thenReturn(
+                new AdminQtVideoService.DeletedSourceVideoSummary(4L, (short) 46, "ACTIVE", 1L, 21L));
 
         mockMvc.perform(delete("/api/v1/admin/qt-videos/source-videos/4")
                         .principal(authentication()))
@@ -78,12 +80,17 @@ class AdminQtVideoControllerTest {
         assertThat(audit.targetType()).isEqualTo("SOURCE_VIDEO");
         assertThat(audit.targetId()).isEqualTo(4L);
         assertThat(audit.actorId()).isEqualTo(100L);
+        // 하드삭제 cascade의 삭제 직전 상태를 before-state로 남긴다.
+        assertThat(audit.beforeJson()).contains("\"deletedClips\":1", "\"deletedSegments\":21");
+        assertThat(audit.afterJson()).isNull();
     }
 
     @Test
     @DisplayName("관리자는 QT 클립을 삭제할 수 있고 감사 로그를 남긴다")
     void deleteClip_returnsNoContentAndWritesAudit() throws Exception {
         manager();
+        when(adminQtVideoService.deleteClip(7L)).thenReturn(
+                new AdminQtVideoService.DeletedClipSummary(7L, 2L, "APPROVED", 4L));
 
         mockMvc.perform(delete("/api/v1/admin/qt-videos/clips/7")
                         .principal(authentication()))
@@ -98,6 +105,8 @@ class AdminQtVideoControllerTest {
         assertThat(audit.targetType()).isEqualTo("QT_VIDEO_CLIP");
         assertThat(audit.targetId()).isEqualTo(7L);
         assertThat(audit.actorId()).isEqualTo(100L);
+        assertThat(audit.beforeJson()).contains("\"qtPassageId\":2", "\"sourceVideoId\":4");
+        assertThat(audit.afterJson()).isNull();
     }
 
     @Test
@@ -105,6 +114,8 @@ class AdminQtVideoControllerTest {
     void deleteClip_allowsSuperAdminResultFromAdminRoleUseCase() throws Exception {
         when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("OPERATOR", "REVIEWER", "CONTENT_CREATOR"))))
                 .thenReturn(new AdminUserInfo(100L, 7L, "SUPER_ADMIN"));
+        when(adminQtVideoService.deleteClip(7L)).thenReturn(
+                new AdminQtVideoService.DeletedClipSummary(7L, 2L, "APPROVED", 4L));
 
         mockMvc.perform(delete("/api/v1/admin/qt-videos/clips/7")
                         .principal(authentication()))
