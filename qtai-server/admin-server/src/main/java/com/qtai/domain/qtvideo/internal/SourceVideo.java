@@ -1,0 +1,95 @@
+package com.qtai.domain.qtvideo.internal;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+import com.qtai.common.entity.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(
+        name = "source_videos",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_source_videos_book_active",
+                columnNames = {"bible_book_id", "active_unique_key"}
+        ),
+        indexes = @Index(name = "idx_source_videos_book_status", columnList = "bible_book_id, status")
+)
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class SourceVideo extends BaseEntity {
+
+    public static final String ACTIVE_UNIQUE_KEY = "ACTIVE";
+
+    @Column(name = "bible_book_id", nullable = false)
+    private Short bibleBookId;
+
+    @Column(nullable = false, length = 200)
+    private String title;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "storage_provider", nullable = false, length = 30)
+    private SourceVideoStorageProvider storageProvider = SourceVideoStorageProvider.EXTERNAL_URL;
+
+    @Column(name = "video_url", nullable = false, length = 2048)
+    private String videoUrl;
+
+    @Column(name = "duration_sec", precision = 10, scale = 3)
+    private BigDecimal durationSec;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private SourceVideoStatus status = SourceVideoStatus.ACTIVE;
+
+    @Column(name = "active_unique_key", length = 20)
+    private String activeUniqueKey;
+
+    public static SourceVideo active(
+            Short bibleBookId,
+            String title,
+            String videoUrl,
+            BigDecimal durationSec
+    ) {
+        SourceVideo sourceVideo = new SourceVideo();
+        sourceVideo.bibleBookId = bibleBookId;
+        sourceVideo.title = title;
+        sourceVideo.storageProvider = SourceVideoStorageProvider.EXTERNAL_URL;
+        sourceVideo.videoUrl = videoUrl;
+        sourceVideo.durationSec = durationSec;
+        sourceVideo.status = SourceVideoStatus.ACTIVE;
+        sourceVideo.activeUniqueKey = ACTIVE_UNIQUE_KEY;
+        return sourceVideo;
+    }
+
+    public void update(String title, String videoUrl, BigDecimal durationSec) {
+        this.title = title;
+        this.videoUrl = videoUrl;
+        this.durationSec = durationSec;
+    }
+
+    public void activate() {
+        this.status = SourceVideoStatus.ACTIVE;
+        this.activeUniqueKey = ACTIVE_UNIQUE_KEY;
+    }
+
+    public void deactivate() {
+        this.status = SourceVideoStatus.INACTIVE;
+        this.activeUniqueKey = null;
+    }
+
+    /** 소프트 삭제: 행을 보존하되 비활성화하고 deleted_at을 기록한다(프로젝트 공통 삭제 정책). */
+    public void softDelete(LocalDateTime deletedAt) {
+        this.status = SourceVideoStatus.INACTIVE;
+        this.activeUniqueKey = null;
+        markDeletedAt(deletedAt);
+    }
+}

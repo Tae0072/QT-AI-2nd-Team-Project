@@ -126,6 +126,13 @@ export const MENU_ITEMS: MenuItem[] = [
     requiredRoles: [ADMIN_ROLES.REVIEWER],
   },
   {
+    // QT 영상 관리(URL/구간/클립) — AdminQtVideoController.requireManager
+    code: 'AD-20',
+    path: '/qt-videos',
+    label: 'QT 영상 관리',
+    requiredRoles: [ADMIN_ROLES.OPERATOR, ADMIN_ROLES.REVIEWER, ADMIN_ROLES.CONTENT_CREATOR],
+  },
+  {
     code: 'AD-18',
     path: '/self-test',
     label: '자가진단',

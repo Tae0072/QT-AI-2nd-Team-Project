@@ -19,6 +19,7 @@ import AiBatchRunLogsPage from './pages/AiBatchRunLogsPage';
 import AiEvaluationsPage from './pages/AiEvaluationsPage';
 import SimulatorClipsPage from './pages/SimulatorClipsPage';
 import AiPromptVersionsPage from './pages/AiPromptVersionsPage';
+import QtVideosPage from './pages/QtVideosPage';
 import SelfTestPage from './pages/SelfTestPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { MENU_ITEMS } from './constants/menu';
@@ -105,6 +106,10 @@ export default function App() {
           <Route
             path="/ai-prompt-versions"
             element={withRole('/ai-prompt-versions', <AiPromptVersionsPage />)}
+          />
+          <Route
+            path="/qt-videos"
+            element={withRole('/qt-videos', <QtVideosPage />)}
           />
           <Route
             path="/self-test"
