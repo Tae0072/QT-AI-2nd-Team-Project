@@ -5,6 +5,7 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.notification.api.SendNotificationUseCase;
 import com.qtai.domain.notification.api.dto.NotificationSendRequest;
+import com.qtai.domain.sharing.api.CheckCommentExistsUseCase;
 import com.qtai.domain.sharing.api.CommentUseCase;
 import com.qtai.domain.sharing.api.dto.CommentCreateRequest;
 import com.qtai.domain.sharing.api.dto.CommentListResponse;
@@ -28,7 +29,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class CommentService implements CommentUseCase {
+public class CommentService implements CommentUseCase, CheckCommentExistsUseCase {
 
     private final CommentRepository commentRepository;
     private final SharingPostRepository sharingPostRepository;
@@ -36,6 +37,8 @@ public class CommentService implements CommentUseCase {
     private final GetMemberUseCase getMemberUseCase;
     // 댓글 알림 발송용(P1-13).
     private final SendNotificationUseCase sendNotificationUseCase;
+    // 댓글 본문 '#닉네임' 멘션 기록·알림용.
+    private final SharingMentionService sharingMentionService;
 
     @Override
     @Transactional
@@ -52,6 +55,8 @@ public class CommentService implements CommentUseCase {
         sharingPostRepository.syncCommentCount(postId);
         // 4. 글 작성자에게 댓글 알림(P1-13). 본인 글 자기댓글은 제외, 실패는 비차단.
         notifyAuthorOfComment(post.getMemberId(), memberId, postId, saved.getId());
+        // 4-1. 댓글 본문의 '#닉네임' 멘션 기록·알림(본인 멘션 제외, 실패 비차단).
+        sharingMentionService.recordMentions(postId, saved.getId(), memberId, request.body());
         // 5. 작성자 현재 닉네임 조회(박제 아님). 방금 내가 쓴 댓글이라 ownedByMe=true.
         String nickname = getMemberUseCase.getMemberPublic(memberId).nickname();
         return toResponse(saved, nickname, true);
@@ -105,6 +110,11 @@ public class CommentService implements CommentUseCase {
                 page.getTotalPages(),
                 page.isFirst(),
                 page.isLast());
+    }
+
+    @Override
+    public boolean existsReportableComment(Long commentId) {
+        return commentRepository.existsReportableComment(commentId);
     }
 
     @Override

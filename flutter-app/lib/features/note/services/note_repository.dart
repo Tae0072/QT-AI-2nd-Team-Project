@@ -12,6 +12,15 @@ class NoteRepository {
 
   NoteRepository(this._dio);
 
+  Future<List<NoteCategoryOption>> getNoteCategories() async {
+    final response = await _dio.get('/note-categories');
+    final data = response.data['data'] as Map<String, dynamic>? ?? const {};
+    final categories = data['categories'] as List<dynamic>? ?? const [];
+    return categories
+        .map((e) => NoteCategoryOption.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// QT 묵상 노트 생성 (POST /api/v1/notes).
   Future<void> createQtNote({
     required int? qtPassageId,
@@ -32,12 +41,20 @@ class NoteRepository {
   }
 
   /// 노트 목록 조회 (GET /api/v1/notes).
+  ///
+  /// [status]는 서버 `notes.status`(DRAFT/SAVED) 필터. null이면 전체(04 §4.3.1).
+  /// [q]는 제목·본문 포함 검색어(서버 LIKE 검색, 04 §4.3.1). null/빈 문자열이면 미적용.
   Future<NoteListResponse> getNotes({
     String? category,
+    String? status,
+    String? q,
     int page = 0,
   }) async {
+    final keyword = q?.trim();
     final response = await _dio.get('/notes', queryParameters: {
       if (category != null) 'category': category,
+      if (status != null) 'status': status,
+      if (keyword != null && keyword.isNotEmpty) 'q': keyword,
       'page': page,
       'size': 20,
     });
@@ -48,10 +65,13 @@ class NoteRepository {
   /// 노트 생성 (POST /api/v1/notes).
   ///
   /// 자유 노트(기도, 회개, 감사)는 qtPassageId 없이 저장한다.
+  /// [verseIds]는 본문에 인용한 절(설교 노트·@멘션) — `note_verses` 메타데이터로 저장된다
+  /// (04 §4.3.4·§6.4.1). null이면 키를 생략(인용 절 없음), 빈 배열이면 빈 목록으로 전송한다.
   Future<NoteCreateResponse> create({
     required String category,
     required String title,
     required String body,
+    List<int>? verseIds,
     String status = 'SAVED',
     String visibility = 'PRIVATE',
   }) async {
@@ -59,6 +79,7 @@ class NoteRepository {
       'category': category,
       'title': title,
       'body': body,
+      if (verseIds != null) 'verseIds': verseIds,
       'status': status,
       'visibility': visibility,
     });
@@ -74,16 +95,32 @@ class NoteRepository {
   }
 
   /// 노트 수정 (PATCH /api/v1/notes/{id}).
+  ///
+  /// ⚠️ [verseIds] 시맨틱(04 §4.3.6):
+  /// - `null`(기본): 키를 **생략** → 서버가 기존 `note_verses`를 **건드리지 않음**(안전).
+  /// - `[]`(빈 배열): 인용 절을 **전부 비움**(전체 교체).
+  /// - 값 있음: 그 배열로 **교체**.
+  ///
+  /// 따라서 인용 절이 있는 노트(설교 등)를 수정할 때 절을 보존하려면 호출부가 현재 절
+  /// 목록을 명시적으로 다시 넘겨야 하고, 절을 건드리지 않으려면 아예 넘기지 말아야 한다.
+  /// 기본을 null로 둬서 "verseIds 안 줬는데 전체 삭제되는" 함정을 막는다.
   Future<void> update(
     int noteId, {
+    required String category,
+    int? qtPassageId,
     required String title,
     required String body,
+    List<int>? verseIds,
     String status = 'SAVED',
     String visibility = 'PRIVATE',
   }) async {
+    // PATCH지만 서버가 category(+MEDITATION이면 qtPassageId)를 필수로 요구하므로 함께 보낸다.
     await _dio.patch('/notes/$noteId', data: {
+      'category': category,
+      if (qtPassageId != null) 'qtPassageId': qtPassageId,
       'title': title,
       'body': body,
+      if (verseIds != null) 'verseIds': verseIds,
       'status': status,
       'visibility': visibility,
     });
@@ -102,5 +139,22 @@ class NoteRepository {
   /// 노트 삭제 (DELETE /api/v1/notes/{id}).
   Future<void> delete(int noteId) async {
     await _dio.delete('/notes/$noteId');
+  }
+
+  /// 여러 노트 삭제(목록 다중 선택). bulk API가 없어 단건 DELETE를 반복한다.
+  /// 부분 실패를 알리기 위해 실패한 id 목록을 반환한다(비어 있으면 전부 성공).
+  ///
+  /// 네트워크/HTTP 실패(DioException)만 "부분 실패"로 모은다. 그 외(프로그래밍 오류 등)는
+  /// 삼키지 않고 그대로 전파해 표면화한다(catch 범위 축소).
+  Future<List<int>> deleteMany(Iterable<int> noteIds) async {
+    final failed = <int>[];
+    for (final id in noteIds) {
+      try {
+        await delete(id);
+      } on DioException {
+        failed.add(id);
+      }
+    }
+    return failed;
   }
 }

@@ -2,6 +2,7 @@ package com.qtai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,57 @@ class AdminServerSecurityTest {
     @WithMockUser(username = "7", roles = "USER")
     void non_admin_role_is_denied_for_qt_passages_at_filter() throws Exception {
         mockMvc.perform(get("/api/v1/admin/qt-passages"))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(403));
+    }
+
+    @Test
+    @DisplayName("모놀리식 잔재 제거: /api/v1/auth/kakao는 admin-server에서 permitAll이 아니다(401/403)")
+    void auth_kakao_is_no_longer_permitted_anonymously() throws Exception {
+        // 사용자 인증은 service-user 소관 — admin-server엔 컨트롤러도 없고 permitAll도 제거됨
+        // (코드리뷰 2026-06-10 TODO 5). 익명 요청은 anyRequest().authenticated()에 걸린다.
+        int status = mockMvc.perform(post("/api/v1/auth/kakao"))
+                .andReturn().getResponse().getStatus();
+        assertThat(status).isIn(401, 403);
+    }
+
+    @Test
+    @DisplayName("local/dev 외 프로파일에서는 /h2-console이 개방되지 않는다(401/403)")
+    void h2_console_is_not_open_outside_local_dev_profiles() throws Exception {
+        // test 프로파일은 local/dev가 아니므로 permitAll 분기가 빠져 인증 요구로 떨어진다.
+        int status = mockMvc.perform(get("/h2-console/"))
+                .andReturn().getResponse().getStatus();
+        assertThat(status).isIn(401, 403);
+    }
+
+    @Test
+    @DisplayName("인증 없이 해설 생성 트리거 접근 시 거부된다(401 또는 403)")
+    void unauthenticated_explanation_generate_is_rejected() throws Exception {
+        int status = mockMvc.perform(post("/api/v1/admin/ai/qt-passages/1/explanations/generate"))
+                .andReturn().getResponse().getStatus();
+        assertThat(status).isIn(401, 403);
+    }
+
+    @Test
+    @DisplayName("ROLE_ADMIN이 아닌 인증 사용자는 해설 생성 트리거에서 403")
+    @WithMockUser(username = "7", roles = "USER")
+    void non_admin_role_is_denied_for_explanation_generate() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/ai/qt-passages/1/explanations/generate"))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(403));
+    }
+
+    @Test
+    @DisplayName("인증 없이 시뮬레이터 관리 접근 시 거부된다(401 또는 403)")
+    void unauthenticated_simulator_clips_is_rejected() throws Exception {
+        int status = mockMvc.perform(get("/api/v1/admin/simulator-clips"))
+                .andReturn().getResponse().getStatus();
+        assertThat(status).isIn(401, 403);
+    }
+
+    @Test
+    @DisplayName("ROLE_ADMIN이 아닌 인증 사용자는 시뮬레이터 숨김에서 403")
+    @WithMockUser(username = "7", roles = "USER")
+    void non_admin_role_is_denied_for_simulator_hide() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/simulator-clips/500/hide"))
                 .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(403));
     }
 

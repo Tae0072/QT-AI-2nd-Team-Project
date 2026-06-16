@@ -5,10 +5,14 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.note.api.GetNoteUseCase;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.dto.NoteDraftResponse;
+import com.qtai.domain.qt.api.GetBiblePassageStudyUseCase;
 import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
 import com.qtai.domain.qt.api.GetTodayQtUseCase;
+import com.qtai.domain.qt.api.dto.BiblePassageStudy;
 import com.qtai.domain.qt.api.dto.QtPassageContentContext;
 import com.qtai.domain.qt.api.dto.TodayQtResponse;
+import com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase;
+import com.qtai.domain.study.api.dto.QtStudyAvailability;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,14 +43,16 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextUseCase {
+public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextUseCase,
+        GetBiblePassageStudyUseCase {
 
     private final QtPassageLookup passageLookup;
     private final QtPassageRepository qtPassageRepository;
     private final QtPassageVerseRepository qtPassageVerseRepository;
     private final TodayQtRangeResolver rangeResolver;
     private final GetNoteUseCase getNoteUseCase;
-    private final com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase getQtStudyAvailabilityUseCase;
+    private final GetQtStudyAvailabilityUseCase getQtStudyAvailabilityUseCase;
+    private final BibleBookLookup bibleBookLookup;
     private final java.time.Clock clock;
 
     // ------------------------------------------------------------------
@@ -88,7 +94,8 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
 
         // 공개 게이트(CLAUDE.md §6) — QT 범위 공개는 해당일 00:00 KST.
         // 선등록된 미래 본문은 id 순회로도 열람 불가(존재 은닉을 위해 404).
-        if (passage.getQtDate().isAfter(java.time.LocalDate.now(clock))) {
+        // 관리자 게시 상태가 ACTIVE이고 공개일이 지난 QT만 사용자에게 노출한다.
+        if (!isVisibleToUsers(passage)) {
             throw new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND);
         }
 
@@ -117,6 +124,60 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
         return toContentContext(passage);
     }
 
+    // ------------------------------------------------------------------
+    // GetBiblePassageStudyUseCase 구현
+    // ------------------------------------------------------------------
+
+    /**
+     * 성경 목차에서 선택한 본문 범위의 해설 진입점 가용성을 조회한다(F-01·F-08).
+     *
+     * <p>선택 범위를 포함하는 QT 본문을 찾고, 그 본문 절들에 승인된 해설이 있으면
+     * 해설 진입점을 활성화한다. 매핑/해설이 없으면 {@link BiblePassageStudy#NONE}.
+     * 입력이 유효하지 않으면(범위 역전 등) 차단 없이 NONE을 돌려 화면을 막지 않는다.
+     */
+    @Override
+    public BiblePassageStudy getPassageStudy(String bookCode, int chapter, int verseFrom, int verseTo) {
+        if (bookCode == null || bookCode.isBlank()
+                || chapter < 1 || chapter > Short.MAX_VALUE
+                || verseFrom < 1 || verseTo < verseFrom || verseTo > Short.MAX_VALUE) {
+            return BiblePassageStudy.NONE;
+        }
+
+        Short bookId = bibleBookLookup.findBookIdByCode(bookCode).orElse(null);
+        if (bookId == null) {
+            return BiblePassageStudy.NONE;
+        }
+
+        List<QtPassage> matches = qtPassageRepository.findContainingRange(
+                bookId, (short) chapter, (short) verseFrom, (short) verseTo);
+        if (matches.isEmpty()) {
+            return BiblePassageStudy.NONE;
+        }
+
+        QtPassage passage = matches.stream()
+                .filter(this::isVisibleToUsers)
+                .findFirst()
+                .orElse(null);
+        if (passage == null) {
+            return BiblePassageStudy.NONE;
+        }
+        List<Long> verseIds = qtPassageVerseRepository
+                .findByQtPassageIdOrderByDisplayOrderAsc(passage.getId())
+                .stream()
+                .map(QtPassageVerse::getBibleVerseId)
+                .toList();
+
+        QtStudyAvailability availability =
+                getQtStudyAvailabilityUseCase.getAvailability(passage.getId(), verseIds);
+        boolean hasExplanation = availability != null && availability.hasExplanation();
+
+        // 해설 콘텐츠 조회(`/qt/{id}/study-content`)에 qtPassageId가 필요하므로,
+        // 해설이 있을 때만 qtPassageId를 함께 노출한다.
+        return hasExplanation
+                ? new BiblePassageStudy(passage.getId(), true)
+                : BiblePassageStudy.NONE;
+    }
+
     /**
      * 특정 날짜 본문의 콘텐츠 컨텍스트 조회 — 내부 배치 전용.
      *
@@ -142,7 +203,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
         // 승인 해설·시뮬레이터 클립이 study 경로로 새는 구멍이었다. study 서비스들은
         // 이 플래그로 노출을 차단한다. (ai 사전 생성 경로는 published를 보지 않으므로
         // 관리자 선생성 워크플로우는 막히지 않는다)
-        boolean published = !passage.getQtDate().isAfter(java.time.LocalDate.now(clock));
+        boolean published = isVisibleToUsers(passage);
 
         return new QtPassageContentContext(
                 passage.getId(),
@@ -151,6 +212,11 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 verseIds,
                 published
         );
+    }
+
+    private boolean isVisibleToUsers(QtPassage passage) {
+        return passage.getStatus() == QtPassageStatus.ACTIVE
+                && !passage.getQtDate().isAfter(java.time.LocalDate.now(clock));
     }
 
     // ------------------------------------------------------------------

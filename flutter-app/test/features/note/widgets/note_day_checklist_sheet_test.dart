@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/note/models/note_models.dart';
-import 'package:qtai_app/features/note/providers/note_providers.dart';
 import 'package:qtai_app/features/note/widgets/note_day_checklist_sheet.dart';
 
 /// 시트를 띄우는 버튼 하나만 있는 호스트 위젯으로 감싸 바텀시트를 연다.
@@ -38,11 +36,11 @@ void main() {
 
     await _openSheet(tester, day.date, day);
 
-    // 5종 라벨이 모두 보인다.
-    for (final label in ['묵상', '설교', '기도', '회개', '감사']) {
+    // 5종 라벨이 모두 보인다. (① 카테고리 라벨 묵상→QT)
+    for (final label in ['QT', '설교', '기도', '회개', '감사']) {
       expect(find.text(label), findsOneWidget);
     }
-    // 작성된 2종(묵상·기도) = 체크, 나머지 3종 = 미체크.
+    // 작성된 2종(QT·기도) = 체크, 나머지 3종 = 미체크.
     expect(find.byIcon(Icons.check_circle), findsNWidgets(2));
     expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(3));
   });
@@ -52,11 +50,5 @@ void main() {
 
     expect(find.byIcon(Icons.check_circle), findsNothing);
     expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(5));
-  });
-
-  test('노트 진입 시 달력이 기본 화면이다(noteCalendarViewProvider 기본 true)', () {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    expect(container.read(noteCalendarViewProvider), isTrue);
   });
 }

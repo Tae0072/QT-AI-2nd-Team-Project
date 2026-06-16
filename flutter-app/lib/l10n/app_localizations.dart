@@ -188,6 +188,12 @@ abstract class AppLocalizations {
   /// **'Login failed. Please try again.'**
   String get loginFailed;
 
+  /// No description provided for @loginWebNotSupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Kakao login is not supported on the web. Please use the mobile app.'**
+  String get loginWebNotSupported;
+
   /// No description provided for @loginLegalPrefix.
   ///
   /// In en, this message translates to:
@@ -296,29 +302,107 @@ abstract class AppLocalizations {
   /// **'Notes'**
   String get noteListTitle;
 
-  /// No description provided for @noteViewList.
-  ///
-  /// In en, this message translates to:
-  /// **'List view'**
-  String get noteViewList;
-
-  /// No description provided for @noteViewCalendar.
-  ///
-  /// In en, this message translates to:
-  /// **'Calendar view'**
-  String get noteViewCalendar;
-
   /// No description provided for @noteFilterAll.
   ///
   /// In en, this message translates to:
   /// **'All'**
   String get noteFilterAll;
 
+  /// No description provided for @noteStatusAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get noteStatusAll;
+
+  /// No description provided for @noteStatusDraft.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get noteStatusDraft;
+
+  /// No description provided for @noteStatusSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get noteStatusSaved;
+
+  /// No description provided for @noteQuickCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'New {label}'**
+  String noteQuickCreate(String label);
+
   /// No description provided for @noteEmpty.
   ///
   /// In en, this message translates to:
   /// **'No notes yet'**
   String get noteEmpty;
+
+  /// No description provided for @noteSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search records'**
+  String get noteSearchHint;
+
+  /// No description provided for @noteSearchEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching records'**
+  String get noteSearchEmpty;
+
+  /// No description provided for @noteEmptyQtHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write QT notes from the Today QT screen'**
+  String get noteEmptyQtHint;
+
+  /// No description provided for @noteEmptySermonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write sermon notes from the Bible screen'**
+  String get noteEmptySermonHint;
+
+  /// No description provided for @noteSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get noteSelect;
+
+  /// No description provided for @noteSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all'**
+  String get noteSelectAll;
+
+  /// No description provided for @noteSelectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String noteSelectedCount(int count);
+
+  /// No description provided for @noteDeleteSelectedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete selected notes'**
+  String get noteDeleteSelectedTitle;
+
+  /// No description provided for @noteDeleteSelectedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {count} selected notes? This can\'t be undone.'**
+  String noteDeleteSelectedBody(int count);
+
+  /// No description provided for @noteDeletedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted {count}'**
+  String noteDeletedCount(int count);
+
+  /// No description provided for @noteDeletePartial.
+  ///
+  /// In en, this message translates to:
+  /// **'{ok} deleted, {failed} failed'**
+  String noteDeletePartial(int ok, int failed);
 
   /// No description provided for @noteUntitled.
   ///
@@ -379,30 +463,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to delete. Please try again.'**
   String get noteDeleteFailed;
-
-  /// No description provided for @noteSectionFelt.
-  ///
-  /// In en, this message translates to:
-  /// **'Reflections'**
-  String get noteSectionFelt;
-
-  /// No description provided for @noteSectionVerse.
-  ///
-  /// In en, this message translates to:
-  /// **'Verse to remember'**
-  String get noteSectionVerse;
-
-  /// No description provided for @noteSectionApply.
-  ///
-  /// In en, this message translates to:
-  /// **'How to apply'**
-  String get noteSectionApply;
-
-  /// No description provided for @noteSectionPray.
-  ///
-  /// In en, this message translates to:
-  /// **'Prayer'**
-  String get noteSectionPray;
 
   /// No description provided for @noteQuotedVerses.
   ///
@@ -518,48 +578,6 @@ abstract class AppLocalizations {
   /// **'View'**
   String get notePublishView;
 
-  /// No description provided for @fmtBold.
-  ///
-  /// In en, this message translates to:
-  /// **'Bold'**
-  String get fmtBold;
-
-  /// No description provided for @fmtItalic.
-  ///
-  /// In en, this message translates to:
-  /// **'Italic'**
-  String get fmtItalic;
-
-  /// No description provided for @fmtHeading.
-  ///
-  /// In en, this message translates to:
-  /// **'Heading'**
-  String get fmtHeading;
-
-  /// No description provided for @fmtList.
-  ///
-  /// In en, this message translates to:
-  /// **'List'**
-  String get fmtList;
-
-  /// No description provided for @fmtQuote.
-  ///
-  /// In en, this message translates to:
-  /// **'Quote'**
-  String get fmtQuote;
-
-  /// No description provided for @fmtCheckbox.
-  ///
-  /// In en, this message translates to:
-  /// **'Checkbox'**
-  String get fmtCheckbox;
-
-  /// No description provided for @fmtDivider.
-  ///
-  /// In en, this message translates to:
-  /// **'Divider'**
-  String get fmtDivider;
-
   /// No description provided for @calSavedThisMonth.
   ///
   /// In en, this message translates to:
@@ -605,7 +623,7 @@ abstract class AppLocalizations {
   /// No description provided for @navToday.
   ///
   /// In en, this message translates to:
-  /// **'Today'**
+  /// **'QT'**
   String get navToday;
 
   /// No description provided for @navBible.
@@ -626,11 +644,23 @@ abstract class AppLocalizations {
   /// **'Notes'**
   String get navNote;
 
+  /// No description provided for @navRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Records'**
+  String get navRecord;
+
   /// No description provided for @navMy.
   ///
   /// In en, this message translates to:
   /// **'My'**
   String get navMy;
+
+  /// No description provided for @homeBackExitGuide.
+  ///
+  /// In en, this message translates to:
+  /// **'Press back again to exit'**
+  String get homeBackExitGuide;
 
   /// No description provided for @ttsRead.
   ///
@@ -743,8 +773,50 @@ abstract class AppLocalizations {
   /// No description provided for @bibleSimulator.
   ///
   /// In en, this message translates to:
-  /// **'Simulator'**
+  /// **'QT Video'**
   String get bibleSimulator;
+
+  /// No description provided for @qtVideoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'QT Video'**
+  String get qtVideoTitle;
+
+  /// No description provided for @qtVideoRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload'**
+  String get qtVideoRetry;
+
+  /// No description provided for @videoBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get videoBack;
+
+  /// No description provided for @videoPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get videoPlay;
+
+  /// No description provided for @videoPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get videoPause;
+
+  /// No description provided for @videoSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Speed'**
+  String get videoSpeed;
+
+  /// No description provided for @videoFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Fullscreen'**
+  String get videoFullscreen;
 
   /// No description provided for @bibleMeditationNote.
   ///
@@ -1088,6 +1160,12 @@ abstract class AppLocalizations {
   /// **'My meditation'**
   String get statsTitle;
 
+  /// No description provided for @missionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mission'**
+  String get missionTitle;
+
   /// No description provided for @statsWeek.
   ///
   /// In en, this message translates to:
@@ -1165,6 +1243,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Receive push notifications'**
   String get settingsNotificationDesc;
+
+  /// No description provided for @settingsDarkMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark mode'**
+  String get settingsDarkMode;
+
+  /// No description provided for @settingsDarkModeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the dark theme'**
+  String get settingsDarkModeDesc;
+
+  /// No description provided for @settingsThemeMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get settingsThemeMode;
+
+  /// No description provided for @settingsThemeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get settingsThemeLight;
+
+  /// No description provided for @settingsThemeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get settingsThemeDark;
+
+  /// No description provided for @settingsThemeSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow system'**
+  String get settingsThemeSystem;
+
+  /// No description provided for @settingsThemeSystemDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches light/dark automatically based on device settings'**
+  String get settingsThemeSystemDesc;
 
   /// No description provided for @settingsFontSize.
   ///
@@ -1421,7 +1541,7 @@ abstract class AppLocalizations {
   /// No description provided for @catMeditation.
   ///
   /// In en, this message translates to:
-  /// **'Meditation'**
+  /// **'QT'**
   String get catMeditation;
 
   /// No description provided for @catSermon.

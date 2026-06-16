@@ -4,16 +4,24 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.study.api.HidePublishedSimulatorClipUseCase;
+import com.qtai.domain.study.api.ListAdminSimulatorClipsUseCase;
 import com.qtai.domain.study.api.PublishApprovedSimulatorClipUseCase;
+import com.qtai.domain.study.api.dto.AdminSimulatorClipListItem;
+import com.qtai.domain.study.api.dto.AdminSimulatorClipListResponse;
 import com.qtai.domain.study.api.dto.HidePublishedSimulatorClipCommand;
 import com.qtai.domain.study.api.dto.HidePublishedSimulatorClipResult;
+import com.qtai.domain.study.api.dto.ListAdminSimulatorClipsQuery;
 import com.qtai.domain.study.api.dto.PublishApprovedSimulatorClipCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedSimulatorClipResult;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,11 +35,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 class SimulatorClipPublishService implements
-        PublishApprovedSimulatorClipUseCase, HidePublishedSimulatorClipUseCase {
+        PublishApprovedSimulatorClipUseCase, HidePublishedSimulatorClipUseCase,
+        ListAdminSimulatorClipsUseCase {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     /** scene_script_json 최대 크기(문자) — LONGTEXT 범위 내 보호용 상한. */
     private static final int MAX_SCENE_SCRIPT_LENGTH = 200_000;
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final SimulatorClipRepository simulatorClipRepository;
     private final SimulatorComponentLibraryVersionRepository componentLibraryVersionRepository;
@@ -78,6 +88,61 @@ class SimulatorClipPublishService implements
         return new HidePublishedSimulatorClipResult(command.aiAssetId(), clips.size());
     }
 
+    @Override
+    public AdminSimulatorClipListResponse listAdminSimulatorClips(ListAdminSimulatorClipsQuery query) {
+        if (query == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "query must not be null");
+        }
+        if (query.page() < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "page must not be negative");
+        }
+        if (query.size() < 1 || query.size() > MAX_PAGE_SIZE) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "size must be between 1 and 100");
+        }
+        SimulatorClipStatus status = parseStatus(query.status());
+        // 정렬은 NULL-safe 결정적 키인 id DESC 사용. approvedAt 은 PENDING/REJECTED에서 NULL이라
+        // 정렬키로 쓰면 DB별 NULL 순서(H2/MySQL) 차이로 결과가 흔들린다. id는 auto-increment라
+        // 사실상 최신순이며 NULL이 없어 안정적이다.
+        Page<SimulatorClip> page = simulatorClipRepository.findForAdmin(
+                status,
+                query.qtPassageId(),
+                PageRequest.of(query.page(), query.size(), Sort.by(Sort.Direction.DESC, "id")));
+
+        return new AdminSimulatorClipListResponse(
+                page.getContent().stream().map(SimulatorClipPublishService::toListItem).toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.isFirst(),
+                page.isLast()
+        );
+    }
+
+    private static AdminSimulatorClipListItem toListItem(SimulatorClip clip) {
+        return new AdminSimulatorClipListItem(
+                clip.getId(),
+                clip.getQtPassageId(),
+                clip.getTitle(),
+                clip.getStatus().name(),
+                clip.getAiAssetId(),
+                clip.getApprovedAt() == null
+                        ? null
+                        : clip.getApprovedAt().atZone(KST).toOffsetDateTime()
+        );
+    }
+
+    private static SimulatorClipStatus parseStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        try {
+            return SimulatorClipStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "status is not supported");
+        }
+    }
+
     private void validateSceneScript(String sceneScriptJson) {
         if (sceneScriptJson == null || sceneScriptJson.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "sceneScriptJson must not be blank");
@@ -88,7 +153,9 @@ class SimulatorClipPublishService implements
         }
         try {
             objectMapper.readTree(sceneScriptJson);
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
+            // 광범위 catch(Exception) 금지(CLAUDE.md §9). readTree는 JSON 파싱 실패 시
+            // JsonProcessingException만 던지므로 그 타입으로 좁힌다.
             throw new BusinessException(ErrorCode.INVALID_INPUT, "sceneScriptJson 형식이 올바르지 않습니다.");
         }
     }

@@ -22,6 +22,7 @@
   "loginSubtitle": "Read today's QT passage and verified commentary, and leave your own meditation notes.",
   "loginKakaoButton": "Start with Kakao",
   "loginFailed": "Login failed. Please try again.",
+  "loginWebNotSupported": "Kakao login is not supported on the web. Please use the mobile app.",
   "loginLegalPrefix": "By continuing, you agree to the ",
   "loginTermsOfService": "Terms of Service",
   "loginLegalAnd": " and ",
@@ -42,10 +43,43 @@
   "noteNewTitle": "New note",
   "noteCategoryPrompt": "What kind of note?",
   "noteListTitle": "Notes",
-  "noteViewList": "List view",
-  "noteViewCalendar": "Calendar view",
   "noteFilterAll": "All",
+  "noteStatusAll": "All",
+  "noteStatusDraft": "Draft",
+  "noteStatusSaved": "Saved",
+  "noteQuickCreate": "New {label}",
+  "@noteQuickCreate": {
+    "placeholders": {
+      "label": { "type": "String" }
+    }
+  },
   "noteEmpty": "No notes yet",
+  "noteSearchHint": "Search records",
+  "noteSearchEmpty": "No matching records",
+  "noteEmptyQtHint": "Write QT notes from the Today QT screen",
+  "noteEmptySermonHint": "Write sermon notes from the Bible screen",
+  "noteSelect": "Select",
+  "noteSelectAll": "Select all",
+  "noteSelectedCount": "{count} selected",
+  "@noteSelectedCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeleteSelectedTitle": "Delete selected notes",
+  "noteDeleteSelectedBody": "Delete {count} selected notes? This can't be undone.",
+  "@noteDeleteSelectedBody": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeletedCount": "Deleted {count}",
+  "@noteDeletedCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noteDeletePartial": "{ok} deleted, {failed} failed",
+  "@noteDeletePartial": {
+    "placeholders": {
+      "ok": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
   "noteUntitled": "(Untitled)",
   "noteDraft": "Draft",
   "noteModeWrite": "New",
@@ -56,10 +90,6 @@
   "noteDeleteConfirmBody": "Deleted notes cannot be recovered.",
   "noteDeleted": "Deleted",
   "noteDeleteFailed": "Failed to delete. Please try again.",
-  "noteSectionFelt": "Reflections",
-  "noteSectionVerse": "Verse to remember",
-  "noteSectionApply": "How to apply",
-  "noteSectionPray": "Prayer",
   "noteQuotedVerses": "Quoted verses",
   "noteLoadFailed": "Couldn't load the note",
   "noteEditTitleLabel": "Title (optional)",
@@ -80,13 +110,6 @@
   "notePublishAlready": "This note is already shared",
   "notePublishView": "View",
 
-  "fmtBold": "Bold",
-  "fmtItalic": "Italic",
-  "fmtHeading": "Heading",
-  "fmtList": "List",
-  "fmtQuote": "Quote",
-  "fmtCheckbox": "Checkbox",
-  "fmtDivider": "Divider",
   "calSavedThisMonth": "Saved {days} days this month",
   "@calSavedThisMonth": {
     "placeholders": { "days": { "type": "int" } }
@@ -104,11 +127,13 @@
   "noteShareAsImage": "Share as image",
   "noteShareImageFailed": "Failed to share image",
 
-  "navToday": "Today",
+  "navToday": "QT",
   "navBible": "Bible",
   "navShare": "Sharing",
   "navNote": "Notes",
+  "navRecord": "Records",
   "navMy": "My",
+  "homeBackExitGuide": "Press back again to exit",
   "ttsRead": "Read passage",
   "ttsStop": "Stop reading",
   "ttsNoExplanationInfo": "No commentary info for today's QT",
@@ -128,7 +153,14 @@
   "bibleTodayLoading": "Loading today's passage...",
   "bibleTodayLoadError": "Couldn't load today's passage.",
   "bibleExplanation": "Commentary",
-  "bibleSimulator": "Simulator",
+  "bibleSimulator": "QT Video",
+  "qtVideoTitle": "QT Video",
+  "qtVideoRetry": "Reload",
+  "videoBack": "Back",
+  "videoPlay": "Play",
+  "videoPause": "Pause",
+  "videoSpeed": "Speed",
+  "videoFullscreen": "Fullscreen",
   "bibleMeditationNote": "Write meditation note",
   "bibleComingSoon": "The {feature} screen is coming soon.",
   "@bibleComingSoon": {
@@ -192,6 +224,7 @@
   "qmSongCount": "{count} songs",
   "@qmSongCount": { "placeholders": { "count": { "type": "int" } } },
   "statsTitle": "My meditation",
+  "missionTitle": "Mission",
   "statsWeek": "This week",
   "statsMonth": "This month",
   "statsStreak": "Streak",
@@ -210,6 +243,13 @@
 
   "settingsNotification": "Notifications",
   "settingsNotificationDesc": "Receive push notifications",
+  "settingsDarkMode": "Dark mode",
+  "settingsDarkModeDesc": "Use the dark theme",
+  "settingsThemeMode": "Theme",
+  "settingsThemeLight": "Light",
+  "settingsThemeDark": "Dark",
+  "settingsThemeSystem": "Follow system",
+  "settingsThemeSystemDesc": "Switches light/dark automatically based on device settings",
   "settingsFontSize": "Font size",
   "settingsFontSizeDesc": "Set the body text size",
   "settingsFontSmall": "Small",
@@ -253,7 +293,7 @@
   "ttsVoicesLoading": "Loading the voice list",
   "ttsVoicesError": "Couldn't load the voice list",
 
-  "catMeditation": "Meditation",
+  "catMeditation": "QT",
   "catSermon": "Sermon",
   "catPrayer": "Prayer",
   "catGratitude": "Gratitude",

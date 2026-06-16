@@ -28,12 +28,11 @@ import com.qtai.external.llm.dto.LlmCompletionResponse;
 @Component
 class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
 
-    private static final int MAX_TOKENS = 2_000;
-    private static final double TEMPERATURE = 0.2;
     private static final String SOURCE_LABEL = "QT-AI DeepSeek";
 
     private final GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
     private final GetBibleVerseUseCase getBibleVerseUseCase;
+    private final CommentaryMaterialService commentaryMaterialService;
     private final AiPromptVersionRepository promptVersionRepository;
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper;
@@ -41,12 +40,14 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
     ExplanationGenerationJobHandler(
             GetQtPassageContentContextUseCase getQtPassageContentContextUseCase,
             GetBibleVerseUseCase getBibleVerseUseCase,
+            CommentaryMaterialService commentaryMaterialService,
             AiPromptVersionRepository promptVersionRepository,
             LlmClient llmClient,
             ObjectMapper objectMapper
     ) {
         this.getQtPassageContentContextUseCase = getQtPassageContentContextUseCase;
         this.getBibleVerseUseCase = getBibleVerseUseCase;
+        this.commentaryMaterialService = commentaryMaterialService;
         this.promptVersionRepository = promptVersionRepository;
         this.llmClient = llmClient;
         this.objectMapper = objectMapper;
@@ -60,24 +61,34 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
     @Override
     public AiGeneratedAsset generate(AiGenerationJob job, OffsetDateTime createdAt) {
         AiPromptVersion promptVersion = promptVersion(job.getPromptVersionId());
-        ExplanationInput input = input(job);
-        LlmCompletionResponse response = llmClient.complete(new LlmCompletionRequest(
-                null,
-                systemPrompt(),
-                userPrompt(input),
-                MAX_TOKENS,
-                TEMPERATURE
-        ));
-        String payloadJson = payloadJson(job, promptVersion, input, response);
+        GeneratedExplanation generated = generateForEvaluation(promptVersion, job.getTargetType(), job.getTargetId());
 
         return AiGeneratedAsset.create(
                 job.getId(),
                 AiGeneratedAssetType.EXPLANATION,
                 job.getTargetType(),
                 job.getTargetId(),
-                payloadJson,
+                generated.payloadJson(),
                 SOURCE_LABEL,
                 createdAt
+        );
+    }
+
+    GeneratedExplanation generateForEvaluation(AiPromptVersion promptVersion, AiTargetType targetType, Long targetId) {
+        if (promptVersion.getPromptType() != AiPromptType.EXPLANATION) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "PROMPT_VERSION_TYPE_MISMATCH");
+        }
+        ExplanationInput input = input(targetType, targetId);
+        LlmCompletionResponse response = llmClient.complete(new LlmCompletionRequest(
+                promptVersion.getModelName(),
+                AiPromptVersion.defaultSystemPrompt(),
+                userPrompt(promptVersion, input),
+                promptVersion.getMaxTokens(),
+                promptVersion.getTemperature()
+        ));
+        return new GeneratedExplanation(
+                payloadJson(targetType, targetId, promptVersion, input, response),
+                response.model()
         );
     }
 
@@ -89,30 +100,32 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
                 ));
     }
 
-    private ExplanationInput input(AiGenerationJob job) {
-        if (job.getTargetType() == AiTargetType.QT_PASSAGE) {
-            QtPassageContentContext context = getQtPassageContentContextUseCase.getContentContext(job.getTargetId());
+    private ExplanationInput input(AiTargetType targetType, Long targetId) {
+        if (targetType == AiTargetType.QT_PASSAGE) {
+            QtPassageContentContext context = getQtPassageContentContextUseCase.getContentContext(targetId);
             List<Long> verseIds = requireVerseIds(context.verseIds());
             return new ExplanationInput(
                     context.qtPassageId(),
                     context.qtDate(),
                     context.title(),
-                    job.getTargetType(),
-                    job.getTargetId(),
+                    targetType,
+                    targetId,
                     verseIds,
-                    bibleVerses(verseIds)
+                    bibleVerses(verseIds),
+                    commentaryMaterialService.findPromptContextByVerseIds(verseIds)
             );
         }
-        if (job.getTargetType() == AiTargetType.BIBLE_VERSE) {
-            List<Long> verseIds = List.of(requirePositive(job.getTargetId(), "targetId"));
+        if (targetType == AiTargetType.BIBLE_VERSE) {
+            List<Long> verseIds = List.of(requirePositive(targetId, "targetId"));
             return new ExplanationInput(
                     null,
                     null,
                     "Single verse explanation",
-                    job.getTargetType(),
-                    job.getTargetId(),
+                    targetType,
+                    targetId,
                     verseIds,
-                    bibleVerses(verseIds)
+                    bibleVerses(verseIds),
+                    commentaryMaterialService.findPromptContextByVerseIds(verseIds)
             );
         }
         throw new BusinessException(ErrorCode.INVALID_INPUT, "EXPLANATION_TARGET_TYPE_UNSUPPORTED");
@@ -139,7 +152,8 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
     }
 
     private String payloadJson(
-            AiGenerationJob job,
+            AiTargetType targetType,
+            Long targetId,
             AiPromptVersion promptVersion,
             ExplanationInput input,
             LlmCompletionResponse response
@@ -155,7 +169,7 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         payload.put("promptContentHash", promptVersion.getContentHash());
         payload.put("modelName", requireText(response.model(), "LLM_MODEL_NAME_MISSING"));
         payload.set("tokenUsage", tokenUsage(response));
-        payload.set("sourceMetadata", sourceMetadata(job, input));
+        payload.set("sourceMetadata", sourceMetadata(targetType, targetId, input));
 
         try {
             return objectMapper.writeValueAsString(payload);
@@ -244,10 +258,10 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         return tokenUsage;
     }
 
-    private ObjectNode sourceMetadata(AiGenerationJob job, ExplanationInput input) {
+    private ObjectNode sourceMetadata(AiTargetType targetType, Long targetId, ExplanationInput input) {
         ObjectNode sourceMetadata = objectMapper.createObjectNode();
-        sourceMetadata.put("targetType", job.getTargetType().name());
-        sourceMetadata.put("targetId", job.getTargetId());
+        sourceMetadata.put("targetType", targetType.name());
+        sourceMetadata.put("targetId", targetId);
         if (input.qtPassageId() != null) {
             sourceMetadata.put("qtPassageId", input.qtPassageId());
             sourceMetadata.put("qtDate", input.qtDate().toString());
@@ -267,20 +281,135 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         }
         sourceMetadata.set("verseIds", verseIds);
         sourceMetadata.set("verses", verses);
+        putCommentaryMetadata(sourceMetadata, input.commentary());
         return sourceMetadata;
     }
 
-    private String userPrompt(ExplanationInput input) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("Create explanation JSON for the following Bible verses.\n");
-        builder.append("Target type: ").append(input.targetType()).append('\n');
-        builder.append("Target id: ").append(input.targetId()).append('\n');
-        if (input.qtPassageId() != null) {
-            builder.append("QT passage id: ").append(input.qtPassageId()).append('\n');
-            builder.append("QT date: ").append(input.qtDate()).append('\n');
-            builder.append("QT title: ").append(input.title()).append('\n');
+    private void putCommentaryMetadata(ObjectNode sourceMetadata, CommentaryMaterialContext commentary) {
+        if (commentary == null || !commentary.hasMaterials()) {
+            sourceMetadata.putNull("commentarySource");
+            sourceMetadata.putNull("sourceName");
+            sourceMetadata.putNull("licenseLabel");
+            sourceMetadata.putNull("copyrightNotice");
+            sourceMetadata.set("commentaryMaterialIds", objectMapper.createArrayNode());
+            sourceMetadata.putNull("commentaryVerseRange");
+            return;
         }
-        builder.append("Verses:\n");
+
+        putNullable(sourceMetadata, "commentarySource", commentary.commentarySource());
+        putNullable(sourceMetadata, "sourceName", commentary.sourceName());
+        putNullable(sourceMetadata, "licenseLabel", commentary.licenseLabel());
+        putNullable(sourceMetadata, "copyrightNotice", commentary.copyrightNotice());
+        putNullable(sourceMetadata, "commentaryVerseRange", commentary.verseRange());
+        ArrayNode materialIds = objectMapper.createArrayNode();
+        commentary.commentaryMaterialIds().forEach(materialIds::add);
+        sourceMetadata.set("commentaryMaterialIds", materialIds);
+    }
+
+    private String userPrompt(AiPromptVersion promptVersion, ExplanationInput input) {
+        String instruction = promptVersion.getUserPromptTemplate();
+        if (hasLegacyPlaceholder(instruction)) {
+            return legacyUserPrompt(instruction, input);
+        }
+        return naturalInstructionPrompt(instruction, input);
+    }
+
+    private String naturalInstructionPrompt(String instruction, ExplanationInput input) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("다음 성경 구절에 대한 해설 JSON을 생성하세요.\n");
+        builder.append("대상 유형: ").append(input.targetType().name()).append('\n');
+        builder.append("대상 ID: ").append(input.targetId()).append('\n');
+        builder.append('\n');
+
+        String qtPassageBlock = koreanQtPassageBlock(input);
+        if (!qtPassageBlock.isBlank()) {
+            builder.append(qtPassageBlock).append('\n');
+        }
+
+        builder.append("구절 목록:\n");
+        builder.append(koreanVersesBlock(input));
+
+        String commentaryBlock = koreanCommentaryBlock(input);
+        if (!commentaryBlock.isBlank()) {
+            builder.append('\n').append(commentaryBlock);
+        }
+
+        builder.append('\n');
+        builder.append("추가 생성 지시사항:\n");
+        builder.append(instruction.strip()).append('\n');
+        return builder.toString();
+    }
+
+    private String legacyUserPrompt(String template, ExplanationInput input) {
+        return template
+                .replace("{{targetType}}", input.targetType().name())
+                .replace("{{targetId}}", String.valueOf(input.targetId()))
+                .replace("{{qtPassageBlock}}", legacyQtPassageBlock(input))
+                .replace("{{versesBlock}}", legacyVersesBlock(input))
+                .replace("{{commentaryBlock}}", legacyCommentaryBlock(input));
+    }
+
+    private static boolean hasLegacyPlaceholder(String prompt) {
+        return prompt.contains("{{targetType}}")
+                || prompt.contains("{{targetId}}")
+                || prompt.contains("{{qtPassageBlock}}")
+                || prompt.contains("{{versesBlock}}")
+                || prompt.contains("{{commentaryBlock}}");
+    }
+
+    private String koreanQtPassageBlock(ExplanationInput input) {
+        if (input.qtPassageId() == null) {
+            return "";
+        }
+        return "QT 본문 정보:\n"
+                + "- QT 본문 ID: " + input.qtPassageId() + '\n'
+                + "- QT 날짜: " + input.qtDate() + '\n'
+                + "- QT 제목: " + input.title() + '\n';
+    }
+
+    private String koreanVersesBlock(ExplanationInput input) {
+        StringBuilder builder = new StringBuilder();
+        for (BibleVerseResponse verse : input.verses()) {
+            builder.append("- verseId=").append(verse.id())
+                    .append(", 성경책 코드=").append(verse.bookCode())
+                    .append(", 장=").append(verse.chapterNo())
+                    .append(", 절=").append(verse.verseNo())
+                    .append(", 한글 본문=").append(nullToEmpty(verse.koreanText()))
+                    .append(", 영어 본문=").append(nullToEmpty(verse.englishText()))
+                    .append('\n');
+        }
+        return builder.toString();
+    }
+
+    private String koreanCommentaryBlock(ExplanationInput input) {
+        StringBuilder builder = new StringBuilder();
+        if (input.commentary() != null && input.commentary().hasMaterials()) {
+            builder.append("참고 해설 자료:\n");
+            builder.append("출처: ").append(nullToEmpty(input.commentary().sourceName()))
+                    .append(" (").append(nullToEmpty(input.commentary().licenseLabel())).append(")\n");
+            for (CommentaryMaterialContext.MaterialExcerpt material : input.commentary().materials()) {
+                builder.append("- materialId=").append(material.materialId())
+                        .append(", refs=").append(material.refs())
+                        .append(", 제목=").append(nullToEmpty(material.title()))
+                        .append(", verseIds=").append(material.verseIds())
+                        .append(", 발췌=").append(nullToEmpty(material.excerpt()))
+                        .append('\n');
+            }
+        }
+        return builder.toString();
+    }
+
+    private String legacyQtPassageBlock(ExplanationInput input) {
+        if (input.qtPassageId() == null) {
+            return "";
+        }
+        return "QT passage id: " + input.qtPassageId() + '\n'
+                + "QT date: " + input.qtDate() + '\n'
+                + "QT title: " + input.title() + '\n';
+    }
+
+    private String legacyVersesBlock(ExplanationInput input) {
+        StringBuilder builder = new StringBuilder();
         for (BibleVerseResponse verse : input.verses()) {
             builder.append("- verseId=").append(verse.id())
                     .append(", bookCode=").append(verse.bookCode())
@@ -293,18 +422,34 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         return builder.toString();
     }
 
-    private static String systemPrompt() {
-        return """
-                Return only a JSON object. The object must contain explanations[] and glossaryTerms[].
-                Each explanation item must contain verseId, summary, and explanation.
-                Each glossary term item must contain verseId, term, and meaning.
-                Use only the provided verseIds and keep the tone calm, factual, and beginner-friendly.
-                Do not include provider raw response, prompt text, validation reference text, secrets, or private data.
-                """;
+    private String legacyCommentaryBlock(ExplanationInput input) {
+        StringBuilder builder = new StringBuilder();
+        if (input.commentary() != null && input.commentary().hasMaterials()) {
+            builder.append("Commentary materials:\n");
+            builder.append("Source: ").append(nullToEmpty(input.commentary().sourceName()))
+                    .append(" (").append(nullToEmpty(input.commentary().licenseLabel())).append(")\n");
+            for (CommentaryMaterialContext.MaterialExcerpt material : input.commentary().materials()) {
+                builder.append("- materialId=").append(material.materialId())
+                        .append(", refs=").append(material.refs())
+                        .append(", title=").append(nullToEmpty(material.title()))
+                        .append(", verseIds=").append(material.verseIds())
+                        .append(", excerpt=").append(nullToEmpty(material.excerpt()))
+                        .append('\n');
+            }
+        }
+        return builder.toString();
     }
 
     private static void putNullable(ObjectNode node, String fieldName, Integer value) {
         if (value == null) {
+            node.putNull(fieldName);
+            return;
+        }
+        node.put(fieldName, value);
+    }
+
+    private static void putNullable(ObjectNode node, String fieldName, String value) {
+        if (value == null || value.isBlank()) {
             node.putNull(fieldName);
             return;
         }
@@ -350,6 +495,16 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
         return value;
     }
 
+    private static String nullToEmpty(Long value) {
+        if (value == null) {
+            return "";
+        }
+        return String.valueOf(value);
+    }
+
+    record GeneratedExplanation(String payloadJson, String modelName) {
+    }
+
     private record ExplanationInput(
             Long qtPassageId,
             LocalDate qtDate,
@@ -357,7 +512,8 @@ class ExplanationGenerationJobHandler implements AiGenerationJobHandler {
             AiTargetType targetType,
             Long targetId,
             List<Long> verseIds,
-            List<BibleVerseResponse> verses
+            List<BibleVerseResponse> verses,
+            CommentaryMaterialContext commentary
     ) {
     }
 }

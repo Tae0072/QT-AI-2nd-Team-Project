@@ -47,6 +47,9 @@ class AdminQtPassageServiceTest {
     @Mock
     private WriteAuditLogUseCase auditLogUseCase;
 
+    @Mock
+    private TodayQtCacheEvictor todayQtCacheEvictor;
+
     private AdminQtPassageService service;
 
     @BeforeEach
@@ -55,7 +58,8 @@ class AdminQtPassageServiceTest {
                 qtPassageRepository,
                 auditLogUseCase,
                 new ObjectMapper().findAndRegisterModules(),
-                CLOCK
+                CLOCK,
+                todayQtCacheEvictor
         );
     }
 
@@ -86,7 +90,7 @@ class AdminQtPassageServiceTest {
     }
 
     @Test
-    @DisplayName("QT 본문을 pending_review로 등록하고 감사 로그를 남긴다")
+    @DisplayName("create saves pending_review and writes audit log")
     void create_savesPendingReviewAndWritesAuditLog() {
         AdminQtPassageCommand command = command(LocalDate.of(2026, 6, 11));
         when(qtPassageRepository.existsByQtDate(command.qtDate())).thenReturn(false);
@@ -108,7 +112,7 @@ class AdminQtPassageServiceTest {
     }
 
     @Test
-    @DisplayName("이미 등록된 QT 날짜는 등록할 수 없다")
+    @DisplayName("create rejects duplicate QT date")
     void create_rejectsDuplicateQtDate() {
         AdminQtPassageCommand command = command(LocalDate.of(2026, 6, 11));
         when(qtPassageRepository.existsByQtDate(command.qtDate())).thenReturn(true);
@@ -120,7 +124,53 @@ class AdminQtPassageServiceTest {
     }
 
     @Test
-    @DisplayName("게시하면 상태와 publishedAt을 갱신하고 감사 로그를 남긴다")
+    @DisplayName("create accepts a cross-chapter range whose ending verse is lower")
+    void create_acceptsCrossChapterRange() {
+        AdminQtPassageCommand command = command(
+                LocalDate.of(2026, 6, 15), (short) 9, (short) 10, (short) 20, (short) 5);
+        when(qtPassageRepository.existsByQtDate(command.qtDate())).thenReturn(false);
+        when(qtPassageRepository.save(any(QtPassage.class))).thenAnswer(invocation -> {
+            QtPassage passage = invocation.getArgument(0);
+            ReflectionTestUtils.setField(passage, "id", 30L);
+            return passage;
+        });
+
+        AdminQtPassageResponse response = service.create(command);
+
+        assertThat(response.chapter()).isEqualTo((short) 9);
+        assertThat(response.endChapter()).isEqualTo((short) 10);
+        assertThat(response.startVerse()).isEqualTo((short) 20);
+        assertThat(response.endVerse()).isEqualTo((short) 5);
+    }
+
+    @Test
+    @DisplayName("create rejects a cross-chapter range whose ending chapter is earlier")
+    void create_rejectsDescendingChapterRange() {
+        AdminQtPassageCommand command = command(
+                LocalDate.of(2026, 6, 15), (short) 10, (short) 9, (short) 1, (short) 20);
+
+        assertThatThrownBy(() -> service.create(command))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("종료 장")
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+    }
+
+    @Test
+    @DisplayName("create rejects reversed verses when the range stays in one chapter")
+    void create_rejectsDescendingVerseRangeWithinSameChapter() {
+        AdminQtPassageCommand command = command(
+                LocalDate.of(2026, 6, 15), (short) 9, (short) 9, (short) 20, (short) 5);
+
+        assertThatThrownBy(() -> service.create(command))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("같은 장")
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+    }
+
+    @Test
+    @DisplayName("publish updates status, writes audit log, and evicts cache after commit")
     void publish_updatesStatusAndWritesAuditLog() {
         QtPassage passage = passage(20L, LocalDate.of(2026, 6, 12));
         when(qtPassageRepository.findById(20L)).thenReturn(Optional.of(passage));
@@ -131,10 +181,11 @@ class AdminQtPassageServiceTest {
         assertThat(response.publishedAt()).isNotNull();
         assertThat(response.hiddenAt()).isNull();
         verify(auditLogUseCase).write(any(AuditLogWriteRequest.class));
+        verify(todayQtCacheEvictor).evictAfterCommit();
     }
 
     @Test
-    @DisplayName("hide updates status and writes audit log")
+    @DisplayName("hide updates status, writes audit log, and evicts cache after commit")
     void hide_updatesStatusAndWritesAuditLog() {
         QtPassage passage = passage(20L, LocalDate.of(2026, 6, 12));
         passage.publish(LocalDateTime.now(CLOCK));
@@ -145,6 +196,20 @@ class AdminQtPassageServiceTest {
         assertThat(response.status()).isEqualTo("hidden");
         assertThat(response.hiddenAt()).isNotNull();
         verify(auditLogUseCase).write(any(AuditLogWriteRequest.class));
+        verify(todayQtCacheEvictor).evictAfterCommit();
+    }
+
+    @Test
+    @DisplayName("update writes audit log and evicts cache after commit")
+    void update_evictsTodayQtCacheAfterCommit() {
+        AdminQtPassageCommand command = command(LocalDate.of(2026, 6, 13));
+        when(qtPassageRepository.findById(20L)).thenReturn(Optional.of(passage(20L, LocalDate.of(2026, 6, 12))));
+        when(qtPassageRepository.existsByQtDateAndIdNot(eq(command.qtDate()), eq(20L))).thenReturn(false);
+
+        service.update(20L, command);
+
+        verify(auditLogUseCase).write(any(AuditLogWriteRequest.class));
+        verify(todayQtCacheEvictor).evictAfterCommit();
     }
 
     @Test
@@ -173,7 +238,7 @@ class AdminQtPassageServiceTest {
     }
 
     @Test
-    @DisplayName("publish rejects missing qt passage")
+    @DisplayName("publish rejects missing QT passage")
     void publish_rejectsMissingQtPassage() {
         when(qtPassageRepository.findById(404L)).thenReturn(Optional.empty());
 
@@ -184,7 +249,7 @@ class AdminQtPassageServiceTest {
     }
 
     @Test
-    @DisplayName("수정 시 다른 본문과 QT 날짜가 겹치면 거부한다")
+    @DisplayName("update rejects duplicate QT date from another passage")
     void update_rejectsDuplicateDateFromAnotherPassage() {
         AdminQtPassageCommand command = command(LocalDate.of(2026, 6, 13));
         when(qtPassageRepository.findById(20L)).thenReturn(Optional.of(passage(20L, LocalDate.of(2026, 6, 12))));
@@ -209,15 +274,26 @@ class AdminQtPassageServiceTest {
     }
 
     private static AdminQtPassageCommand command(LocalDate qtDate) {
+        return command(qtDate, (short) 23, (short) 23, (short) 1, (short) 6);
+    }
+
+    private static AdminQtPassageCommand command(
+            LocalDate qtDate,
+            short chapter,
+            short endChapter,
+            short startVerse,
+            short endVerse
+    ) {
         return new AdminQtPassageCommand(
                 3L,
                 qtDate,
                 (short) 19,
-                (short) 23,
-                (short) 1,
-                (short) 6,
-                "관리자 QT",
-                "시 23:1-6"
+                chapter,
+                endChapter,
+                startVerse,
+                endVerse,
+                "Admin QT",
+                "Ps 23:1-6"
         );
     }
 
@@ -228,8 +304,8 @@ class AdminQtPassageServiceTest {
                 (short) 23,
                 (short) 1,
                 (short) 6,
-                "관리자 QT",
-                "시 23:1-6"
+                "Admin QT",
+                "Ps 23:1-6"
         );
         ReflectionTestUtils.setField(passage, "id", id);
         return passage;

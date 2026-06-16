@@ -5,12 +5,26 @@ import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface SimulatorClipRepository extends JpaRepository<SimulatorClip, Long> {
+
+    /** 관리자 목록 조회 — 상태/본문 optional 필터 (AD 시뮬레이터 관리, F-06). */
+    @Query("""
+            select c from SimulatorClip c
+             where (:status is null or c.status = :status)
+               and (:qtPassageId is null or c.qtPassageId = :qtPassageId)
+            """)
+    Page<SimulatorClip> findForAdmin(
+            @Param("status") SimulatorClipStatus status,
+            @Param("qtPassageId") Long qtPassageId,
+            Pageable pageable
+    );
 
     Optional<SimulatorClip> findFirstByQtPassageIdAndStatusOrderByApprovedAtDescIdDesc(
             Long qtPassageId,

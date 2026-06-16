@@ -17,8 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
  * 모두 확인한 뒤, OPERATOR/REVIEWER/CONTENT_CREATOR/SUPER_ADMIN 중
  * API 명세에 맞는 세부 권한을 요구한다.
  *
- * <p>GetStatsUseCase, LookupMemberUseCase, ModerateContentUseCase는
- * 타 도메인 어댑터 연결이 필요하므로 후속 PR에서 구현한다.
  */
 @Slf4j
 @Service

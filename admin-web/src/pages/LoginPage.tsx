@@ -1,32 +1,19 @@
 import { useState } from 'react';
-import {
-  Card,
-  Form,
-  Input,
-  Button,
-  Typography,
-  Alert,
-  Space,
-  Divider,
-} from 'antd';
+import { Card, Form, Input, Button, Typography, Alert, Space } from 'antd';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
-import { loginWithKakao } from '../auth/kakao';
-import { loginAdminWithKakao } from '../api/adminAuth';
+import { loginAdminWithPassword } from '../api/adminAuth';
 import { ApiClientError } from '../api/client';
 
-// ===== 관리자 로그인 (카카오 JS SDK) =====
-// 흐름: 카카오 로그인 → 카카오 access token → POST /api/v1/admin/auth/kakao → ADMIN 토큰 저장.
-// 서버 /oauth2 미사용(2026-06-10 결정 ①). 응답 계약: 2026-06-10 admin-kakao-auth-contract.
-// ⚠️ 백엔드(admin/auth/kakao)·카카오 JS 키 준비 전엔 실제 로그인 실행은 불가하다.
-//    그동안 로컬 작업을 막지 않도록 '개발용 토큰' 입력을 dev 모드에서만 임시 유지한다(prod 빌드에서 제거).
+// ===== 관리자 로그인 (자체 아이디/비밀번호) =====
+// 흐름: username/password → POST /api/v1/admin/auth/login → ADMIN access/refresh 저장.
+// 2026-06-11 결정: 카카오 로그인 제거. dev 시드 계정은 admin / admin1234.
 export default function LoginPage() {
   const { login, isLoggedIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [devToken, setDevToken] = useState('');
 
   // 로그인 후 되돌아갈 주소 (보호 화면에서 튕겨 왔다면 그 주소, 없으면 대시보드)
   const from =
@@ -38,16 +25,14 @@ export default function LoginPage() {
     return <Navigate to={from} replace />;
   }
 
-  const handleKakaoLogin = async () => {
+  const handleLogin = async (values: { username: string; password: string }) => {
     setError(null);
     setLoading(true);
     try {
-      const kakaoToken = await loginWithKakao(); // 카카오 access token
-      const res = await loginAdminWithKakao(kakaoToken); // ADMIN 토큰 발급
-      login(res.accessToken); // accessToken 저장 = 로그인
+      const res = await loginAdminWithPassword(values.username, values.password);
+      login(res.accessToken, res.refreshToken); // access + refresh 저장 = 로그인
       navigate(from, { replace: true });
     } catch (e) {
-      // 합의 ④: 권한 부족(403 ADMIN_USER_NOT_FOUND) 등은 별도 화면 없이 ErrorCode 그대로 표시.
       if (e instanceof ApiClientError) {
         setError(e.code ? `[${e.code}] ${e.message}` : e.message);
       } else {
@@ -56,13 +41,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDevLogin = () => {
-    const trimmed = devToken.trim();
-    if (!trimmed) return;
-    login(trimmed); // 토큰 저장 = 로그인 (개발용)
-    navigate(from, { replace: true });
   };
 
   return (
@@ -75,7 +53,7 @@ export default function LoginPage() {
         background: '#f0f2f5',
       }}
     >
-      <Card style={{ width: 440 }}>
+      <Card style={{ width: 400 }}>
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           <Typography.Title level={3} style={{ margin: 0, textAlign: 'center' }}>
             QT-AI 관리자
@@ -85,49 +63,52 @@ export default function LoginPage() {
             <Alert type="error" showIcon message="로그인 실패" description={error} />
           )}
 
-          <Button
-            type="primary"
-            block
-            size="large"
-            loading={loading}
-            onClick={handleKakaoLogin}
-            style={{
-              background: '#FEE500',
-              color: '#191600',
-              border: 'none',
-              fontWeight: 600,
-            }}
+          <Form
+            layout="vertical"
+            onFinish={handleLogin}
+            requiredMark={false}
+            disabled={loading}
           >
-            카카오로 로그인
-          </Button>
+            <Form.Item
+              label="아이디"
+              name="username"
+              rules={[{ required: true, message: '아이디를 입력하세요.' }]}
+            >
+              <Input
+                autoComplete="username"
+                placeholder="관리자 아이디"
+                size="large"
+              />
+            </Form.Item>
+            <Form.Item
+              label="비밀번호"
+              name="password"
+              rules={[{ required: true, message: '비밀번호를 입력하세요.' }]}
+              style={{ marginBottom: 12 }}
+            >
+              <Input.Password
+                autoComplete="current-password"
+                placeholder="비밀번호"
+                size="large"
+              />
+            </Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              size="large"
+              loading={loading}
+            >
+              로그인
+            </Button>
+          </Form>
+
           <Typography.Paragraph
             type="secondary"
             style={{ marginBottom: 0, fontSize: 12, textAlign: 'center' }}
           >
-            카카오 계정으로 로그인합니다. 관리자 권한이 없으면 접근이 거부됩니다.
+            관리자 계정으로 로그인합니다. 관리자 권한이 없으면 접근이 거부됩니다.
           </Typography.Paragraph>
-
-          {/* 개발용 토큰 입력: dev 모드에서만 노출(백엔드 카카오 인증 준비 전 임시). prod 빌드에서는 제거됨. */}
-          {import.meta.env.DEV && (
-            <>
-              <Divider style={{ margin: '8px 0' }} plain>
-                개발용 (백엔드 준비 전 임시)
-              </Divider>
-              <Form layout="vertical" onFinish={handleDevLogin}>
-                <Form.Item label="개발용 ADMIN 토큰" style={{ marginBottom: 8 }}>
-                  <Input.Password
-                    value={devToken}
-                    onChange={(e) => setDevToken(e.target.value)}
-                    placeholder="'Bearer ' 없이 토큰 값만 붙여넣기"
-                    autoComplete="off"
-                  />
-                </Form.Item>
-                <Button htmlType="submit" block disabled={!devToken.trim()}>
-                  개발용 토큰으로 로그인
-                </Button>
-              </Form>
-            </>
-          )}
         </Space>
       </Card>
     </div>

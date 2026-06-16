@@ -5,9 +5,15 @@ class SharingPostItem {
   final String titleSnapshot;
   final String category;
   final String bodyPreview;
+
+  // 본문 범위 라벨 스냅샷(예 고전 6:7). 없으면 null. JSON: verseSnapshot.rangeLabel.
+  final String? verseLabel;
   final int likeCount;
   final int commentCount;
   final bool likedByMe;
+
+  // 내가 저장(북마크)했는지. JSON: bookmarkedByMe.
+  final bool bookmarkedByMe;
   final DateTime? publishedAt;
 
   SharingPostItem({
@@ -16,9 +22,11 @@ class SharingPostItem {
     required this.titleSnapshot,
     required this.category,
     required this.bodyPreview,
+    this.verseLabel,
     required this.likeCount,
     required this.commentCount,
     required this.likedByMe,
+    this.bookmarkedByMe = false,
     this.publishedAt,
   });
 
@@ -29,12 +37,31 @@ class SharingPostItem {
       titleSnapshot: json['titleSnapshot'] as String? ?? '',
       category: json['category'] as String? ?? '',
       bodyPreview: json['bodyPreview'] as String? ?? '',
+      verseLabel: _parseVerseLabel(json['verseSnapshot']),
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       likedByMe: json['likedByMe'] as bool? ?? false,
+      bookmarkedByMe: json['bookmarkedByMe'] as bool? ?? false,
       publishedAt: json['publishedAt'] != null
           ? DateTime.parse(json['publishedAt'] as String)
           : null,
+    );
+  }
+
+  /// 낙관적 업데이트용 — 좋아요/저장 상태·수만 바꾼 복제본.
+  SharingPostItem copyWith({int? likeCount, bool? likedByMe, bool? bookmarkedByMe}) {
+    return SharingPostItem(
+      id: id,
+      nicknameSnapshot: nicknameSnapshot,
+      titleSnapshot: titleSnapshot,
+      category: category,
+      bodyPreview: bodyPreview,
+      verseLabel: verseLabel,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount,
+      likedByMe: likedByMe ?? this.likedByMe,
+      bookmarkedByMe: bookmarkedByMe ?? this.bookmarkedByMe,
+      publishedAt: publishedAt,
     );
   }
 }
@@ -44,13 +71,26 @@ class SharingPostListResponse {
   final List<SharingPostItem> items;
   final bool hasNext;
 
-  SharingPostListResponse({required this.items, required this.hasNext});
+  // 페이징 정보. page=현재 페이지(0부터), totalPages=전체 페이지 수.
+  // nullable로 둔다: 핫 리로드로 옛 객체가 캐시에 남으면 새 필드가 비어 null이 될 수 있어,
+  // 읽는 쪽에서 ?? 기본값으로 안전하게 처리하기 위함(정상 경로에선 fromJson이 항상 채운다).
+  final int? page;
+  final int? totalPages;
+
+  SharingPostListResponse({
+    required this.items,
+    required this.hasNext,
+    this.page = 0,
+    this.totalPages = 1,
+  });
 
   factory SharingPostListResponse.fromJson(Map<String, dynamic> json) {
     final content = json['content'] as List<dynamic>? ?? [];
     return SharingPostListResponse(
       items: content.map((e) => SharingPostItem.fromJson(e as Map<String, dynamic>)).toList(),
       hasNext: !(json['last'] as bool? ?? true),
+      page: json['page'] as int? ?? 0,
+      totalPages: json['totalPages'] as int? ?? 1,
     );
   }
 }
@@ -163,6 +203,7 @@ class SharingPostDetail {
   final int likeCount;
   final int commentCount;
   final bool likedByMe;
+  final bool bookmarkedByMe;
   final bool ownedByMe;
   final DateTime? publishedAt;
 
@@ -178,6 +219,7 @@ class SharingPostDetail {
     required this.likeCount,
     required this.commentCount,
     required this.likedByMe,
+    this.bookmarkedByMe = false,
     required this.ownedByMe,
     this.publishedAt,
   });
@@ -195,10 +237,41 @@ class SharingPostDetail {
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       likedByMe: json['likedByMe'] as bool? ?? false,
+      bookmarkedByMe: json['bookmarkedByMe'] as bool? ?? false,
       ownedByMe: json['ownedByMe'] as bool? ?? false,
       publishedAt: json['publishedAt'] != null
           ? DateTime.parse(json['publishedAt'] as String)
           : null,
     );
   }
+
+  /// 낙관적 업데이트용 — 좋아요/저장 상태·수만 바꾼 복제본.
+  SharingPostDetail copyWith({int? likeCount, bool? likedByMe, bool? bookmarkedByMe}) {
+    return SharingPostDetail(
+      id: id,
+      noteId: noteId,
+      memberId: memberId,
+      nicknameSnapshot: nicknameSnapshot,
+      titleSnapshot: titleSnapshot,
+      bodySnapshot: bodySnapshot,
+      category: category,
+      commentsEnabled: commentsEnabled,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount,
+      likedByMe: likedByMe ?? this.likedByMe,
+      bookmarkedByMe: bookmarkedByMe ?? this.bookmarkedByMe,
+      ownedByMe: ownedByMe,
+      publishedAt: publishedAt,
+    );
+  }
+}
+
+/// verseSnapshot.rangeLabel 을 안전하게 추출한다.
+/// Map 이 아니거나 rangeLabel 이 없거나(또는 null) 공백뿐이면 null, 아니면 트림한 값.
+String? _parseVerseLabel(dynamic verseSnapshot) {
+  if (verseSnapshot is! Map) return null;
+  final raw = verseSnapshot['rangeLabel'];
+  if (raw is! String) return null;
+  final trimmed = raw.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }

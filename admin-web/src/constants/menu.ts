@@ -12,17 +12,28 @@ export interface MenuItem {
   requiredRoles: AdminRole[]; // 접근 가능한 세부 권한 (빈 배열이면 ADMIN 공통)
 }
 
-// 권한 기준(2026-06-08 D1 확정): 백엔드 컨트롤러의 실제 인가(enforce)를 기준으로 한다.
+// 권한 기준(2026-06-12): 백엔드 컨트롤러/서비스의 실제 인가(enforce)를 기준으로 한다.
+// 프런트 메뉴/라우트 제한은 UX 보조 장치이며, 최종 인가는 항상 백엔드가 강제한다.
+//  - AD-01 대시보드    : OPERATOR/REVIEWER   (AdminDashboardService)
+//  - AD-02 오늘QT관리  : OPERATOR            (AdminQtPassageController.requireOperator)
 //  - AD-03 AI검증     : REVIEWER            (AdminAiAuthentication.requireReviewer)
 //  - AD-04 신고처리    : OPERATOR            (AdminReportController.requireOperator)
-//  - AD-05 찬양       : OPERATOR            (04_API_명세서 §4.7.6)
+//  - AD-05 찬양       : OPERATOR            (AdminPraiseController.requireOperator)
+//  - AD-06 시스템공지  : OPERATOR            (AdminNoticeController.requireOperator)
 //  - AD-07 감사로그    : OPERATOR/REVIEWER   (AdminAuditAuthentication.requireAudit)
 //  - AD-08 AI모니터링  : OPERATOR/REVIEWER   (AdminAiAuthentication.requireMonitoring)
 //  - AD-09 검증체크리스트: REVIEWER           (AdminAiValidationChecklistController.requireReviewer)
 //  - AD-10 배치실행로그  : OPERATOR/REVIEWER   (AdminAiBatchRunLogController.requireMonitoring)
-//  - AD-01 대시보드 / AD-02 오늘QT관리 / AD-06 시스템공지: 백엔드 미구현(E단계) → 명세 추정값, 백엔드 확정 시 갱신.
+//  - AD-11 평가셋/케이스 : REVIEWER/CONTENT_CREATOR (AdminAiAuthentication.requireEvaluationManager)
+//  - AD-12 배경음악 관리: OPERATOR            (AdminMusicTrackController.requireOperator)
+//  - AI 프롬프트 관리    : REVIEWER           (AdminAiPromptController)
 export const MENU_ITEMS: MenuItem[] = [
-  { code: 'AD-01', path: '/dashboard', label: '대시보드', requiredRoles: [] },
+  {
+    code: 'AD-01',
+    path: '/dashboard',
+    label: '대시보드',
+    requiredRoles: [ADMIN_ROLES.OPERATOR, ADMIN_ROLES.REVIEWER],
+  },
   {
     code: 'AD-02',
     path: '/qt-passages',
@@ -42,15 +53,34 @@ export const MENU_ITEMS: MenuItem[] = [
     requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
   {
-    code: 'AD-05',
-    path: '/praise-songs',
-    label: '찬양 큐레이션',
+    code: 'AD-13',
+    path: '/members',
+    label: '회원 관리',
     requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
+  {
+    code: 'AD-16',
+    path: '/missions',
+    label: '미션 관리',
+    requiredRoles: [ADMIN_ROLES.CONTENT_CREATOR, ADMIN_ROLES.OPERATOR],
+  },
+  {
+    code: 'AD-15',
+    path: '/sharing-posts',
+    label: '나눔 공유글 관리',
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
+  },
+  // AD-05 찬양 큐레이션은 AD-12 '배경음악 관리'로 통합됨(2026-06-15). 메뉴/페이지 제거.
   {
     code: 'AD-06',
     path: '/notices',
     label: '시스템 공지',
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
+  },
+  {
+    code: 'AD-12',
+    path: '/music-tracks',
+    label: '배경음악 관리',
     requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
   {
@@ -76,5 +106,36 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/ai-batch-logs',
     label: 'AI 배치 실행 로그',
     requiredRoles: [ADMIN_ROLES.OPERATOR, ADMIN_ROLES.REVIEWER],
+  },
+  {
+    code: 'AD-11',
+    path: '/ai-evaluations',
+    label: 'AI 평가 세트',
+    requiredRoles: [ADMIN_ROLES.REVIEWER, ADMIN_ROLES.CONTENT_CREATOR],
+  },
+  {
+    code: 'AD-14',
+    path: '/simulator-clips',
+    label: '시뮬레이터 관리',
+    requiredRoles: [ADMIN_ROLES.REVIEWER],
+  },
+  {
+    code: 'AI-PROMPT',
+    path: '/ai-prompt-versions',
+    label: 'AI 프롬프트 관리',
+    requiredRoles: [ADMIN_ROLES.REVIEWER],
+  },
+  {
+    // QT 영상 관리(URL/구간/클립) — AdminQtVideoController.requireManager
+    code: 'AD-20',
+    path: '/qt-videos',
+    label: 'QT 영상 관리',
+    requiredRoles: [ADMIN_ROLES.OPERATOR, ADMIN_ROLES.REVIEWER, ADMIN_ROLES.CONTENT_CREATOR],
+  },
+  {
+    code: 'AD-18',
+    path: '/self-test',
+    label: '자가진단',
+    requiredRoles: [ADMIN_ROLES.OPERATOR],
   },
 ];

@@ -44,7 +44,7 @@ class QtVideoServiceTest {
         SourceVideo sourceVideo = TestEntityFactory.sourceVideo(1L, (short) 46, "https://cdn.example.com/1co.mp4");
         QtVideoClip clip = TestEntityFactory.qtVideoClip(
                 10L, 4L, sourceVideo, "https://cdn.example.com/qt-2026-06-17.mp4");
-        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
                 4L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
                 .thenReturn(List.of(clip));
 
@@ -64,7 +64,7 @@ class QtVideoServiceTest {
     void approvedClipMissing_missing() {
         when(getQtPassageContentContextUseCase.getContentContext(5L))
                 .thenReturn(context(5L, true));
-        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
                 5L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
                 .thenReturn(List.of());
 
@@ -87,7 +87,7 @@ class QtVideoServiceTest {
                 sourceVideo,
                 "https://cdn.example.com/qt-failed.mp4",
                 QtVideoClipStatus.FAILED);
-        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
                 8L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
                 .thenReturn(List.of(clip));
 
@@ -111,7 +111,7 @@ class QtVideoServiceTest {
                 sourceVideo,
                 "https://cdn.example.com/qt-hidden.mp4",
                 QtVideoClipStatus.HIDDEN);
-        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
                 9L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
                 .thenReturn(List.of(clip));
 
@@ -141,7 +141,7 @@ class QtVideoServiceTest {
                 sourceVideo,
                 "https://cdn.example.com/qt-approved.mp4",
                 QtVideoClipStatus.APPROVED);
-        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
                 10L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
                 .thenReturn(List.of(hidden, approved));
 
@@ -170,7 +170,7 @@ class QtVideoServiceTest {
                 sourceVideo,
                 "https://cdn.example.com/qt-hidden.mp4",
                 QtVideoClipStatus.HIDDEN);
-        when(qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
                 14L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
                 .thenReturn(List.of(failed, hidden));
 
@@ -191,7 +191,7 @@ class QtVideoServiceTest {
 
         assertEquals(ErrorCode.QT_PASSAGE_NOT_FOUND, exception.getErrorCode());
         verify(qtVideoClipRepository, never())
-                .findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+                .findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
                         6L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES);
     }
 

@@ -71,6 +71,13 @@ public class AdminAiAssetQueryService implements ListAdminAiAssetsUseCase, GetAd
 
         AdminAiAssetQueryRepository.AdminAiAssetDetailRow detail = repository.findDetail(query.assetId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.AI_ASSET_NOT_FOUND));
+        AdminAiAssetDetailResponse.GenerationJobSummary activeGenerationJob = repository.findActiveGenerationJob(
+                        detail.jobType(),
+                        detail.jobTargetType(),
+                        detail.jobTargetId()
+                )
+                .map(AdminAiAssetQueryService::toGenerationJobSummary)
+                .orElse(null);
         List<AdminAiValidationLogItem> validationLogs = repository.findValidationLogs(query.assetId()).stream()
                 .map(AdminAiAssetQueryService::toValidationLogItem)
                 .toList();
@@ -85,18 +92,8 @@ public class AdminAiAssetQueryService implements ListAdminAiAssetsUseCase, GetAd
                 detail.sourceLabel(),
                 detail.createdAt(),
                 detail.reviewedAt(),
-                new AdminAiAssetDetailResponse.GenerationJobSummary(
-                        detail.generationJobId(),
-                        detail.jobType().name(),
-                        detail.jobTargetType().name(),
-                        detail.jobTargetId(),
-                        detail.promptVersionId(),
-                        detail.jobStatus().name(),
-                        detail.jobCreatedAt(),
-                        detail.jobStartedAt(),
-                        detail.jobFinishedAt(),
-                        detail.jobErrorMessage()
-                ),
+                toGenerationJobSummary(detail),
+                activeGenerationJob,
                 new AdminAiAssetDetailResponse.PromptVersionSummary(
                         detail.promptVersionRowId(),
                         detail.promptType().name(),
@@ -104,6 +101,40 @@ public class AdminAiAssetQueryService implements ListAdminAiAssetsUseCase, GetAd
                         detail.promptVersionStatus().name()
                 ),
                 validationLogs
+        );
+    }
+
+    private static AdminAiAssetDetailResponse.GenerationJobSummary toGenerationJobSummary(
+            AdminAiAssetQueryRepository.AdminAiAssetDetailRow row
+    ) {
+        return new AdminAiAssetDetailResponse.GenerationJobSummary(
+                row.generationJobId(),
+                row.jobType().name(),
+                row.jobTargetType().name(),
+                row.jobTargetId(),
+                row.promptVersionId(),
+                row.jobStatus().name(),
+                row.jobCreatedAt(),
+                row.jobStartedAt(),
+                row.jobFinishedAt(),
+                row.jobErrorMessage()
+        );
+    }
+
+    private static AdminAiAssetDetailResponse.GenerationJobSummary toGenerationJobSummary(
+            AdminAiAssetQueryRepository.AdminAiGenerationJobRow row
+    ) {
+        return new AdminAiAssetDetailResponse.GenerationJobSummary(
+                row.id(),
+                row.jobType().name(),
+                row.targetType().name(),
+                row.targetId(),
+                row.promptVersionId(),
+                row.status().name(),
+                row.createdAt(),
+                row.startedAt(),
+                row.finishedAt(),
+                row.errorMessage()
         );
     }
 
@@ -134,6 +165,8 @@ public class AdminAiAssetQueryService implements ListAdminAiAssetsUseCase, GetAd
                 ),
                 row.checklistVersionId(),
                 row.latestValidationResult() == null ? null : row.latestValidationResult().name(),
+                row.autoValidationResult() == null ? null : row.autoValidationResult().name(),
+                row.advisorValidationResult() == null ? null : row.advisorValidationResult().name(),
                 row.sourceLabel() != null && !row.sourceLabel().isBlank(),
                 row.createdAt()
         );

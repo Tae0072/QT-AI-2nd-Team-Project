@@ -1,10 +1,15 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 class QtVideoCache {
   static const _directoryName = 'qt-video-cache';
   static const _filePrefix = 'qt-video-';
+  static const _maxCacheAge = Duration(hours: 24);
+
+  @visibleForTesting
+  static Directory? debugCacheRootOverride;
 
   static Future<File?> existingFile({
     required String cacheKey,
@@ -21,7 +26,9 @@ class QtVideoCache {
       await _deleteStaleFiles(directory, keepFileName: fileName);
 
       final file = File(_join(directory.path, fileName));
-      if (await file.exists() && await file.length() > 0) {
+      if (await file.exists() &&
+          await file.length() > 0 &&
+          !await _isExpired(file)) {
         return file;
       }
 
@@ -56,7 +63,7 @@ class QtVideoCache {
   }
 
   static Future<Directory> _cacheDirectory() async {
-    final root = await getTemporaryDirectory();
+    final root = debugCacheRootOverride ?? await getTemporaryDirectory();
     final directory = Directory(_join(root.path, _directoryName));
     if (!await directory.exists()) {
       await directory.create(recursive: true);
@@ -72,8 +79,7 @@ class QtVideoCache {
       return;
     }
 
-    final entities = await directory.list().toList();
-    for (final entity in entities) {
+    await for (final entity in directory.list(followLinks: false)) {
       if (entity is! File) {
         continue;
       }
@@ -82,7 +88,7 @@ class QtVideoCache {
       if (!name.startsWith(_filePrefix)) {
         continue;
       }
-      if (name != keepFileName) {
+      if (name != keepFileName || await _isExpired(entity)) {
         await _deleteQuietly(entity);
       }
     }
@@ -128,6 +134,15 @@ class QtVideoCache {
     }
   }
 
+  static Future<bool> _isExpired(File file) async {
+    try {
+      final stat = await file.stat();
+      return stat.modified.isBefore(DateTime.now().subtract(_maxCacheAge));
+    } catch (_) {
+      return true;
+    }
+  }
+
   static String _fileNameFor(String cacheKey) {
     final safeKey = cacheKey.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
     if (safeKey.toLowerCase().endsWith('.mp4')) {
@@ -150,5 +165,21 @@ String qtVideoCacheKey(int qtPassageId, String videoUrl) {
       ? 'video.mp4'
       : uri.pathSegments.last;
   final safeFileName = fileName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-  return 'qt-video-$qtPassageId-$safeFileName';
+  final extensionIndex = safeFileName.toLowerCase().lastIndexOf('.mp4');
+  final baseName = extensionIndex > 0
+      ? safeFileName.substring(0, extensionIndex)
+      : safeFileName;
+  final extension =
+      extensionIndex > 0 ? safeFileName.substring(extensionIndex) : '';
+  final urlHash = _stableUrlHash(uri?.toString() ?? videoUrl);
+  return 'qt-video-$qtPassageId-$baseName-$urlHash$extension';
+}
+
+String _stableUrlHash(String value) {
+  var hash = 0x811c9dc5;
+  for (final codeUnit in value.codeUnits) {
+    hash ^= codeUnit;
+    hash = (hash * 0x01000193) & 0xffffffff;
+  }
+  return hash.toRadixString(16).padLeft(8, '0');
 }

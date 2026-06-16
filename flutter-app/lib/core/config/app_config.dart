@@ -37,9 +37,11 @@ class AppConfig {
     }
 
     const envName = String.fromEnvironment('ENV', defaultValue: 'dev');
-    // dev 기본값: 네이티브 앱 키는 APK에 포함되는 공개 키로 보안 리스크 없음
-    const kakaoKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY',
-        defaultValue: '53e5afb2d90048af9e71332e47f387fa');
+    // 키 기본값 없음(CLAUDE.md §8 — plain 키 커밋 금지, 코드리뷰 TODO 4).
+    // 실행 시 --dart-define=KAKAO_NATIVE_APP_KEY=... 로 주입한다(README 참고).
+    // dev에서 빈 키면 아래에서 경고 후 카카오 로그인만 비활성 — 나머지 개발은 가능.
+    const kakaoKey =
+        String.fromEnvironment('KAKAO_NATIVE_APP_KEY', defaultValue: '');
 
     final env = Environment.values.firstWhere(
       (e) => e.name == envName,
@@ -76,7 +78,7 @@ class AppConfig {
     Environment environment = Environment.dev,
     String baseUrl = 'http://localhost:8080/api/v1',
     String kakaoNativeAppKey = 'test-key',
-    String ttsBaseUrl = 'http://localhost:8090',
+    String ttsBaseUrl = 'http://localhost:8091',
   }) {
     _instance = AppConfig._(
       environment: environment,
@@ -108,20 +110,18 @@ class AppConfig {
     }
   }
 
+  /// 배포된 TTS 서버(Render). 무료 인스턴스라 미사용 시 잠들어 첫 요청은 콜드스타트로
+  /// 수십 초 지연될 수 있다. 로컬 TTS(8091)로 쓰려면 아래 override를 사용한다.
+  static const String _hostedTtsUrl = 'https://qt-ai-2nd-team-project.onrender.com';
+
   /// TTS 서버 URL 결정.
-  /// `--dart-define=TTS_BASE_URL=...` 으로 override 가능.
+  /// `--dart-define=TTS_BASE_URL=...` 으로 override 가능(예: 로컬 `http://10.0.2.2:8091`).
+  ///
+  /// 기본값은 배포된 Render TTS 서버 — 로컬 TTS 서버를 띄우지 않아도 기기에서 바로 동작한다.
   static String _ttsBaseUrlFor(Environment env) {
     const override = String.fromEnvironment('TTS_BASE_URL', defaultValue: '');
     if (override.isNotEmpty) return override;
-    switch (env) {
-      case Environment.dev:
-        final host = _devHost();
-        return 'http://$host:8090';
-      case Environment.staging:
-        return 'https://tts.qtai.com';
-      case Environment.prod:
-        return 'https://tts.qtai.com';
-    }
+    return _hostedTtsUrl;
   }
 
   /// dev 환경에서 접근할 서버 호스트를 결정한다.

@@ -19,7 +19,7 @@ class AuditQueryRepository {
             where (:actorType is null or auditLog.actorType = :actorType)
               and (:actorId is null or auditLog.actorId = :actorId)
               and auditLog.actionType in :actionTypes
-              and auditLog.targetType = :targetType
+              and (:targetType is null or auditLog.targetType = :targetType)
               and (:targetId is null or auditLog.targetId = :targetId)
               and (:fromCreatedAt is null or auditLog.createdAt >= :fromCreatedAt)
               and (:toCreatedAtExclusive is null or auditLog.createdAt < :toCreatedAtExclusive)

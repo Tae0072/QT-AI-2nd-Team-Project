@@ -4,11 +4,14 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.ChangeNicknameUseCase;
 import com.qtai.domain.member.api.GetMemberUseCase;
+import com.qtai.domain.member.api.GetProfilePhotoUseCase;
+import com.qtai.domain.member.api.UpdateProfilePhotoUseCase;
 import com.qtai.domain.member.api.UpdateProfileUseCase;
 import com.qtai.domain.member.api.WithdrawUseCase;
 import com.qtai.domain.member.api.dto.MemberPublicResponse;
 import com.qtai.domain.member.api.dto.MemberResponse;
 import com.qtai.domain.member.api.dto.NicknameChangeRequest;
+import com.qtai.domain.member.api.dto.ProfilePhotoView;
 import com.qtai.domain.member.api.dto.ProfileUpdateRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -30,9 +35,16 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, WithdrawUseCase, ChangeNicknameUseCase {
+public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, WithdrawUseCase, ChangeNicknameUseCase,
+        UpdateProfilePhotoUseCase, GetProfilePhotoUseCase {
+
+    // 허용 이미지 형식·최대 크기(프로필 사진).
+    private static final Set<String> ALLOWED_IMAGE_TYPES =
+            Set.of("image/jpeg", "image/png", "image/webp");
+    private static final long MAX_PHOTO_BYTES = 5L * 1024 * 1024; // 5MB
 
     private final MemberRepository memberRepository;
+    private final NicknameChangeHistoryRepository nicknameChangeHistoryRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
@@ -80,6 +92,38 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
                 .toList();
     }
 
+    /** 멘션 자동완성 기본/최대 결과 수. */
+    private static final int MENTION_SEARCH_DEFAULT_LIMIT = 8;
+    private static final int MENTION_SEARCH_MAX_LIMIT = 20;
+
+    @Override
+    public java.util.List<MemberPublicResponse> resolveActiveByNicknames(java.util.Collection<String> nicknames) {
+        if (nicknames == null || nicknames.isEmpty()) {
+            return java.util.List.of();
+        }
+        return memberRepository.findByNicknameIn(new java.util.LinkedHashSet<>(nicknames)).stream()
+                .filter(Member::isActive)
+                .map(member -> new MemberPublicResponse(
+                        member.getId(), member.getNickname(), member.getProfileImageUrl()))
+                .toList();
+    }
+
+    @Override
+    public java.util.List<MemberPublicResponse> searchActiveByNicknamePrefix(String prefix, int limit) {
+        // 접두사가 비어 있으면('#'만 입력) 빈 문자열로 검색 → 모든 닉네임이 매칭되어
+        // 기본 회원 목록(닉네임 가나다순 상위 N)을 멘션 후보로 보여준다.
+        String normalized = (prefix == null) ? "" : prefix.trim();
+        int capped = (limit < 1) ? MENTION_SEARCH_DEFAULT_LIMIT : Math.min(limit, MENTION_SEARCH_MAX_LIMIT);
+        return memberRepository
+                .findByNicknameStartingWithIgnoreCaseOrderByNicknameAsc(
+                        normalized, org.springframework.data.domain.PageRequest.of(0, capped))
+                .stream()
+                .filter(Member::isActive)
+                .map(member -> new MemberPublicResponse(
+                        member.getId(), member.getNickname(), member.getProfileImageUrl()))
+                .toList();
+    }
+
     // ── UpdateProfileUseCase ──
 
     @Override
@@ -98,7 +142,45 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
         return toResponse(member);
     }
 
-    // ── ChangeNicknameUseCase (닉네임 변경, 7일 잠금) ──
+    // ── UpdateProfilePhotoUseCase / GetProfilePhotoUseCase (프로필 사진 업로드·조회) ──
+
+    @Override
+    @Transactional
+    public MemberResponse updateProfilePhoto(Long memberId, byte[] data, String contentType) {
+        if (data == null || data.length == 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "이미지 파일이 비어 있습니다.");
+        }
+        if (data.length > MAX_PHOTO_BYTES) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "이미지는 5MB 이하만 가능합니다.");
+        }
+        String normalized = contentType == null ? "" : contentType.toLowerCase();
+        if (!ALLOWED_IMAGE_TYPES.contains(normalized)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "지원하지 않는 이미지 형식입니다(jpeg/png/webp).");
+        }
+        Member member = findActiveMemberOrThrow(memberId);
+        member.updateProfilePhoto(data, normalized, clock);
+        return toResponse(member);
+    }
+
+    @Override
+    @Transactional
+    public MemberResponse deleteProfilePhoto(Long memberId) {
+        Member member = findActiveMemberOrThrow(memberId);
+        member.clearProfilePhoto();
+        return toResponse(member);
+    }
+
+    @Override
+    public ProfilePhotoView getOwnProfilePhoto(Long memberId) {
+        Member member = findActiveMemberOrThrow(memberId);
+        if (!member.hasProfilePhoto()) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "프로필 사진이 없습니다.");
+        }
+        return new ProfilePhotoView(member.getProfileImageData(), member.getProfileImageContentType());
+    }
+
+    // ── ChangeNicknameUseCase (닉네임 변경 — 즉시 변경 가능, 2026-06-11 잠금 폐지) ──
 
     @Override
     @Transactional
@@ -144,10 +226,7 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
         if (newNickname == null || newNickname.isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "닉네임은 공백일 수 없습니다.");
         }
-        if (!member.isNicknameChangeable(clock)) {
-            throw new BusinessException(ErrorCode.NICKNAME_LOCKED,
-                    "닉네임은 " + member.getNicknameUnlockAt() + " 이후에 변경할 수 있습니다.");
-        }
+        // 7일 잠금 검사 제거(2026-06-11 피드백) — 닉네임은 즉시 변경 가능. Member.isNicknameChangeable 참조.
         // 임시 닉네임 접두사(user_) 사칭 차단 — 시스템 예약 접두사
         if (newNickname.startsWith(RESERVED_NICKNAME_PREFIX)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT,
@@ -156,6 +235,7 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
         if (memberRepository.existsByNickname(newNickname)) {
             throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
         }
+        String oldNickname = member.getNickname();
         try {
             member.changeNickname(newNickname, clock);
             memberRepository.flush();
@@ -163,6 +243,10 @@ public class MemberService implements GetMemberUseCase, UpdateProfileUseCase, Wi
             // TOCTOU: existsByNickname 이후 동시 INSERT → UK 위반 시 비즈니스 예외로 변환
             throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
         }
+        // 닉네임 변경 이력 기록(append-only, F-04/F-10). 같은 트랜잭션에서 함께 커밋된다.
+        nicknameChangeHistoryRepository.save(
+                NicknameChangeHistory.of(member.getId(), oldNickname, newNickname,
+                        LocalDateTime.now(clock)));
     }
 
     private Member findMemberOrThrow(Long memberId) {

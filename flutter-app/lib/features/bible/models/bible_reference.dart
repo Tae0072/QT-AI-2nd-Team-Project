@@ -2,7 +2,8 @@
 class BibleReference {
   final String koreanBookName;
   final String? englishBookName;
-  final int chapter;
+  final int chapter; // 시작 장
+  final int? endChapter; // 종료 장 (null/같은 값이면 단일 장)
   final int verseFrom;
   final int verseTo;
 
@@ -10,11 +11,18 @@ class BibleReference {
     required this.koreanBookName,
     required this.englishBookName,
     required this.chapter,
+    this.endChapter,
     required this.verseFrom,
     required this.verseTo,
   });
 
-  String get displayText => '$koreanBookName $chapter:$verseFrom-$verseTo';
+  /// 같은 장: "고린도전서 9:1-23", 장 교차: "고린도전서 10:14-11:1".
+  String get displayText {
+    final ec = endChapter ?? chapter;
+    return ec == chapter
+        ? '$koreanBookName $chapter:$verseFrom-$verseTo'
+        : '$koreanBookName $chapter:$verseFrom-$ec:$verseTo';
+  }
 }
 
 /// 성서유니온 오늘 본문 표기에서 권, 장, 절만 추출한다.

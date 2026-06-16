@@ -10,7 +10,7 @@ import type { ApiResponse, Page, PageParams } from './types';
 export interface AuditLog {
   id: number;
   adminUserId: number | null;
-  actorType: string; // ADMIN, SYSTEM_BATCH, USER
+  actorType: string; // ADMIN, SYSTEM_BATCH
   actorId: number | null;
   actorLabel: string | null;
   actionType: string; // 예: AI_ASSET_APPROVE

@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/notifications/local_notification_service.dart';
+import '../../../core/theme/font_scale_provider.dart';
+import '../../../core/theme/theme_providers.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../providers/mypage_providers.dart';
+// [DEV_MODE] 버전 정보 타일(5탭 → 개발자 모드). 개발 종료 시 이 import와 아래 타일 제거.
+import '../../dev/dev_mode_screen.dart';
 
 /// 설정 화면 (M-06).
 ///
@@ -18,6 +23,14 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsAsync = ref.watch(settingsProvider);
     final l = AppLocalizations.of(context);
+
+    // 서버 설정값이 도착하면 로컬 폰트 크기 provider에 동기화한다(다른 기기에서
+    // 바꾼 값 반영). set()은 같은 값이면 무시하므로 루프가 생기지 않는다.
+    ref.listen(settingsProvider, (prev, next) {
+      next.whenData(
+        (s) => ref.read(fontSizeProvider.notifier).set(s.fontSize),
+      );
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -38,7 +51,23 @@ class SettingsScreen extends ConsumerWidget {
                   final repository = ref.read(myPageRepositoryProvider);
                   await repository.updateSettings(notificationEnabled: value);
                   ref.invalidate(settingsProvider);
+                  // 켜는 즉시 기기 알림 권한을 요청한다(개발자 모드 테스트와 동일 경로).
+                  // 이후 좋아요·댓글·공지 알림이 폴러를 통해 기기 배너로 뜬다.
+                  if (value) {
+                    await LocalNotificationService.instance.ensurePermission();
+                  }
                 },
+              ),
+
+              const Divider(),
+
+              // 화면 테마 — 라이트/다크/시스템 중 선택(기기 로컬 저장).
+              ListTile(
+                leading: const Icon(Icons.brightness_6_outlined),
+                title: Text(l.settingsThemeMode),
+                subtitle: Text(_themeModeLabel(l, ref.watch(themeModeProvider))),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showThemeModeSheet(context, ref, l),
               ),
 
               const Divider(),
@@ -47,8 +76,9 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 title: Text(l.settingsFontSize),
                 subtitle: Text(l.settingsFontSizeDesc),
+                // 즉시 반영을 위해 렌더링 값은 로컬 provider를 따른다(서버 응답 대기 X).
                 trailing: DropdownButton<String>(
-                  value: settings.fontSize,
+                  value: ref.watch(fontSizeProvider),
                   underline: const SizedBox.shrink(),
                   items: [
                     DropdownMenuItem(value: 'SMALL', child: Text(l.settingsFontSmall)),
@@ -57,9 +87,10 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                   onChanged: (value) async {
                     if (value == null) return;
+                    // 1) 로컬 즉시 반영, 2) 서버에도 저장(다른 기기 동기화).
+                    await ref.read(fontSizeProvider.notifier).set(value);
                     final repository = ref.read(myPageRepositoryProvider);
                     await repository.updateSettings(fontSize: value);
-                    ref.invalidate(settingsProvider);
                   },
                 ),
               ),
@@ -87,10 +118,57 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () =>
                     Navigator.of(context).pushNamed(AppRouter.musicSettings),
               ),
+              // [DEV_MODE] 버전 정보 — 5번 연속 탭 시 비밀번호 후 개발자 모드 진입
+              const DevVersionTile(),
             ],
           );
         },
       ),
     );
+  }
+
+  /// 현재 테마 모드의 표시 라벨.
+  String _themeModeLabel(AppLocalizations l, ThemeMode mode) => switch (mode) {
+        ThemeMode.light => l.settingsThemeLight,
+        ThemeMode.dark => l.settingsThemeDark,
+        ThemeMode.system => l.settingsThemeSystem,
+      };
+
+  /// 라이트/다크/시스템 중 하나를 고르는 바텀시트.
+  Future<void> _showThemeModeSheet(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l,
+  ) async {
+    final current = ref.read(themeModeProvider);
+    final selected = await showModalBottomSheet<ThemeMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: RadioGroup<ThemeMode>(
+          groupValue: current,
+          onChanged: (value) => Navigator.of(ctx).pop(value),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final mode in const [
+                ThemeMode.light,
+                ThemeMode.dark,
+                ThemeMode.system,
+              ])
+                RadioListTile<ThemeMode>(
+                  value: mode,
+                  title: Text(_themeModeLabel(l, mode)),
+                  subtitle: mode == ThemeMode.system
+                      ? Text(l.settingsThemeSystemDesc)
+                      : null,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selected == null) return;
+    await ref.read(themeModeProvider.notifier).setMode(selected);
   }
 }

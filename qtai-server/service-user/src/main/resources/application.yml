@@ -14,6 +14,11 @@ spring:
     properties:
       hibernate:
         format_sql: false
+  # 프로필 사진 업로드(multipart) 최대 크기 — 서비스 검증은 5MB, 여유로 6MB 허용.
+  servlet:
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 6MB
   # Jackson — 시간대/날짜 직렬화 정책(모놀리식과 동일)
   jackson:
     time-zone: Asia/Seoul
@@ -33,6 +38,18 @@ security:
     public-key: ${JWT_PUBLIC_KEY}
     access-expiry-ms: ${JWT_ACCESS_EXPIRY_MS:1800000}
     refresh-expiry-ms: ${JWT_REFRESH_EXPIRY_MS:1209600000}
+  # 공개 인증 경로 rate limit (코드리뷰 TODO 1) — IP+경로 1분 고정창, Redis 장애 시 fail-open.
+  # trust-forwarded-for는 nginx gateway 뒤에 설 때만 true(env)로 켠다 — 직접 노출 시 헤더 위조 우회 방지.
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    trust-forwarded-for: ${RATE_LIMIT_TRUST_FORWARDED_FOR:false}
+    rules:
+      - path: /api/v1/auth/kakao
+        limit-per-minute: ${RATE_LIMIT_AUTH_KAKAO_PER_MINUTE:10}
+      - path: /api/v1/auth/refresh
+        limit-per-minute: ${RATE_LIMIT_AUTH_REFRESH_PER_MINUTE:30}
+      - path: /api/v1/admin/auth/kakao
+        limit-per-minute: ${RATE_LIMIT_ADMIN_AUTH_KAKAO_PER_MINUTE:10}
 
 # Kakao OAuth — Flutter SDK가 발급한 access token으로 사용자 정보 조회
 kakao:

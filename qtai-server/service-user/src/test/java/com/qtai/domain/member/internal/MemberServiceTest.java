@@ -29,6 +29,8 @@ class MemberServiceTest {
     @Mock
     private MemberRepository memberRepository;
     @Mock
+    private NicknameChangeHistoryRepository nicknameChangeHistoryRepository;
+    @Mock
     private ApplicationEventPublisher eventPublisher;
     @Spy
     private Clock clock = Clock.fixed(Instant.parse("2026-06-15T01:00:00Z"), ZoneId.of("Asia/Seoul"));
@@ -87,5 +89,74 @@ class MemberServiceTest {
         assertThatThrownBy(() -> memberService.changeNickname(1L, new NicknameChangeRequest("newNick")))
                 .isInstanceOfSatisfying(BusinessException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.MEMBER_ALREADY_WITHDRAWN));
+    }
+
+    @Test
+    void changeNickname_잠금없이_연속_변경_가능하다() {
+        // 2026-06-11 잠금 폐지: 방금 변경한 회원도 즉시 다시 변경할 수 있다(NICKNAME_LOCKED 미발생).
+        Member member = activeMember();
+        member.changeNickname("first", clock); // nicknameChangedAt = 지금
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+        when(memberRepository.existsByNickname("second")).thenReturn(false);
+
+        MemberResponse response =
+                memberService.changeNickname(1L, new NicknameChangeRequest("second"));
+
+        assertThat(response.nickname()).isEqualTo("second");
+        assertThat(response.nicknameUnlockAt()).isNull(); // 잠금 해제 시각 노출 안 함
+    }
+
+    // ── 프로필 사진 업로드/조회/삭제 ──
+
+    @Test
+    void updateProfilePhoto_정상_업로드시_저장하고_스트림URL을_채운다() {
+        Member member = activeMember();
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+        byte[] png = {1, 2, 3, 4};
+        MemberResponse response =
+                memberService.updateProfilePhoto(1L, png, "image/png");
+
+        assertThat(member.hasProfilePhoto()).isTrue();
+        assertThat(member.getProfileImageContentType()).isEqualTo("image/png");
+        assertThat(response.profileImageUrl()).startsWith("/api/v1/me/profile-photo");
+    }
+
+    @Test
+    void updateProfilePhoto_이미지가_아니면_INVALID_INPUT() {
+        assertThatThrownBy(
+                () -> memberService.updateProfilePhoto(1L, new byte[]{1}, "application/pdf"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+    }
+
+    @Test
+    void updateProfilePhoto_5MB_초과면_INVALID_INPUT() {
+        byte[] tooBig = new byte[5 * 1024 * 1024 + 1];
+        assertThatThrownBy(
+                () -> memberService.updateProfilePhoto(1L, tooBig, "image/jpeg"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+    }
+
+    @Test
+    void getOwnProfilePhoto_사진이_없으면_RESOURCE_NOT_FOUND() {
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(activeMember()));
+
+        assertThatThrownBy(() -> memberService.getOwnProfilePhoto(1L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND));
+    }
+
+    @Test
+    void deleteProfilePhoto_사진을_지운다() {
+        Member member = activeMember();
+        member.updateProfilePhoto(new byte[]{9}, "image/png", clock);
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+        memberService.deleteProfilePhoto(1L);
+
+        assertThat(member.hasProfilePhoto()).isFalse();
+        assertThat(member.getProfileImageUrl()).isNull();
     }
 }

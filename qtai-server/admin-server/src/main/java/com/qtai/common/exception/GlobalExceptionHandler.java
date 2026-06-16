@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Arrays;
@@ -103,6 +104,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .badRequest()
                 .body(ApiResponse.error(ErrorCode.INVALID_INPUT.getCode(), "요청 본문을 해석할 수 없습니다."));
+    }
+
+    /**
+     * Multipart resolver upload size violations -> 400. Keeps upload limits from falling through to 500.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
+        log.warn("MaxUploadSizeExceeded: {}", e.getMessage());
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.error(ErrorCode.INVALID_INPUT.getCode(), "업로드 파일은 10 MiB 이하로 등록해 주세요."));
     }
 
     /**

@@ -14,6 +14,7 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
 import com.qtai.domain.admin.api.dto.AdminUserInfo;
 import com.qtai.domain.notification.api.CreateAdminNoticeUseCase;
+import com.qtai.domain.notification.api.GetAdminNoticeUseCase;
 import com.qtai.domain.notification.api.HideAdminNoticeUseCase;
 import com.qtai.domain.notification.api.ListAdminNoticesUseCase;
 import com.qtai.domain.notification.api.PublishAdminNoticeUseCase;
@@ -48,6 +49,8 @@ class AdminNoticeControllerTest {
     JwtAuthenticationFilter jwtAuthenticationFilter;
     @MockBean
     ListAdminNoticesUseCase listAdminNoticesUseCase;
+    @MockBean
+    GetAdminNoticeUseCase getAdminNoticeUseCase;
     @MockBean
     CreateAdminNoticeUseCase createAdminNoticeUseCase;
     @MockBean
@@ -139,6 +142,36 @@ class AdminNoticeControllerTest {
     }
 
     @Test
+    void get_200() throws Exception {
+        when(getAdminNoticeUseCase.getAdminNotice(1L)).thenReturn(detailResponse("DRAFT"));
+
+        mockMvc.perform(get("/api/v1/admin/notices/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.body").value("본문"));
+    }
+
+    @Test
+    void get_reviewer_403() throws Exception {
+        when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), any()))
+                .thenThrow(new BusinessException(ErrorCode.ADMIN_ROLE_INSUFFICIENT));
+
+        mockMvc.perform(get("/api/v1/admin/notices/1"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("AD0003"));
+    }
+
+    @Test
+    void get_notFound_404() throws Exception {
+        when(getAdminNoticeUseCase.getAdminNotice(404L))
+                .thenThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/admin/notices/404"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("C0004"));
+    }
+
+    @Test
     void create_201() throws Exception {
         when(createAdminNoticeUseCase.createNotice(any())).thenReturn(detailResponse("DRAFT"));
 
@@ -184,8 +217,12 @@ class AdminNoticeControllerTest {
 
         mockMvc.perform(post("/api/v1/admin/notices/1/publish"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.noticeId").value(1))
                 .andExpect(jsonPath("$.data.status").value("PUBLISHED"))
-                .andExpect(jsonPath("$.data.notificationResult.createdCount").value(2));
+                .andExpect(jsonPath("$.data.notificationResult.targetMemberCount").value(2))
+                .andExpect(jsonPath("$.data.notificationResult.createdCount").value(2))
+                .andExpect(jsonPath("$.data.notificationResult.queuedCount").value(2))
+                .andExpect(jsonPath("$.data.notificationResult.failedCount").value(0));
     }
 
     @Test

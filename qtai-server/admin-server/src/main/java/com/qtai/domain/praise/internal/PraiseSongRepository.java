@@ -11,4 +11,6 @@ public interface PraiseSongRepository extends JpaRepository<PraiseSong, Long> {
 
     /** 상태별 목록 조회. */
     Page<PraiseSong> findByStatus(PraiseSongStatus status, Pageable pageable);
+
+
 }

@@ -7,10 +7,10 @@ import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../../sharing/providers/sharing_providers.dart';
 import '../models/note_models.dart';
+import '../models/qt_note_rich_text.dart';
 import '../providers/note_providers.dart';
 import '../widgets/note_publish_sheet.dart';
 import '../widgets/note_share_sheet.dart';
-import 'note_edit_screen.dart';
 
 /// 노트 상세 화면 (N-04).
 ///
@@ -75,16 +75,13 @@ class _Actions extends ConsumerWidget {
           icon: const Icon(Icons.ios_share),
           onPressed: () => showNoteShareSheet(context, detail),
         ),
-        // 수정은 '본문만 있는 자유노트(기도/회개/감사)'에만 노출.
-        // - 묵상(4섹션)·설교(인용 절 보유)는 N-03 단일본문 편집이 데이터를 손상시킨다:
-        //   설교노트를 PATCH하면 verseIds 미전송으로 note_verses가 비워짐(04 §4.3.6).
-        // TODO(v2): 묵상은 QT 4섹션 화면, 설교는 절 선택 화면(B-03)이 생기면 연결.
-        if (writableNoteCategories.contains(detail.category))
-          IconButton(
-            tooltip: l.commonEdit,
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => _goEdit(context, ref),
-          ),
+        // 모든 노트는 단일 body라 N-03에서 수정 가능하다(작성=각 탭, 수정·삭제=기록).
+        // QT·설교의 인용 절(verseIds)은 편집 시 seed→PATCH로 보존된다(QA ⑪, 04 §4.3.6).
+        IconButton(
+          tooltip: l.commonEdit,
+          icon: const Icon(Icons.edit_outlined),
+          onPressed: () => _goEdit(context, ref),
+        ),
         IconButton(
           tooltip: l.commonDelete,
           icon: const Icon(Icons.delete_outline),
@@ -113,7 +110,11 @@ class _Actions extends ConsumerWidget {
     //   시트를 띄우기 전에 안내만 하고 멈춘다(04 §4.3.8: 저장 확정 전 공유 불가).
     if (detail.status != 'SAVED') {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.notePublishNeedSave)));
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(l.notePublishNeedSave),
+          duration: const Duration(seconds: 2),
+        ));
       return;
     }
     // 시트 반환: 댓글 허용 여부(true/false) = 공개 확정, null = 취소.
@@ -132,15 +133,19 @@ class _Actions extends ConsumerWidget {
       if (!context.mounted) return;
       //   성공 스낵바에 "보기"를 달아 원하는 사람만 나눔 피드로 가게 한다(강제 이동 X).
       //   "조용한 나눔" 철학에 맞춰 기본은 상세에 머물고, 즉시 확인 경로만 제공.
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l.notePublishSuccess),
-          action: SnackBarAction(
-            label: l.notePublishView,
-            onPressed: () => Navigator.of(context).pushNamed(AppRouter.sharing),
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(l.notePublishSuccess),
+            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: l.notePublishView,
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRouter.sharing),
+            ),
           ),
-        ),
-      );
+        );
     } catch (e) {
       if (!context.mounted) return;
       //   409(DUPLICATE_SHARING_POST) = 이미 공개된 노트 → 실패가 아니라 "이미 했음" 안내.
@@ -148,12 +153,15 @@ class _Actions extends ConsumerWidget {
       //   안내로 바꿔 "버그처럼 보이는" 회귀를 막는다(백엔드 visibility 갱신은 후속 PR).
       final isAlreadyShared =
           e is DioException && e.response?.statusCode == 409;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              isAlreadyShared ? l.notePublishAlready : l.notePublishFailed),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+                isAlreadyShared ? l.notePublishAlready : l.notePublishFailed),
+            duration: const Duration(seconds: 2),
+          ),
+        );
     }
   }
 
@@ -188,12 +196,20 @@ class _Actions extends ConsumerWidget {
       if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.noteDeleted)));
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(l.noteDeleted),
+          duration: const Duration(seconds: 2),
+        ));
     } catch (e) {
       //   실패 시 화면 유지 + 안내(되돌리기 어려운 동작이라 실패를 명확히 알림).
       if (!context.mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.noteDeleteFailed)));
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(l.noteDeleteFailed),
+          duration: const Duration(seconds: 2),
+        ));
     }
   }
 }
@@ -254,18 +270,10 @@ class _DetailBody extends StatelessWidget {
         ),
         const Divider(height: 24),
 
-        //   카테고리 분기: 묵상은 4섹션, 그 외(자유노트)는 body 한 덩이.
-        if (detail.isFreeNote)
-          Text(
-            (detail.body?.isNotEmpty ?? false) ? detail.body! : l.noteNoContent,
-            style: theme.textTheme.bodyLarge,
-          )
-        else ...[
-          _Section(label: l.noteSectionFelt, text: detail.rememberSection),
-          _Section(label: l.noteSectionVerse, text: detail.interpretSection),
-          _Section(label: l.noteSectionApply, text: detail.applySection),
-          _Section(label: l.noteSectionPray, text: detail.praySection),
-        ],
+        //   전 카테고리 단일 body(QT 포함). 마커는 편집기와 동일 파서로 렌더.
+        (detail.body?.isNotEmpty ?? false)
+            ? _RichNoteText(text: detail.body!, style: theme.textTheme.bodyLarge)
+            : Text(l.noteNoContent, style: theme.textTheme.bodyLarge),
 
         // 인용 절(있을 때만 표시) — V1은 보기 전용
         if (detail.verses.isNotEmpty) ...[
@@ -281,28 +289,24 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
-/// 묵상 노트 한 섹션(라벨 + 내용). 내용이 비면 표시하지 않는다.
-class _Section extends StatelessWidget {
-  final String label;
-  final String? text;
+/// 저장된 노트 본문을 편집기와 동일한 마크업(굵게 `**`, 하이라이트 `==`,
+/// 글자색·배경·크기 `[fg|bg|fs=..]`)으로 렌더한다.
+///
+/// 편집기는 [QtNoteRichTextParser]로 라이브 렌더하지만 상세 보기는 평문 [Text]라
+/// `**굵게**` 마커가 그대로 노출되던 버그를 수정한다(편집기와 동일 파서 사용).
+class _RichNoteText extends StatelessWidget {
+  final String text;
+  final TextStyle? style;
 
-  const _Section({required this.label, required this.text});
+  /// 이모지 클러스터 크기 — 편집기 `_defaultEmojiFontSize`와 동일.
+  static const double _emojiFontSize = 16;
+
+  const _RichNoteText({required this.text, required this.style});
 
   @override
   Widget build(BuildContext context) {
-    //   빈 섹션은 굳이 자리 차지하지 않게 숨긴다(일부 섹션만 작성 가능, 07 F-03).
-    if (text == null || text!.isEmpty) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: theme.textTheme.titleSmall),
-          const SizedBox(height: 4),
-          Text(text!, style: theme.textTheme.bodyLarge),
-        ],
-      ),
+    return Text.rich(
+      QtNoteRichTextParser.parse(text, style, emojiFontSize: _emojiFontSize),
     );
   }
 }

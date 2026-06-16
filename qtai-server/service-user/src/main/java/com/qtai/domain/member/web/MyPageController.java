@@ -1,6 +1,8 @@
 package com.qtai.domain.member.web;
 
 import com.qtai.common.dto.ApiResponse;
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.member.api.dto.DashboardResponse;
 import com.qtai.domain.member.api.dto.DashboardResponse.PraiseSummary;
@@ -10,6 +12,8 @@ import com.qtai.domain.member.api.dto.DashboardResponse.StatsWidget.WeekMonth;
 import com.qtai.domain.member.api.dto.MemberResponse;
 import com.qtai.domain.mission.api.GetMemberMissionProgressUseCase;
 import com.qtai.domain.mission.api.dto.MissionProgressResponse;
+import com.qtai.domain.note.api.GetMeditationCalendarUseCase;
+import com.qtai.domain.note.api.dto.MeditationCalendarResponse;
 import com.qtai.domain.notification.api.ListNotificationUseCase;
 import com.qtai.domain.praise.api.ListMemberPraiseSongUseCase;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +23,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,20 +46,26 @@ public class MyPageController {
     private final ListNotificationUseCase listNotificationUseCase;
     private final ListMemberPraiseSongUseCase listMemberPraiseSongUseCase;
     private final GetMemberMissionProgressUseCase getMemberMissionProgressUseCase;
+    private final GetMeditationCalendarUseCase getMeditationCalendarUseCase;
+    private final Clock clock;
 
     /**
      * GET /api/v1/me/dashboard — 대시보드.
      */
     @GetMapping("/api/v1/me/dashboard")
     public ResponseEntity<ApiResponse<DashboardResponse>> dashboard(
-            @AuthenticationPrincipal Long memberId) {
+            @AuthenticationPrincipal Long principalMemberId) {
+
+        // 방어적 검증: 보안 설정 변경으로 비인증 접근이 새어 들어와도 NPE 대신 401로 응답
+        // (MeditationCalendarController.requireMemberId와 동일 패턴)
+        Long memberId = requireMemberId(principalMemberId);
 
         List<String> widgetErrors = new ArrayList<>();
 
         // ── 프로필 ──
         ProfileSummary profile = loadProfile(memberId, widgetErrors);
 
-        // ── 통계 (notes 도메인 미구현 — 기본값) ──
+        // ── 통계 (service-note 묵상 달력 기반) ──
         StatsWidget stats = loadStats(memberId, widgetErrors);
 
         // ── 미읽음 알림 수 ──
@@ -70,6 +83,13 @@ public class MyPageController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    private Long requireMemberId(Long memberId) {
+        if (memberId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return memberId;
+    }
+
     // ── private widget loaders (부분 실패 허용) ──
 
     private ProfileSummary loadProfile(Long memberId, List<String> errors) {
@@ -83,15 +103,28 @@ public class MyPageController {
         }
     }
 
-    // TODO: notes 도메인 연동 시 memberId 파라미터 사용 + errors 기록 로직 추가
-    @SuppressWarnings("unused")
+    /**
+     * "나의 묵상" 통계 — service-note 묵상 달력을 호출해 주간/월간/연속 값으로 환산한다.
+     *
+     * <p>하루 인정 기준·반영 시점 등 집계 의미는 {@link MeditationStatsCalculator} 참조.
+     * 주가 이전 달에 걸치는 경우(예: 월요일이 이전 달 말일)에만 이전 달 달력을 한 번 더 조회한다.
+     */
     private StatsWidget loadStats(Long memberId, List<String> errors) {
-        // notes 도메인 미구현 — 기본값 반환
-        return new StatsWidget(
-                new WeekMonth(0, 0),
-                new WeekMonth(0, 0),
-                0
-        );
+        try {
+            LocalDate today = LocalDate.now(clock);
+            YearMonth thisMonth = YearMonth.from(today);
+            MeditationCalendarResponse currentMonth =
+                    getMeditationCalendarUseCase.getCalendar(memberId, thisMonth);
+            MeditationCalendarResponse previousMonth =
+                    MeditationStatsCalculator.weekCrossesPreviousMonth(today)
+                            ? getMeditationCalendarUseCase.getCalendar(memberId, thisMonth.minusMonths(1))
+                            : null;
+            return MeditationStatsCalculator.build(today, currentMonth, previousMonth);
+        } catch (Exception e) {
+            log.warn("대시보드 통계 위젯 실패: memberId={}", memberId, e);
+            errors.add("stats");
+            return new StatsWidget(new WeekMonth(0, 0), new WeekMonth(0, 0), 0);
+        }
     }
 
     private long loadUnreadNotificationCount(Long memberId, List<String> errors) {

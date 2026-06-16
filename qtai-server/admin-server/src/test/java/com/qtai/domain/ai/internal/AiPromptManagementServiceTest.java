@@ -1,0 +1,228 @@
+package com.qtai.domain.ai.internal;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Optional;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.qtai.common.exception.BusinessException;
+import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.ai.api.admin.prompt.dto.AiPromptVersionResponse;
+import com.qtai.domain.ai.api.admin.prompt.dto.ChangeAiPromptVersionStatusCommand;
+import com.qtai.domain.ai.api.admin.prompt.dto.CreateAiPromptVersionCommand;
+import com.qtai.domain.audit.api.WriteAuditLogUseCase;
+
+@ExtendWith(MockitoExtension.class)
+class AiPromptManagementServiceTest {
+
+    private static final OffsetDateTime NOW = OffsetDateTime.parse("2026-06-15T10:00:00+09:00");
+
+    @Mock
+    private AiPromptVersionRepository promptVersionRepository;
+    @Mock
+    private AiEvaluationRunRepository evaluationRunRepository;
+    @Mock
+    private WriteAuditLogUseCase auditLogUseCase;
+
+    private AiPromptManagementService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new AiPromptManagementService(
+                promptVersionRepository,
+                evaluationRunRepository,
+                auditLogUseCase,
+                new ObjectMapper(),
+                Clock.fixed(Instant.parse("2026-06-15T01:00:00Z"), ZoneId.of("Asia/Seoul"))
+        );
+    }
+
+    @Test
+    void createUsesDefaultSystemPromptAndKeepsNaturalInstructionInContract() {
+        when(promptVersionRepository.existsByPromptTypeAndVersion(AiPromptType.EXPLANATION, "2026.06.3"))
+                .thenReturn(false);
+        when(promptVersionRepository.save(any(AiPromptVersion.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AiPromptVersionResponse response = service.createAiPromptVersion(new CreateAiPromptVersionCommand(
+                99L,
+                "ADMIN",
+                "REVIEWER",
+                "EXPLANATION",
+                "2026.06.3",
+                "custom system prompt should be ignored",
+                "요약은 한 문장으로 작성하고 쉬운 표현을 사용하세요.",
+                "deepseek-chat",
+                0.2,
+                1200,
+                "natural instruction prompt"
+        ));
+
+        assertThat(response.status()).isEqualTo("DRAFT");
+        assertThat(response.promptType()).isEqualTo("EXPLANATION");
+        assertThat(response.systemPrompt()).isEqualTo(AiPromptVersion.defaultSystemPrompt());
+        assertThat(response.userPromptTemplate())
+                .isEqualTo("요약은 한 문장으로 작성하고 쉬운 표현을 사용하세요.");
+        assertThat(response.contentHash()).isNotBlank();
+    }
+
+    @Test
+    void contentHashUsesEffectiveDefaultsWhenOptionalGenerationSettingsAreNull() {
+        String withNullSettings = AiPromptManagementService.contentHash(
+                "EXPLANATION",
+                "2026.06.3",
+                "natural instruction",
+                null,
+                null,
+                null
+        );
+        String withExplicitDefaults = AiPromptManagementService.contentHash(
+                "EXPLANATION",
+                "2026.06.3",
+                "natural instruction",
+                null,
+                AiPromptVersion.DEFAULT_TEMPERATURE,
+                AiPromptVersion.DEFAULT_MAX_TOKENS
+        );
+
+        assertThat(withNullSettings).isEqualTo(withExplicitDefaults);
+    }
+
+    @Test
+    void activateRequiresSuccessfulEvaluationRun() {
+        when(promptVersionRepository.findPromptTypeById(2L)).thenReturn(Optional.of(AiPromptType.EXPLANATION));
+        when(evaluationRunRepository.findFirstByPromptVersionIdAndStatusOrderByFinishedAtDescIdDesc(
+                2L,
+                AiEvaluationRunStatus.SUCCEEDED
+        )).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.activateAiPromptVersion(command(2L)))
+                .isInstanceOf(BusinessException.class);
+
+        verify(promptVersionRepository, never()).findAllByPromptTypeForUpdate(AiPromptType.EXPLANATION);
+    }
+
+    @Test
+    void activateRetiresCurrentActivePromptAfterPassingEvaluationRun() {
+        AiPromptVersion currentActive = promptVersion(
+                1L,
+                "2026.06.1",
+                AiPromptVersionStatus.ACTIVE,
+                NOW.minusDays(2)
+        );
+        AiPromptVersion draft = promptVersion(
+                2L,
+                "2026.06.2",
+                AiPromptVersionStatus.DRAFT,
+                NOW.minusDays(1)
+        );
+        AiEvaluationRun run = AiEvaluationRun.start(10L, 2L, 99L, NOW.minusHours(1));
+        run.finish(2, 2, 0, 0, NOW.minusMinutes(30));
+
+        when(promptVersionRepository.findPromptTypeById(2L)).thenReturn(Optional.of(AiPromptType.EXPLANATION));
+        when(evaluationRunRepository.findFirstByPromptVersionIdAndStatusOrderByFinishedAtDescIdDesc(
+                2L,
+                AiEvaluationRunStatus.SUCCEEDED
+        )).thenReturn(Optional.of(run));
+        when(promptVersionRepository.findAllByPromptTypeForUpdate(AiPromptType.EXPLANATION))
+                .thenReturn(List.of(currentActive, draft));
+
+        AiPromptVersionResponse response = service.activateAiPromptVersion(command(2L));
+
+        assertThat(response.status()).isEqualTo("ACTIVE");
+        assertThat(currentActive.getStatus()).isEqualTo(AiPromptVersionStatus.RETIRED);
+        assertThat(draft.getStatus()).isEqualTo(AiPromptVersionStatus.ACTIVE);
+    }
+
+    @Test
+    void activateRejectsNonDraftPromptVersion() {
+        AiPromptVersion active = promptVersion(
+                2L,
+                "2026.06.2",
+                AiPromptVersionStatus.ACTIVE,
+                NOW.minusDays(1)
+        );
+        AiEvaluationRun run = AiEvaluationRun.start(10L, 2L, 99L, NOW.minusHours(1));
+        run.finish(1, 1, 0, 0, NOW.minusMinutes(30));
+
+        when(promptVersionRepository.findPromptTypeById(2L)).thenReturn(Optional.of(AiPromptType.EXPLANATION));
+        when(evaluationRunRepository.findFirstByPromptVersionIdAndStatusOrderByFinishedAtDescIdDesc(
+                2L,
+                AiEvaluationRunStatus.SUCCEEDED
+        )).thenReturn(Optional.of(run));
+        when(promptVersionRepository.findAllByPromptTypeForUpdate(AiPromptType.EXPLANATION))
+                .thenReturn(List.of(active));
+
+        assertThatThrownBy(() -> service.activateAiPromptVersion(command(2L)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+    }
+
+    @Test
+    void activateRejectsEvaluationRunWithFailedCases() {
+        AiEvaluationRun run = AiEvaluationRun.start(10L, 2L, 99L, NOW.minusHours(1));
+        run.finish(2, 1, 1, 0, NOW.minusMinutes(30));
+
+        when(promptVersionRepository.findPromptTypeById(2L)).thenReturn(Optional.of(AiPromptType.EXPLANATION));
+        when(evaluationRunRepository.findFirstByPromptVersionIdAndStatusOrderByFinishedAtDescIdDesc(
+                2L,
+                AiEvaluationRunStatus.SUCCEEDED
+        )).thenReturn(Optional.of(run));
+
+        assertThatThrownBy(() -> service.activateAiPromptVersion(command(2L)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION));
+
+        verify(promptVersionRepository, never()).findAllByPromptTypeForUpdate(AiPromptType.EXPLANATION);
+    }
+
+    private static ChangeAiPromptVersionStatusCommand command(Long promptVersionId) {
+        return new ChangeAiPromptVersionStatusCommand(
+                99L,
+                "ADMIN",
+                "REVIEWER",
+                promptVersionId
+        );
+    }
+
+    private static AiPromptVersion promptVersion(
+            Long id,
+            String version,
+            AiPromptVersionStatus status,
+            OffsetDateTime createdAt
+    ) {
+        return AiPromptVersion.of(
+                id,
+                AiPromptType.EXPLANATION,
+                version,
+                "hash-" + id,
+                status,
+                AiPromptVersion.defaultSystemPrompt(),
+                AiPromptVersion.defaultUserPromptTemplate(),
+                null,
+                0.2,
+                2000,
+                null,
+                99L,
+                createdAt,
+                status == AiPromptVersionStatus.ACTIVE ? createdAt : null,
+                null
+        );
+    }
+}

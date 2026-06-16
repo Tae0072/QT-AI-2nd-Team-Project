@@ -1,10 +1,15 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
 
+import '../../../core/dev/web_dev_access.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../routes/app_router.dart';
 import '../providers/auth_providers.dart';
+import '../services/kakao_login_guard.dart';
 
 /// 카카오 로그인 화면 (A-02) — 웜 파스텔 디자인.
 class LoginScreen extends ConsumerStatefulWidget {
@@ -31,9 +36,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
 
       if (result.isNewMember) {
-        Navigator.of(context).pushReplacementNamed(AppRouter.nicknameSetup);
+        // 화면 전환 Future는 대기하지 않는다(다음 라우트 pop까지 완료되지 않음).
+        unawaited(
+            Navigator.of(context).pushReplacementNamed(AppRouter.nicknameSetup));
       } else {
         ref.read(authStatusProvider.notifier).setAuthenticated();
+        // 기존 회원: 인증 상태만 바꿔도 화면이 자동 전환되지 않으므로 홈으로 명시적 이동.
+        unawaited(Navigator.of(context)
+            .pushNamedAndRemoveUntil(AppRouter.home, (route) => false));
       }
     } catch (e) {
       if (!mounted) return;
@@ -50,8 +60,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    // 웹에서는 카카오 dart SDK가 동작하지 않아 버튼을 비활성화하고 안내한다(TODO 2).
+    // dev 웹 우회(webDevNoLogin, 삼중 게이트)가 켜진 경우는 기존 동작 유지.
+    final webLoginUnsupported =
+        isKakaoLoginUnsupported(isWeb: kIsWeb, webDevBypassEnabled: webDevNoLogin);
+    // 다크 모드 대응 — 정적 토큰 대신 현재 모드의 색 토큰을 받는다(fallback 내장).
+    final colors = context.appColors;
     return Scaffold(
-      backgroundColor: AppTheme.bg,
+      backgroundColor: colors.bg,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -63,14 +79,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text.rich(
                 TextSpan(children: [
                   const TextSpan(text: 'QT'),
-                  TextSpan(text: '·', style: TextStyle(color: AppTheme.accent)),
+                  // 로고 가운뎃점 — 유일한 유채색 포인트(탭 도트와 동일 토큰).
+                  TextSpan(text: '·', style: TextStyle(color: colors.accentDot)),
                   const TextSpan(text: 'AI'),
                 ]),
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'GowunDodum',
                   fontSize: 40,
                   fontWeight: FontWeight.w400,
-                  color: AppTheme.text,
+                  color: colors.text,
                   letterSpacing: -1,
                 ),
               ),
@@ -80,11 +97,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text(
                 l.loginHeadline,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'GowunDodum',
                   fontSize: 28,
                   fontWeight: FontWeight.w400,
-                  color: AppTheme.text,
+                  color: colors.text,
                   height: 1.2,
                   letterSpacing: -0.4,
                 ),
@@ -93,7 +110,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text(
                 l.loginSubtitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 17, color: AppTheme.textMuted, height: 1.5),
+                style: TextStyle(fontSize: 17, color: colors.textMuted, height: 1.5),
               ),
 
               const Spacer(flex: 2),
@@ -124,7 +141,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _handleKakaoLogin,
+                  onPressed: (_isLoading || webLoginUnsupported)
+                      ? null
+                      : _handleKakaoLogin,
                   icon: _isLoading
                       ? const SizedBox(
                           width: 20, height: 20,
@@ -145,6 +164,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
 
+              // 웹 미지원 안내 (버튼 비활성 사유)
+              if (webLoginUnsupported) ...[
+                const SizedBox(height: 12),
+                Text(
+                  l.loginWebNotSupported,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: colors.textMuted),
+                ),
+              ],
+
               const SizedBox(height: 18),
 
               // 법적 고지
@@ -154,18 +183,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   children: [
                     TextSpan(
                       text: l.loginTermsOfService,
-                      style: const TextStyle(color: AppTheme.accent),
+                      // 링크 강조는 무채색(본문색) + 밑줄 — 유채색 포인트는 도트 전용(§2).
+                      style: TextStyle(
+                          color: colors.text,
+                          decoration: TextDecoration.underline),
                     ),
                     TextSpan(text: l.loginLegalAnd),
                     TextSpan(
                       text: l.loginPrivacyPolicy,
-                      style: const TextStyle(color: AppTheme.accent),
+                      style: TextStyle(
+                          color: colors.text,
+                          decoration: TextDecoration.underline),
                     ),
                     TextSpan(text: l.loginLegalSuffix),
                   ],
                 ),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                style: TextStyle(fontSize: 12, color: colors.textMuted),
               ),
 
               const SizedBox(height: 40),

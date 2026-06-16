@@ -1,12 +1,15 @@
 package com.qtai.domain.ai.internal;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,11 +20,20 @@ import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetCommand;
 import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetResult;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
+import com.qtai.domain.study.api.HidePublishedGlossaryTermsUseCase;
+import com.qtai.domain.study.api.HidePublishedSimulatorClipUseCase;
 import com.qtai.domain.study.api.HidePublishedVerseExplanationUseCase;
+import com.qtai.domain.study.api.PublishApprovedGlossaryTermsUseCase;
+import com.qtai.domain.study.api.PublishApprovedSimulatorClipUseCase;
 import com.qtai.domain.study.api.PublishApprovedVerseExplanationUseCase;
+import com.qtai.domain.study.api.dto.HidePublishedGlossaryTermsCommand;
+import com.qtai.domain.study.api.dto.HidePublishedSimulatorClipCommand;
 import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
+import com.qtai.domain.study.api.dto.PublishApprovedGlossaryTermsCommand;
+import com.qtai.domain.study.api.dto.PublishApprovedSimulatorClipCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 
+@Slf4j
 @Service
 class AiAssetReviewService implements ReviewAiAssetUseCase {
 
@@ -32,11 +44,17 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     private static final String ACTION_AI_ASSET_HIDE = "AI_ASSET_HIDE";
     private static final int SERVER_AUTO_VALIDATION_LAYER = 1;
     private static final int AI_REVIEW_VALIDATION_LAYER = 2;
+    private static final int ADMIN_REVIEW_VALIDATION_LAYER = 3;
+    private static final String ADMIN_REVIEW_CHECKLIST_JSON = "{\"source\":\"ADMIN_ASSET_REVIEW\"}";
 
     private final AiGeneratedAssetRepository generatedAssetRepository;
     private final AiValidationLogRepository validationLogRepository;
     private final PublishApprovedVerseExplanationUseCase publishApprovedVerseExplanationUseCase;
     private final HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase;
+    private final PublishApprovedGlossaryTermsUseCase publishApprovedGlossaryTermsUseCase;
+    private final HidePublishedGlossaryTermsUseCase hidePublishedGlossaryTermsUseCase;
+    private final PublishApprovedSimulatorClipUseCase publishApprovedSimulatorClipUseCase;
+    private final HidePublishedSimulatorClipUseCase hidePublishedSimulatorClipUseCase;
     private final WriteAuditLogUseCase auditLogUseCase;
     private final ObjectMapper objectMapper;
 
@@ -45,6 +63,10 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
             AiValidationLogRepository validationLogRepository,
             PublishApprovedVerseExplanationUseCase publishApprovedVerseExplanationUseCase,
             HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase,
+            PublishApprovedGlossaryTermsUseCase publishApprovedGlossaryTermsUseCase,
+            HidePublishedGlossaryTermsUseCase hidePublishedGlossaryTermsUseCase,
+            PublishApprovedSimulatorClipUseCase publishApprovedSimulatorClipUseCase,
+            HidePublishedSimulatorClipUseCase hidePublishedSimulatorClipUseCase,
             WriteAuditLogUseCase auditLogUseCase,
             ObjectMapper objectMapper
     ) {
@@ -52,6 +74,10 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         this.validationLogRepository = validationLogRepository;
         this.publishApprovedVerseExplanationUseCase = publishApprovedVerseExplanationUseCase;
         this.hidePublishedVerseExplanationUseCase = hidePublishedVerseExplanationUseCase;
+        this.publishApprovedGlossaryTermsUseCase = publishApprovedGlossaryTermsUseCase;
+        this.hidePublishedGlossaryTermsUseCase = hidePublishedGlossaryTermsUseCase;
+        this.publishApprovedSimulatorClipUseCase = publishApprovedSimulatorClipUseCase;
+        this.hidePublishedSimulatorClipUseCase = hidePublishedSimulatorClipUseCase;
         this.auditLogUseCase = auditLogUseCase;
         this.objectMapper = objectMapper;
     }
@@ -68,8 +94,14 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         String beforeJson = assetSnapshot(command.assetId(), asset);
 
         switch (action) {
-            case APPROVE -> approve(command, asset);
-            case REJECT -> asset.reject(command.reviewedAt());
+            case APPROVE -> {
+                approve(command, asset);
+                writeAdminValidationLog(command, AiValidationResult.PASSED, null);
+            }
+            case REJECT -> {
+                asset.reject(command.reviewedAt());
+                writeAdminValidationLog(command, AiValidationResult.REJECTED, command.reason());
+            }
             case HIDE -> hide(command, asset);
         }
 
@@ -96,22 +128,75 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
                 "AI asset latest advisor validation log must be PASSED"
         );
 
-        PublishApprovedVerseExplanationCommand publishCommand = publishCommandForTarget(command, asset);
+        PublishCommands publishCommands = publishCommandsForTarget(command, asset);
+        PublishApprovedSimulatorClipCommand simulatorCommand = simulatorCommandForTarget(command, asset);
         asset.approve(command.reviewedAt());
-        if (publishCommand != null) {
-            publishApprovedVerseExplanationUseCase.publishApprovedVerseExplanation(publishCommand);
+        // study publish commands replace by aiAssetId/verse; a failed later call rolls back locally and retry replays both.
+        if (publishCommands.verseExplanationCommand() != null) {
+            publishVerseExplanation(publishCommands.verseExplanationCommand());
+        }
+        if (publishCommands.glossaryTermsCommand() != null) {
+            publishGlossaryTerms(publishCommands.glossaryTermsCommand());
+        }
+        if (simulatorCommand != null) {
+            publishSimulatorClip(simulatorCommand);
         }
     }
 
-    private PublishApprovedVerseExplanationCommand publishCommandForTarget(
+    private void publishVerseExplanation(PublishApprovedVerseExplanationCommand command) {
+        try {
+            publishApprovedVerseExplanationUseCase.publishApprovedVerseExplanation(command);
+        } catch (RuntimeException exception) {
+            log.warn("AI asset verse explanation publish failed. aiAssetId={}, bibleVerseId={}, errorType={}, errorMessage={}",
+                    command.aiAssetId(), command.bibleVerseId(), exception.getClass().getSimpleName(),
+                    exception.getMessage());
+            throw exception;
+        }
+    }
+
+    private void publishGlossaryTerms(PublishApprovedGlossaryTermsCommand command) {
+        try {
+            publishApprovedGlossaryTermsUseCase.publishApprovedGlossaryTerms(command);
+        } catch (RuntimeException exception) {
+            log.warn("AI asset glossary publish failed. aiAssetId={}, termCount={}, errorType={}, errorMessage={}",
+                    command.aiAssetId(), command.terms().size(), exception.getClass().getSimpleName(),
+                    exception.getMessage());
+            throw exception;
+        }
+    }
+
+    private void publishSimulatorClip(PublishApprovedSimulatorClipCommand command) {
+        try {
+            publishApprovedSimulatorClipUseCase.publishApprovedSimulatorClip(command);
+        } catch (RuntimeException exception) {
+            log.warn("AI asset simulator clip publish failed. aiAssetId={}, qtPassageId={}, errorType={}, errorMessage={}",
+                    command.aiAssetId(), command.qtPassageId(), exception.getClass().getSimpleName(),
+                    exception.getMessage());
+            throw exception;
+        }
+    }
+
+    private PublishCommands publishCommandsForTarget(
             ReviewAiAssetCommand command,
             AiGeneratedAsset asset
     ) {
         if (!command.activateForTarget() || !isVerseExplanationBibleVerseAsset(asset)) {
-            return null;
+            return new PublishCommands(null, null);
         }
 
-        ExplanationItem explanationItem = explanationItemForTarget(asset);
+        JsonNode root = payloadRoot(asset);
+        return new PublishCommands(
+                publishCommandForTarget(command, asset, root),
+                glossaryCommand(command, asset, root)
+        );
+    }
+
+    private PublishApprovedVerseExplanationCommand publishCommandForTarget(
+            ReviewAiAssetCommand command,
+            AiGeneratedAsset asset,
+            JsonNode root
+    ) {
+        ExplanationItem explanationItem = explanationItemForTarget(asset, root);
         return new PublishApprovedVerseExplanationCommand(
                 asset.getTargetId(),
                 explanationItem.summary(),
@@ -122,11 +207,55 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         );
     }
 
+    private PublishApprovedSimulatorClipCommand simulatorCommandForTarget(
+            ReviewAiAssetCommand command,
+            AiGeneratedAsset asset
+    ) {
+        if (!command.activateForTarget() || !isSimulatorQtPassageAsset(asset)) {
+            return null;
+        }
+        JsonNode root = payloadRoot(asset);
+        JsonNode sceneScript = root.get("sceneScript");
+        if (sceneScript == null || sceneScript.isNull()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson sceneScript is required");
+        }
+        JsonNode versionNode = root.get("componentLibraryVersionId");
+        if (versionNode == null || !versionNode.canConvertToLong()) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT, "asset payloadJson componentLibraryVersionId is required");
+        }
+        return new PublishApprovedSimulatorClipCommand(
+                asset.getTargetId(),
+                requireText(textValue(root.get("title")), "title"),
+                versionNode.asLong(),
+                writeSceneScriptJson(sceneScript),
+                asset.getId(),
+                command.reviewedAt()
+        );
+    }
+
+    private String writeSceneScriptJson(JsonNode sceneScript) {
+        try {
+            return objectMapper.writeValueAsString(sceneScript);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(
+                    ErrorCode.INTERNAL_ERROR, "asset payloadJson sceneScript serialization failed");
+        }
+    }
+
     private void hide(ReviewAiAssetCommand command, AiGeneratedAsset asset) {
         asset.hide(command.reviewedAt());
         if (isVerseExplanationBibleVerseAsset(asset)) {
             hidePublishedVerseExplanationUseCase.hidePublishedVerseExplanation(
                     new HidePublishedVerseExplanationCommand(asset.getId())
+            );
+            hidePublishedGlossaryTermsUseCase.hidePublishedGlossaryTerms(
+                    new HidePublishedGlossaryTermsCommand(asset.getId())
+            );
+        }
+        if (isSimulatorQtPassageAsset(asset)) {
+            hidePublishedSimulatorClipUseCase.hidePublishedSimulatorClip(
+                    new HidePublishedSimulatorClipCommand(asset.getId())
             );
         }
     }
@@ -175,16 +304,12 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
                 && asset.getTargetType() == AiTargetType.BIBLE_VERSE;
     }
 
-    private ExplanationItem explanationItemForTarget(AiGeneratedAsset asset) {
-        JsonNode root;
-        try {
-            root = objectMapper.readTree(asset.getPayloadJson());
-        } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson is not valid JSON");
-        }
-        if (root == null || !root.isObject()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson must be a JSON object");
-        }
+    private static boolean isSimulatorQtPassageAsset(AiGeneratedAsset asset) {
+        return asset.getAssetType() == AiGeneratedAssetType.SIMULATOR
+                && asset.getTargetType() == AiTargetType.QT_PASSAGE;
+    }
+
+    private ExplanationItem explanationItemForTarget(AiGeneratedAsset asset, JsonNode root) {
         JsonNode explanations = root.get("explanations");
         if (explanations == null || !explanations.isArray()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson explanations is required");
@@ -203,6 +328,63 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson target verse explanation is missing");
     }
 
+    private PublishApprovedGlossaryTermsCommand glossaryCommand(
+            ReviewAiAssetCommand command,
+            AiGeneratedAsset asset,
+            JsonNode root
+    ) {
+        JsonNode glossaryTerms = root.get("glossaryTerms");
+        if (glossaryTerms == null || !glossaryTerms.isArray() || glossaryTerms.isEmpty()) {
+            return null;
+        }
+
+        List<PublishApprovedGlossaryTermsCommand.Term> terms = glossaryTermItems(asset, glossaryTerms);
+        if (terms.isEmpty()) {
+            return null;
+        }
+        return new PublishApprovedGlossaryTermsCommand(
+                asset.getId(),
+                requireText(asset.getSourceLabel(), "sourceLabel"),
+                command.reviewedAt(),
+                terms
+        );
+    }
+
+    private List<PublishApprovedGlossaryTermsCommand.Term> glossaryTermItems(
+            AiGeneratedAsset asset,
+            JsonNode glossaryTerms
+    ) {
+        List<PublishApprovedGlossaryTermsCommand.Term> terms = new ArrayList<>();
+        for (JsonNode term : glossaryTerms) {
+            JsonNode verseIdNode = term.get("verseId");
+            if (verseIdNode == null || !verseIdNode.canConvertToLong()) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson glossaryTerms verseId is required");
+            }
+            long verseId = verseIdNode.asLong();
+            if (verseId != asset.getTargetId()) {
+                continue;
+            }
+            terms.add(new PublishApprovedGlossaryTermsCommand.Term(
+                    verseId,
+                    requireText(textValue(term.get("term")), "term"),
+                    requireText(textValue(term.get("meaning")), "meaning")
+            ));
+        }
+        return terms;
+    }
+
+    private JsonNode payloadRoot(AiGeneratedAsset asset) {
+        try {
+            JsonNode root = objectMapper.readTree(asset.getPayloadJson());
+            if (root == null || !root.isObject()) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson must be a JSON object");
+            }
+            return root;
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "asset payloadJson is not valid JSON");
+        }
+    }
+
     private void writeReviewAudit(
             ReviewAiAssetCommand command,
             AiAssetReviewAction action,
@@ -218,7 +400,25 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
                 TARGET_TYPE_AI_GENERATED_ASSET,
                 command.assetId(),
                 beforeJson,
-                reviewedAssetSnapshot(command.assetId(), asset, command.activateForTarget())
+                reviewedAssetSnapshot(command, asset)
+        ));
+    }
+
+    private void writeAdminValidationLog(
+            ReviewAiAssetCommand command,
+            AiValidationResult result,
+            String errorMessage
+    ) {
+        validationLogRepository.save(AiValidationLog.create(
+                command.assetId(),
+                null,
+                ADMIN_REVIEW_VALIDATION_LAYER,
+                result,
+                AiValidationReviewerType.ADMIN,
+                null,
+                ADMIN_REVIEW_CHECKLIST_JSON,
+                errorMessage,
+                command.reviewedAt()
         ));
     }
 
@@ -232,15 +432,18 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         return toAuditJson(payload);
     }
 
-    private String reviewedAssetSnapshot(Long assetId, AiGeneratedAsset asset, boolean activateForTarget) {
+    private String reviewedAssetSnapshot(ReviewAiAssetCommand command, AiGeneratedAsset asset) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("id", assetId);
+        payload.put("id", command.assetId());
         payload.put("assetType", asset.getAssetType().name());
         payload.put("status", asset.getStatus().name());
         payload.put("targetType", asset.getTargetType().name());
         payload.put("targetId", asset.getTargetId());
         payload.put("reviewedAt", DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(asset.getReviewedAt()));
-        payload.put("activateForTarget", activateForTarget);
+        payload.put("activateForTarget", command.activateForTarget());
+        if (command.reason() != null && !command.reason().isBlank()) {
+            payload.put("reviewReason", command.reason());
+        }
         return toAuditJson(payload);
     }
 
@@ -269,7 +472,6 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
         requireText(command.memberRole(), "memberRole");
         requireText(command.adminRole(), "adminRole");
         requireText(command.action(), "action");
-        requireText(command.reason(), "reason");
         if (command.reviewedAt() == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "reviewedAt must not be null");
         }
@@ -320,6 +522,12 @@ class AiAssetReviewService implements ReviewAiAssetUseCase {
     private record ExplanationItem(
             String summary,
             String explanation
+    ) {
+    }
+
+    private record PublishCommands(
+            PublishApprovedVerseExplanationCommand verseExplanationCommand,
+            PublishApprovedGlossaryTermsCommand glossaryTermsCommand
     ) {
     }
 }

@@ -1,0 +1,112 @@
+# gateway (8080) — 클라이언트 단일 진입점 (코드리뷰 2026-06-10 결정 B)
+# 금지된 service-gateway "모듈" 부활이 아니라 애플리케이션 코드 없는 인프라 nginx다.
+# 로컬 배포 한정(CLAUDE.md §8 K8s/Helm 로컬 예외 범위 내). 라우팅 SSoT는
+# deploy/nginx/dev.conf 이며, 본 ConfigMap은 그 복사본이다 — 변경 시 둘 다 갱신한다.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qtai-gateway-conf
+  namespace: qtai
+data:
+  default.conf: |
+    server {
+        listen 8080;
+        server_name _;
+
+        location = /healthz { return 200 "ok"; }
+
+        # 외부 차단: 서비스 간 내부(SYSTEM_BATCH) API — 이중 방어
+        location /api/v1/system/                  { return 403; }
+        location /api/v1/study/verse-explanations { return 403; }
+        location /api/v1/notes/purge              { return 403; }
+        location /api/v1/reports/purge            { return 403; }
+        location /api/v1/sharing/purge            { return 403; }
+        location /api/v1/praise-songs/purge       { return 403; }
+
+        # 관리자: admin/auth는 service-user, 그 외 admin-server
+        location /api/v1/admin/auth/ { proxy_pass http://service-user:8081; }
+        location /api/v1/admin/      { proxy_pass http://service-admin:8090; }
+
+        # service-user (8081)
+        location /api/v1/auth/         { proxy_pass http://service-user:8081; }
+        location /api/v1/members       { proxy_pass http://service-user:8081; }
+        location /api/v1/notifications { proxy_pass http://service-user:8081; }
+        location /api/v1/me            { proxy_pass http://service-user:8081; }
+
+        # /me 하위 예외: 소유 도메인 서비스로
+        location /api/v1/me/praise-songs        { proxy_pass http://service-bible:8082; }
+        location /api/v1/me/sharing-posts       { proxy_pass http://service-note:8083; }
+        location /api/v1/me/meditation-calendar { proxy_pass http://service-note:8083; }
+
+        # service-bible (8082)
+        location /api/v1/bible        { proxy_pass http://service-bible:8082; }
+        location /api/v1/qt           { proxy_pass http://service-bible:8082; }
+        location /api/v1/study        { proxy_pass http://service-bible:8082; }
+        location /api/v1/music        { proxy_pass http://service-bible:8082; }
+        location /api/v1/praise-songs { proxy_pass http://service-bible:8082; }
+
+        # service-note (8083)
+        location /api/v1/notes           { proxy_pass http://service-note:8083; }
+        location /api/v1/note-categories { proxy_pass http://service-note:8083; }
+        location /api/v1/sharing         { proxy_pass http://service-note:8083; }
+        location /api/v1/sharing-posts   { proxy_pass http://service-note:8083; }
+        location /api/v1/comments        { proxy_pass http://service-note:8083; }
+        location /api/v1/reports         { proxy_pass http://service-note:8083; }
+
+        # service-ai (8084)
+        location /api/v1/ai/ { proxy_pass http://service-ai:8084; }
+
+        location / { return 404; }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: qtai
+  labels:
+    app: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+        - name: gateway
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+      volumes:
+        - name: conf
+          configMap: { name: qtai-gateway-conf }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: qtai
+spec:
+  type: NodePort
+  selector:
+    app: gateway
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080       # http://localhost:30080

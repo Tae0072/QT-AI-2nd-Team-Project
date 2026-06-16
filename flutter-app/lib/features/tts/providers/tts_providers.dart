@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/network/api_client.dart' show dioProvider;
 import '../../onboarding/providers/onboarding_providers.dart'
     show sharedPreferencesProvider;
 import '../services/tts_repository.dart';
@@ -15,7 +16,8 @@ final ttsTokenProvider = Provider<String>((ref) {
 /// TTS 전용 Dio 인스턴스 (qtai-server와 별도).
 final ttsDioProvider = Provider<Dio>((ref) {
   return Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
+    // 무료 호스팅(Render) 콜드스타트로 첫 연결이 느릴 수 있어 넉넉히 잡는다.
+    connectTimeout: const Duration(seconds: 70),
     receiveTimeout: const Duration(seconds: 120), // 긴 음성 생성 대기
     headers: {'Content-Type': 'application/json'},
   ));
@@ -26,6 +28,8 @@ final ttsRepositoryProvider = Provider<TtsRepository>((ref) {
   return TtsRepository(
     dio: ref.watch(ttsDioProvider),
     ttsToken: ref.watch(ttsTokenProvider),
+    // 서버 캐시 음성(/qt/passages/{id}/audio) 다운로드용 인증 dio(qtai-server).
+    apiDio: ref.watch(dioProvider),
   );
 });
 
@@ -35,11 +39,9 @@ final ttsServerStatusProvider = FutureProvider<bool>((ref) async {
   return repo.isServerAvailable();
 });
 
-/// 사용 가능한 목소리 목록.
+/// 사용 가능한 목소리 목록. 서버는 토큰 없이도 /voices를 제공하므로 토큰 유무로 막지 않는다.
 final ttsVoicesProvider = FutureProvider<List<TtsVoice>>((ref) async {
   final repo = ref.watch(ttsRepositoryProvider);
-  final token = ref.watch(ttsTokenProvider);
-  if (token.isEmpty) return [];
   try {
     return await repo.getVoices();
   } catch (_) {

@@ -20,4 +20,9 @@ public class BusinessException extends RuntimeException {
         super(detailMessage);
         this.errorCode = errorCode;
     }
+
+    public BusinessException(ErrorCode errorCode, String detailMessage, Throwable cause) {
+        super(detailMessage, cause);
+        this.errorCode = errorCode;
+    }
 }

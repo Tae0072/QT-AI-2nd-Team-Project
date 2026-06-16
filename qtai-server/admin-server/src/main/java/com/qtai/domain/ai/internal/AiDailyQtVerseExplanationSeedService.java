@@ -75,6 +75,34 @@ class AiDailyQtVerseExplanationSeedService {
                     TODAY_PASSAGE_NOT_FOUND, today);
             return new AiDailyQtVerseExplanationSeedResult(0, 0, TODAY_PASSAGE_NOT_FOUND);
         }
+        return seedForContext(context, SYSTEM_BATCH);
+    }
+
+    /**
+     * 특정 QT 본문의 해설 생성 job 시딩 — 관리자 수동 트리거용(F-02/F-06).
+     *
+     * <p>오늘 본문에 한정하지 않고 {@code qtPassageId}로 직접 컨텍스트를 조회한다.
+     * 노출 정책({@code getToday}의 STALE_FALLBACK)을 거치지 않으므로 관리자가 지정한
+     * 본문 그대로 시딩한다. 이미 승인됐거나 진행 중인 절은 {@link #skippedVerseIds}로 건너뛴다.
+     * 본문이 없으면 {@code getContentContext}가 도메인 예외를 던진다(상위에서 404 매핑).
+     *
+     * @param qtPassageId QT 본문 식별자
+     * @param requestedBy 생성 job의 요청 주체(관리자 트리거 표기)
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public AiDailyQtVerseExplanationSeedResult seedForPassage(Long qtPassageId, String requestedBy) {
+        // 본문 미존재 시 getContentContext가 QT_PASSAGE_NOT_FOUND 예외를 던진다(→ 상위에서 404).
+        // null 을 반환하지 않으므로 별도 soft-result 분기를 두지 않는다(예외 경로와 일관).
+        QtPassageContentContext context = getQtPassageContentContextUseCase
+                .getContentContext(requirePositive(qtPassageId, "qtPassageId"));
+        return seedForContext(context, requireRequestedBy(requestedBy));
+    }
+
+    /**
+     * 컨텍스트(본문+절 목록) 기준 해설 생성 job 시딩 공통 로직.
+     * {@link #seedToday()}(배치)와 {@link #seedForPassage}(관리자 트리거)가 공유한다.
+     */
+    private AiDailyQtVerseExplanationSeedResult seedForContext(QtPassageContentContext context, String requestedBy) {
         Long qtPassageId = requirePositive(context.qtPassageId(), "qtPassageId");
         List<Long> verseIds = uniqueVerseIds(context.verseIds());
         if (verseIds.isEmpty()) {
@@ -104,7 +132,7 @@ class AiDailyQtVerseExplanationSeedService {
                         AiTargetType.BIBLE_VERSE.name(),
                         verseId,
                         promptVersion.getId(),
-                        SYSTEM_BATCH,
+                        requestedBy,
                         OffsetDateTime.now(clock)
                 ));
                 createdCount++;
@@ -136,12 +164,13 @@ class AiDailyQtVerseExplanationSeedService {
         }
 
         log.info(
-                "AI daily QT verse explanation seed created jobs. qtPassageId={}, verseCount={}, skippedCount={}, createdCount={}, failedCount={}",
+                "AI daily QT verse explanation seed created jobs. qtPassageId={}, verseCount={}, skippedCount={}, createdCount={}, failedCount={}, requestedBy={}",
                 qtPassageId,
                 verseIds.size(),
                 skippedVerseIds.size(),
                 createdCount,
-                failedCount
+                failedCount,
+                requestedBy
         );
         return new AiDailyQtVerseExplanationSeedResult(createdCount, failedCount);
     }
@@ -182,5 +211,12 @@ class AiDailyQtVerseExplanationSeedService {
             throw new BusinessException(ErrorCode.INVALID_INPUT, fieldName + " must be positive");
         }
         return value;
+    }
+
+    private static String requireRequestedBy(String requestedBy) {
+        if (requestedBy == null || requestedBy.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "requestedBy must not be blank");
+        }
+        return requestedBy;
     }
 }

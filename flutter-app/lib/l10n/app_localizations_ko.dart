@@ -54,6 +54,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get loginFailed => '로그인에 실패했습니다. 다시 시도해주세요.';
 
   @override
+  String get loginWebNotSupported => '웹에서는 카카오 로그인을 지원하지 않습니다. 모바일 앱을 이용해 주세요.';
+
+  @override
   String get loginLegalPrefix => '계속 진행하면 ';
 
   @override
@@ -108,16 +111,65 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteListTitle => '노트';
 
   @override
-  String get noteViewList => '목록 보기';
-
-  @override
-  String get noteViewCalendar => '달력 보기';
-
-  @override
   String get noteFilterAll => '전체';
 
   @override
+  String get noteStatusAll => '전체';
+
+  @override
+  String get noteStatusDraft => '임시저장';
+
+  @override
+  String get noteStatusSaved => '저장';
+
+  @override
+  String noteQuickCreate(String label) {
+    return '$label 작성';
+  }
+
+  @override
   String get noteEmpty => '작성한 노트가 없습니다';
+
+  @override
+  String get noteSearchHint => '기록 검색';
+
+  @override
+  String get noteSearchEmpty => '검색 결과가 없습니다';
+
+  @override
+  String get noteEmptyQtHint => 'QT 노트는 오늘의 QT 화면에서 작성해요';
+
+  @override
+  String get noteEmptySermonHint => '설교 노트는 성경 화면에서 작성해요';
+
+  @override
+  String get noteSelect => '선택';
+
+  @override
+  String get noteSelectAll => '전체선택';
+
+  @override
+  String noteSelectedCount(int count) {
+    return '$count개 선택';
+  }
+
+  @override
+  String get noteDeleteSelectedTitle => '선택한 노트 삭제';
+
+  @override
+  String noteDeleteSelectedBody(int count) {
+    return '선택한 $count개 노트를 삭제할까요? 되돌릴 수 없어요.';
+  }
+
+  @override
+  String noteDeletedCount(int count) {
+    return '$count개 삭제했어요';
+  }
+
+  @override
+  String noteDeletePartial(int ok, int failed) {
+    return '$ok개 삭제, $failed개 실패';
+  }
 
   @override
   String get noteUntitled => '(제목 없음)';
@@ -148,18 +200,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get noteDeleteFailed => '삭제에 실패했습니다. 다시 시도해 주세요';
-
-  @override
-  String get noteSectionFelt => '느낀 점';
-
-  @override
-  String get noteSectionVerse => '기억할 구절';
-
-  @override
-  String get noteSectionApply => '적용할 점';
-
-  @override
-  String get noteSectionPray => '기도';
 
   @override
   String get noteQuotedVerses => '인용 구절';
@@ -219,27 +259,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notePublishView => '보기';
 
   @override
-  String get fmtBold => '굵게';
-
-  @override
-  String get fmtItalic => '기울임';
-
-  @override
-  String get fmtHeading => '제목';
-
-  @override
-  String get fmtList => '목록';
-
-  @override
-  String get fmtQuote => '인용';
-
-  @override
-  String get fmtCheckbox => '체크박스';
-
-  @override
-  String get fmtDivider => '구분선';
-
-  @override
   String calSavedThisMonth(int days) {
     return '이번 달 $days일 저장';
   }
@@ -267,7 +286,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteShareImageFailed => '이미지 공유에 실패했습니다';
 
   @override
-  String get navToday => '오늘';
+  String get navToday => 'QT';
 
   @override
   String get navBible => '성경';
@@ -279,7 +298,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get navNote => '노트';
 
   @override
+  String get navRecord => '기록';
+
+  @override
   String get navMy => '마이';
+
+  @override
+  String get homeBackExitGuide => '한 번 더 누르면 앱이 종료됩니다';
 
   @override
   String get ttsRead => '본문 읽기';
@@ -336,7 +361,28 @@ class AppLocalizationsKo extends AppLocalizations {
   String get bibleExplanation => '해설';
 
   @override
-  String get bibleSimulator => '시뮬레이터';
+  String get bibleSimulator => 'QT 영상';
+
+  @override
+  String get qtVideoTitle => 'QT 영상';
+
+  @override
+  String get qtVideoRetry => '다시 불러오기';
+
+  @override
+  String get videoBack => '뒤로';
+
+  @override
+  String get videoPlay => '재생';
+
+  @override
+  String get videoPause => '일시정지';
+
+  @override
+  String get videoSpeed => '배속';
+
+  @override
+  String get videoFullscreen => '전체화면';
 
   @override
   String get bibleMeditationNote => '묵상 노트 작성';
@@ -515,6 +561,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get statsTitle => '나의 묵상';
 
   @override
+  String get missionTitle => '미션';
+
+  @override
   String get statsWeek => '이번 주';
 
   @override
@@ -532,7 +581,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notifMarkAllRead => '모두 읽음';
 
   @override
-  String get notifUnreadOnly => '미읽음만';
+  String get notifUnreadOnly => '안 읽은 알림만';
 
   @override
   String get notifEmpty => '알림이 없습니다';
@@ -560,6 +609,27 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get settingsNotificationDesc => '푸시 알림을 받습니다';
+
+  @override
+  String get settingsDarkMode => '다크 모드';
+
+  @override
+  String get settingsDarkModeDesc => '어두운 테마를 사용합니다';
+
+  @override
+  String get settingsThemeMode => '화면 테마';
+
+  @override
+  String get settingsThemeLight => '라이트 모드';
+
+  @override
+  String get settingsThemeDark => '다크 모드';
+
+  @override
+  String get settingsThemeSystem => '시스템 설정 따름';
+
+  @override
+  String get settingsThemeSystemDesc => '기기 설정에 따라 라이트/다크를 자동 전환합니다';
 
   @override
   String get settingsFontSize => '폰트 크기';
@@ -688,7 +758,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get ttsVoicesError => '목소리 목록을 불러올 수 없습니다';
 
   @override
-  String get catMeditation => '묵상';
+  String get catMeditation => 'QT';
 
   @override
   String get catSermon => '설교';

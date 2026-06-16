@@ -14,13 +14,151 @@ final sharingCategoryFilterProvider = StateProvider<String?>((ref) => null);
 /// 검색어 상태.
 final sharingQueryProvider = StateProvider<String?>((ref) => null);
 
-/// 나눔 피드 목록.
-final sharingPostsProvider = FutureProvider.autoDispose<SharingPostListResponse>((ref) {
-  final repository = ref.watch(sharingRepositoryProvider);
-  final category = ref.watch(sharingCategoryFilterProvider);
-  final query = ref.watch(sharingQueryProvider);
-  return repository.getSharingPosts(category: category, query: query);
-});
+/// 나눔 피드 현재 페이지(0부터). 페이지를 바꾸면 해당 페이지를 서버에서 다시 불러온다.
+/// 카테고리·검색어를 바꿀 때는 화면에서 0으로 되돌린다.
+final sharingPageProvider = StateProvider<int>((ref) => 0);
+
+/// 나눔 피드 목록 + 낙관적 좋아요.
+///
+/// FutureProvider 대신 AsyncNotifier로 둬서, 좋아요 시 전체 재조회(invalidate) 없이
+/// 해당 글의 likeCount/likedByMe만 즉시 갱신한다(낙관적). 실패하면 롤백한다.
+class SharingFeedNotifier
+    extends AutoDisposeAsyncNotifier<SharingPostListResponse> {
+  @override
+  Future<SharingPostListResponse> build() {
+    final repository = ref.watch(sharingRepositoryProvider);
+    final category = ref.watch(sharingCategoryFilterProvider);
+    final query = ref.watch(sharingQueryProvider);
+    final page = ref.watch(sharingPageProvider);
+    // 10개씩 페이징. 페이지가 바뀌면 build가 다시 실행돼 해당 페이지를 불러온다.
+    return repository.getSharingPosts(category: category, query: query, page: page);
+  }
+
+  /// 좋아요 토글 — 즉시 로컬 갱신 후 서버 반영. 실패 시 원래 상태로 롤백한다.
+  Future<void> toggleLike(int postId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final index = current.items.indexWhere((e) => e.id == postId);
+    if (index < 0) return;
+    final original = current.items[index];
+    final liked = original.likedByMe;
+
+    // 1) 낙관적 갱신
+    state = AsyncData(_replace(
+      current,
+      index,
+      original.copyWith(
+        likedByMe: !liked,
+        likeCount: original.likeCount + (liked ? -1 : 1),
+      ),
+    ));
+
+    // 2) 서버 반영
+    try {
+      final repo = ref.read(sharingRepositoryProvider);
+      liked ? await repo.unlike(postId) : await repo.like(postId);
+    } catch (_) {
+      // 3) 실패 → 롤백(현재 인덱스를 다시 찾아 원본 복원)
+      final now = state.valueOrNull;
+      if (now != null) {
+        final i = now.items.indexWhere((e) => e.id == postId);
+        if (i >= 0) state = AsyncData(_replace(now, i, original));
+      }
+      rethrow; // 화면이 실패 안내할 수 있게 전파
+    }
+  }
+
+  /// 저장(북마크) 토글 — 즉시 로컬 갱신 후 서버 반영. 실패 시 롤백. (좋아요와 동일 패턴)
+  Future<void> toggleBookmark(int postId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final index = current.items.indexWhere((e) => e.id == postId);
+    if (index < 0) return;
+    final original = current.items[index];
+    final bookmarked = original.bookmarkedByMe;
+
+    state = AsyncData(_replace(
+      current,
+      index,
+      original.copyWith(bookmarkedByMe: !bookmarked),
+    ));
+
+    try {
+      final repo = ref.read(sharingRepositoryProvider);
+      bookmarked ? await repo.unbookmark(postId) : await repo.bookmark(postId);
+    } catch (_) {
+      final now = state.valueOrNull;
+      if (now != null) {
+        final i = now.items.indexWhere((e) => e.id == postId);
+        if (i >= 0) state = AsyncData(_replace(now, i, original));
+      }
+      rethrow;
+    }
+  }
+
+  SharingPostListResponse _replace(
+      SharingPostListResponse res, int index, SharingPostItem item) {
+    final items = [...res.items];
+    items[index] = item;
+    // 페이징 정보(page/totalPages)는 그대로 유지해야 낙관적 갱신 후 페이저가 어긋나지 않는다.
+    return SharingPostListResponse(
+      items: items,
+      hasNext: res.hasNext,
+      page: res.page,
+      totalPages: res.totalPages,
+    );
+  }
+}
+
+final sharingPostsProvider = AsyncNotifierProvider.autoDispose<
+    SharingFeedNotifier, SharingPostListResponse>(SharingFeedNotifier.new);
+
+/// 내 저장(북마크) 목록 + 낙관적 저장 해제.
+///
+/// 저장 목록 화면에서 저장 해제 시 해당 카드를 즉시 목록에서 빼고 서버에 반영한다.
+/// 실패하면 원래 자리로 되돌린다.
+class BookmarksNotifier
+    extends AutoDisposeAsyncNotifier<SharingPostListResponse> {
+  @override
+  Future<SharingPostListResponse> build() {
+    return ref.watch(sharingRepositoryProvider).getBookmarks();
+  }
+
+  /// 저장 해제 — 목록에서 즉시 제거 후 서버 반영. 실패 시 원위치로 복원한다.
+  Future<void> removeBookmark(int postId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final index = current.items.indexWhere((e) => e.id == postId);
+    if (index < 0) return;
+    final original = current.items[index];
+
+    final remaining = [...current.items]..removeAt(index);
+    state = AsyncData(SharingPostListResponse(
+        items: remaining,
+        hasNext: current.hasNext,
+        page: current.page,
+        totalPages: current.totalPages));
+
+    try {
+      await ref.read(sharingRepositoryProvider).unbookmark(postId);
+    } catch (_) {
+      final now = state.valueOrNull;
+      if (now != null) {
+        final restored = [...now.items];
+        restored.insert(index.clamp(0, restored.length), original);
+        state = AsyncData(SharingPostListResponse(
+            items: restored,
+            hasNext: now.hasNext,
+            page: now.page,
+            totalPages: now.totalPages));
+      }
+      rethrow;
+    }
+  }
+}
+
+final bookmarksProvider = AsyncNotifierProvider.autoDispose<BookmarksNotifier,
+    SharingPostListResponse>(BookmarksNotifier.new);
 
 /// 내 나눔 글 목록 (M-05).
 ///
@@ -30,6 +168,12 @@ final sharingPostsProvider = FutureProvider.autoDispose<SharingPostListResponse>
 final mySharingPostsProvider =
     FutureProvider.autoDispose<MySharingPostListResponse>((ref) {
   return ref.watch(sharingRepositoryProvider).getMySharingPosts();
+});
+
+/// 내가 태그(멘션)된 글 목록 (GET /me/mentions). 화면 진입 시 1회 조회, 새로고침은 invalidate.
+final mentionsProvider =
+    FutureProvider.autoDispose<SharingPostListResponse>((ref) {
+  return ref.watch(sharingRepositoryProvider).getMentions();
 });
 
 /// 나눔 상세 + 댓글 묶음 (S-02 화면 데이터).
@@ -43,12 +187,80 @@ class SharingDetailData {
 /// 나눔 상세(S-02) 데이터 — 상세 + (댓글 허용 시) 댓글 목록.
 ///
 /// ② Riverpod 일관화: 화면이 직접 setState로 조회하던 것을 Provider로 일원화한다.
-/// 좋아요/댓글/삭제/신고 후 `ref.invalidate(sharingPostDetailProvider(postId))`로 새로고침한다.
-final sharingPostDetailProvider = FutureProvider.autoDispose
-    .family<SharingDetailData, int>((ref, postId) async {
-  final repo = ref.watch(sharingRepositoryProvider);
-  final detail = await repo.getSharingPostDetail(postId);
-  final comments =
-      detail.commentsEnabled ? await repo.getComments(postId) : <CommentItem>[];
-  return SharingDetailData(detail: detail, comments: comments);
-});
+/// 댓글/삭제/신고 후 `ref.invalidate(sharingPostDetailProvider(postId))`로 새로고침한다.
+/// 좋아요는 [toggleLike]로 낙관적 갱신 — 본문·댓글 재조회 없이 좋아요 수/하트만 즉시 바꾼다(피드와 동일).
+class SharingDetailNotifier
+    extends AutoDisposeFamilyAsyncNotifier<SharingDetailData, int> {
+  @override
+  Future<SharingDetailData> build(int postId) async {
+    final repo = ref.watch(sharingRepositoryProvider);
+    final detail = await repo.getSharingPostDetail(postId);
+    final comments = detail.commentsEnabled
+        ? await repo.getComments(postId)
+        : <CommentItem>[];
+    return SharingDetailData(detail: detail, comments: comments);
+  }
+
+  /// 좋아요 토글 — 즉시 로컬 갱신(낙관적) 후 서버 반영. 실패 시 원래 상태로 롤백한다.
+  /// 댓글 목록은 그대로 두고 detail의 좋아요 상태/수만 바꾸므로 화면이 깜빡이지 않는다.
+  Future<void> toggleLike() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final original = current.detail;
+    final liked = original.likedByMe;
+
+    // 1) 낙관적 갱신
+    state = AsyncData(SharingDetailData(
+      detail: original.copyWith(
+        likedByMe: !liked,
+        likeCount: original.likeCount + (liked ? -1 : 1),
+      ),
+      comments: current.comments,
+    ));
+
+    // 2) 서버 반영
+    try {
+      final repo = ref.read(sharingRepositoryProvider);
+      liked ? await repo.unlike(original.id) : await repo.like(original.id);
+    } catch (_) {
+      // 3) 실패 → 롤백(댓글은 현재 상태 유지)
+      final now = state.valueOrNull;
+      if (now != null) {
+        state = AsyncData(
+            SharingDetailData(detail: original, comments: now.comments));
+      }
+      rethrow; // 화면이 실패 안내할 수 있게 전파
+    }
+  }
+
+  /// 저장(북마크) 토글 — 낙관적 갱신 후 서버 반영. 실패 시 롤백. (좋아요와 동일 패턴)
+  Future<void> toggleBookmark() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final original = current.detail;
+    final bookmarked = original.bookmarkedByMe;
+
+    state = AsyncData(SharingDetailData(
+      detail: original.copyWith(bookmarkedByMe: !bookmarked),
+      comments: current.comments,
+    ));
+
+    try {
+      final repo = ref.read(sharingRepositoryProvider);
+      bookmarked
+          ? await repo.unbookmark(original.id)
+          : await repo.bookmark(original.id);
+    } catch (_) {
+      final now = state.valueOrNull;
+      if (now != null) {
+        state = AsyncData(
+            SharingDetailData(detail: original, comments: now.comments));
+      }
+      rethrow;
+    }
+  }
+}
+
+final sharingPostDetailProvider = AsyncNotifierProvider.autoDispose
+    .family<SharingDetailNotifier, SharingDetailData, int>(
+        SharingDetailNotifier.new);

@@ -89,6 +89,81 @@ void main() {
       expect(result.draftNoteId, isNull);
     });
 
+    test('장 교차 Today QT(10:14-11:1)는 장별로 조회해 경계 절만 이어 붙인다', () async {
+      dioAdapter.onGet('/qt/today', (server) {
+        server.reply(200, {
+          'success': true,
+          'data': {
+            'qtPassageId': 9,
+            'passageDate': '2026-06-16',
+            'title': '스스로 종이 된 자유인',
+            'simulatorStatus': 'MISSING',
+            'hasExplanation': false,
+            'draftNoteId': null,
+            'cacheStatus': 'HIT',
+            'range': {
+              'testament': 'NEW',
+              'bookCode': '1CO',
+              'koreanBookName': '고린도전서',
+              'englishBookName': '1 Corinthians',
+              'chapter': 10,
+              'endChapter': 11,
+              'verseFrom': 14,
+              'verseTo': 1,
+              'displayText': '고린도전서 10:14-11:1',
+            },
+          },
+        });
+      });
+      // 시작 장(10) 전체 — 경계 필터로 14,15만 남는다.
+      dioAdapter.onGet(
+        '/bible/verses',
+        (server) => server.reply(200, {
+          'success': true,
+          'data': {
+            'book': {
+              'code': '1CO',
+              'koreanName': '고린도전서',
+              'englishName': '1 Corinthians',
+              'chapter': 10,
+            },
+            'verses': [
+              _verseJson(id: 1013, chapter: 10, verseNo: 13),
+              _verseJson(id: 1014, chapter: 10, verseNo: 14),
+              _verseJson(id: 1015, chapter: 10, verseNo: 15),
+            ],
+          },
+        }),
+        queryParameters: {'bookCode': '1CO', 'chapter': 10},
+      );
+      // 종료 장(11) 전체 — 경계 필터로 1만 남는다.
+      dioAdapter.onGet(
+        '/bible/verses',
+        (server) => server.reply(200, {
+          'success': true,
+          'data': {
+            'book': {
+              'code': '1CO',
+              'koreanName': '고린도전서',
+              'englishName': '1 Corinthians',
+              'chapter': 11,
+            },
+            'verses': [
+              _verseJson(id: 1101, chapter: 11, verseNo: 1),
+              _verseJson(id: 1102, chapter: 11, verseNo: 2),
+            ],
+          },
+        }),
+        queryParameters: {'bookCode': '1CO', 'chapter': 11},
+      );
+
+      final result = await repository.getTodayQtPassage();
+
+      expect(result.qtPassageId, 9);
+      expect(result.reference.displayText, '고린도전서 10:14-11:1');
+      expect(result.verses.map((v) => v.verseNo).toList(), [14, 15, 1]);
+    });
+
     test('READY 상태와 해설 존재 여부를 그대로 파싱하고, 미지의 상태값은 MISSING으로 방어한다', () {
       final ready = TodayQtSummary.fromJson(const {
         'qtPassageId': 7,
@@ -219,6 +294,8 @@ void main() {
     });
   });
 
+  // (장 교차 테스트용 절 JSON 헬퍼는 파일 하단 _verseJson 참조)
+
   group('getQtStudyContent', () {
     test('QT 해설 응답을 summary, 절별 해설, 단어 풀이로 파싱한다', () async {
       dioAdapter.onGet('/qt/7/study-content', (server) {
@@ -257,3 +334,17 @@ void main() {
     });
   });
 }
+
+Map<String, dynamic> _verseJson({
+  required int id,
+  required int chapter,
+  required int verseNo,
+}) =>
+    {
+      'id': id,
+      'bookCode': '1CO',
+      'chapterNo': chapter,
+      'verseNo': verseNo,
+      'koreanText': '더미 한글 본문 $verseNo',
+      'englishText': 'Dummy English verse $verseNo',
+    };

@@ -24,6 +24,13 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  servlet:
+    multipart:
+      # Business validation rejects files over 10 MiB. Keep resolver limits slightly higher
+      # so the controller can return the domain error for ordinary over-limit uploads.
+      max-file-size: 11MB
+      max-request-size: 12MB
+
   # Redis 공통
   data:
     redis:
@@ -58,6 +65,10 @@ ai:
       enabled: ${AI_GENERATION_WORKER_ENABLED:true}
       fixed-delay-ms: ${AI_GENERATION_WORKER_FIXED_DELAY_MS:10000}
       batch-size: ${AI_GENERATION_WORKER_BATCH_SIZE:5}
+  # 일일 배치는 도메인 서비스(service-ai)가 소유한다(코드리뷰 2026-06-10 결정 A).
+  # admin-server 복사본의 00:05 AI 해설 시딩 스케줄러는 비활성 — 수동/관리자 트리거 경로만 유지.
+  daily-qt-verse-seed:
+    enabled: ${AI_DAILY_QT_VERSE_SEED_ENABLED:false}
 
 qtai:
   validation:
@@ -70,7 +81,9 @@ qtai:
 qt:
   today-source:
     sum:
-      enabled: ${QT_TODAY_SUM_ENABLED:true}
+      # 일일 배치는 도메인 서비스(service-bible)가 소유한다(코드리뷰 2026-06-10 결정 A).
+      # admin-server 복사본의 00:02 성서유니온 수집 스케줄러는 비활성(외부 중복 호출 방지).
+      enabled: ${QT_TODAY_SUM_ENABLED:false}
       url: ${QT_TODAY_SUM_URL:https://sum.su.or.kr:8888/bible/today}
 
 server:

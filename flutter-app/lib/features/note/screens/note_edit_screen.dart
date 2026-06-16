@@ -1,33 +1,29 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../routes/app_router.dart';
+import '../models/note_drawing.dart';
 import '../models/note_models.dart';
 import '../providers/note_providers.dart';
-import '../widgets/note_format_toolbar.dart';
+import '../widgets/note_rich_text_editor.dart';
 
-/// N-03 라우트 인자.
-///
-/// - 작성(N-02→N-03): category만 채워 보냄 (noteId=null)
-/// - 수정(N-04→N-03): noteId를 채워 보냄 → 편집 모드
-///
-/// 왜 클래스로 받냐면: 문자열/숫자 타입으로 모드를 구분하면 헷갈리고 깨지기 쉬워,
-/// "무엇을 넘기는지"가 코드에 드러나는 전용 인자 객체로 받는다.
-class NoteEditArgs {
-  final String? category; // 작성 모드에서 필수
-  final int? noteId; // 수정 모드에서 필수 (null이면 작성)
+// N-03 라우트 인자 NoteEditArgs는 화면 간 계약이라 모델(note_models.dart)에 둔다.
+// 기존 import 경로(이 화면)와의 호환을 위해 re-export한다.
+export '../models/note_models.dart' show NoteEditArgs;
 
-  const NoteEditArgs({this.category, this.noteId});
-
-  bool get isEdit => noteId != null;
-}
+/// 본문 없이 손그림만 저장할 때 서버에 보낼 안내용 본문(본문 필수 조건 충족).
+const String _kDrawingOnlyBody = '그림 노트';
 
 /// 개인 노트 작성/수정 화면 (N-03).
 ///
 /// - 작성: N-02에서 NoteEditArgs(category)로 진입 → POST
 /// - 수정: N-04에서 NoteEditArgs(noteId)로 진입 → 기존 노트 1회 조회해 폼 채움 → PATCH
 /// - 제목 + 본문 1섹션, 저장/임시저장 버튼 (자동저장 없음)
+/// - 본문은 QT 노트와 공유하는 리치텍스트 에디터(서식·@멘션·라이브 프리뷰) 사용 (QA ③⑨)
 class NoteEditScreen extends ConsumerStatefulWidget {
   const NoteEditScreen({super.key});
 
@@ -37,23 +33,69 @@ class NoteEditScreen extends ConsumerStatefulWidget {
 
 class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
   final _titleController = TextEditingController();
-  final _bodyController = TextEditingController();
+  final _bodyController = NoteRichBodyController();
   bool _saving = false; // 저장 중복 클릭/이중 저장 방지
   bool _initialized = false; // didChangeDependencies 1회 가드
   bool _loading = false; // 편집모드: 기존 노트 불러오는 중
   bool _loadError = false; // 편집모드: 불러오기 실패
   NoteEditArgs _args = const NoteEditArgs(category: 'PRAYER');
+  // 편집 시 PATCH에 그대로 다시 보낼 원본 값(서버가 category·qtPassageId를 필수로 요구).
+  String? _editCategory;
+  int? _editQtPassageId;
+
+  /// 저장 시 함께 보낼 인용 절(verseIds) — note_verses 메타데이터(§6.4.1).
+  /// 작성=args.verseIds 시드, 편집=기존 detail.verses 시드, + @멘션 삽입분 누적.
+  /// 중복 없이 보존하기 위해 Set으로 모은다.
+  final Set<int> _verseIds = <int>{};
+
+  // 페이지 모드(일반/원고)·손그림 — 이 기기에만 로컬 저장한다.
+  NotePageMode _pageMode = NotePageMode.plain;
+  List<DrawingStroke> _strokes = const <DrawingStroke>[];
+  int? _createdNoteId; // 작성(POST) 후 부여된 id — 로컬 저장 키로 쓴다.
+
+  /// 손그림/모드 로컬 저장 키. 노트 id가 있어야(편집이거나 저장 후) 키가 생긴다.
+  String? get _canvasKey {
+    final id = _args.noteId ?? _createdNoteId;
+    return id == null ? null : 'note:$id';
+  }
+
+  /// 이 노트에 저장해 둔 페이지 모드·손그림(로컬)을 불러온다(있을 때).
+  Future<void> _loadCanvas() async {
+    final key = _canvasKey;
+    if (key == null) return;
+    final store = ref.read(noteCanvasStoreProvider);
+    final mode = await store.loadMode(key);
+    final strokes = await store.loadStrokes(key);
+    if (!mounted) return;
+    setState(() {
+      _pageMode = mode;
+      _strokes = strokes;
+    });
+  }
+
+  /// 현재 모드·손그림을 로컬에 저장(키가 없으면 노트 저장 후로 미룬다).
+  void _persistCanvas() {
+    final key = _canvasKey;
+    if (key == null) return;
+    final store = ref.read(noteCanvasStoreProvider);
+    store.saveMode(key, _pageMode);
+    store.saveStrokes(key, _strokes);
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // ✏️ 라우트 인자는 여기서 안전하게 읽을 수 있다. build는 여러 번 불리므로
+    // 라우트 인자는 여기서 안전하게 읽을 수 있다. build는 여러 번 불리므로
     // _initialized 가드로 "1회만" 인자를 읽고 편집 데이터를 불러온다(approach A).
     if (_initialized) return;
     _initialized = true;
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is NoteEditArgs) {
       _args = args;
+    }
+    // 작성 진입 시 동봉된 인용 절(설교 ②)을 시드로 모은다.
+    if (_args.verseIds != null) {
+      _verseIds.addAll(_args.verseIds!);
     }
     if (_args.isEdit) {
       _loadForEdit();
@@ -66,12 +108,18 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     try {
       final detail =
           await ref.read(noteRepositoryProvider).getDetail(_args.noteId!);
-      // ✏️ 컨트롤러는 '한 번만' 채우면 그 뒤는 사용자 입력이 주인이다.
+      // 컨트롤러는 '한 번만' 채우면 그 뒤는 사용자 입력이 주인이다.
       // 자유노트라 본문은 body에 있다(묵상 4섹션은 N-03 편집 대상 아님).
       _titleController.text = detail.title;
       _bodyController.text = detail.body ?? '';
+      _editCategory = detail.category;
+      _editQtPassageId = detail.qtPassageId;
+      // 편집 시작 시 기존 인용 절을 시드로 모은다 → PATCH에 그대로 다시 보내 보존(04 §4.3.6).
+      _verseIds.addAll(detail.verses.map((v) => v.bibleVerseId));
       if (!mounted) return;
       setState(() => _loading = false);
+      // 페이지 모드·손그림(로컬)은 본문 로딩 스피너와 분리해 비동기로 불러온다.
+      unawaited(_loadCanvas());
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -93,18 +141,23 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     final l = AppLocalizations.of(context);
     final title = _titleController.text.trim();
     final body = _bodyController.text.trim();
+    // 손그림만 있어도 저장/임시저장이 되도록 그림 유무를 함께 본다.
+    final hasDrawing = _strokes.isNotEmpty;
 
     // ✏️ 왜 이렇게 짰냐면:
-    // 저장(SAVED)은 04 명세상 본문이 필수라 비면 막는다.
-    // 임시저장(DRAFT)은 작성 중 보관이 목적이라, 제목·본문 둘 다 빈 경우만 막는다.
-    if (status == 'SAVED' && body.isEmpty) {
+    // 저장(SAVED)은 본문이 필요하지만, 손그림만 있어도 저장할 수 있게 허용한다.
+    // 임시저장(DRAFT)은 제목·본문·그림이 모두 빈 경우에만 막는다.
+    if (status == 'SAVED' && body.isEmpty && !hasDrawing) {
       _showMessage(l.noteEditBodyRequired);
       return;
     }
-    if (status == 'DRAFT' && title.isEmpty && body.isEmpty) {
+    if (status == 'DRAFT' && title.isEmpty && body.isEmpty && !hasDrawing) {
       _showMessage(l.noteEditTitleOrBodyRequired);
       return;
     }
+
+    // 본문이 비고 그림만 있으면, 서버 본문 필수 조건을 위해 안내용 본문을 넣는다.
+    final effectiveBody = body.isEmpty && hasDrawing ? _kDrawingOnlyBody : body;
 
     setState(() => _saving = true);
     try {
@@ -114,10 +167,15 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
         // 상세화면(N-04)으로 복귀한다 → 상세가 돌아오며 스스로 최신으로 재조회한다.
         await repository.update(
           _args.noteId!,
+          category: _editCategory ?? _args.category ?? 'PRAYER',
+          qtPassageId: _editQtPassageId,
           title: title,
-          body: body,
+          body: effectiveBody,
+          verseIds: _verseIds.toList(),
           status: status,
         );
+        // 페이지 모드·손그림(로컬)을 이 노트 키로 저장한다.
+        _persistCanvas();
         ref.invalidate(notesProvider);
         // 작성/수정 시 묵상 달력 체크리스트가 자동 ✓ 되도록 달력도 무효화(모든 월).
         ref.invalidate(meditationCalendarProvider);
@@ -125,12 +183,16 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
         Navigator.of(context).pop();
       } else {
         // ✏️ 작성: POST 후 목록을 무효화하고 N-02를 건너뛰어 목록까지 돌아간다.
-        await repository.create(
+        final created = await repository.create(
           category: _args.category ?? 'PRAYER',
           title: title,
-          body: body,
+          body: effectiveBody,
+          verseIds: _verseIds.toList(),
           status: status,
         );
+        // 새로 부여된 id로 페이지 모드·손그림(로컬)을 저장한다.
+        _createdNoteId = created.id;
+        _persistCanvas();
         ref.invalidate(notesProvider);
         ref.invalidate(meditationCalendarProvider);
         if (!mounted) return;
@@ -149,7 +211,60 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
 
   void _showMessage(String msg) {
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(msg),
+        duration: const Duration(seconds: 2),
+      ));
+  }
+
+  /// 성경 본문에서 진입할 때 선택 범위·인용 본문을 읽기 전용으로 보여준다.
+  /// (설교 노트: 어떤 본문을 보고 쓰는지 화면에 유지 — 오늘의 QT 노트와 동일한 맥락)
+  Widget _versePreview(BuildContext context) {
+    final reference = _args.referenceText;
+    final preview = _args.versePreview;
+    if (reference == null && preview == null) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.bgSunken,
+        borderRadius: BorderRadius.circular(10),
+        border: Border(left: BorderSide(color: colors.text, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (reference != null)
+            Row(
+              children: [
+                Icon(Icons.menu_book_outlined, size: 15, color: colors.text),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    reference,
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          if (preview != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              preview,
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -161,13 +276,15 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     // ✏️ 편집모드에서 기존 노트를 불러오는 동안/실패 시 폼 대신 상태 화면을 보여준다.
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: Text('${l.noteListTitle} $modeLabel'), centerTitle: true),
+        appBar: AppBar(
+            title: Text('${l.noteListTitle} $modeLabel'), centerTitle: true),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     if (_loadError) {
       return Scaffold(
-        appBar: AppBar(title: Text('${l.noteListTitle} $modeLabel'), centerTitle: true),
+        appBar: AppBar(
+            title: Text('${l.noteListTitle} $modeLabel'), centerTitle: true),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -186,66 +303,79 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${noteCategoryLabel(category)} ${l.noteListTitle} $modeLabel'),
+        title: Text(
+            '${noteCategoryLabel(category)} ${l.noteListTitle} $modeLabel'),
         centerTitle: true,
       ),
       body: AbsorbPointer(
         absorbing: _saving, // 저장 중엔 입력 막기
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _titleController,
-                decoration: InputDecoration(
-                  labelText: l.noteEditTitleLabel,
-                  border: const OutlineInputBorder(),
-                ),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 12),
-              // ✏️ 본문 위 마크다운 서식 툴바 — _bodyController에 마커를 삽입한다.
-              NoteFormatToolbar(controller: _bodyController),
-              const SizedBox(height: 4),
-              Expanded(
-                child: TextField(
-                  controller: _bodyController,
+        // SafeArea(bottom): 태블릿 시스템 네비게이션 바에 저장/임시저장 버튼이 묻히지 않게 한다.
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _titleController,
                   decoration: InputDecoration(
-                    labelText: l.noteEditBodyLabel,
-                    alignLabelWithHint: true,
+                    labelText: l.noteEditTitleLabel,
                     border: const OutlineInputBorder(),
                   ),
-                  maxLines: null, // 여러 줄 입력
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
+                  textInputAction: TextInputAction.next,
                 ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _saving ? null : () => _save('DRAFT'),
-                      child: Text(l.noteDraft),
-                    ),
+                const SizedBox(height: 12),
+                // 성경 본문에서 진입 시: 선택 범위·인용 본문 미리보기(읽기 전용).
+                _versePreview(context),
+                // ✏️ 본문 편집(서식 툴바·@멘션·라이브 프리뷰)은 QT 노트와 공유하는
+                // 리치텍스트 에디터에 위임한다(QA ③⑨). 저장 시 _bodyController.text를 읽는다.
+                Expanded(
+                  child: NoteRichTextEditor(
+                    controller: _bodyController,
+                    bodyLabel: l.noteEditBodyLabel,
+                    // @멘션으로 삽입한 절을 verseIds로 모아 저장(§6.4.1).
+                    onVerseInserted: (ids) => _verseIds.addAll(ids),
+                    // 페이지 모드·손그림(로컬 저장).
+                    pageMode: _pageMode,
+                    onPageModeChanged: (mode) {
+                      setState(() => _pageMode = mode);
+                      _persistCanvas();
+                    },
+                    strokes: _strokes,
+                    onStrokesChanged: (strokes) {
+                      setState(() => _strokes = strokes);
+                      _persistCanvas();
+                    },
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _saving ? null : () => _save('SAVED'),
-                      child: _saving
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(l.commonSave),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _saving ? null : () => _save('DRAFT'),
+                        child: Text(l.noteDraft),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _saving ? null : () => _save('SAVED'),
+                        child: _saving
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(l.commonSave),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

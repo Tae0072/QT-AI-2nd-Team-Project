@@ -228,9 +228,11 @@
 | AD-03 | AI 산출물 검증 | `GET /api/v1/admin/ai/assets`, `POST /api/v1/admin/ai/assets/{assetId}/approve`, `POST /api/v1/admin/ai/assets/{assetId}/reject` |
 | AD-04 | 신고 처리 | `GET /api/v1/admin/reports`, `POST /api/v1/admin/reports/{reportId}/resolve` |
 | AD-05 | 찬양 큐레이션 | `GET /api/v1/admin/praise-songs`, `POST /api/v1/admin/praise-songs`, `PATCH /api/v1/admin/praise-songs/{id}` |
-| AD-06 | 시스템 공지 | `GET /api/v1/admin/notices`, `POST /api/v1/admin/notices`, `POST /api/v1/admin/notices/{id}/publish` |
+| AD-06 | 시스템 공지 | `GET /api/v1/admin/notices`, `GET /api/v1/admin/notices/{id}`, `POST /api/v1/admin/notices`, `PATCH /api/v1/admin/notices/{id}`, `POST /api/v1/admin/notices/{id}/publish`, `POST /api/v1/admin/notices/{id}/hide` |
 | AD-07 | 감사 로그 | `GET /api/v1/admin/audit-logs` |
 | AD-08 | AI 운영 모니터링 | `GET /api/v1/admin/ai/monitoring` |
+| AD-20 | QT 영상 관리 | `DELETE /api/v1/admin/qt-videos/source-videos/{sourceVideoId}`, `DELETE /api/v1/admin/qt-videos/clips/{clipId}` |
+| AD-12 | 배경음악 관리 | `GET /api/v1/admin/music-tracks`, `POST /api/v1/admin/music-tracks`, `PATCH /api/v1/admin/music-tracks/{id}`, `POST /api/v1/admin/music-tracks/{id}/publish`, `POST /api/v1/admin/music-tracks/{id}/hide` |
 
 ---
 
@@ -1440,19 +1442,24 @@
 ```json
 {
   "qtDate": "2026-05-17",
-  "bookId": 19,
-  "chapter": 23,
-  "startVerse": 1,
-  "endVerse": 6,
+  "bookId": 46,
+  "chapter": 9,
+  "endChapter": 10,
+  "startVerse": 20,
+  "endVerse": 5,
   "title": "오늘의 QT",
-  "mainVerseRef": "시편 23:1-6",
+  "mainVerseRef": "고린도전서 9:20-10:5",
   "status": "pending_review"
 }
 ```
 
+- **범위 필드:** `chapter`는 시작 장, `endChapter`는 종료 장이다. `endChapter`를 생략하면 서버가 `chapter`와 같은 값으로 보정하여 기존 단일 장 클라이언트와 호환한다. 조회 응답에도 `endChapter`를 포함한다.
+- **검증:** `endChapter`는 `chapter` 이상이어야 한다. 같은 장이면 `startVerse <= endVerse`를 요구하고, 장 교차 범위에서는 다음 장의 종료 절이 시작 절보다 작을 수 있다(예: `9:20-10:5`).
 - **상태값:** `active`, `hidden`, `pending_review`, `deletion_notified`, `removed`
 
-> 2026-06-10 팀 결정 반영: 요청 본문을 `startVerseId/endVerseId` → `bookId`+`chapter`+`startVerse`+`endVerse`(+`mainVerseRef`)로 변경(이지윤 admin-server 구현 기준). 상태값은 5종(`active/hidden/pending_review/deletion_notified/removed`)으로 정렬하며, 3종 매핑(`DRAFT→pending_review`·`PUBLISHED→active`·`HIDDEN→hidden`)은 admin-web qt-passages 계약(`doc/workspaces/DevE_김지민/workflows/2026-06-10_admin-qt-passages-api-contract.md`) 참조. (별도 문서 저장소 SSoT 동기화 필요)
+> 2026-06-10 팀 결정 반영: 요청 본문을 `startVerseId/endVerseId` → `bookId`+`chapter`+`startVerse`+`endVerse`(+`mainVerseRef`)로 변경(이지윤 admin-server 구현 기준). 상태값은 5종(`active/hidden/pending_review/deletion_notified/removed`)으로 정렬하며, 3종 매핑(`DRAFT→pending_review`·`PUBLISHED→active`·`HIDDEN→hidden`)은 admin-web qt-passages 계약(`doc/workspaces/DevE_김지민/workflows/2026-06-10_admin-qt-passages-api-contract.md`) 참조.
+>
+> 2026-06-15 장 교차 계약 반영: F-01/F-06 및 `doc/workspaces/DevD_이승욱/workflows/2026-06-15_qt-cross-chapter-range.md` 합의에 따라 `endChapter`를 추가했다. 같은 권 내 장 교차만 활성화하며 권 교차는 현재 지원하지 않는다.
 
 ### 4.7.3 AI 산출물 검증
 
@@ -1632,6 +1639,20 @@
 }
 ```
 
+상세 응답 `data` 객체 (`GET /api/v1/admin/notices/{id}`, 생성, 수정 공통):
+
+```json
+{
+  "id": 20,
+  "title": "서비스 점검 안내",
+  "body": "오늘 밤 점검이 예정되어 있습니다.",
+  "status": "DRAFT",
+  "publishedAt": null,
+  "createdAt": "2026-05-17T10:00:00+09:00",
+  "updatedAt": "2026-05-17T10:05:00+09:00"
+}
+```
+
 생성/수정 요청:
 
 ```json
@@ -1664,9 +1685,74 @@
 - **성공 코드:** 생성 `201 Created`, 수정 `200 OK`, 숨김 `204 No Content`
 - **실패 코드:** `400 VALIDATION_ERROR`, `403 FORBIDDEN`, `404 NOT_FOUND`, `409 INVALID_STATUS_TRANSITION`
 
-### 4.7.7 공지 관리
+### 4.7.7 배경음악 관리
+
+- **Method + URL:** `GET /api/v1/admin/music-tracks?status=ACTIVE&page=0&size=20`
+- **Method + URL:** `POST /api/v1/admin/music-tracks`
+- **Method + URL:** `PATCH /api/v1/admin/music-tracks/{id}`
+- **Method + URL:** `POST /api/v1/admin/music-tracks/{id}/publish`
+- **Method + URL:** `POST /api/v1/admin/music-tracks/{id}/hide`
+- **인증:** ADMIN + OPERATOR/SUPER_ADMIN
+- **연결 화면:** AD-12
+- **ERD:** `music_tracks`, `audit_logs`
+- **정책:** 기존 앱 배경음악 흐름(`GET /api/v1/music/tracks`, `GET /api/v1/music/tracks/{id}/stream`)은 유지한다. 관리자 API는 `music_tracks`의 음원 바이트와 메타데이터를 관리하되, 목록 응답과 감사 로그에는 `audio_data` 원문 바이트를 포함하지 않는다.
+
+등록/수정 요청은 `multipart/form-data`를 사용한다.
+
+| 필드 | 필수 | 설명 |
+|---|---:|---|
+| `title` | Y | 제목, 1~150자 |
+| `category` | Y | `BGM` 또는 `HYMN` |
+| `mimeType` | N | 기본 `audio/mpeg` |
+| `durationSec` | N | 재생 길이(초) |
+| `sortOrder` | N | 정렬 순서, 기본 0 |
+| `licenseNote` | N | 라이선스/출처 메모, 300자 이하 |
+| `file` | POST Y / PATCH N | POST는 필수, PATCH는 포함 시 음원 교체 |
+
+목록/상세 응답:
+
+`file` max upload size: 10 MiB.
+Allowed `mimeType`: `audio/mpeg`, `audio/mp4`, `audio/aac`, `audio/ogg`, `audio/wav`, `audio/x-wav`, `audio/webm`, `audio/flac`.
+PATCH omitted fields keep the existing `music_tracks` values.
+
+```json
+{
+  "content": [
+    {
+      "id": 10,
+      "title": "Morning Embrace",
+      "category": "BGM",
+      "mimeType": "audio/mpeg",
+      "byteSize": 1234567,
+      "durationSec": 180,
+      "sortOrder": 5,
+      "licenseNote": "운영자가 라이선스를 확인함",
+      "status": "ACTIVE",
+      "streamUrl": "/api/v1/music/tracks/10/stream",
+      "createdAt": "2026-06-15T10:00:00",
+      "updatedAt": "2026-06-15T10:00:00"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "sort": "createdAt,desc"
+}
+```
+
+- **상태 값:** `ACTIVE`, `HIDDEN`. `ACTIVE`는 기존 사용자 앱 배경음악 목록/스트리밍 조회에 노출되고, `HIDDEN`은 사용자 조회에서 제외된다.
+- **상태 전이:** 등록은 `HIDDEN`으로 시작한다. `publish`는 `HIDDEN -> ACTIVE`, `hide`는 `ACTIVE -> HIDDEN`만 허용한다. 중복 전이는 `409 C0007 INVALID_STATUS_TRANSITION`으로 거절한다.
+- **감사 로그:** 등록/수정/노출/숨김은 `audit_logs.target_type=MUSIC_TRACK`, `action_type=MUSIC_TRACK_CREATE|MUSIC_TRACK_UPDATE|MUSIC_TRACK_PUBLISH|MUSIC_TRACK_HIDE`로 기록한다. snapshot에는 식별자, 제목, 분류, MIME, byteSize, durationSec, sortOrder, licenseNote, status만 저장하고 음원 바이트는 저장하지 않는다.
+- **성공 코드:** 생성 `201 Created`, 수정/노출/숨김 `200 OK`
+- **실패 코드:** `400 VALIDATION_ERROR`, `403 FORBIDDEN`, `404 NOT_FOUND`, `409 INVALID_STATUS_TRANSITION`
+
+### 4.7.8 공지 관리
 
 - **Method + URL:** `GET /api/v1/admin/notices?page=0&size=20`
+- **Method + URL:** `GET /api/v1/admin/notices/{id}`
 - **Method + URL:** `POST /api/v1/admin/notices`
 - **Method + URL:** `PATCH /api/v1/admin/notices/{id}`
 - **Method + URL:** `POST /api/v1/admin/notices/{id}/publish`
@@ -1708,27 +1794,47 @@
 }
 ```
 
+- **상세 조회:** 관리자 공지 편집 화면에서 전체 본문을 다시 채우기 위해 `bodyPreview`가 아니라 전체 `body`를 반환한다. 관리자 권한을 가진 운영자는 `DRAFT`, `PUBLISHED`, `HIDDEN` 상태 공지를 모두 조회할 수 있다.
+- **입력 검증:** `title`은 1~100자, `body`는 1~10,000자이며 공지 본문은 plain text로만 저장한다. HTML/script 삽입을 막기 위해 `<`, `>` 문자는 허용하지 않는다. 생성 시 `status`는 생략하거나 `DRAFT`만 허용한다. 수정 요청에는 `status`를 포함하지 않는다.
+- **상태 전이:** 수정과 발행은 `DRAFT` 상태에서만 가능하다. `PUBLISHED` 또는 `HIDDEN` 상태에서 수정/발행을 시도하면 `409 C0007 INVALID_STATUS_TRANSITION`을 반환한다. 숨김은 `DRAFT → HIDDEN`, `PUBLISHED → HIDDEN` 전이를 허용하고, 이미 `HIDDEN`인 공지는 `409 C0007 INVALID_STATUS_TRANSITION`으로 거부한다.
+
 발행 응답:
 
 ```json
 {
   "id": 20,
+  "noticeId": 20,
   "status": "PUBLISHED",
   "publishedAt": "2026-05-17T10:20:00+09:00",
   "notificationResult": {
     "requestedCount": 1200,
+    "targetMemberCount": 1200,
     "createdCount": 1200,
+    "queuedCount": 1200,
     "failedCount": 0
   }
 }
 ```
 
-- **발행 정책:** `PUBLISHED` 전환 시 대상 회원에게 `notifications.type=NOTICE`, `notifications.notice_id=notices.id`를 생성한다. 알림 생성이 일부 실패하면 공지 상태는 `PUBLISHED`로 유지하고 `notificationResult.failedCount`와 감사 로그에 실패를 기록한다.
-- **숨김 처리:** `POST /api/v1/admin/notices/{id}/hide`는 `notices.status=HIDDEN`으로 변경한다. 이미 생성된 알림은 삭제하지 않지만 링크 이동 시 숨김 안내를 반환한다.
-- **성공 코드:** 생성 `201 Created`, 수정/발행 `200 OK`, 숨김 `204 No Content`
-- **실패 코드:** `400 VALIDATION_ERROR`, `403 FORBIDDEN`, `404 NOT_FOUND`, `409 INVALID_STATUS_TRANSITION`, `500 INTERNAL_ERROR`
+- **발행 정책:** `PUBLISHED` 전환 시 대상 회원에게 `notifications.type=NOTICE`, `notifications.notice_id=notices.id`를 생성한다. `targetMemberCount`는 대상 활성 회원 수, `queuedCount`는 앱 알림함/폴링으로 전달 대기 상태가 된 `notifications` row 수다. 알림 생성이 일부 실패하면 공지 상태는 `PUBLISHED`로 유지하고 `notificationResult.failedCount`와 감사 로그에 실패를 기록한다.
+- **숨김 처리:** `POST /api/v1/admin/notices/{id}/hide`는 `notices.status=HIDDEN`으로 변경하고 본문 없이 `204 No Content`를 반환한다. 클라이언트가 변경된 `status=HIDDEN` 값을 화면에 반영하려면 목록 또는 상세를 재조회한다. 이미 생성된 알림은 삭제하지 않지만 링크 이동 시 숨김 안내를 반환한다.
+- **성공 코드:** 목록/상세/수정/발행 `200 OK`, 생성 `201 Created`, 숨김 `204 No Content`
+- **실패 코드:** `400 VALIDATION_ERROR` 또는 `C0002 INVALID_INPUT`(생성/수정 입력값 오류), `401 M0002 UNAUTHORIZED`, `403 M0003 FORBIDDEN`(ADMIN 아님), `403 AD0003 ADMIN_ROLE_INSUFFICIENT`(세부 관리자 권한 부족), `404 C0004 RESOURCE_NOT_FOUND`(없는 공지), `409 C0007 INVALID_STATUS_TRANSITION`, `500 C0001 INTERNAL_ERROR`
 
-### 4.7.8 감사 로그 조회
+### 4.7.8 QT 영상 관리
+
+- **Method + URL:** `DELETE /api/v1/admin/qt-videos/source-videos/{sourceVideoId}`
+- **Method + URL:** `DELETE /api/v1/admin/qt-videos/clips/{clipId}`
+- **인증:** ADMIN + OPERATOR/REVIEWER/CONTENT_CREATOR/SUPER_ADMIN
+- **ERD:** `source_videos`, `bible_verse_video_segments`, `qt_video_clips`, `audit_logs`
+- **삭제 정책(soft-delete):** 삭제는 행을 물리 삭제하지 않고 `deleted_at`을 기록하는 소프트 삭제다(프로젝트 공통 정책). 삭제된 행은 `active_unique_key`가 해제되어 목록 조회(`deleted_at IS NULL`)와 활성 선택에서 제외되며, 복구·이력 추적이 가능하다. 삭제 처리와 감사 로그 기록은 같은 트랜잭션에서 원자적으로 수행한다.
+- **원본 영상 삭제:** 원본 영상을 소프트 삭제하면 해당 원본으로 만든 `qt_video_clips`와 `bible_verse_video_segments`도 함께 소프트 삭제한다(cascade). 성공 시 본문 없이 `204 No Content`를 반환하고 `QT_VIDEO_SOURCE_DELETE` 감사 로그(before-state에 동반 삭제된 클립·구간 수 포함)를 기록한다.
+- **QT 클립 삭제:** QT 클립만 소프트 삭제한다. 원본 영상과 절별 구간은 유지한다. 성공 시 본문 없이 `204 No Content`를 반환하고 `QT_VIDEO_CLIP_DELETE` 감사 로그를 기록한다.
+- **직접 클립 생성(`POST /api/v1/admin/qt-videos/clips/manual`):** 절별 구간 없이 시작/끝 초를 직접 지정해 활성 QT 클립을 생성·교체한다(하이브리드 경로). Body `{qtPassageId, sourceVideoId, startTimeSec, endTimeSec}`. 본문은 공개 상태, 원본 영상은 활성·재생 가능 URL이어야 하며 `0 ≤ startTimeSec < endTimeSec ≤ 원본 길이`를 강제한다. 같은 본문의 활성 클립이 있으면 교체한다. 성공 시 클립을 반환하고 `QT_VIDEO_CLIP_PREPARE` 감사 로그(`afterJson.mode=MANUAL`)를 기록한다. 절↔초 자동 매핑(글자수 가중 분할 등)은 후속 구현 대상이다.
+- **운영 주의:** QT 본문 ID·QT 클립 ID·원본 영상 ID는 서로 다른 시퀀스라 값이 일치하지 않을 수 있다. 관리자 화면은 `클립 ID`, `QT 본문 ID`, `원본 영상 ID`를 분리 표기한다.
+- **실패 코드:** `401 M0002 UNAUTHORIZED`, `403 M0003 FORBIDDEN`(ADMIN 아님), `403 AD0003 ADMIN_ROLE_INSUFFICIENT`(세부 관리자 권한 부족), `404 C0004 RESOURCE_NOT_FOUND` 또는 `400 C0002 INVALID_INPUT`(없는 대상/잘못된 id), `500 C0001 INTERNAL_ERROR`
+
+### 4.7.9 감사 로그 조회
 
 - **Method + URL:** `GET /api/v1/admin/audit-logs?actorType=ADMIN&actionType=AI_ASSET_APPROVE&from=2026-05-01&to=2026-05-17&page=0&size=50`
 - **인증:** ADMIN + OPERATOR/REVIEWER/SUPER_ADMIN
@@ -2232,6 +2338,7 @@
 | 알림 | `/notifications` | `notifications`, `notices` | `type`, `title`, `body`, `link_type`, `link_id`, `read_at` |
 | 공지 | `/admin/notices` | `notices`, `notifications` | `title`, `body`, `status`, `published_at` |
 | 찬양 | `/praise-songs`, `/me/praise-songs`, `/admin/praise-songs` | `praise_songs`, `member_praise_songs` | `title`, `artist`, `source_type`, `license_note`, `status`, `device_song_key`, `display_title` |
+| 배경음악 | `/music/tracks`, `/admin/music-tracks` | `music_tracks`, `audit_logs` | `title`, `category`, `mime_type`, `byte_size`, `duration_sec`, `sort_order`, `enabled`, `license_note` |
 | 미션 | `/me/dashboard` | `mission_definitions`, `member_mission_progress` | `metric_type`, `progress_rate`, `period_start_date` |
 | AI 생성 | `/system/ai/generation-jobs`, `/system/ai/assets` | `ai_prompt_versions`, `ai_generation_jobs`, `ai_generated_assets` | `prompt_type`, `version`, `job_type`, `asset_type`, `status` |
 | AI 검증 | `/admin/ai/assets`, `/system/ai/validation-logs` | `ai_validation_logs`, `validation_reference_jobs`, `ai_validation_checklist_versions` | `layer`, `result`, `checklist_json`, `reviewer_type`, `checklist_version_id` |
@@ -2274,6 +2381,8 @@
 |---|---|---|
 | 신고 대상 | `reports.target_type`, `targetType` | `POST`, `COMMENT`, `AI_QA_REQUEST`, `AI_ASSET` |
 | 신고 상태 | `reports.status`, `status` | `RECEIVED`, `REVIEWING`, `RESOLVED`, `REJECTED` |
+| 배경음악 분류 | `music_tracks.category`, `category` | `BGM`, `HYMN` |
+| 배경음악 노출 상태 | `music_tracks.enabled`, `status` | `ACTIVE`(enabled=true), `HIDDEN`(enabled=false) |
 | 찬양 출처 | `praise_songs.source_type`, `sourceType` | `CURATED`, `DEVICE` |
 | AI 산출물 유형 | `ai_generated_assets.asset_type`, `assetType` | `EXPLANATION`, `SUMMARY`, `GLOSSARY`, `SIMULATOR`, `QA_RESPONSE` |
 | AI 산출물 대상 | `ai_generated_assets.target_type`, `targetType` | `BIBLE_VERSE`, `QT_PASSAGE`, `QA_REQUEST` |
@@ -2377,11 +2486,19 @@
 | 82 | PATCH | `/api/v1/admin/praise-songs/{id}` | OPERATOR | 관리자 찬양 수정 |
 | 83 | POST | `/api/v1/admin/praise-songs/{id}/hide` | OPERATOR | 관리자 찬양 숨김 |
 | 84 | GET | `/api/v1/admin/notices` | OPERATOR | 관리자 공지 목록 |
-| 85 | POST | `/api/v1/admin/notices` | OPERATOR | 공지 생성 |
-| 86 | PATCH | `/api/v1/admin/notices/{id}` | OPERATOR | 공지 수정 |
-| 87 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
-| 88 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
-| 89 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
+| 85 | GET | `/api/v1/admin/notices/{id}` | OPERATOR | 관리자 공지 상세 |
+| 86 | POST | `/api/v1/admin/notices` | OPERATOR | 공지 생성 |
+| 87 | PATCH | `/api/v1/admin/notices/{id}` | OPERATOR | 공지 수정 |
+| 88 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
+| 89 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
+| 90 | DELETE | `/api/v1/admin/qt-videos/source-videos/{sourceVideoId}` | OPERATOR/REVIEWER/CONTENT_CREATOR/SUPER_ADMIN | QT 원본 영상 삭제 |
+| 91 | DELETE | `/api/v1/admin/qt-videos/clips/{clipId}` | OPERATOR/REVIEWER/CONTENT_CREATOR/SUPER_ADMIN | QT 클립 삭제 |
+| 92 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
+| 93 | GET | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 목록 |
+| 94 | POST | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 등록 |
+| 95 | PATCH | `/api/v1/admin/music-tracks/{id}` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 수정/교체 |
+| 96 | POST | `/api/v1/admin/music-tracks/{id}/publish` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 노출 |
+| 97 | POST | `/api/v1/admin/music-tracks/{id}/hide` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 숨김 |
 
 ---
 
@@ -2397,3 +2514,74 @@
 | v1.5 | 2026-05-19 | T (강태오) | `07_요구사항_정의서.md` v3.3 §F-04/F-10 닉네임 7일 변경 잠금 정책 반영 — §4.1.5 `PATCH /api/v1/me/profile`에 7일 잠금 처리 규칙·잠금 면제 조건(가입 첫 설정, 형식·중복 재설정)·성공/실패 응답 예시·실패 코드 목록 추가, `nicknameLastChangedAt`/`nicknameUnlockAt` 응답 필드 도입. §4.1.2 `GET /api/v1/me` 응답에 `nicknameLastChangedAt`/`nicknameUnlockAt` 필드 추가(클라이언트가 잠금 해제 시각을 안내 텍스트로 활용). §6.2 ErrorCode 표에 `NICKNAME_CHANGE_LOCKED`(409) 추가. ERD 영향: `members.nickname_last_changed_at` 컬럼 신규(`02_ERD_문서.md`에서 정의). 출처: 2026-05-18 바이블서버 회의록 §5. 코드 변경 없음. |
 | v1.6 | 2026-05-19 | T (강태오) | `07_요구사항_정의서.md` v3.4 §F-01 한글 성경 클라이언트 로컬 저장 정책 반영 — §4.2.2 성경 절 조회에 "언어 정책" 명시(이 API는 영어 본문 조회 또는 한글 로컬 미적재 시 백업 조회 용도), §4.2.2.1 한글 성경 번들 다운로드 API 신설(`GET /api/v1/bible/bundle?language=ko&version=`). 쿼리 파라미터·응답 예시·`304 Not Modified` 분기·실패 코드 정의. 영어 번들은 v1에서 제공하지 않고 §4.2.2로 온라인 조회. 출처: 2026-05-18 바이블서버 회의록 §1·§3·§4. 코드 변경 없음. |
 | v1.7 | 2026-05-21 | T (강태오) | Notion 역할분담 회의록(재작성) 반영 — §4.1.6~4.1.7 `GET/PATCH /api/v1/me/settings`(사용자 설정 조회/수정) 신설, 기존 §4.1.6~4.1.7(튜토리얼 완료·회원 탈퇴)을 §4.1.8~4.1.9로 재번호. §9 전체 API 요약 표에 `GET /api/v1/me/settings`(#7), `PATCH /api/v1/me/settings`(#8) 행 추가 및 이후 번호 순차 재정렬(총 88개). **[Breaking Change]** `GET /api/v1/qt/today` 응답 `entryPoints` 객체 내 `simulator` 필드 타입 변경: `boolean(false)` → `string enum("READY"/"MISSING"/"FAILED"/"DISABLED")`로 변경 후 필드명을 `simulatorStatus`로 교체. 기존 클라이언트가 `simulator: false`를 파싱하던 코드는 수정 필요. 코드 변경 없음. |
+| v1.8 | 2026-06-11 | 이승욱 (DevD) | `07_요구사항_정의서.md` v3.6(닉네임 7일 잠금 폐지, Lead 승인 2026-06-11) 반영 — 원본 보존 원칙에 따라 본문은 수정하지 않고 아래 "개정 추가 (2026-06-11)" 절로 기록. §4.1.2/§4.1.5/§6.2의 잠금 관련 서술은 해당 절이 대체한다. 코드 변경: PR #478 포함. |
+| v1.9 | 2026-06-12 | T (강태오) / Codex | §4.7.7 공지 관리에 상세 조회 응답(`GET /api/v1/admin/notices/{id}`), 입력 검증, 상태 전이, 성공/실패 코드(`AD0003`, `C0004`, `C0007`)를 보강. 상단 AD-06 기능 표와 §9 전체 API 요약 표에 공지 상세 조회 행(#85)을 추가하고 이후 번호를 #90까지 재정렬. 코드 변경 없음. |
+| v1.10 | 2026-06-12 | 김지민 (DevE) | `07_요구사항_정의서.md` v3.7(F-03 QT 노트 단일 body 확정, Lead 합의 2026-06-12) 반영 — 원본 보존 원칙에 따라 본문은 수정하지 않고 아래 "개정 추가 (2026-06-12)" 절로 기록. 노트 API(§4.3)의 4섹션 필드(`rememberSection`·`interpretSection`·`applySection`·`praySection`)를 **deprecated**(서버 계약·`notes` 테이블에 하위호환으로 잔존, v1 클라이언트 미사용)로 표기하고, QT 노트도 단일 `body` 사용임을 명시. 4섹션 필드·컬럼의 실제 제거는 서버 정리 버전(별도 백엔드 작업)에서 본 명세와 함께 처리한다. 코드 변경 없음. |
+| v1.11 | 2026-06-12 | 김지민 (DevE) | §7.3 평가 케이스 생성/등록을 **식별자·메타 기반**으로 정렬(원문/프롬프트/민감정보 미저장, `07` §7 / CLAUDE.md §7). ① `POST /admin/ai/reports/{reportId}/evaluation-candidates`(신규) — 신고를 평가 케이스 후보로 등록, `sourceType=USER_REPORT`·`sourceId=reportId`, 백엔드가 신고+산출물 메타로 `inputJson` 조립. ② `POST /admin/ai/evaluation-sets/{setId}/cases`(수동 생성) 요청을 식별자 전용(`targetType`·`targetId`·`expectedPolicyJson`)으로 축소 — `inputJson`/`expectedOutputJson` 자유 텍스트 입력 제거, 서버가 `{targetType,targetId,sourceType}` 메타로 조립. 아래 "개정 추가 (2026-06-12) — 평가 케이스 식별자 기반" 절로 상세 기록. 코드 변경: 있음(admin-server + admin-web, FE/BE 동시). |
+| v1.12 | 2026-06-15 | 강상민 (DevC) / Codex | §3 AD-12와 §4.7.7 관리자 배경음악 관리 API 추가. 기존 `music_tracks` DB 음원 모델을 재사용하고, 관리자 등록/수정은 multipart 파일 업로드로 처리한다. 등록은 HIDDEN으로 시작하며 publish/hide로 ACTIVE/HIDDEN을 전환한다. 목록 응답과 감사 로그에는 `audio_data` 원문 바이트를 포함하지 않는다. |
+| v1.13 | 2026-06-15 | 이승욱 (DevD) | §4.7.2 관리자 QT 본문 관리 요청·응답에 `endChapter`를 추가하고, 미지정 시 시작 장 보정·종료 장 역전 거부·같은 장에서만 절 순서 강제 규칙을 명시. F-01/F-06 장 교차 QT 범위 지원과 동기화. |
+| v1.14 | 2026-06-16 | 이승욱 (DevD) | §4.7.2 관리자 QT 본문 관리 응답에 `collectedAt`(수집 시각, 시스템 배치가 성서유니온 범위를 실제로 가져온 시각) 필드 추가. 자동수집 본문(service-bible, status=ACTIVE)은 `publishedAt`(게시 시각)을 QT 날짜 **04:00 KST**(사용자 노출/cache refresh 기준, §6)로 채운다. `qt_passages.collected_at` 컬럼 신규(V51). 관리자 웹은 권 선택을 한글 권 이름으로 표시하고 QT 날짜 입력에 `-` 자동 삽입. F-01/F-06. 코드 변경: 있음(admin-server + admin-web, FE/BE 동시). |
+
+---
+
+## 개정 추가 (2026-06-11) — v1.8 닉네임 변경 잠금 폐지 [§4.1.2 / §4.1.5 / §6.2 해당 서술 대체]
+
+> 원본 보존 원칙에 따라 본문을 직접 수정하지 않고 **추가 개정**으로 기록한다.
+> 근거: `07_요구사항_정의서.md` v3.6 개정 추가 절(2026-06-11 마이페이지 사용성 피드백, Lead 승인).
+
+- **§4.1.5 닉네임 변경 처리 규칙 대체:** 형식·중복·예약 접두사(`user_`) 검사 후 **즉시 변경을 허용**하고
+  `nickname_last_changed_at = NOW()`로 기록한다(온보딩 완료 판별용 유지). 7일 잠금 검사,
+  `409 NICKNAME_CHANGE_LOCKED` 거절, 잠금 실패 응답 예시, 잠금 면제 조건은 모두 폐지한다.
+- **§4.1.2 / §4.1.5 응답 필드:** `nicknameUnlockAt`은 **항상 null**이다(잠금 재도입 가능성에 대비해 필드 유지).
+  클라이언트는 잠금 안내 텍스트를 표시하지 않는다.
+- **§6.2 ErrorCode 표:** `NICKNAME_CHANGE_LOCKED`(409)는 폐지 — 더 이상 발생하지 않으며, 코드 값은
+  재도입 대비 예약으로만 남긴다.
+- **실패 코드 목록(§4.1.5):** `400 VALIDATION_ERROR`, `409 NICKNAME_DUPLICATED`,
+  `401 UNAUTHORIZED`/`401 TOKEN_EXPIRED`만 유효하다.
+
+---
+
+## 개정 추가 (2026-06-12) — v1.10 노트 단일 body 확정 / 4섹션 deprecated [§4.3 노트 API 해당 서술 대체]
+
+> 원본 보존 원칙에 따라 본문(§4.3 예시 JSON)을 직접 수정하지 않고 **추가 개정**으로 기록한다.
+> 근거: `07_요구사항_정의서.md` v3.7 개정 추가 절(2026-06-12 Lead 합의, F-03 QT 노트 단일 body 확정).
+
+- **노트 본문 필드:** 모든 노트(QT 노트 포함)는 **단일 `body`** 로 작성·저장·조회한다. v1 클라이언트는
+  `body`만 보내고 읽는다. §4.3.2/§4.3.4/§4.3.5/§4.3.6 예시에 `rememberSection`·`interpretSection`·
+  `applySection`·`praySection` 4섹션 필드가 보이거나 `body`가 `null`로 표기되어 있어도, **실제 v1 동작은
+  `body` 단일 사용**이다(QT 노트도 4섹션을 사용하지 않는다).
+- **4섹션 필드 = deprecated:** 위 4섹션 필드는 하위호환을 위해 서버 API 계약(`CreateNoteRequest`·
+  `UpdateNoteRequest`·`NoteDetailResponse` 등)과 `notes` 테이블에 **잔존**하나, **deprecated**이며 신규 사용을
+  권장하지 않는다. 클라이언트는 전송하지 않으며, 서버는 받더라도 사용자 화면에 노출하지 않는다.
+- **`@`멘션(§4.3.6):** 인용 블록은 `body` 안에 삽입한다. 기존 "`body`(또는 4개 섹션 본문)" 표현은
+  "`body`(단일 본문 필드)"로 본다.
+- **실제 제거 시점:** 4섹션 필드(서버 DTO)·`notes` 4섹션 컬럼(`02_ERD_문서.md`)의 물리 제거는
+  **서버 정리 버전(별도 백엔드 작업)** 에서 본 명세 예시와 함께 처리한다. 그 PR에서 §4.3 예시의 4섹션 표기와
+  본 절을 함께 정리한다.
+- **연계:** `07_요구사항_정의서.md` v3.7 개정 추가 절, `23_도메인_용어사전.md`·`25_기능_명세서.md` 단일 body 갱신.
+
+---
+
+## 개정 추가 (2026-06-12) — 평가 케이스 식별자 기반 (§7.3 평가 셋 API 보강)
+
+> AI 평가 케이스의 `inputJson`에 신고 원문·프롬프트·민감정보를 저장하지 않고 **식별자·메타데이터만** 저장하도록
+> 정렬한다(`07` §7, CLAUDE.md §7). FE는 판단값만 보내고, 백엔드가 메타로 `inputJson`을 조립한다.
+
+### 신규: 신고 → 평가 케이스 후보 등록
+- **Method + URL:** `POST /api/v1/admin/ai/reports/{reportId}/evaluation-candidates`
+- **인증:** ADMIN + REVIEWER / CONTENT_CREATOR / SUPER_ADMIN (`requireEvaluationManager`)
+- **요청 본문:** `{ "evaluationSetId": <Long>, "expectedPolicyJson": <JSON|null> }`
+- **처리:** 신고(`reports`)를 평가 케이스 후보로 등록한다. **AI 신고만 허용**(`targetType ∈ {AI_QA_REQUEST, AI_ASSET}`,
+  아니면 `422/400 INVALID_INPUT`). 케이스 `sourceType=USER_REPORT`, `sourceId=reportId`. 평가 대상 유형은 신고에서 파생
+  (`AI_QA_REQUEST → QA_REQUEST`, `AI_ASSET → 산출물의 targetType`)하고 평가 셋의 `targetType`과 일치해야 한다.
+  `inputJson`은 서버가 **식별자·메타만**으로 조립한다(`reportId`, `reportTargetType`, `reportTargetId`, `reason`,
+  `reportStatus`, `reporterMemberId`, AI_ASSET이면 연결 산출물 메타). **신고 원문/상세(detail)는 저장하지 않는다.**
+- **응답:** `201 Created` + 평가 케이스 응답.
+
+### 변경: 평가 케이스 수동 생성 식별자 전용
+- **Method + URL:** `POST /api/v1/admin/ai/evaluation-sets/{setId}/cases` (기존)
+- **요청 본문(축소):** `{ "targetType": <enum>, "targetId": <Long>, "sourceType": <enum>, "expectedPolicyJson": <JSON|null>, "status": "CANDIDATE" }`
+  — 기존 `inputJson`(필수)·`expectedOutputJson`·`sourceId`(자유 텍스트/원문 유입 경로) **제거**.
+- **처리:** 서버가 `inputJson`을 `{targetType, targetId, sourceType}` 메타로 조립한다(원문 미저장). `targetId` 필수.
+- **연계 코드:** admin-server(`AdminAiEvaluationController`/`AiEvaluationService`/`report.api.GetReportUseCase`),
+  admin-web(`ReportsPage` 등록 버튼, `AiEvaluationsPage` 수동 폼 식별자화). DB 변경 없음(`USER_REPORT` enum·컬럼 기존).

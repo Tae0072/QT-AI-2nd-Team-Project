@@ -11,6 +11,8 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -43,6 +45,18 @@ public class Member extends BaseEntity {
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
 
+    // 프로필 사진 바이트(직접 업로드분)를 DB에 저장(음악 audio_data와 동일한 LONGBLOB 패턴).
+    // 목록/일반 조회에서는 로딩하지 않고, 사진 스트리밍 시에만 읽는다.
+    @JdbcTypeCode(SqlTypes.LONGVARBINARY)
+    @Column(name = "profile_image_data")
+    private byte[] profileImageData;
+
+    @Column(name = "profile_image_content_type", length = 80)
+    private String profileImageContentType;
+
+    @Column(name = "profile_image_updated_at")
+    private LocalDateTime profileImageUpdatedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private MemberStatus status;
@@ -72,23 +86,21 @@ public class Member extends BaseEntity {
     }
 
     /**
-     * 닉네임 변경 가능 여부.
+     * 닉네임 변경 가능 여부 — 항상 변경 가능.
      *
-     * @param clock 테스트 주입용 시계
+     * <p>정책 변경(2026-06-11 마이페이지 피드백): 기존 7일 잠금(2026-05-19 결정)을 폐지하고
+     * 즉시 변경을 허용한다. 잠금 부활 가능성에 대비해 판별 메서드와
+     * {@code nicknameChangedAt} 기록(온보딩 완료 판별에도 사용 — AuthService 참조)은 유지한다.
+     *
+     * @param clock 시그니처 유지용(잠금 부활 대비) — 현재 미사용
      */
     public boolean isNicknameChangeable(Clock clock) {
-        if (nicknameChangedAt == null) {
-            return true;
-        }
-        return nicknameChangedAt.plusDays(7).isBefore(LocalDateTime.now(clock));
+        return true;
     }
 
-    /** 닉네임 잠금 해제 시각 (변경 이력 없으면 null). */
+    /** 닉네임 잠금 해제 시각 — 잠금 폐지로 항상 null(즉시 변경 가능). */
     public LocalDateTime getNicknameUnlockAt() {
-        if (nicknameChangedAt == null) {
-            return null;
-        }
-        return nicknameChangedAt.plusDays(7);
+        return null;
     }
 
     /**
@@ -103,6 +115,31 @@ public class Member extends BaseEntity {
 
     public void updateProfileImageUrl(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
+    }
+
+    /**
+     * 직접 업로드한 프로필 사진 바이트를 저장하고, 공개 URL을 스트림 경로로 채운다.
+     * URL에 갱신 시각(버전)을 붙여 클라이언트 캐시를 무효화한다.
+     */
+    public void updateProfilePhoto(byte[] data, String contentType, Clock clock) {
+        this.profileImageData = data;
+        this.profileImageContentType = contentType;
+        this.profileImageUpdatedAt = LocalDateTime.now(clock);
+        long version = this.profileImageUpdatedAt
+                .atZone(java.time.ZoneOffset.UTC).toEpochSecond();
+        this.profileImageUrl = "/api/v1/me/profile-photo?v=" + version;
+    }
+
+    /** 프로필 사진 제거(기본 아바타로 되돌림). */
+    public void clearProfilePhoto() {
+        this.profileImageData = null;
+        this.profileImageContentType = null;
+        this.profileImageUpdatedAt = null;
+        this.profileImageUrl = null;
+    }
+
+    public boolean hasProfilePhoto() {
+        return this.profileImageData != null && this.profileImageData.length > 0;
     }
 
     /**
@@ -126,7 +163,7 @@ public class Member extends BaseEntity {
      *
      * <p>이메일·프로필 이미지는 카카오 최신 값이 <b>있을 때만</b> 갱신한다. 카카오가 선택 동의 항목
      * (이메일·프로필)을 주지 않아 null로 오면 기존 보관 값을 유지한다(과거 값 소실 방지).
-     * 닉네임과 nicknameChangedAt(7일 잠금)은 기존 값을 유지한다.
+     * 닉네임과 nicknameChangedAt(온보딩 완료 판별용)은 기존 값을 유지한다.
      */
     public void reactivate(String email, String profileImageUrl) {
         this.status = MemberStatus.ACTIVE;

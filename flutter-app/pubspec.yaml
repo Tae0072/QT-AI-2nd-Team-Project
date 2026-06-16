@@ -28,8 +28,14 @@ dependencies:
   # 로컬 저장소
   shared_preferences: ^2.3.4
 
+  # 로컬 알림(기기 알림 테스트·좋아요/댓글 알림)
+  flutter_local_notifications: ^19.0.0
+
   # 카카오 로그인
   kakao_flutter_sdk_user: ^1.9.5
+
+  # 프로필 사진 선택(갤러리/카메라)
+  image_picker: ^1.1.2
 
   # UI
   cupertino_icons: ^1.0.8
@@ -41,6 +47,7 @@ dependencies:
   # TTS 오디오 재생
   just_audio: ^0.9.42
   video_player: ^2.9.2
+  flutter_quill: ^11.5.1
   # (path_provider는 위 공유 기능과 공용 — 중복 선언 제거)
 
 dev_dependencies:
@@ -56,3 +63,4 @@ flutter:
   generate: true
   assets:
     - assets/icons/
+    - assets/home_backgrounds/

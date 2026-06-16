@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ReloadOutlined } from '@ant-design/icons';
+import { useSearchParams } from 'react-router-dom';
 import {
   listReports,
   resolveReport,
@@ -22,8 +23,19 @@ import {
   type Report,
   type ReportListParams,
 } from '../api/reports';
+import {
+  listEvaluationSets,
+  createReportEvaluationCandidate,
+  type EvaluationSet,
+} from '../api/aiEvaluations';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
+import {
+  buildReportProcessPayload,
+  isAiReport,
+  isOpenReportStatus,
+  reportEvaluationSetListParams,
+} from './adminPageContracts';
 
 // ===== AD-04 신고 처리 =====
 // 목록 + 필터(상태/대상 유형) + 서버 페이지네이션 + 처리(resolve)/반려(reject) 모달.
@@ -54,13 +66,22 @@ function statusTag(status: string) {
   return <Tag color={m.color}>{m.text}</Tag>;
 }
 
-const isOpenStatus = (s: string) => s === 'RECEIVED' || s === 'REVIEWING';
-
 export default function ReportsPage() {
-  const { rows, page, size, total, loading, applyFilters, changePage, reload } =
-    usePagedList<Report, ReportListParams>(listReports, { page: 0, size: 20 });
+  // 대시보드(AD-01) 신고 CTA가 ?status=RECEIVED|REVIEWING 으로 진입할 때 초기 필터를 맞춘다.
+  // 허용된 상태값만 수용하고, 그 외/없음이면 전체 조회.
+  const [searchParams] = useSearchParams();
+  const initialStatus = STATUS_OPTIONS.some((o) => o.value === searchParams.get('status'))
+    ? (searchParams.get('status') as string)
+    : undefined;
 
-  const [status, setStatus] = useState<string | undefined>(undefined);
+  const { rows, page, size, total, loading, applyFilters, changePage, reload } =
+    usePagedList<Report, ReportListParams>(listReports, {
+      page: 0,
+      size: 20,
+      status: initialStatus,
+    });
+
+  const [status, setStatus] = useState<string | undefined>(initialStatus);
   const [targetType, setTargetType] = useState<string | undefined>(undefined);
 
   // 처리/반려 모달 상태
@@ -71,6 +92,13 @@ export default function ReportsPage() {
   const [reason, setReason] = useState('');
   const [notify, setNotify] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // 평가 항목으로 등록(USER_REPORT) 모달 — FE는 평가 세트만 고르고, 백엔드가 신고 메타로 inputJson 조립.
+  const [candidateReport, setCandidateReport] = useState<Report | null>(null);
+  const [candidateSetId, setCandidateSetId] = useState<number | null>(null);
+  const [candidateSets, setCandidateSets] = useState<EvaluationSet[]>([]);
+  const [candidateSetsLoading, setCandidateSetsLoading] = useState(false);
+  const [candidateSubmitting, setCandidateSubmitting] = useState(false);
 
   const onSearch = () =>
     applyFilters({
@@ -94,10 +122,12 @@ export default function ReportsPage() {
     if (!action) return;
     setSubmitting(true);
     try {
-      const payload = {
-        reason: reason.trim() || undefined,
-        notifyReporter: notify,
-      };
+      const payload = buildReportProcessPayload(
+        action.mode,
+        action.report,
+        reason,
+        notify,
+      );
       if (action.mode === 'resolve') {
         await resolveReport(action.report.id, payload);
         message.success('신고를 처리(인정)했습니다.');
@@ -111,6 +141,45 @@ export default function ReportsPage() {
       message.error(e instanceof Error ? e.message : '처리에 실패했습니다.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openCandidate = async (report: Report) => {
+    setCandidateReport(report);
+    setCandidateSetId(null);
+    setCandidateSetsLoading(true);
+    try {
+      // AI_QA_REQUEST → QA_REQUEST 평가 세트만. AI_ASSET은 대상유형을 모르니 전체 로드(백엔드 검증).
+      const res = await listEvaluationSets(reportEvaluationSetListParams(report));
+      setCandidateSets(res.content);
+    } catch (e) {
+      message.error(
+        e instanceof Error ? e.message : '평가 세트 목록을 불러오지 못했습니다.',
+      );
+    } finally {
+      setCandidateSetsLoading(false);
+    }
+  };
+
+  const submitCandidate = async () => {
+    if (!candidateReport) return;
+    if (candidateSetId == null) {
+      message.error('평가 세트를 선택하세요.');
+      return;
+    }
+    setCandidateSubmitting(true);
+    try {
+      await createReportEvaluationCandidate(candidateReport.id, {
+        evaluationSetId: candidateSetId,
+      });
+      message.success('평가 항목으로 등록했습니다.');
+      setCandidateReport(null);
+    } catch (e) {
+      message.error(
+        e instanceof Error ? e.message : '평가 항목 등록에 실패했습니다.',
+      );
+    } finally {
+      setCandidateSubmitting(false);
     }
   };
 
@@ -155,25 +224,34 @@ export default function ReportsPage() {
     },
     {
       title: '액션',
-      width: 150,
+      width: 300,
       fixed: 'right',
-      render: (_, r) =>
-        isOpenStatus(r.status) ? (
-          <Space>
-            <Button
-              size="small"
-              type="primary"
-              onClick={() => openAction('resolve', r)}
-            >
-              처리
+      render: (_, r) => (
+        <Space wrap>
+          {isOpenReportStatus(r.status) && (
+            <>
+              <Button
+                size="small"
+                type="primary"
+                onClick={() => openAction('resolve', r)}
+              >
+                처리
+              </Button>
+              <Button size="small" danger onClick={() => openAction('reject', r)}>
+                반려
+              </Button>
+            </>
+          )}
+          {isAiReport(r.targetType) && (
+            <Button size="small" onClick={() => openCandidate(r)}>
+              평가 항목으로 등록
             </Button>
-            <Button size="small" danger onClick={() => openAction('reject', r)}>
-              반려
-            </Button>
-          </Space>
-        ) : (
-          <Typography.Text type="secondary">완료</Typography.Text>
-        ),
+          )}
+          {!isOpenReportStatus(r.status) && !isAiReport(r.targetType) && (
+            <Typography.Text type="secondary">완료</Typography.Text>
+          )}
+        </Space>
+      ),
     },
   ];
 
@@ -188,7 +266,8 @@ export default function ReportsPage() {
         </Space>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
           나눔 글·댓글 신고를 검토하고 처리(인정)하거나 반려합니다. 권한:
-          OPERATOR / SUPER_ADMIN.
+          OPERATOR / SUPER_ADMIN. AI 신고(AI Q&A·AI 산출물)는 ‘평가 항목으로 등록’으로
+          회귀 평가 세트에 추가할 수 있습니다(원문 미저장, 식별자·메타만).
         </Typography.Paragraph>
 
         <Space wrap>
@@ -255,7 +334,7 @@ export default function ReportsPage() {
         confirmLoading={submitting}
         onOk={submitAction}
         onCancel={() => setAction(null)}
-        destroyOnClose
+        destroyOnHidden
       >
         {action && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -266,6 +345,11 @@ export default function ReportsPage() {
                 : ''}{' '}
               · 신고 #{action.report.id}
             </Typography.Text>
+            {action.mode === 'resolve' && action.report.targetType === 'POST' && (
+              <Typography.Text type="warning">
+                처리 시 대상 나눔글이 숨김 처리됩니다.
+              </Typography.Text>
+            )}
             <div>
               <Typography.Text>처리 사유 (선택)</Typography.Text>
               <Input.TextArea
@@ -282,6 +366,55 @@ export default function ReportsPage() {
             >
               신고자에게 결과 알림 보내기
             </Checkbox>
+          </Space>
+        )}
+      </Modal>
+
+      <Modal
+        open={candidateReport !== null}
+        title="평가 항목으로 등록"
+        okText="등록"
+        cancelText="취소"
+        confirmLoading={candidateSubmitting}
+        onOk={submitCandidate}
+        onCancel={() => setCandidateReport(null)}
+        destroyOnHidden
+      >
+        {candidateReport && (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Typography.Text type="secondary">
+              이 AI 신고를 평가 세트의 평가 항목으로 등록합니다. 신고 원문이 아니라
+              식별자·메타데이터만 저장됩니다. · 신고 #{candidateReport.id} · 대상{' '}
+              {candidateReport.targetType}
+              {candidateReport.targetId != null
+                ? ` #${candidateReport.targetId}`
+                : ''}
+            </Typography.Text>
+            <div>
+              <Typography.Text>
+                평가 세트 선택 <Typography.Text type="danger">*</Typography.Text>
+              </Typography.Text>
+              <Select
+                style={{ display: 'block', marginTop: 4, width: '100%' }}
+                placeholder="평가 세트 선택"
+                loading={candidateSetsLoading}
+                value={candidateSetId ?? undefined}
+                onChange={(v) => setCandidateSetId(v ?? null)}
+                options={candidateSets.map((s) => ({
+                  label: `#${s.id} ${s.name} · ${s.version} [${s.status}]`,
+                  value: s.id,
+                }))}
+                notFoundContent={
+                  candidateSetsLoading
+                    ? '불러오는 중...'
+                    : '등록 가능한 평가 세트가 없습니다'
+                }
+              />
+            </div>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              없으면 먼저 ‘AI 평가 세트’ 화면에서 만들어 주세요. (AI Q&A 신고는
+              QA_REQUEST 세트만 보입니다.)
+            </Typography.Text>
           </Space>
         )}
       </Modal>

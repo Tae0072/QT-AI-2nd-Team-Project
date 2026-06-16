@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
+import 'package:qtai_app/l10n/app_localizations.dart';
+
 import '../models/bible_models.dart';
 import '../providers/bible_providers.dart';
 import '../services/qt_video_cache.dart';
@@ -50,13 +52,14 @@ class _QtVideoBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'QT 영상',
+          l.qtVideoTitle,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -78,12 +81,13 @@ class _QtVideoLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'QT 영상',
+          l.qtVideoTitle,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -111,12 +115,13 @@ class _QtVideoError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'QT 영상',
+          l.qtVideoTitle,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -125,7 +130,7 @@ class _QtVideoError extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: onRetry,
           icon: const Icon(Icons.refresh),
-          label: const Text('다시 불러오기'),
+          label: Text(l.qtVideoRetry),
         ),
       ],
     );
@@ -189,13 +194,11 @@ class _QtVideoPlayerState extends State<QtVideoPlayer> {
   }
 
   Future<void> _prepareController(int token) async {
-    final cachedFile = _segmentStart == Duration.zero
-        ? await QtVideoCache.existingFile(
-            cacheKey: widget.cacheKey,
-            videoUrl: widget.videoUrl,
-          )
-        : null;
-    if (_segmentStart == Duration.zero && cachedFile == null) {
+    final cachedFile = await QtVideoCache.existingFile(
+      cacheKey: widget.cacheKey,
+      videoUrl: widget.videoUrl,
+    );
+    if (cachedFile == null) {
       unawaited(
         QtVideoCache.download(
           cacheKey: widget.cacheKey,
@@ -301,14 +304,6 @@ class _QtVideoPlayerState extends State<QtVideoPlayer> {
     _scheduleControlsHide();
   }
 
-  void _toggleControls() {
-    _controlsHideTimer?.cancel();
-    setState(() => _controlsVisible = !_controlsVisible);
-    if (_controlsVisible) {
-      _scheduleControlsHide();
-    }
-  }
-
   void _showControls() {
     _controlsHideTimer?.cancel();
     if (mounted) {
@@ -382,7 +377,8 @@ class _QtVideoPlayerState extends State<QtVideoPlayer> {
               Positioned.fill(
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
-                  onTap: _toggleControls,
+                  // 영상 어디든 탭하면 재생/정지 토글(정지 시 컨트롤 표시).
+                  onTap: _togglePlay,
                 ),
               ),
               _SlidingVideoControls(
@@ -512,14 +508,6 @@ class _QtVideoFullscreenState extends State<_QtVideoFullscreen> {
     _scheduleControlsHide();
   }
 
-  void _toggleControls() {
-    _controlsHideTimer?.cancel();
-    setState(() => _controlsVisible = !_controlsVisible);
-    if (_controlsVisible) {
-      _scheduleControlsHide();
-    }
-  }
-
   void _showControls() {
     _controlsHideTimer?.cancel();
     if (mounted) {
@@ -545,6 +533,8 @@ class _QtVideoFullscreenState extends State<_QtVideoFullscreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: ColoredBox(
@@ -561,7 +551,8 @@ class _QtVideoFullscreenState extends State<_QtVideoFullscreen> {
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onTap: _toggleControls,
+                // 영상 어디든 탭하면 재생/정지 토글(정지 시 컨트롤 표시).
+                onTap: _togglePlay,
               ),
             ),
             Align(
@@ -570,7 +561,7 @@ class _QtVideoFullscreenState extends State<_QtVideoFullscreen> {
                 bottom: false,
                 right: false,
                 child: IconButton(
-                  tooltip: '뒤로',
+                  tooltip: l.videoBack,
                   onPressed: _close,
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                 ),
@@ -738,6 +729,7 @@ class _VideoControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final value = controller.value;
     final duration = value.duration;
     final effectiveEnd = segmentEnd ?? duration;
@@ -799,7 +791,7 @@ class _VideoControls extends StatelessWidget {
             Row(
               children: [
                 IconButton(
-                  tooltip: value.isPlaying ? '일시정지' : '재생',
+                  tooltip: value.isPlaying ? l.videoPause : l.videoPlay,
                   onPressed: onTogglePlay,
                   iconSize: iconSize,
                   visualDensity: VisualDensity.compact,
@@ -819,7 +811,7 @@ class _VideoControls extends StatelessWidget {
                 ),
                 const Spacer(),
                 PopupMenuButton<double>(
-                  tooltip: '배속',
+                  tooltip: l.videoSpeed,
                   initialValue: speed,
                   padding: EdgeInsets.zero,
                   onSelected: onSpeedSelected,
@@ -842,7 +834,7 @@ class _VideoControls extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: '전체화면',
+                  tooltip: l.videoFullscreen,
                   onPressed: onFullscreen,
                   iconSize: iconSize,
                   visualDensity: VisualDensity.compact,

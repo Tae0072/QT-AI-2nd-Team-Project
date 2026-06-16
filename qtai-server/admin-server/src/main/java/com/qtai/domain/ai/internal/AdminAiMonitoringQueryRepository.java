@@ -23,6 +23,7 @@ class AdminAiMonitoringQueryRepository {
     Summary summarize(Filter filter) {
         return new Summary(
                 countGenerationJobs(filter),
+                countAssetStatuses(),
                 countValidation(filter),
                 findFailureReasons(filter),
                 countBatchRuns(filter),
@@ -69,6 +70,23 @@ class AdminAiMonitoringQueryRepository {
         );
     }
 
+    private AssetStatusCounts countAssetStatuses() {
+        Map<AiGeneratedAssetStatus, Long> counts = enumCountMap(AiGeneratedAssetStatus.class,
+                entityManager.createQuery("""
+                                select asset.status, count(asset.id)
+                                from AiGeneratedAsset asset
+                                group by asset.status
+                                """, Object[].class)
+                        .getResultList());
+
+        return new AssetStatusCounts(
+                counts.getOrDefault(AiGeneratedAssetStatus.VALIDATING, 0L),
+                counts.getOrDefault(AiGeneratedAssetStatus.APPROVED, 0L),
+                counts.getOrDefault(AiGeneratedAssetStatus.REJECTED, 0L),
+                counts.getOrDefault(AiGeneratedAssetStatus.HIDDEN, 0L)
+        );
+    }
+
     private ValidationCounts countValidation(Filter filter) {
         Long waitingAssets = entityManager.createQuery("""
                         select count(asset.id)
@@ -77,6 +95,23 @@ class AdminAiMonitoringQueryRepository {
                         """, Long.class)
                 .setParameter("status", AiGeneratedAssetStatus.VALIDATING)
                 .getSingleResult();
+        Map<AiGeneratedAssetStatus, Long> reviewedAssetCounts = enumCountMap(AiGeneratedAssetStatus.class,
+                entityManager.createQuery("""
+                                select asset.status, count(asset.id)
+                                from AiGeneratedAsset asset
+                                where asset.status in :statuses
+                                  and asset.reviewedAt >= :fromAt
+                                  and asset.reviewedAt < :toAtExclusive
+                                group by asset.status
+                                """, Object[].class)
+                        .setParameter("statuses", List.of(
+                                AiGeneratedAssetStatus.APPROVED,
+                                AiGeneratedAssetStatus.REJECTED,
+                                AiGeneratedAssetStatus.HIDDEN
+                        ))
+                        .setParameter("fromAt", filter.fromAt())
+                        .setParameter("toAtExclusive", filter.toAtExclusive())
+                        .getResultList());
         Map<AiValidationResult, Long> validationCounts = enumCountMap(AiValidationResult.class,
                 entityManager.createQuery("""
                                 select validationLog.result, count(validationLog.id)
@@ -91,6 +126,9 @@ class AdminAiMonitoringQueryRepository {
 
         return new ValidationCounts(
                 waitingAssets,
+                reviewedAssetCounts.getOrDefault(AiGeneratedAssetStatus.APPROVED, 0L),
+                reviewedAssetCounts.getOrDefault(AiGeneratedAssetStatus.REJECTED, 0L),
+                reviewedAssetCounts.getOrDefault(AiGeneratedAssetStatus.HIDDEN, 0L),
                 validationCounts.getOrDefault(AiValidationResult.PASSED, 0L),
                 validationCounts.getOrDefault(AiValidationResult.REJECTED, 0L),
                 validationCounts.getOrDefault(AiValidationResult.NEEDS_REVIEW, 0L)
@@ -258,6 +296,7 @@ class AdminAiMonitoringQueryRepository {
 
     record Summary(
             GenerationJobCounts generationJobs,
+            AssetStatusCounts assetStatuses,
             ValidationCounts validation,
             List<FailureReasonRow> failureReasons,
             BatchRunCounts batchRuns,
@@ -274,8 +313,19 @@ class AdminAiMonitoringQueryRepository {
     ) {
     }
 
+    record AssetStatusCounts(
+            long validating,
+            long approved,
+            long rejected,
+            long hidden
+    ) {
+    }
+
     record ValidationCounts(
             long waitingAssets,
+            long approvedAssets,
+            long rejectedAssets,
+            long hiddenAssets,
             long passCount,
             long failCount,
             long needsReviewCount

@@ -129,13 +129,15 @@ class QtVideoControllerTest {
         seedBibleBook();
         return insertAndReturnId("""
                 INSERT INTO qt_passages (
-                    qt_date, book_id, chapter, start_verse, end_verse,
-                    title, main_verse_ref, created_at, updated_at
+                    qt_date, book_id, end_book_id, chapter, end_chapter, start_verse, end_verse,
+                    title, main_verse_ref, status, published_at, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """,
                 qtDate,
                 FIRST_CORINTHIANS_BOOK_ID,
+                FIRST_CORINTHIANS_BOOK_ID,
+                3,
                 3,
                 1,
                 15,

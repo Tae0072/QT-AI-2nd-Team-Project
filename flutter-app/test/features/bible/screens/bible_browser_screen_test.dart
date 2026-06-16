@@ -2,14 +2,15 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qtai_app/l10n/app_localizations.dart';
 import 'package:qtai_app/features/bible/models/bible_models.dart';
 import 'package:qtai_app/features/bible/providers/bible_providers.dart';
 import 'package:qtai_app/features/bible/screens/bible_browser_screen.dart';
 import 'package:qtai_app/features/bible/services/bible_repository.dart';
+import 'package:qtai_app/l10n/app_localizations.dart';
 
 void main() {
-  testWidgets('BibleBrowserScreen renders selected passage after search',
+  testWidgets(
+      'BibleBrowserScreen renders TOC picker and opens selected passage',
       (tester) async {
     final repository = _FakeBibleRepository();
 
@@ -18,45 +19,94 @@ void main() {
         overrides: [
           bibleRepositoryProvider.overrideWithValue(repository),
         ],
-        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, locale: const Locale('ko'), home: const BibleBrowserScreen()),
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: const BibleBrowserScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('성경본문'), findsOneWidget);
+    expect(find.text('성경 본문'), findsOneWidget);
     expect(find.text('창세기'), findsWidgets);
-    expect(find.byKey(const Key('bible-book-picker')), findsOneWidget);
-    expect(find.byKey(const Key('bible-chapter-picker')), findsOneWidget);
-    expect(find.byKey(const Key('bible-verse-from-picker')), findsOneWidget);
-    expect(find.byKey(const Key('bible-verse-to-picker')), findsOneWidget);
-    expect(find.byKey(const Key('bible-chapter-input')), findsNothing);
+    expect(find.text('Genesis'), findsOneWidget);
+    expect(find.text('율법서'), findsOneWidget);
+    expect(find.byKey(const Key('bible-book-list')), findsOneWidget);
+    expect(find.byKey(const Key('bible-chapter-list')), findsOneWidget);
+    expect(find.byKey(const Key('bible-verse-list')), findsOneWidget);
+    expect(find.byKey(const Key('bible-book-picker')), findsNothing);
+    expect(find.byKey(const Key('bible-verse-from-picker')), findsNothing);
+    expect(find.byKey(const Key('bible-verse-to-picker')), findsNothing);
 
-    await tester.tap(find.text('조회'));
+    await tester.tap(find.text('2절'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('bible-selection-bar')));
     await tester.pumpAndSettle();
 
+    // 본문은 장 전체를 부른다(getChapterVerses). 절 from/to는 더 이상 서버로 안 감.
     expect(repository.requestedBookCode, 'GEN');
     expect(repository.requestedChapter, 1);
-    expect(repository.requestedVerseFrom, 1);
-    expect(repository.requestedVerseTo, 1);
-    expect(find.text('1:1'), findsOneWidget);
-    expect(find.text('테스트 본문 1'), findsOneWidget);
-    expect(find.text('Test English body 1'), findsNothing);
+    // 선택한 2절이 포커스로 전달돼 장 전체 중 그 절이 보인다.
+    expect(find.text('1:2'), findsOneWidget);
+    expect(find.text('테스트 본문 2'), findsOneWidget);
+    expect(find.text('Test English body 2'), findsNothing);
 
     await tester.tap(find.byKey(const Key('bible-browser-english-toggle')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Genesis'), findsOneWidget);
-    expect(find.text('Test English body 1'), findsOneWidget);
+    expect(find.text('Genesis'), findsWidgets);
+    expect(find.text('Test English body 2'), findsOneWidget);
+  });
+
+  testWidgets('BibleBrowserScreen shows safe message when search fails',
+      (tester) async {
+    final repository = _FakeBibleRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          bibleRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: const BibleBrowserScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.failChapterRequests = true;
+    await tester.tap(find.byKey(const Key('bible-selection-bar')));
+    await tester.pump();
+
+    expect(
+      find.text('성경본문을 불러오지 못했습니다. 다시 시도해 주세요.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('boom'), findsNothing);
   });
 }
 
 class _FakeBibleRepository extends BibleRepository {
   String? requestedBookCode;
   int? requestedChapter;
-  int? requestedVerseFrom;
-  int? requestedVerseTo;
+  bool failChapterRequests = false;
 
   _FakeBibleRepository() : super(Dio());
+
+  @override
+  Future<BiblePassageStudy> getBiblePassageStudy({
+    required String bookCode,
+    required int chapter,
+    required int verseFrom,
+    required int verseTo,
+  }) async {
+    return BiblePassageStudy.none;
+  }
 
   @override
   Future<List<BibleBook>> getBooks() async {
@@ -77,26 +127,32 @@ class _FakeBibleRepository extends BibleRepository {
     required String bookCode,
     required int chapter,
   }) async {
-    return const BibleVerseRange(
+    // 본문 조회는 이제 장 전체(getChapterVerses)를 부른다.
+    if (failChapterRequests) {
+      throw StateError('boom');
+    }
+    requestedBookCode = bookCode;
+    requestedChapter = chapter;
+    return BibleVerseRange(
       book: BibleVerseBook(
-        code: 'GEN',
+        code: bookCode,
         koreanName: '창세기',
         englishName: 'Genesis',
-        chapter: 1,
+        chapter: chapter,
       ),
       verses: [
         BibleVerse(
           id: 1001,
-          bookCode: 'GEN',
-          chapterNo: 1,
+          bookCode: bookCode,
+          chapterNo: chapter,
           verseNo: 1,
           koreanText: '테스트 본문 1',
           englishText: 'Test English body 1',
         ),
         BibleVerse(
           id: 1002,
-          bookCode: 'GEN',
-          chapterNo: 1,
+          bookCode: bookCode,
+          chapterNo: chapter,
           verseNo: 2,
           koreanText: '테스트 본문 2',
           englishText: 'Test English body 2',
@@ -112,27 +168,6 @@ class _FakeBibleRepository extends BibleRepository {
     required int verseFrom,
     required int verseTo,
   }) async {
-    requestedBookCode = bookCode;
-    requestedChapter = chapter;
-    requestedVerseFrom = verseFrom;
-    requestedVerseTo = verseTo;
-    return const BibleVerseRange(
-      book: BibleVerseBook(
-        code: 'GEN',
-        koreanName: '창세기',
-        englishName: 'Genesis',
-        chapter: 1,
-      ),
-      verses: [
-        BibleVerse(
-          id: 1001,
-          bookCode: 'GEN',
-          chapterNo: 1,
-          verseNo: 1,
-          koreanText: '테스트 본문 1',
-          englishText: 'Test English body 1',
-        ),
-      ],
-    );
+    throw StateError('장 전체 화면은 getVerses를 호출하면 안 됩니다.');
   }
 }

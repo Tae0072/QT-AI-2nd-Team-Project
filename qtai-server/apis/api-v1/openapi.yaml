@@ -23,6 +23,8 @@ tags:
     description: Admin audit log lookup API
   - name: Admin Notice
     description: 관리자 시스템 공지 관리 API
+  - name: Admin Music
+    description: 관리자 배경음악 관리 API
   - name: System AI
     description: 시스템 배치가 AI 생성 작업, 산출물, 검증 로그를 접수하는 내부 운영 API
 paths:
@@ -104,6 +106,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorApiResponse"
+  /api/v1/qt/passage-study:
+    get:
+      tags:
+        - QT Study
+      operationId: getBiblePassageStudy
+      summary: 성경 본문 해설 진입점 가용성 조회
+      description: >-
+        인증된 사용자가 성경 목차에서 선택한 본문 범위에 대해 해설 진입점 가용성을 조회한다.
+        선택 범위를 포함하는 QT 본문이 있고 승인된 해설이 있으면 qtPassageId와 hasExplanation=true를
+        반환한다. 매핑/해설이 없으면 qtPassageId=null, hasExplanation=false를 반환한다(차단 아님).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookCode
+          in: query
+          required: true
+          schema:
+            type: string
+            example: GEN
+        - name: chapter
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+        - name: verseFrom
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+        - name: verseTo
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            example: 3
+      responses:
+        "200":
+          description: 해설 진입점 가용성 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BiblePassageStudyApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/qt/{qtPassageId}/study-content:
     get:
       tags:
@@ -596,6 +651,759 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/prompt-versions:
+    get:
+      tags:
+        - Admin AI
+      operationId: listAdminAiPromptVersions
+      summary: List admin AI prompt versions
+      description: >
+        Lists AI prompt versions. The first managed scope supports EXPLANATION only.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: promptType
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiPromptType"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiPromptVersionStatus"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Admin AI prompt version list returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiPromptVersionListApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - Admin AI
+      operationId: createAdminAiPromptVersion
+      summary: Create admin AI prompt version
+      description: >
+        Creates a DRAFT EXPLANATION prompt version. The prompt can become ACTIVE
+        only after a successful evaluation run with no failed or needs-review cases.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiPromptVersionRequest"
+      responses:
+        "201":
+          description: Admin AI prompt version created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiPromptVersionApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/prompt-versions/{id}:
+    get:
+      tags:
+        - Admin AI
+      operationId: getAdminAiPromptVersion
+      summary: Get admin AI prompt version
+      description: >
+        Returns one AI prompt version including prompt text and runtime settings.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI prompt version returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiPromptVersionApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/prompt-versions/{id}/activate:
+    post:
+      tags:
+        - Admin AI
+      operationId: activateAdminAiPromptVersion
+      summary: Activate admin AI prompt version
+      description: >
+        Activates a DRAFT EXPLANATION prompt version after a successful evaluation
+        run. Existing ACTIVE prompt versions of the same type are retired.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI prompt version activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiPromptVersionApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/prompt-versions/{id}/retire:
+    post:
+      tags:
+        - Admin AI
+      operationId: retireAdminAiPromptVersion
+      summary: Retire admin AI prompt version
+      description: >
+        Retires an EXPLANATION prompt version. Requires ROLE_ADMIN and one of
+        ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI prompt version retired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiPromptVersionApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-sets:
+    get:
+      tags:
+        - Admin AI
+      operationId: listAdminAiEvaluationSets
+      summary: List admin AI evaluation sets
+      description: >
+        Lists AI evaluation sets for the admin web. Requires ROLE_ADMIN and one of
+        ADMIN_ROLE_CONTENT_CREATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: evalType
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiEvaluationType"
+        - name: targetType
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiTargetType"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiEvaluationSetStatus"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Admin AI evaluation set list returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationSetListApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - Admin AI
+      operationId: createAdminAiEvaluationSet
+      summary: Create admin AI evaluation set
+      description: >
+        Creates a DRAFT AI evaluation set. Requires ROLE_ADMIN and one of
+        ADMIN_ROLE_CONTENT_CREATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiEvaluationSetRequest"
+      responses:
+        "201":
+          description: Admin AI evaluation set created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationSetApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-sets/{setId}:
+    get:
+      tags:
+        - Admin AI
+      operationId: getAdminAiEvaluationSet
+      summary: Get admin AI evaluation set
+      description: >
+        Returns one AI evaluation set. Requires ROLE_ADMIN and one of
+        ADMIN_ROLE_CONTENT_CREATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: setId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI evaluation set returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationSetApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-sets/{setId}/activate:
+    post:
+      tags:
+        - Admin AI
+      operationId: activateAdminAiEvaluationSet
+      summary: Activate admin AI evaluation set
+      description: >
+        Activates a DRAFT AI evaluation set when it has at least ten APPROVED
+        cases. Requires ROLE_ADMIN and one of ADMIN_ROLE_CONTENT_CREATOR,
+        ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: setId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI evaluation set activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationSetApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-sets/{setId}/retire:
+    post:
+      tags:
+        - Admin AI
+      operationId: retireAdminAiEvaluationSet
+      summary: Retire admin AI evaluation set
+      description: >
+        Retires an AI evaluation set. Requires ROLE_ADMIN and one of
+        ADMIN_ROLE_CONTENT_CREATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: setId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI evaluation set retired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationSetApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-sets/{setId}/cases:
+    get:
+      tags:
+        - Admin AI
+      operationId: listAdminAiEvaluationCases
+      summary: List admin AI evaluation cases
+      description: >
+        Lists AI evaluation cases in an evaluation set. Requires ROLE_ADMIN and
+        one of ADMIN_ROLE_CONTENT_CREATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: setId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AiEvaluationCaseStatus"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Admin AI evaluation case list returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationCaseListApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - Admin AI
+      operationId: createAdminAiEvaluationCase
+      summary: Create admin AI evaluation case
+      description: >
+        Creates a CANDIDATE AI evaluation case in an evaluation set. Request JSON
+        snapshots are accepted as objects; response snapshots are returned as stored
+        JSON strings. Requires ROLE_ADMIN and one of ADMIN_ROLE_CONTENT_CREATOR,
+        ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: setId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiEvaluationCaseRequest"
+      responses:
+        "201":
+          description: Admin AI evaluation case created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationCaseApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-cases/{caseId}:
+    get:
+      tags:
+        - Admin AI
+      operationId: getAdminAiEvaluationCase
+      summary: Get admin AI evaluation case
+      description: >
+        Returns one AI evaluation case. Requires ROLE_ADMIN and one of
+        ADMIN_ROLE_CONTENT_CREATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI evaluation case returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationCaseApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-cases/{caseId}/approve:
+    post:
+      tags:
+        - Admin AI
+      operationId: approveAdminAiEvaluationCase
+      summary: Approve admin AI evaluation case
+      description: >
+        Changes a CANDIDATE AI evaluation case to APPROVED and writes an audit log.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiEvaluationReviewRequest"
+      responses:
+        "200":
+          description: Admin AI evaluation case approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationCaseStatusApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-cases/{caseId}/reject:
+    post:
+      tags:
+        - Admin AI
+      operationId: rejectAdminAiEvaluationCase
+      summary: Reject admin AI evaluation case
+      description: >
+        Changes a CANDIDATE AI evaluation case to REJECTED and writes an audit log.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_REVIEWER or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiEvaluationReviewRequest"
+      responses:
+        "200":
+          description: Admin AI evaluation case rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationCaseStatusApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-sets/{setId}/runs:
+    post:
+      tags:
+        - Admin AI
+      operationId: createAdminAiEvaluationRun
+      summary: Execute admin AI evaluation set
+      description: >
+        Executes APPROVED cases in an ACTIVE EXPLANATION evaluation set against a
+        DRAFT or ACTIVE EXPLANATION prompt version. Evaluation output stores only
+        summary metadata and payload hashes, not raw prompt text or generated body.
+        In this PR, PASSED means the generation call completed and the response
+        matched the required EXPLANATION JSON structure. Semantic scoring against
+        expectedPolicyJson is a follow-up enhancement and is not implied by PASSED.
+        Requires ROLE_ADMIN and one of ADMIN_ROLE_CONTENT_CREATOR,
+        ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: setId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiEvaluationRunRequest"
+      responses:
+        "201":
+          description: Admin AI evaluation run executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationRunApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-sets/{setId}/runs/latest:
+    get:
+      tags:
+        - Admin AI
+      operationId: getLatestAdminAiEvaluationRun
+      summary: Get latest admin AI evaluation run
+      description: >
+        Returns the latest evaluation run for one evaluation set. Requires ROLE_ADMIN
+        and one of ADMIN_ROLE_CONTENT_CREATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: setId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Latest admin AI evaluation run returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationRunApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/evaluation-runs/{runId}:
+    get:
+      tags:
+        - Admin AI
+      operationId: getAdminAiEvaluationRun
+      summary: Get admin AI evaluation run
+      description: >
+        Returns one evaluation run and its per-case result summaries. Requires ROLE_ADMIN
+        and one of ADMIN_ROLE_CONTENT_CREATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Admin AI evaluation run returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationRunApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/admin/ai/batch-run-logs:
     get:
       tags:
@@ -949,6 +1757,316 @@ paths:
           $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/qt-videos/source-videos/{sourceVideoId}:
+    delete:
+      tags:
+        - Admin QT Video
+      operationId: deleteAdminQtVideoSourceVideo
+      summary: 관리자 QT 원본 영상 삭제
+      description: >
+        앱 재생용 QT 원본 영상을 삭제한다. 해당 원본 영상에 연결된 절별 구간과
+        QT 클립도 함께 삭제되며, 감사 로그 QT_VIDEO_SOURCE_DELETE를 기록한다.
+        ROLE_ADMIN과 OPERATOR, REVIEWER, CONTENT_CREATOR 또는 SUPER_ADMIN 권한이 필요하다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sourceVideoId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "204":
+          description: QT 원본 영상 삭제 성공
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/qt-videos/clips/{clipId}:
+    delete:
+      tags:
+        - Admin QT Video
+      operationId: deleteAdminQtVideoClip
+      summary: 관리자 QT 클립 삭제
+      description: >
+        앱 재생용 QT 클립을 삭제한다. 원본 영상과 절별 구간은 유지하며,
+        감사 로그 QT_VIDEO_CLIP_DELETE를 기록한다.
+        ROLE_ADMIN과 OPERATOR, REVIEWER, CONTENT_CREATOR 또는 SUPER_ADMIN 권한이 필요하다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: clipId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "204":
+          description: QT 클립 삭제 성공
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/qt-videos/clips/manual:
+    post:
+      tags:
+        - Admin QT Video
+      operationId: createAdminQtVideoManualClip
+      summary: 관리자 QT 클립 직접 생성(시작/끝 초 지정)
+      description: >
+        절별 구간 없이 시작/끝 초를 직접 지정해 활성 QT 클립을 생성·교체한다(하이브리드 경로).
+        본문은 공개 상태, 원본 영상은 활성·재생 가능 URL이어야 하며
+        0 ≤ startTimeSec < endTimeSec ≤ 원본 길이를 강제한다.
+        같은 본문의 활성 클립이 있으면 교체하고, 감사 로그 QT_VIDEO_CLIP_PREPARE(afterJson.mode=MANUAL)를 기록한다.
+        ROLE_ADMIN과 OPERATOR, REVIEWER, CONTENT_CREATOR 또는 SUPER_ADMIN 권한이 필요하다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - qtPassageId
+                - sourceVideoId
+                - startTimeSec
+                - endTimeSec
+              properties:
+                qtPassageId:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                sourceVideoId:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                startTimeSec:
+                  type: number
+                  format: double
+                  minimum: 0
+                endTimeSec:
+                  type: number
+                  format: double
+                  exclusiveMinimum: true
+                  minimum: 0
+      responses:
+        "200":
+          description: QT 클립 직접 생성 성공
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/music-tracks:
+    get:
+      tags:
+        - Admin Music
+      operationId: listAdminMusicTracks
+      summary: 관리자 배경음악 목록 조회
+      description: >
+        관리자 웹에서 배경음악 음원 메타데이터를 조회한다. audio_data 바이트는 목록 응답에
+        포함하지 않는다. ROLE_ADMIN과 OPERATOR 또는 SUPER_ADMIN 권한이 필요하다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AdminMusicTrackStatus"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: 관리자 배경음악 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMusicTrackPageApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - Admin Music
+      operationId: createAdminMusicTrack
+      summary: 관리자 배경음악 등록
+      description: >
+        multipart/form-data로 음원 파일과 메타데이터를 등록한다. 생성된 음원은 HIDDEN 상태로
+        시작하며 publish API 호출 전까지 사용자 배경음악 목록에 노출되지 않는다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/AdminMusicTrackCreateMultipartRequest"
+      responses:
+        "201":
+          description: 관리자 배경음악 등록 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMusicTrackApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/music-tracks/{id}:
+    patch:
+      tags:
+        - Admin Music
+      operationId: updateAdminMusicTrack
+      summary: 관리자 배경음악 수정/교체
+      description: >
+        배경음악 메타데이터를 수정하고, file 파트가 있으면 음원 바이트를 교체한다.
+        file 파트가 없으면 기존 음원을 유지한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/AdminMusicTrackUpdateMultipartRequest"
+      responses:
+        "200":
+          description: 관리자 배경음악 수정 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMusicTrackApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/music-tracks/{id}/publish:
+    post:
+      tags:
+        - Admin Music
+      operationId: publishAdminMusicTrack
+      summary: 관리자 배경음악 노출 처리
+      description: HIDDEN 배경음악을 ACTIVE로 전환한다. 이미 ACTIVE이면 C0007을 반환한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 관리자 배경음악 노출 처리 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMusicTrackApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/music-tracks/{id}/hide:
+    post:
+      tags:
+        - Admin Music
+      operationId: hideAdminMusicTrack
+      summary: 관리자 배경음악 숨김 처리
+      description: ACTIVE 배경음악을 HIDDEN으로 전환한다. 이미 HIDDEN이면 C0007을 반환한다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: 관리자 배경음악 숨김 처리 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMusicTrackApiResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/admin/ai/monitoring:
     get:
       tags:
@@ -1152,6 +2270,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminAiAssetReviewApiResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/admin/ai/assets/{assetId}/evaluation-candidates:
+    post:
+      tags:
+        - Admin AI
+      operationId: createAdminAiEvaluationAssetCandidate
+      summary: Create admin AI evaluation candidate from asset
+      description: >
+        Creates a CANDIDATE AI evaluation case from an AI generated asset. The
+        server stores only asset identifiers and target metadata in inputJson and
+        does not copy prompt text, provider raw response, validation reference text,
+        secrets, tokens, or passwords. Requires ROLE_ADMIN and one of
+        ADMIN_ROLE_CONTENT_CREATOR, ADMIN_ROLE_REVIEWER, or ADMIN_ROLE_SUPER_ADMIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAiEvaluationAssetCandidateRequest"
+      responses:
+        "201":
+          description: Admin AI evaluation candidate created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiEvaluationCaseApiResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1829,6 +2994,46 @@ components:
           format: date-time
         traceId:
           type: string
+    BiblePassageStudyApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/BiblePassageStudy"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    BiblePassageStudy:
+      type: object
+      required:
+        - qtPassageId
+        - hasExplanation
+      properties:
+        qtPassageId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 해설 콘텐츠 조회용 QT 본문 ID. 해설이 없으면 null.
+          example: 42
+        hasExplanation:
+          type: boolean
+          description: 승인된 해설 존재 여부 — 해설 진입점 활성 기준.
+          example: true
     BibleBookResponse:
       type: object
       required:
@@ -1985,6 +3190,198 @@ components:
             - true
         data:
           $ref: "#/components/schemas/ReviewAiAssetResult"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiEvaluationSetListApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiEvaluationSetListResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiPromptVersionListApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiPromptVersionListResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiPromptVersionApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiPromptVersionResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiEvaluationSetApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiEvaluationSetResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiEvaluationCaseListApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiEvaluationCaseListResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiEvaluationCaseApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiEvaluationCaseResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiEvaluationCaseStatusApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiEvaluationCaseStatusResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminAiEvaluationRunApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminAiEvaluationRunResponse"
         error:
           allOf:
             - $ref: "#/components/schemas/ErrorBody"
@@ -2557,6 +3954,7 @@ components:
       type: object
       required:
         - id
+        - noticeId
         - status
         - publishedAt
         - notificationResult
@@ -2565,6 +3963,12 @@ components:
           type: integer
           format: int64
           minimum: 1
+          description: 공지 ID. 기존 클라이언트 호환용 필드다.
+        noticeId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: 발행된 공지 ID.
         status:
           type: string
           enum:
@@ -2578,26 +3982,281 @@ components:
       type: object
       required:
         - requestedCount
+        - targetMemberCount
         - createdCount
+        - queuedCount
         - failedCount
       properties:
         requestedCount:
           type: integer
           format: int64
           minimum: 0
+          description: 알림 fan-out 요청 대상 활성 회원 수. 기존 클라이언트 호환용 필드다.
+        targetMemberCount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 공지 발행 시 알림 생성 대상이 된 활성 회원 수.
         createdCount:
           type: integer
           format: int64
           minimum: 0
+          description: 생성된 NOTICE 알림 row 수. 기존 클라이언트 호환용 필드다.
+        queuedCount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 사용자 앱 알림함/폴링으로 전달 대기 상태가 된 NOTICE 알림 row 수.
         failedCount:
           type: integer
           format: int64
           minimum: 0
+          description: 알림 row 생성에 실패한 회원 수.
+    AdminMusicTrackPageApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminMusicTrackPageResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminMusicTrackApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+        - timestamp
+        - traceId
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          $ref: "#/components/schemas/AdminMusicTrackResponse"
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+    AdminMusicTrackCreateMultipartRequest:
+      type: object
+      required:
+        - title
+        - category
+        - file
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: Morning Embrace
+        category:
+          $ref: "#/components/schemas/AdminMusicTrackCategory"
+        mimeType:
+          type: string
+          maxLength: 60
+          enum:
+            - audio/mpeg
+            - audio/mp4
+            - audio/aac
+            - audio/ogg
+            - audio/wav
+            - audio/x-wav
+            - audio/webm
+            - audio/flac
+          default: audio/mpeg
+        durationSec:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          minimum: 0
+          default: 0
+        licenseNote:
+          type: string
+          maxLength: 300
+          nullable: true
+        file:
+          type: string
+          format: binary
+          maxLength: 10485760
+          description: 서버가 music_tracks.audio_data에 저장하는 음원 파일.
+    AdminMusicTrackUpdateMultipartRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+        category:
+          $ref: "#/components/schemas/AdminMusicTrackCategory"
+        mimeType:
+          type: string
+          maxLength: 60
+          enum:
+            - audio/mpeg
+            - audio/mp4
+            - audio/aac
+            - audio/ogg
+            - audio/wav
+            - audio/x-wav
+            - audio/webm
+            - audio/flac
+        durationSec:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          minimum: 0
+        licenseNote:
+          type: string
+          maxLength: 300
+          nullable: true
+        file:
+          type: string
+          format: binary
+          maxLength: 10485760
+          description: 포함하면 음원을 교체하고, 생략하면 기존 음원을 유지한다.
+    AdminMusicTrackStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - HIDDEN
+    AdminMusicTrackCategory:
+      type: string
+      enum:
+        - BGM
+        - HYMN
+    AdminMusicTrackPageResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminMusicTrackResponse"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          example: createdAt,desc
+    AdminMusicTrackResponse:
+      type: object
+      required:
+        - id
+        - title
+        - category
+        - mimeType
+        - byteSize
+        - durationSec
+        - sortOrder
+        - licenseNote
+        - status
+        - streamUrl
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        title:
+          type: string
+          maxLength: 150
+        category:
+          $ref: "#/components/schemas/AdminMusicTrackCategory"
+        mimeType:
+          type: string
+          maxLength: 60
+        byteSize:
+          type: integer
+          format: int64
+          minimum: 0
+        durationSec:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 0
+        sortOrder:
+          type: integer
+          format: int32
+          minimum: 0
+        licenseNote:
+          type: string
+          maxLength: 300
+          nullable: true
+        status:
+          $ref: "#/components/schemas/AdminMusicTrackStatus"
+        streamUrl:
+          type: string
+          example: /api/v1/music/tracks/10/stream
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
     AdminAiMonitoringResponse:
       type: object
       required:
         - period
         - generationJobs
+        - assetStatuses
         - validation
         - batchRuns
         - qa
@@ -2607,6 +4266,8 @@ components:
           $ref: "#/components/schemas/AdminAiMonitoringPeriod"
         generationJobs:
           $ref: "#/components/schemas/AdminAiMonitoringGenerationJobs"
+        assetStatuses:
+          $ref: "#/components/schemas/AdminAiMonitoringAssetStatuses"
         validation:
           $ref: "#/components/schemas/AdminAiMonitoringValidation"
         batchRuns:
@@ -2660,16 +4321,55 @@ components:
           type: integer
           format: int64
           minimum: 0
+    AdminAiMonitoringAssetStatuses:
+      type: object
+      required:
+        - validating
+        - approved
+        - rejected
+        - hidden
+      properties:
+        validating:
+          type: integer
+          format: int64
+          minimum: 0
+        approved:
+          type: integer
+          format: int64
+          minimum: 0
+        rejected:
+          type: integer
+          format: int64
+          minimum: 0
+        hidden:
+          type: integer
+          format: int64
+          minimum: 0
     AdminAiMonitoringValidation:
       type: object
       required:
         - waitingAssets
+        - approvedAssets
+        - rejectedAssets
+        - hiddenAssets
         - passCount
         - failCount
         - needsReviewCount
         - failureReasons
       properties:
         waitingAssets:
+          type: integer
+          format: int64
+          minimum: 0
+        approvedAssets:
+          type: integer
+          format: int64
+          minimum: 0
+        rejectedAssets:
+          type: integer
+          format: int64
+          minimum: 0
+        hiddenAssets:
           type: integer
           format: int64
           minimum: 0
@@ -2922,6 +4622,567 @@ components:
           enum:
             - DRAFT
           nullable: true
+    AdminAiPromptVersionRequest:
+      type: object
+      required:
+        - promptType
+        - version
+        - systemPrompt
+        - userPromptTemplate
+      properties:
+        promptType:
+          $ref: "#/components/schemas/AiPromptType"
+        version:
+          type: string
+          minLength: 1
+          maxLength: 30
+          example: "2026.06.2"
+        systemPrompt:
+          type: string
+          minLength: 1
+          description: System prompt used for LLM completion.
+        userPromptTemplate:
+          type: string
+          minLength: 1
+          description: >
+            User prompt template. Supported variables include {{targetType}},
+            {{targetId}}, {{qtPassageBlock}}, {{versesBlock}}, and {{commentaryBlock}}.
+        modelName:
+          type: string
+          maxLength: 100
+          nullable: true
+          example: deepseek-chat
+        temperature:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 2
+          nullable: true
+          default: 0.2
+        maxTokens:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 20000
+          nullable: true
+          default: 2000
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+    AdminAiPromptVersionListResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiPromptVersionResponse"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          enum:
+            - createdAt,desc,id,desc
+    AdminAiPromptVersionResponse:
+      type: object
+      required:
+        - id
+        - promptType
+        - version
+        - contentHash
+        - status
+        - systemPrompt
+        - userPromptTemplate
+        - modelName
+        - temperature
+        - maxTokens
+        - description
+        - createdByAdminId
+        - createdAt
+        - activatedAt
+        - retiredAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        promptType:
+          $ref: "#/components/schemas/AiPromptType"
+        version:
+          type: string
+          maxLength: 30
+        contentHash:
+          type: string
+          maxLength: 100
+        status:
+          $ref: "#/components/schemas/AiPromptVersionStatus"
+        systemPrompt:
+          type: string
+        userPromptTemplate:
+          type: string
+        modelName:
+          type: string
+          nullable: true
+        temperature:
+          type: number
+          format: double
+        maxTokens:
+          type: integer
+          format: int32
+        description:
+          type: string
+          nullable: true
+        createdByAdminId:
+          type: integer
+          format: int64
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        activatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        retiredAt:
+          type: string
+          format: date-time
+          nullable: true
+    AdminAiEvaluationSetRequest:
+      type: object
+      required:
+        - name
+        - evalType
+        - version
+        - targetType
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: AI Q&A policy evaluation
+        evalType:
+          $ref: "#/components/schemas/AiEvaluationType"
+        version:
+          type: string
+          minLength: 1
+          maxLength: 30
+          example: "2026.06.1"
+        targetType:
+          $ref: "#/components/schemas/AiTargetType"
+        expectedPolicyJson:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Request JSON object. Stored response is returned as a JSON string.
+          example:
+            blockedReason: VALUE_JUDGMENT
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        status:
+          type: string
+          enum:
+            - DRAFT
+          nullable: true
+    AdminAiEvaluationSetListResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiEvaluationSetResponse"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          enum:
+            - createdAt,desc,id,desc
+    AdminAiEvaluationSetResponse:
+      type: object
+      required:
+        - id
+        - name
+        - evalType
+        - version
+        - targetType
+        - expectedPolicyJson
+        - description
+        - status
+        - createdAt
+        - activatedAt
+        - retiredAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          maxLength: 100
+        evalType:
+          $ref: "#/components/schemas/AiEvaluationType"
+        version:
+          type: string
+          maxLength: 30
+          example: "2026.06.1"
+        targetType:
+          $ref: "#/components/schemas/AiTargetType"
+        expectedPolicyJson:
+          type: string
+          nullable: true
+          description: Stored JSON snapshot string.
+          example: "{\"blockedReason\":\"VALUE_JUDGMENT\"}"
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        status:
+          $ref: "#/components/schemas/AiEvaluationSetStatus"
+        createdAt:
+          type: string
+          format: date-time
+        activatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        retiredAt:
+          type: string
+          format: date-time
+          nullable: true
+    AdminAiEvaluationCaseRequest:
+      type: object
+      description: >
+        Manual evaluation case creation follows the current server DTO: the client
+        sends target identifiers and optional expected policy metadata, and the
+        server assembles the stored inputJson snapshot. This OpenAPI correction
+        aligns the contract with the already-merged backend behavior.
+      required:
+        - targetType
+        - targetId
+        - sourceType
+      properties:
+        targetType:
+          $ref: "#/components/schemas/AiTargetType"
+        targetId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: false
+        sourceType:
+          $ref: "#/components/schemas/AiEvaluationSourceType"
+        expectedPolicyJson:
+          type: object
+          additionalProperties: true
+          nullable: true
+        status:
+          type: string
+          enum:
+            - CANDIDATE
+          nullable: true
+    AdminAiEvaluationAssetCandidateRequest:
+      type: object
+      required:
+        - evaluationSetId
+      properties:
+        evaluationSetId:
+          type: integer
+          format: int64
+          minimum: 1
+        expectedPolicyJson:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Optional expected policy object for the generated evaluation candidate.
+    AdminAiEvaluationReviewRequest:
+      type: object
+      required:
+        - reviewReason
+      properties:
+        reviewReason:
+          type: string
+          minLength: 1
+          example: Verified as a valid evaluation case.
+    AdminAiEvaluationCaseListResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+        - sort
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiEvaluationCaseResponse"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+        sort:
+          type: string
+          enum:
+            - createdAt,desc,id,desc
+    AdminAiEvaluationCaseResponse:
+      type: object
+      required:
+        - id
+        - evaluationSetId
+        - targetType
+        - targetId
+        - sourceType
+        - sourceId
+        - inputJson
+        - expectedOutputJson
+        - expectedPolicyJson
+        - status
+        - reviewedByAdminId
+        - reviewedAt
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        evaluationSetId:
+          type: integer
+          format: int64
+          minimum: 1
+        targetType:
+          $ref: "#/components/schemas/AiTargetType"
+        targetId:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 1
+        sourceType:
+          $ref: "#/components/schemas/AiEvaluationSourceType"
+        sourceId:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 1
+        inputJson:
+          type: string
+          description: Stored JSON input snapshot string.
+          example: "{\"question\":\"test\"}"
+        expectedOutputJson:
+          type: string
+          nullable: true
+          description: Stored JSON expected output string.
+        expectedPolicyJson:
+          type: string
+          nullable: true
+          description: Stored JSON expected policy string.
+          example: "{\"expectedResult\":\"REJECTED\"}"
+        status:
+          $ref: "#/components/schemas/AiEvaluationCaseStatus"
+        reviewedByAdminId:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 1
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    AdminAiEvaluationCaseStatusResponse:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/AiEvaluationCaseStatus"
+    AdminAiEvaluationRunRequest:
+      type: object
+      required:
+        - promptVersionId
+      properties:
+        promptVersionId:
+          type: integer
+          format: int64
+          minimum: 1
+    AdminAiEvaluationRunResponse:
+      type: object
+      required:
+        - id
+        - evaluationSetId
+        - promptVersionId
+        - status
+        - totalCount
+        - passedCount
+        - failedCount
+        - needsReviewCount
+        - startedAt
+        - finishedAt
+        - requestedByAdminId
+        - results
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        evaluationSetId:
+          type: integer
+          format: int64
+          minimum: 1
+        promptVersionId:
+          type: integer
+          format: int64
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/AiEvaluationRunStatus"
+        totalCount:
+          type: integer
+          format: int32
+          minimum: 0
+        passedCount:
+          type: integer
+          format: int32
+          minimum: 0
+        failedCount:
+          type: integer
+          format: int32
+          minimum: 0
+        needsReviewCount:
+          type: integer
+          format: int32
+          minimum: 0
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        requestedByAdminId:
+          type: integer
+          format: int64
+          minimum: 1
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiEvaluationRunResultResponse"
+    AdminAiEvaluationRunResultResponse:
+      type: object
+      required:
+        - id
+        - evaluationCaseId
+        - result
+        - reason
+        - outputSummaryJson
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        evaluationCaseId:
+          type: integer
+          format: int64
+          minimum: 1
+        result:
+          allOf:
+            - $ref: "#/components/schemas/AiEvaluationResultStatus"
+          description: >
+            PASSED currently indicates successful generation and required response
+            shape validation. It does not yet mean semantic policy scoring passed.
+        reason:
+          type: string
+          nullable: true
+          maxLength: 1000
+        outputSummaryJson:
+          type: string
+          nullable: true
+          description: Stored JSON summary. Does not include raw generated body.
+        createdAt:
+          type: string
+          format: date-time
     AdminAiAssetListItem:
       type: object
       required:
@@ -2933,6 +5194,8 @@ components:
         - promptVersion
         - checklistVersionId
         - latestValidationResult
+        - autoValidationResult
+        - advisorValidationResult
         - sourceLabelPresent
         - createdAt
       properties:
@@ -2958,6 +5221,14 @@ components:
           allOf:
             - $ref: "#/components/schemas/AiValidationResult"
           nullable: true
+        autoValidationResult:
+          allOf:
+            - $ref: "#/components/schemas/AiValidationResult"
+          nullable: true
+        advisorValidationResult:
+          allOf:
+            - $ref: "#/components/schemas/AiValidationResult"
+          nullable: true
         sourceLabelPresent:
           type: boolean
         createdAt:
@@ -2976,6 +5247,7 @@ components:
         - createdAt
         - reviewedAt
         - generationJob
+        - activeGenerationJob
         - promptVersion
         - validationLogs
       properties:
@@ -3007,6 +5279,11 @@ components:
           nullable: true
         generationJob:
           $ref: "#/components/schemas/AdminAiGenerationJobSummary"
+        activeGenerationJob:
+          allOf:
+            - $ref: "#/components/schemas/AdminAiGenerationJobSummary"
+          nullable: true
+          description: 같은 대상에 대해 현재 진행 중인 최신 AI 생성 job. 없으면 null.
         promptVersion:
           $ref: "#/components/schemas/AdminAiPromptVersionSummary"
         validationLogs:
@@ -3015,8 +5292,6 @@ components:
             $ref: "#/components/schemas/AdminAiValidationLogItem"
     AdminAiAssetReviewRequest:
       type: object
-      required:
-        - reason
       properties:
         reason:
           type: string
@@ -3196,6 +5471,54 @@ components:
         - DRAFT
         - ACTIVE
         - RETIRED
+    AiPromptType:
+      type: string
+      enum:
+        - EXPLANATION
+        - SIMULATOR
+        - QA
+    AiPromptVersionStatus:
+      type: string
+      enum:
+        - DRAFT
+        - ACTIVE
+        - RETIRED
+    AiEvaluationType:
+      type: string
+      enum:
+        - EXPLANATION
+        - SIMULATOR
+        - QA
+    AiEvaluationSetStatus:
+      type: string
+      enum:
+        - DRAFT
+        - ACTIVE
+        - RETIRED
+    AiEvaluationCaseStatus:
+      type: string
+      enum:
+        - CANDIDATE
+        - APPROVED
+        - REJECTED
+    AiEvaluationSourceType:
+      type: string
+      enum:
+        - VALIDATION_FAILURE
+        - USER_REPORT
+        - ADMIN_CREATED
+    AiEvaluationRunStatus:
+      type: string
+      enum:
+        - RUNNING
+        - SUCCEEDED
+        - FAILED
+    AiEvaluationResultStatus:
+      type: string
+      enum:
+        - PASSED
+        - FAILED
+        - NEEDS_REVIEW
     AiBatchName:
       type: string
       enum:
@@ -3214,10 +5537,13 @@ components:
         - AI_ASSET_REJECT
         - AI_ASSET_HIDE
         - AI_REGENERATE_REQUEST
+        - EVAL_CASE_APPROVE
+        - EVAL_CASE_REJECT
     AiAuditTargetType:
       type: string
       enum:
         - AI_GENERATED_ASSET
+        - AI_EVALUATION_CASE
     ValidationReferenceJobStatus:
       type: string
       enum:
@@ -3855,6 +6181,10 @@ components:
           $ref: "#/components/schemas/NoteCategory"
         title:
           type: string
+        bodyPreview:
+          type: string
+          nullable: true
+          description: 목록 카드용 본문 미리보기(앞부분 발췌). 내용이 없으면 null.
         status:
           $ref: "#/components/schemas/NoteStatus"
         visibility:

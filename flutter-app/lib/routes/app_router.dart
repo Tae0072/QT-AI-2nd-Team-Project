@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,7 +8,6 @@ import '../features/auth/screens/nickname_setup_screen.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/mypage/screens/mypage_screen.dart';
 import '../features/mypage/screens/notification_list_screen.dart';
-import '../features/mypage/screens/praise_screen.dart';
 import '../features/mypage/screens/profile_edit_screen.dart';
 import '../features/mypage/screens/settings_screen.dart';
 import '../features/mypage/screens/tts_settings_screen.dart';
@@ -18,9 +19,12 @@ import '../features/note/screens/note_list_screen.dart';
 import '../features/note/screens/qt_note_editor_screen.dart';
 import '../features/onboarding/providers/onboarding_providers.dart';
 import '../features/onboarding/screens/onboarding_screen.dart';
+import '../features/dev/dev_mode_screen.dart'; // [DEV_MODE]
 import '../features/sharing/screens/my_sharing_screen.dart';
+import '../features/sharing/screens/sharing_bookmarks_screen.dart';
 import '../features/sharing/screens/sharing_detail_screen.dart';
 import '../features/sharing/screens/sharing_feed_screen.dart';
+import '../features/sharing/screens/sharing_mentions_screen.dart';
 import '../features/study/screens/qt_study_content_screen.dart';
 
 /// 앱 라우트 설정.
@@ -36,9 +40,10 @@ class AppRouter {
   static const String appSettings = '/settings';
   static const String ttsSettings = '/settings/tts';
   static const String musicSettings = '/settings/music';
-  static const String praise = '/praise';
   static const String sharing = '/sharing';
   static const String sharingDetail = '/sharing/detail';
+  static const String sharingBookmarks = '/sharing/bookmarks';
+  static const String sharingMentions = '/sharing/mentions';
   static const String mySharing = '/my-sharing';
   static const String noteList = '/notes';
   static const String noteCategorySelect = '/notes/category-select';
@@ -46,6 +51,7 @@ class AppRouter {
   static const String noteDetail = '/notes/detail';
   static const String qtNoteEditor = '/notes/qt-editor';
   static const String qtStudyContent = '/qt/study-content';
+  static const String devMode = '/dev-mode'; // [DEV_MODE]
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -56,7 +62,7 @@ class AppRouter {
               onComplete: () async {
                 await ref.read(onboardingCompleteProvider.notifier).complete();
                 if (context.mounted) {
-                  Navigator.of(context).pushReplacementNamed(login);
+                  unawaited(Navigator.of(context).pushReplacementNamed(login));
                 }
               },
             ),
@@ -65,6 +71,11 @@ class AppRouter {
       case login:
         return MaterialPageRoute(
           builder: (_) => const LoginScreen(),
+        );
+      // [DEV_MODE] 개발자 모드 화면
+      case devMode:
+        return MaterialPageRoute(
+          builder: (_) => const DevModeScreen(),
         );
       case nicknameSetup:
         return MaterialPageRoute(
@@ -98,10 +109,6 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (_) => const MusicSettingsScreen(),
         );
-      case praise:
-        return MaterialPageRoute(
-          builder: (_) => const PraiseScreen(),
-        );
       case sharing:
         return MaterialPageRoute(
           builder: (_) => const SharingFeedScreen(),
@@ -109,6 +116,14 @@ class AppRouter {
       case mySharing:
         return MaterialPageRoute(
           builder: (_) => const MySharingScreen(),
+        );
+      case sharingBookmarks:
+        return MaterialPageRoute(
+          builder: (_) => const SharingBookmarksScreen(),
+        );
+      case sharingMentions:
+        return MaterialPageRoute(
+          builder: (_) => const SharingMentionsScreen(),
         );
       case sharingDetail:
         final postId = settings.arguments as int;

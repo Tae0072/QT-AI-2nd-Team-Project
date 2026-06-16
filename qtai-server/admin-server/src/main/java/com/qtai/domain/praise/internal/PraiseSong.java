@@ -51,6 +51,15 @@ public class PraiseSong extends BaseEntity {
         this.status = (status != null) ? status : PraiseSongStatus.ACTIVE;
     }
 
+    public void update(String title, String artist, String licenseNote, PraiseSongStatus status) {
+        this.title = title;
+        this.artist = artist;
+        this.licenseNote = licenseNote;
+        if (status != null) {
+            this.status = status;
+        }
+    }
+
     public void hide() {
         this.status = PraiseSongStatus.HIDDEN;
     }

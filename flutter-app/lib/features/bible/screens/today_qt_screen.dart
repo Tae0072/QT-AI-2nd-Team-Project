@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:qtai_app/l10n/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/calm_paper.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../../note/screens/qt_note_editor_screen.dart';
@@ -83,7 +85,45 @@ class _TodayQtContent extends StatefulWidget {
 }
 
 class _TodayQtContentState extends State<_TodayQtContent> {
+  final _scrollController = ScrollController();
+  final _videoSectionKey = GlobalKey();
   bool _showEnglish = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _scrollToVideo() async {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+
+      final targetContext = _videoSectionKey.currentContext;
+      if (targetContext == null || !targetContext.mounted) {
+        await _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: attempt == 0 ? 420 : 220),
+          curve: Curves.easeOutCubic,
+        );
+      } else {
+        await Scrollable.ensureVisible(
+          targetContext,
+          duration: Duration(milliseconds: attempt == 0 ? 320 : 180),
+          curve: Curves.easeOutCubic,
+          alignment: 0.04,
+        );
+      }
+
+      await WidgetsBinding.instance.endOfFrame;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +133,7 @@ class _TodayQtContentState extends State<_TodayQtContent> {
     return RefreshIndicator(
       onRefresh: widget.onRefresh,
       child: ListView(
+        controller: _scrollController,
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         children: [
           Text(
@@ -125,6 +166,7 @@ class _TodayQtContentState extends State<_TodayQtContent> {
             onShowEnglishChanged: (selected) {
               setState(() => _showEnglish = selected);
             },
+            onVideoRequested: _scrollToVideo,
           ),
           const SizedBox(height: 20),
           for (final verse in data.verses)
@@ -134,7 +176,13 @@ class _TodayQtContentState extends State<_TodayQtContent> {
             ),
           if (data.qtPassageId != null) ...[
             const SizedBox(height: 12),
-            QtVideoSection(qtPassageId: data.qtPassageId!),
+            KeyedSubtree(
+              key: _videoSectionKey,
+              child: QtVideoSection(
+                key: const Key('today-qt-video-section'),
+                qtPassageId: data.qtPassageId!,
+              ),
+            ),
           ],
         ],
       ),
@@ -146,20 +194,14 @@ class _ActionRow extends StatelessWidget {
   final TodayQtPassage data;
   final bool showEnglish;
   final ValueChanged<bool> onShowEnglishChanged;
+  final VoidCallback onVideoRequested;
 
   const _ActionRow({
     required this.data,
     required this.showEnglish,
     required this.onShowEnglishChanged,
+    required this.onVideoRequested,
   });
-
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).bibleComingSoon(feature)),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -181,9 +223,15 @@ class _ActionRow extends StatelessWidget {
                     arguments: QtStudyContentArgs(
                       qtPassageId: qtPassageId,
                       referenceText: data.reference.displayText,
+                      // 라벨은 "장:절"(예: 9:1) — 오늘 QT 표기와 일치시킨다.
                       verseLabels: {
                         for (final verse in data.verses)
                           verse.id: '${verse.chapterNo}:${verse.verseNo}',
+                      },
+                      // 각 절 본문(절 번호 옆에 함께 표시).
+                      verseTexts: {
+                        for (final verse in data.verses)
+                          verse.id: (verse.koreanText ?? '').trim(),
                       },
                     ),
                   ),
@@ -191,9 +239,7 @@ class _ActionRow extends StatelessWidget {
           label: Text(l.bibleExplanation),
         ),
         OutlinedButton.icon(
-          onPressed: simulatorReady
-              ? () => _showComingSoon(context, l.bibleSimulator)
-              : null,
+          onPressed: simulatorReady ? onVideoRequested : null,
           icon: const Icon(Icons.movie_outlined),
           label: Text(l.bibleSimulator),
         ),
@@ -229,38 +275,65 @@ class _VerseTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final c = context.appColors;
     final koreanText = verse.koreanText?.trim();
     final englishText = verse.englishText?.trim();
 
+    // 프로토타입 .verse 패턴: 좌측 절 번호(회색) + 본문, 영어는 sunken sub-box로 분리.
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${verse.chapterNo}:${verse.verseNo}',
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          if (koreanText != null && koreanText.isNotEmpty)
-            Text(
-              koreanText,
-              style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
-            ),
-          if (showEnglish && englishText != null && englishText.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              englishText,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                height: 1.5,
-                color: theme.colorScheme.onSurfaceVariant,
+          SizedBox(
+            width: 34,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${verse.chapterNo}:${verse.verseNo}',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontFamily: 'GowunDodum',
+                  fontSize: 13,
+                  height: 1.2,
+                  color: c.text2,
+                ),
               ),
             ),
-          ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (koreanText != null && koreanText.isNotEmpty)
+                  Text(
+                    koreanText,
+                    style: TextStyle(
+                      fontFamily: 'GowunDodum',
+                      fontSize: 16,
+                      height: 1.65,
+                      color: c.text,
+                    ),
+                  ),
+                if (showEnglish &&
+                    englishText != null &&
+                    englishText.isNotEmpty)
+                  CpSubBox(
+                    margin: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      englishText,
+                      style: TextStyle(
+                        fontFamily: 'GowunDodum',
+                        fontSize: 14,
+                        height: 1.55,
+                        color: c.text2,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );

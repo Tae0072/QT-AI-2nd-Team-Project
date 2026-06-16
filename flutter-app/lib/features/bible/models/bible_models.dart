@@ -108,6 +108,36 @@ class BibleVerseRange {
   }
 }
 
+/// 성경 본문 범위의 해설 진입점 가용성 — QT 도메인의 `/qt/passage-study`가 제공한다.
+///
+/// `/bible/verses`(bible 도메인)는 qt·study에 의존할 수 없어(모듈 순환 방지) 해설
+/// 가용성을 줄 수 없다. 대신 qt 도메인이 bible·study를 조합해 별도로 노출한다.
+class BiblePassageStudy {
+  /// 선택 범위가 속한 QT 본문 ID (해설 콘텐츠 조회용). 없으면 null.
+  final int? qtPassageId;
+
+  /// 승인된 해설 존재 여부 — 해설 진입점 활성 기준.
+  final bool hasExplanation;
+
+  const BiblePassageStudy({
+    required this.qtPassageId,
+    required this.hasExplanation,
+  });
+
+  static const BiblePassageStudy none =
+      BiblePassageStudy(qtPassageId: null, hasExplanation: false);
+
+  /// 해설 진입점을 띄울 수 있는지 — 콘텐츠 조회에 qtPassageId가 필요하다.
+  bool get explanationReady => hasExplanation && qtPassageId != null;
+
+  factory BiblePassageStudy.fromJson(Map<String, dynamic> json) {
+    return BiblePassageStudy(
+      qtPassageId: json['qtPassageId'] as int?,
+      hasExplanation: json['hasExplanation'] as bool? ?? false,
+    );
+  }
+}
+
 class TodayQtPassage {
   final int? qtPassageId;
   final String? passageDate;
@@ -247,7 +277,8 @@ class TodayQtRange {
   final String bookCode;
   final String koreanBookName;
   final String englishBookName;
-  final int chapter;
+  final int chapter; // 시작 장
+  final int endChapter; // 종료 장 (같은 장이면 chapter와 동일)
   final int verseFrom;
   final int verseTo;
   final String displayText;
@@ -258,18 +289,25 @@ class TodayQtRange {
     required this.koreanBookName,
     required this.englishBookName,
     required this.chapter,
+    required this.endChapter,
     required this.verseFrom,
     required this.verseTo,
     required this.displayText,
   });
 
+  /// 장 교차 본문 여부(예: 10:14-11:1).
+  bool get isCrossChapter => endChapter != chapter;
+
   factory TodayQtRange.fromJson(Map<String, dynamic> json) {
+    final chapter = json['chapter'] as int;
     return TodayQtRange(
       testament: json['testament'] as String,
       bookCode: json['bookCode'] as String,
       koreanBookName: json['koreanBookName'] as String,
       englishBookName: json['englishBookName'] as String,
-      chapter: json['chapter'] as int,
+      chapter: chapter,
+      // 구 백엔드 호환: endChapter가 없으면 시작 장과 동일(단일 장)로 본다.
+      endChapter: json['endChapter'] as int? ?? chapter,
       verseFrom: json['verseFrom'] as int,
       verseTo: json['verseTo'] as int,
       displayText: json['displayText'] as String,
@@ -281,6 +319,7 @@ class TodayQtRange {
       koreanBookName: koreanBookName,
       englishBookName: englishBookName,
       chapter: chapter,
+      endChapter: endChapter,
       verseFrom: verseFrom,
       verseTo: verseTo,
     );

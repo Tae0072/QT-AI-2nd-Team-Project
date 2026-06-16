@@ -6,7 +6,8 @@ import '../models/dashboard_response.dart';
 /// 통계 위젯 카드.
 ///
 /// 주간/월간 QT 묵상 일수, 노트 수, 연속 묵상 일수를 표시한다.
-/// notes 도메인이 아직 미구현이므로 현재는 0으로 표시된다.
+/// 값은 서버(service-note 묵상 달력)가 집계한다 — 노트를 저장(SAVED)한 날이
+/// 묵상 1일로 즉시 반영되며, 임시저장(DRAFT)은 포함되지 않는다.
 class StatsCard extends StatelessWidget {
   final StatsWidget stats;
 

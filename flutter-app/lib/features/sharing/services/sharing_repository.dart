@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../models/member_suggestion.dart';
 import '../models/sharing_post_response.dart';
 
 /// 나눔 API 호출 레이어.
@@ -13,12 +14,13 @@ class SharingRepository {
     String? category,
     String? query,
     int page = 0,
+    int size = 10,
   }) async {
     final response = await _dio.get('/sharing-posts', queryParameters: {
       if (category != null) 'category': category,
       if (query != null && query.isNotEmpty) 'q': query,
       'page': page,
-      'size': 20,
+      'size': size,
     });
     final data = response.data['data'] as Map<String, dynamic>;
     return SharingPostListResponse.fromJson(data);
@@ -39,6 +41,49 @@ class SharingRepository {
   /// 좋아요 취소.
   Future<void> unlike(int postId) async {
     await _dio.delete('/sharing-posts/$postId/like');
+  }
+
+  /// 저장(북마크). POST /sharing-posts/{id}/bookmark (201). 멱등.
+  Future<void> bookmark(int postId) async {
+    await _dio.post('/sharing-posts/$postId/bookmark');
+  }
+
+  /// 저장 해제. DELETE /sharing-posts/{id}/bookmark (204). 멱등.
+  Future<void> unbookmark(int postId) async {
+    await _dio.delete('/sharing-posts/$postId/bookmark');
+  }
+
+  /// 내 저장 목록 (GET /api/v1/me/bookmarks). 피드와 동일한 형식, 최근 저장순.
+  Future<SharingPostListResponse> getBookmarks({int page = 0}) async {
+    final response = await _dio.get('/me/bookmarks', queryParameters: {
+      'page': page,
+      'size': 20,
+    });
+    final data = response.data['data'] as Map<String, dynamic>;
+    return SharingPostListResponse.fromJson(data);
+  }
+
+  /// 내가 태그(멘션)된 글 목록 (GET /api/v1/me/mentions). 피드와 동일 형식, 최근 글 순.
+  Future<SharingPostListResponse> getMentions({int page = 0}) async {
+    final response = await _dio.get('/me/mentions', queryParameters: {
+      'page': page,
+      'size': 20,
+    });
+    final data = response.data['data'] as Map<String, dynamic>;
+    return SharingPostListResponse.fromJson(data);
+  }
+
+  /// 멘션 자동완성 — 닉네임 접두사로 회원 검색 (GET /api/v1/members/search).
+  /// query가 비면('#'만 입력) 서버가 기본 회원 목록을 후보로 돌려준다.
+  Future<List<MemberSuggestion>> searchMembers(String query, {int size = 8}) async {
+    final response = await _dio.get('/members/search', queryParameters: {
+      'q': query.trim(),
+      'size': size,
+    });
+    final list = response.data['data'] as List<dynamic>? ?? [];
+    return list
+        .map((e) => MemberSuggestion.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// 나눔 글 삭제.

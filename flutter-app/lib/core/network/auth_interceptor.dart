@@ -50,6 +50,11 @@ class AuthInterceptor extends Interceptor {
   @override
   Future<void> onRequest(
       RequestOptions options, RequestInterceptorHandler handler) async {
+    // 로그인(/auth/kakao)에는 이전 세션의 (만료된) 토큰을 붙이지 않는다.
+    // 붙이면 서버 JWT 필터가 무효 토큰을 거부(401)해 로그인 자체가 실패한다(2026-06-14 버그).
+    if (options.path.contains('/auth/kakao')) {
+      return handler.next(options);
+    }
     final token = await SecureStorage.getAccessToken();
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';

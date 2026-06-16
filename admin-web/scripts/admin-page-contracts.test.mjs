@@ -1,0 +1,445 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import ts from 'typescript';
+
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const sourcePath = path.join(rootDir, 'src', 'pages', 'adminPageContracts.ts');
+const source = fs.readFileSync(sourcePath, 'utf8');
+const pagesDir = path.join(rootDir, 'src', 'pages');
+
+const transpiled = ts.transpileModule(source, {
+  compilerOptions: {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022,
+  },
+  fileName: sourcePath,
+});
+
+if (/\bimport\b/.test(transpiled.outputText)) {
+  throw new Error(
+    'adminPageContracts.ts must stay free of runtime imports for this test runner.',
+  );
+}
+
+const contracts = await import(
+  `data:text/javascript;charset=utf-8,${encodeURIComponent(transpiled.outputText)}`
+);
+
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+
+function test(name, fn) {
+  try {
+    fn();
+    console.log(`PASS ${name}`);
+  } catch (error) {
+    console.error(`FAIL ${name}`);
+    throw error;
+  }
+}
+
+test('AI asset status filters use asset statuses only', () => {
+  assert.deepEqual(contracts.AI_ASSET_FILTERABLE_STATUSES, [
+    'VALIDATING',
+    'APPROVED',
+    'REJECTED',
+    'HIDDEN',
+  ]);
+  assert.equal(contracts.AI_ASSET_FILTERABLE_STATUSES.includes('NEEDS_REVIEW'), false);
+  assert.equal(contracts.AI_ASSET_DEFAULT_STATUS, 'VALIDATING');
+  assert.equal(
+    contracts.AI_ASSET_FILTERABLE_STATUSES.includes(contracts.AI_ASSET_DEFAULT_STATUS),
+    true,
+  );
+});
+
+test('AI assets page starts and resets with the validating status filter', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiAssetsPage.tsx'), 'utf8');
+
+  assert.match(page, /status:\s*AI_ASSET_DEFAULT_STATUS/);
+  assert.match(
+    page,
+    /useState<string \| undefined>\(AI_ASSET_DEFAULT_STATUS\)/,
+  );
+  assert.match(page, /setStatus\(AI_ASSET_DEFAULT_STATUS\)/);
+  assert.match(page, /applyFilters\(\{\s*status:\s*AI_ASSET_DEFAULT_STATUS\s*\}\)/);
+});
+
+test('AI monitoring separates asset status and validation log summary cards', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiMonitoringPage.tsx'), 'utf8');
+
+  assert.match(page, /title="생성 작업"/);
+  assert.match(page, /title="산출물 상태"/);
+  assert.match(page, /title="검증 로그"/);
+  assert.match(page, /title="Q&amp;A"/);
+  assert.doesNotMatch(page, /title="검증"/);
+  assert.equal((page.match(/xl=\{6\}/g) ?? []).length, 4);
+});
+
+test('admin page modals use destroyOnHidden instead of deprecated destroyOnClose', () => {
+  const modalPages = [
+    ['AiAssetsPage.tsx', 4],
+    ['AiChecklistsPage.tsx', 1],
+    ['AiEvaluationsPage.tsx', 4],
+    ['AiPromptVersionsPage.tsx', 2],
+    ['MusicTracksPage.tsx', 2],
+    ['PraiseSongsPage.tsx', 2],
+    ['ReportsPage.tsx', 2],
+  ];
+
+  for (const [fileName, expectedCount] of modalPages) {
+    const page = fs.readFileSync(path.join(pagesDir, fileName), 'utf8');
+    assert.equal(page.includes('destroyOnClose'), false, fileName);
+    assert.equal((page.match(/\bdestroyOnHidden\b/g) ?? []).length, expectedCount, fileName);
+  }
+});
+
+test('AI prompt version route and menu stay reviewer-gated', () => {
+  const app = fs.readFileSync(path.join(rootDir, 'src', 'App.tsx'), 'utf8');
+  const menu = fs.readFileSync(path.join(rootDir, 'src', 'constants', 'menu.ts'), 'utf8');
+
+  assert.match(app, /import AiPromptVersionsPage from '\.\/pages\/AiPromptVersionsPage';/);
+  assert.match(app, /path="\/ai-prompt-versions"/);
+  assert.match(
+    app,
+    /element=\{withRole\('\/ai-prompt-versions', <AiPromptVersionsPage \/>\)\}/,
+  );
+  assert.match(
+    menu,
+    /code:\s*'AI-PROMPT'[\s\S]*?path:\s*'\/ai-prompt-versions'[\s\S]*?requiredRoles:\s*\[ADMIN_ROLES\.REVIEWER\]/,
+  );
+});
+
+test('AI prompt version page uses EXPLANATION draft prompt contracts', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiPromptVersionsPage.tsx'), 'utf8');
+  const api = fs.readFileSync(path.join(rootDir, 'src', 'api', 'aiPromptVersions.ts'), 'utf8');
+
+  assert.equal(contracts.AI_PROMPT_MANAGED_TYPE, 'EXPLANATION');
+  assert.equal(contracts.AI_PROMPT_DEFAULT_STATUS, 'DRAFT');
+  assert.deepEqual(Object.keys(contracts.AI_PROMPT_VERSION_STATUS_TAGS), [
+    'DRAFT',
+    'ACTIVE',
+    'RETIRED',
+  ]);
+  assert.deepEqual(contracts.aiPromptVersionListParams('DRAFT'), {
+    promptType: 'EXPLANATION',
+    status: 'DRAFT',
+  });
+  assert.deepEqual(contracts.aiPromptVersionListParams(undefined), {
+    promptType: 'EXPLANATION',
+    status: undefined,
+  });
+  assert.deepEqual(contracts.aiDraftPromptOptionsParams(), {
+    promptType: 'EXPLANATION',
+    status: 'DRAFT',
+    page: 0,
+    size: 100,
+  });
+
+  assert.match(page, /aiPromptVersionListParams\(AI_PROMPT_DEFAULT_STATUS\)/);
+  assert.match(page, /AI_PROMPT_VERSION_STATUS_TAGS/);
+  assert.match(page, /AI_PROMPT_MANAGED_TYPE/);
+  assert.doesNotMatch(page, /name="systemPrompt"/);
+  assert.doesNotMatch(page, /systemPrompt:\s*values\.systemPrompt/);
+
+  const createPayloadMatch = api.match(/export interface CreateAiPromptVersionPayload \{([\s\S]*?)\n\}/);
+  assert.ok(createPayloadMatch, 'CreateAiPromptVersionPayload must be declared');
+  assert.doesNotMatch(createPayloadMatch[1], /systemPrompt/);
+  assert.match(api, /'\/admin\/ai\/prompt-versions'/);
+  assert.match(api, /`\/admin\/ai\/prompt-versions\/\$\{id\}`/);
+  assert.match(api, /`\/admin\/ai\/prompt-versions\/\$\{id\}\/activate`/);
+  assert.match(api, /`\/admin\/ai\/prompt-versions\/\$\{id\}\/retire`/);
+});
+
+test('AI evaluation run status contracts match backend enums', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiEvaluationsPage.tsx'), 'utf8');
+  const api = fs.readFileSync(path.join(rootDir, 'src', 'api', 'aiEvaluations.ts'), 'utf8');
+
+  assert.deepEqual(Object.keys(contracts.AI_EVALUATION_RUN_STATUS_TAGS), [
+    'RUNNING',
+    'SUCCEEDED',
+    'FAILED',
+  ]);
+  assert.deepEqual(Object.keys(contracts.AI_EVALUATION_RUN_RESULT_TAGS), [
+    'PASSED',
+    'FAILED',
+    'NEEDS_REVIEW',
+  ]);
+  assert.equal(hasOwn(contracts.AI_EVALUATION_RUN_STATUS_TAGS, 'COMPLETED'), false);
+  assert.equal(hasOwn(contracts.AI_EVALUATION_RUN_STATUS_TAGS, 'PARTIAL_FAILED'), false);
+  assert.equal(hasOwn(contracts.AI_EVALUATION_RUN_RESULT_TAGS, 'PASS'), false);
+  assert.equal(hasOwn(contracts.AI_EVALUATION_RUN_RESULT_TAGS, 'FAIL'), false);
+
+  assert.match(api, /export type EvaluationRunStatus = 'RUNNING' \| 'SUCCEEDED' \| 'FAILED';/);
+  assert.match(
+    api,
+    /export type EvaluationRunResultStatus = 'PASSED' \| 'FAILED' \| 'NEEDS_REVIEW';/,
+  );
+  assert.match(page, /AI_EVALUATION_RUN_STATUS_TAGS/);
+  assert.match(page, /AI_EVALUATION_RUN_RESULT_TAGS/);
+  assert.doesNotMatch(page, /\bCOMPLETED\b|\bPARTIAL_FAILED\b|\bPASS\b|\bFAIL\b/);
+});
+
+test('AI evaluation latest run lookup degrades per row', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiEvaluationsPage.tsx'), 'utf8');
+
+  assert.match(
+    page,
+    /Promise\.allSettled\(rows\.map\(\(row\) => getLatestEvaluationRun\(row\.id\)\)\)/,
+  );
+  assert.doesNotMatch(page, /Promise\.all\(/);
+  assert.match(page, /next\[setId\] = null/);
+  assert.match(page, /failedCount \+= 1/);
+  assert.match(page, /message\.warning/);
+});
+
+test('AI evaluation run action visibility follows reviewer contract', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiEvaluationsPage.tsx'), 'utf8');
+
+  assert.equal(contracts.canRunAiEvaluation('REVIEWER'), true);
+  assert.equal(contracts.canRunAiEvaluation('SUPER_ADMIN'), true);
+  assert.equal(contracts.canRunAiEvaluation('CONTENT_CREATOR'), false);
+  assert.equal(contracts.canRunAiEvaluation('OPERATOR'), false);
+  assert.equal(contracts.canRunAiEvaluation(null), false);
+  assert.match(page, /const canReview = canRunAiEvaluation\(adminInfo\?\.adminRole\)/);
+  assert.match(page, /canReview && r\.evalType === 'EXPLANATION'/);
+  assert.match(page, /aiDraftPromptOptionsParams\(\)/);
+});
+
+test('audit log actor filter exposes only admin and system batch actors', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AuditLogsPage.tsx'), 'utf8');
+  const optionsMatch = page.match(/const ACTOR_TYPE_OPTIONS = \[([\s\S]*?)\];/);
+
+  assert.ok(optionsMatch, 'ACTOR_TYPE_OPTIONS must be declared in AuditLogsPage.tsx');
+
+  const optionsSource = optionsMatch[1];
+  assert.match(optionsSource, /label:\s*'ADMIN',\s*value:\s*'ADMIN'/);
+  assert.match(
+    optionsSource,
+    /label:\s*'SYSTEM_BATCH',\s*value:\s*'SYSTEM_BATCH'/,
+  );
+  assert.doesNotMatch(optionsSource, /label:\s*'USER'|value:\s*'USER'/);
+  assert.match(page, /options=\{ACTOR_TYPE_OPTIONS\}/);
+});
+
+test('AI asset action visibility follows review and regeneration contracts', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'AiAssetsPage.tsx'), 'utf8');
+
+  assert.equal(contracts.isAiAssetReviewable('VALIDATING'), true);
+  assert.equal(contracts.isAiAssetReviewable('APPROVED'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'PASSED', 'PASSED'), true);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'NEEDS_REVIEW', 'PASSED'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'PASSED', 'NEEDS_REVIEW'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', 'PASSED', 'REJECTED'), false);
+  assert.equal(contracts.isAiAssetApprovable('APPROVED', 'PASSED', 'PASSED'), false);
+  assert.equal(contracts.isAiAssetApprovable('VALIDATING', null, 'PASSED'), false);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('VALIDATING', 'PASSED'), true);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('VALIDATING', 'NEEDS_REVIEW'), true);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('VALIDATING', 'REJECTED'), false);
+  assert.equal(contracts.shouldShowAiAssetApproveButton('APPROVED', 'PASSED'), false);
+  assert.equal(contracts.isAiAssetRegeneratable('REJECTED'), true);
+  assert.equal(contracts.isAiAssetRegeneratable('HIDDEN'), true);
+  assert.equal(contracts.isAiAssetRegeneratable('APPROVED'), false);
+  assert.match(
+    page,
+    /isAiAssetApprovable\(\s*r\.status,\s*r\.autoValidationResult,\s*r\.advisorValidationResult,\s*\)/,
+  );
+  assert.match(
+    page,
+    /shouldShowAiAssetApproveButton\(\s*r\.status,\s*r\.advisorValidationResult,\s*\)/,
+  );
+  assert.match(page, /disabled=\{!canApprove\}/);
+});
+
+test('AI asset active regeneration job prefers cached active jobs', () => {
+  assert.deepEqual(
+    contracts.resolveActiveRegenerationJob(
+      { generationJobId: 7, status: 'QUEUED' },
+      { id: 8, status: 'RUNNING' },
+      { id: 9, status: 'SUCCEEDED' },
+    ),
+    { generationJobId: 7, status: 'QUEUED' },
+  );
+
+  assert.deepEqual(
+    contracts.resolveActiveRegenerationJob(
+      undefined,
+      { id: 8, status: 'RUNNING' },
+      { id: 9, status: 'SUCCEEDED' },
+    ),
+    { generationJobId: 8, status: 'RUNNING' },
+  );
+
+  assert.equal(
+    contracts.resolveActiveRegenerationJob(
+      undefined,
+      { id: 8, status: 'SUCCEEDED' },
+      { id: 9, status: 'FAILED' },
+    ),
+    undefined,
+  );
+});
+
+test('AI asset evaluation set params preserve targetType contract', () => {
+  assert.deepEqual(contracts.aiAssetEvaluationSetListParams('QT_PASSAGE'), {
+    targetType: 'QT_PASSAGE',
+    size: 100,
+  });
+  assert.deepEqual(contracts.aiAssetEvaluationSetListParams(null), {
+    targetType: undefined,
+    size: 100,
+  });
+});
+
+test('praise song payload remains metadata-only', () => {
+  assert.deepEqual(contracts.PRAISE_SONG_FILTERABLE_STATUSES, ['ACTIVE', 'HIDDEN']);
+
+  const payload = contracts.buildPraiseSongCreatePayload({
+    title: 'title',
+    artist: 'artist',
+    licenseNote: 'license',
+    status: 'ACTIVE',
+    sourceType: 'DEVICE',
+    lyrics: 'blocked',
+    youtubeUrl: 'blocked',
+  });
+
+  assert.deepEqual(payload, {
+    title: 'title',
+    artist: 'artist',
+    licenseNote: 'license',
+    status: 'ACTIVE',
+  });
+  assert.equal(hasOwn(payload, 'sourceType'), false);
+  assert.equal(hasOwn(payload, 'lyrics'), false);
+  assert.equal(hasOwn(payload, 'youtubeUrl'), false);
+});
+
+test('music track route and menu stay operator-gated', () => {
+  const app = fs.readFileSync(path.join(rootDir, 'src', 'App.tsx'), 'utf8');
+  const menu = fs.readFileSync(path.join(rootDir, 'src', 'constants', 'menu.ts'), 'utf8');
+
+  assert.deepEqual(contracts.MUSIC_TRACK_FILTERABLE_STATUSES, ['ACTIVE', 'HIDDEN']);
+  assert.deepEqual(contracts.musicTrackActionsForStatus('HIDDEN'), {
+    canPublish: true,
+    canHide: false,
+  });
+  assert.deepEqual(contracts.musicTrackActionsForStatus('ACTIVE'), {
+    canPublish: false,
+    canHide: true,
+  });
+
+  assert.match(app, /import MusicTracksPage from '\.\/pages\/MusicTracksPage';/);
+  assert.match(app, /path="\/music-tracks"/);
+  assert.match(
+    app,
+    /element=\{withRole\('\/music-tracks', <MusicTracksPage \/>\)\}/,
+  );
+  assert.match(
+    menu,
+    /path:\s*'\/music-tracks'[\s\S]*?label:\s*'배경음악 관리'[\s\S]*?requiredRoles:\s*\[ADMIN_ROLES\.OPERATOR\]/,
+  );
+});
+
+test('music track upload requests are allowed to use multipart boundaries', () => {
+  const client = fs.readFileSync(path.join(rootDir, 'src', 'api', 'client.ts'), 'utf8');
+  const musicApi = fs.readFileSync(path.join(rootDir, 'src', 'api', 'musicTracks.ts'), 'utf8');
+  const createConfig = client.match(/apiClient\s*=\s*axios\.create\(\{([\s\S]*?)\}\);/);
+
+  assert.ok(createConfig, 'apiClient must be created with axios.create');
+  assert.doesNotMatch(createConfig[1], /Content-Type/);
+  assert.match(musicApi, /new FormData\(\)/);
+  assert.match(musicApi, /apiClient\.post<ApiResponse<MusicTrack>>\([\s\S]*toFormData\(values, true\)/);
+  assert.match(musicApi, /apiClient\.patch<ApiResponse<MusicTrack>>\([\s\S]*toFormData\(values, false\)/);
+});
+
+test('music track upload form rejects non-audio files before submit', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'MusicTracksPage.tsx'), 'utf8');
+
+  assert.match(page, /AUDIO_FILE_ERROR_MESSAGE\s*=\s*'오디오 파일만 등록할 수 있습니다\.'/);
+  assert.match(page, /validateAudioUploadFile\(file, form\)/);
+  assert.match(page, /Upload\.LIST_IGNORE/);
+  assert.match(page, /accept="audio\/\*,\.mp3,\.m4a,\.aac,\.ogg,\.wav,\.webm,\.flac"/);
+});
+
+test('QT passage filters and row actions use operational statuses only', () => {
+  assert.deepEqual(contracts.QT_PASSAGE_FILTERABLE_STATUSES, [
+    'pending_review',
+    'active',
+    'hidden',
+  ]);
+
+  assert.deepEqual(contracts.qtPassageActionsForStatus('pending_review'), {
+    canEdit: true,
+    canPublish: true,
+    canHide: false,
+  });
+  assert.deepEqual(contracts.qtPassageActionsForStatus('active'), {
+    canEdit: true,
+    canPublish: false,
+    canHide: true,
+  });
+  assert.deepEqual(contracts.qtPassageActionsForStatus('deletion_notified'), {
+    canEdit: false,
+    canPublish: false,
+    canHide: false,
+  });
+});
+
+test('report processing payload hides only resolved POST targets', () => {
+  assert.deepEqual(
+    contracts.buildReportProcessPayload('resolve', { targetType: 'POST' }, '  spam  ', true),
+    {
+      reason: 'spam',
+      notifyReporter: true,
+      action: 'HIDE_TARGET',
+    },
+  );
+
+  assert.deepEqual(
+    contracts.buildReportProcessPayload('reject', { targetType: 'POST' }, '', false),
+    {
+      reason: undefined,
+      notifyReporter: false,
+    },
+  );
+
+  assert.deepEqual(
+    contracts.buildReportProcessPayload('resolve', { targetType: 'COMMENT' }, '', true),
+    {
+      reason: undefined,
+      notifyReporter: true,
+    },
+  );
+});
+
+test('report evaluation candidate visibility and filters stay aligned', () => {
+  assert.equal(contracts.isOpenReportStatus('RECEIVED'), true);
+  assert.equal(contracts.isOpenReportStatus('RESOLVED'), false);
+  assert.equal(contracts.isAiReport('AI_QA_REQUEST'), true);
+  assert.equal(contracts.isAiReport('AI_ASSET'), true);
+  assert.equal(contracts.isAiReport('POST'), false);
+
+  assert.deepEqual(contracts.reportEvaluationSetListParams({ targetType: 'AI_QA_REQUEST' }), {
+    targetType: 'QA_REQUEST',
+    size: 100,
+  });
+  assert.deepEqual(contracts.reportEvaluationSetListParams({ targetType: 'AI_ASSET' }), {
+    size: 100,
+  });
+});
+
+test('notice publish result exposes delivery confirmation fields', () => {
+  const api = fs.readFileSync(path.join(rootDir, 'src', 'api', 'notices.ts'), 'utf8');
+  const page = fs.readFileSync(path.join(pagesDir, 'NoticesPage.tsx'), 'utf8');
+
+  assert.match(api, /noticeId:\s*number/);
+  assert.match(api, /targetMemberCount:\s*number/);
+  assert.match(api, /queuedCount:\s*number/);
+  assert.match(page, /targetMemberCount/);
+  assert.match(page, /queuedCount/);
+  assert.match(page, /대상 \$\{targetMemberCount\}명/);
+  assert.match(page, /알림함 \$\{queuedCount\}건 생성/);
+});

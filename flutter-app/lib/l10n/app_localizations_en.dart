@@ -55,6 +55,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginFailed => 'Login failed. Please try again.';
 
   @override
+  String get loginWebNotSupported =>
+      'Kakao login is not supported on the web. Please use the mobile app.';
+
+  @override
   String get loginLegalPrefix => 'By continuing, you agree to the ';
 
   @override
@@ -111,16 +115,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteListTitle => 'Notes';
 
   @override
-  String get noteViewList => 'List view';
-
-  @override
-  String get noteViewCalendar => 'Calendar view';
-
-  @override
   String get noteFilterAll => 'All';
 
   @override
+  String get noteStatusAll => 'All';
+
+  @override
+  String get noteStatusDraft => 'Draft';
+
+  @override
+  String get noteStatusSaved => 'Saved';
+
+  @override
+  String noteQuickCreate(String label) {
+    return 'New $label';
+  }
+
+  @override
   String get noteEmpty => 'No notes yet';
+
+  @override
+  String get noteSearchHint => 'Search records';
+
+  @override
+  String get noteSearchEmpty => 'No matching records';
+
+  @override
+  String get noteEmptyQtHint => 'Write QT notes from the Today QT screen';
+
+  @override
+  String get noteEmptySermonHint => 'Write sermon notes from the Bible screen';
+
+  @override
+  String get noteSelect => 'Select';
+
+  @override
+  String get noteSelectAll => 'Select all';
+
+  @override
+  String noteSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get noteDeleteSelectedTitle => 'Delete selected notes';
+
+  @override
+  String noteDeleteSelectedBody(int count) {
+    return 'Delete $count selected notes? This can\'t be undone.';
+  }
+
+  @override
+  String noteDeletedCount(int count) {
+    return 'Deleted $count';
+  }
+
+  @override
+  String noteDeletePartial(int ok, int failed) {
+    return '$ok deleted, $failed failed';
+  }
 
   @override
   String get noteUntitled => '(Untitled)';
@@ -151,18 +204,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noteDeleteFailed => 'Failed to delete. Please try again.';
-
-  @override
-  String get noteSectionFelt => 'Reflections';
-
-  @override
-  String get noteSectionVerse => 'Verse to remember';
-
-  @override
-  String get noteSectionApply => 'How to apply';
-
-  @override
-  String get noteSectionPray => 'Prayer';
 
   @override
   String get noteQuotedVerses => 'Quoted verses';
@@ -223,27 +264,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notePublishView => 'View';
 
   @override
-  String get fmtBold => 'Bold';
-
-  @override
-  String get fmtItalic => 'Italic';
-
-  @override
-  String get fmtHeading => 'Heading';
-
-  @override
-  String get fmtList => 'List';
-
-  @override
-  String get fmtQuote => 'Quote';
-
-  @override
-  String get fmtCheckbox => 'Checkbox';
-
-  @override
-  String get fmtDivider => 'Divider';
-
-  @override
   String calSavedThisMonth(int days) {
     return 'Saved $days days this month';
   }
@@ -271,7 +291,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteShareImageFailed => 'Failed to share image';
 
   @override
-  String get navToday => 'Today';
+  String get navToday => 'QT';
 
   @override
   String get navBible => 'Bible';
@@ -283,7 +303,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navNote => 'Notes';
 
   @override
+  String get navRecord => 'Records';
+
+  @override
   String get navMy => 'My';
+
+  @override
+  String get homeBackExitGuide => 'Press back again to exit';
 
   @override
   String get ttsRead => 'Read passage';
@@ -343,7 +369,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bibleExplanation => 'Commentary';
 
   @override
-  String get bibleSimulator => 'Simulator';
+  String get bibleSimulator => 'QT Video';
+
+  @override
+  String get qtVideoTitle => 'QT Video';
+
+  @override
+  String get qtVideoRetry => 'Reload';
+
+  @override
+  String get videoBack => 'Back';
+
+  @override
+  String get videoPlay => 'Play';
+
+  @override
+  String get videoPause => 'Pause';
+
+  @override
+  String get videoSpeed => 'Speed';
+
+  @override
+  String get videoFullscreen => 'Fullscreen';
 
   @override
   String get bibleMeditationNote => 'Write meditation note';
@@ -523,6 +570,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statsTitle => 'My meditation';
 
   @override
+  String get missionTitle => 'Mission';
+
+  @override
   String get statsWeek => 'This week';
 
   @override
@@ -568,6 +618,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsNotificationDesc => 'Receive push notifications';
+
+  @override
+  String get settingsDarkMode => 'Dark mode';
+
+  @override
+  String get settingsDarkModeDesc => 'Use the dark theme';
+
+  @override
+  String get settingsThemeMode => 'Theme';
+
+  @override
+  String get settingsThemeLight => 'Light';
+
+  @override
+  String get settingsThemeDark => 'Dark';
+
+  @override
+  String get settingsThemeSystem => 'Follow system';
+
+  @override
+  String get settingsThemeSystemDesc =>
+      'Switches light/dark automatically based on device settings';
 
   @override
   String get settingsFontSize => 'Font size';
@@ -699,7 +771,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ttsVoicesError => 'Couldn\'t load the voice list';
 
   @override
-  String get catMeditation => 'Meditation';
+  String get catMeditation => 'QT';
 
   @override
   String get catSermon => 'Sermon';

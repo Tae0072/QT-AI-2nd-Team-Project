@@ -41,13 +41,14 @@ jobs:
             ./gradlew test --no-daemon
           fi
 
-      - name: JaCoCo Coverage Report
+      # 커버리지 게이트 복구(코드리뷰 2026-06-10 TODO 3): continue-on-error 제거.
+      # 모듈별 최소 라인 커버리지는 루트 build.gradle.kts coverageFloors 참고(실측-5%p 시작).
+      - name: JaCoCo Coverage Report & Gate
         run: |
           if [ -d qtai-server ] && [ -f qtai-server/gradlew ]; then
             cd qtai-server
-            ./gradlew jacocoTestReport --no-daemon
+            ./gradlew jacocoTestReport jacocoTestCoverageVerification --no-daemon
           fi
-        continue-on-error: true
 
   # =============================================================================
   # Flutter 정적 분석 + 테스트 (analyze + test 둘 다)

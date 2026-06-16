@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.qtai.domain.study.api.GetQtStudyAvailabilityUseCase;
 import com.qtai.domain.study.api.dto.QtStudyAvailability;
+import com.qtai.domain.qtvideo.api.GetQtVideoAvailabilityUseCase;
 
 /**
  * Today QT enrich용 가용성 판정 — 승인 콘텐츠 존재 여부만 가볍게 조회한다.
@@ -21,19 +22,17 @@ import com.qtai.domain.study.api.dto.QtStudyAvailability;
 @Transactional(readOnly = true)
 class QtStudyAvailabilityService implements GetQtStudyAvailabilityUseCase {
 
-    private static final String SIMULATOR_READY = "READY";
-    private static final String SIMULATOR_MISSING = "MISSING";
+    private static final String QT_VIDEO_READY = "READY";
+    private static final String QT_VIDEO_MISSING = "MISSING";
     private static final String ACTIVE_UNIQUE_KEY = "ACTIVE";
 
-    private final SimulatorClipRepository simulatorClipRepository;
+    private final GetQtVideoAvailabilityUseCase getQtVideoAvailabilityUseCase;
     private final VerseExplanationRepository verseExplanationRepository;
 
     @Override
     public QtStudyAvailability getAvailability(Long qtPassageId, List<Long> verseIds) {
-        boolean simulatorReady = qtPassageId != null && simulatorClipRepository
-                .findFirstByQtPassageIdAndStatusOrderByApprovedAtDescIdDesc(
-                        qtPassageId, SimulatorClipStatus.APPROVED)
-                .isPresent();
+        // 응답 필드명은 기존 API 호환을 위해 simulatorStatus로 유지한다.
+        boolean qtVideoReady = getQtVideoAvailabilityUseCase.hasReadyVideo(qtPassageId);
 
         boolean hasExplanation = verseIds != null && !verseIds.isEmpty()
                 && !verseExplanationRepository.findByBibleVerseIdInAndStatusAndActiveUniqueKey(
@@ -41,7 +40,7 @@ class QtStudyAvailabilityService implements GetQtStudyAvailabilityUseCase {
                 .isEmpty();
 
         return new QtStudyAvailability(
-                simulatorReady ? SIMULATOR_READY : SIMULATOR_MISSING,
+                qtVideoReady ? QT_VIDEO_READY : QT_VIDEO_MISSING,
                 hasExplanation
         );
     }

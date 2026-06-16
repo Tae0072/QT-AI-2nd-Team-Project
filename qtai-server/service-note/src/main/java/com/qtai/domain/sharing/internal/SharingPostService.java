@@ -4,6 +4,7 @@ import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.member.api.GetMemberUseCase;
 import com.qtai.domain.note.api.GetNoteUseCase;
+import com.qtai.domain.note.api.MarkNoteSharedUseCase;
 import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.dto.NoteDetailResponse;
 import com.qtai.domain.notification.api.SendNotificationUseCase;
@@ -64,11 +65,17 @@ public class SharingPostService
 
     private final SharingPostRepository sharingPostRepository;
     private final PostLikeRepository postLikeRepository;
+    // 피드·상세의 bookmarkedByMe(저장 여부) 배치 계산용(저장 쓰기는 SharingBookmarkService 담당).
+    private final SharingBookmarkRepository sharingBookmarkRepository;
     // 다른 도메인은 api 포트로만 호출(CLAUDE.md §4). 노트 본문 조회·작성자 닉네임 조회용.
     private final GetNoteUseCase getNoteUseCase;
+    // 공개/공개중단 시 원본 노트를 SHARED/PRIVATE로 표시(목록 shared 플래그 근거).
+    private final MarkNoteSharedUseCase markNoteSharedUseCase;
     private final GetMemberUseCase getMemberUseCase;
     // 좋아요 알림 발송용(P1-13).
     private final SendNotificationUseCase sendNotificationUseCase;
+    // 게시글 본문 '#닉네임' 멘션 기록·알림용.
+    private final SharingMentionService sharingMentionService;
     // 공통 시계(Asia/Seoul) — 좋아요 생성/삭제/숨김 시각을 시간 정책과 일관되게 기록한다.
     private final Clock clock;
 
@@ -81,9 +88,10 @@ public class SharingPostService
                 SharingPostStatus.PUBLISHED, normalizedCategory, escapedQuery, translateSort(pageable));
 
         Set<Long> likedPostIds = findLikedPostIds(memberId, page.getContent());
+        Set<Long> bookmarkedPostIds = findBookmarkedPostIds(memberId, page.getContent());
 
         List<SharingPostListItem> content = page.getContent().stream()
-                .map(post -> toItem(post, likedPostIds))
+                .map(post -> toItem(post, likedPostIds, bookmarkedPostIds))
                 .toList();
 
         return new SharingPostListResponse(
@@ -164,9 +172,10 @@ public class SharingPostService
                 .orElseThrow(() -> new BusinessException(ErrorCode.SHARING_POST_NOT_FOUND));
 
         boolean likedByMe = !postLikeRepository.findLikedPostIds(memberId, List.of(postId)).isEmpty();
+        boolean bookmarkedByMe = sharingBookmarkRepository.existsBySharingPostIdAndMemberId(postId, memberId);
         boolean ownedByMe = post.getMemberId().equals(memberId);
 
-        return toDetail(post, likedByMe, ownedByMe);
+        return toDetail(post, likedByMe, bookmarkedByMe, ownedByMe);
     }
 
     /**
@@ -209,8 +218,14 @@ public class SharingPostService
                 commentsEnabled);
         SharingPost saved = sharingPostRepository.save(post);
 
-        // 방금 내가 만든 글이므로 likedByMe=false, ownedByMe=true.
-        return toDetail(saved, false, true);
+        // 원본 노트를 SHARED로 표시 → 기록 목록의 shared 플래그가 실제 공유 상태를 반영한다.
+        markNoteSharedUseCase.markShared(memberId, noteId);
+
+        // 본문의 '#닉네임' 멘션 기록·알림(게시글 본문 멘션이므로 commentId=null, 본인 멘션 제외).
+        sharingMentionService.recordMentions(saved.getId(), null, memberId, saved.getSnapshotBody());
+
+        // 방금 내가 만든 글이므로 likedByMe=false, bookmarkedByMe=false, ownedByMe=true.
+        return toDetail(saved, false, false, true);
     }
 
     /**
@@ -279,6 +294,8 @@ public class SharingPostService
             return; // 이미 삭제됨 — 멱등
         }
         post.delete(LocalDateTime.now(clock));
+        // 공개 중단 → 원본 노트를 다시 PRIVATE로 되돌린다(노트가 이미 삭제됐으면 멱등 무시).
+        markNoteSharedUseCase.markUnshared(memberId, post.getNoteId());
     }
 
     /**
@@ -348,7 +365,8 @@ public class SharingPostService
     }
 
     /** SharingPost → 상세 응답 매핑. 조회(getDetail)와 공개(publish)가 공유한다. */
-    private SharingPostResponse toDetail(SharingPost post, boolean likedByMe, boolean ownedByMe) {
+    private SharingPostResponse toDetail(SharingPost post, boolean likedByMe, boolean bookmarkedByMe,
+                                         boolean ownedByMe) {
         return new SharingPostResponse(
                 post.getId(),
                 post.getNoteId(),
@@ -365,6 +383,7 @@ public class SharingPostService
                 post.getLikeCount(),
                 post.getCommentCount(),
                 likedByMe,
+                bookmarkedByMe,
                 ownedByMe,
                 post.getCreatedAt(),
                 post.getHiddenAt(),
@@ -380,7 +399,16 @@ public class SharingPostService
         return new HashSet<>(postLikeRepository.findLikedPostIds(memberId, postIds));
     }
 
-    private SharingPostListItem toItem(SharingPost post, Set<Long> likedPostIds) {
+    /** bookmarkedByMe 배치 조회: 이 페이지 글 id들 중 내가 저장한 것만 1회에 모은다. (likedByMe와 동일) */
+    private Set<Long> findBookmarkedPostIds(Long memberId, List<SharingPost> posts) {
+        if (posts.isEmpty()) {
+            return Set.of();
+        }
+        List<Long> postIds = posts.stream().map(SharingPost::getId).toList();
+        return new HashSet<>(sharingBookmarkRepository.findBookmarkedPostIds(memberId, postIds));
+    }
+
+    private SharingPostListItem toItem(SharingPost post, Set<Long> likedPostIds, Set<Long> bookmarkedPostIds) {
         return new SharingPostListItem(
                 post.getId(),
                 post.getNicknameSnapshot(),
@@ -394,6 +422,7 @@ public class SharingPostService
                 post.getLikeCount(),
                 post.getCommentCount(),
                 likedPostIds.contains(post.getId()),
+                bookmarkedPostIds.contains(post.getId()),
                 post.getCreatedAt());
     }
 

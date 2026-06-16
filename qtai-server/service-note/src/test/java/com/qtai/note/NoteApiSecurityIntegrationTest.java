@@ -2,6 +2,7 @@ package com.qtai.note;
 
 import com.qtai.domain.bible.api.GetBibleVerseUseCase;
 import com.qtai.domain.note.client.qt.NoteQtClient;
+import com.qtai.domain.report.client.ai.CheckAiQaRequestExistsClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -43,6 +45,8 @@ class NoteApiSecurityIntegrationTest {
     private NoteQtClient noteQtClient;
     @MockBean
     private GetBibleVerseUseCase getBibleVerseUseCase;
+    @MockBean
+    private CheckAiQaRequestExistsClient checkAiQaRequestExistsClient;
 
     /** principal = memberId(Long), 권한 ROLE_USER 인 인증 컨텍스트를 주입한다. */
     private static RequestPostProcessor user(long memberId) {
@@ -100,6 +104,8 @@ class NoteApiSecurityIntegrationTest {
         String body = """
                 {"targetType":"AI_QA_REQUEST","targetId":42,"reason":"FACT_ERROR","detail":"사실 오류"}
                 """;
+        when(checkAiQaRequestExistsClient.exists(3L, 42L)).thenReturn(true);
+
         mockMvc.perform(post("/api/v1/reports")
                         .with(user(3L))
                         .contentType(MediaType.APPLICATION_JSON)

@@ -6,12 +6,13 @@
 
 - 서비스: QT-AI, 큐티 AI 앱
 - 서버 형태: 단일 `qtai-server` Modular Monolith
+- admin-server 복사본 동기화: ① 도메인 로직은 항상 도메인 서비스(service-*)가 원본이고 admin-server는 따라간다 ② admin 고유 기능(admin 컨트롤러·관리자 배치)만 admin-server에서 직접 수정한다 ③ 스키마(Flyway)는 admin-server가 단독 소유하며 다른 모듈에 마이그레이션 파일을 두지 않는다. 상세: `doc/admin-server-sync-rules.md` (2026-06-11 Lead 결정, 코드리뷰 TODO 4)
 - Backend: Java 21, Spring Boot 3.3, Gradle, Spring Modulith, ArchUnit
 - DB/cache: MySQL 8.0, 테스트 H2, Caffeine app cache
 - Redis: token/rate/idempotency 등 필요 범위 검토 후 사용
 - AI: DeepSeek OpenAI-compatible client
 - 외부 API: 사용자 Flutter 앱(`/api/v1/**`)과 별도 관리자 웹 프런트엔드(`/api/v1/admin/**`)가 같은 `qtai-server`를 호출. 관리자 UI는 Flutter 앱이 아니라 별도 웹(2026-05-19 강사님 직강 결정, `03_아키텍처_정의서.md` v1.2 §4.9 / §13.6)
-- OAuth 경로: Flutter SDK가 카카오 토큰을 직접 받아 `POST /api/v1/auth/kakao`로 서버에 전달한다. 관리자 웹은 카카오 JS SDK 토큰을 `POST /api/v1/admin/auth/kakao`로 전달한다(2026-06-10 팀 결정). 서버사이드 `/oauth2/**` 경로는 어느 쪽도 사용하지 않는다.
+- OAuth·인증 경로: 사용자 Flutter 앱은 카카오 토큰을 `POST /api/v1/auth/kakao`로 서버에 전달한다. 관리자 웹은 카카오가 아니라 **자체 아이디/비밀번호 로그인**(`POST /api/v1/admin/auth/login`, 토큰 갱신 `POST /api/v1/admin/auth/refresh`)을 사용하며, admin-server(8090)가 `admin_users`의 `username`/`password_hash`(BCrypt)를 검증한 뒤 ADMIN 토큰을 발급한다(2026-06-11 팀 결정, 기존 2026-06-10 관리자 카카오 결정 대체). 서버사이드 `/oauth2/**` 경로는 어느 쪽도 사용하지 않는다.
 - 기본 응답·주석·PR 설명 언어: 한국어 우선
 - 백엔드 코드 컨벤션: `CODE_CONVENTION.md`를 우선 확인
 
@@ -59,7 +60,7 @@
 
 ## 5. API 규칙
 
-- 사용자·관리자 HTTP API는 `/api/v1/**` 아래에 둔다. Kakao 인증은 사용자 앱 `POST /api/v1/auth/kakao`, 관리자 웹 `POST /api/v1/admin/auth/kakao`를 사용하며(2026-06-10 팀 결정), `/oauth2/**` 예외 경로는 사용하지 않는다.
+- 사용자·관리자 HTTP API는 `/api/v1/**` 아래에 둔다. 사용자 앱은 카카오 인증 `POST /api/v1/auth/kakao`, 관리자 웹은 **자체 아이디/비밀번호 인증** `POST /api/v1/admin/auth/login`·`POST /api/v1/admin/auth/refresh`(SecurityConfig permitAll)를 사용한다(2026-06-11 팀 결정, 관리자 카카오 대체). `/oauth2/**` 예외 경로는 사용하지 않는다.
 - 관리자 API는 일반 회원 토큰의 `members.role=ADMIN`과 `admin_users.admin_role`을 모두 확인한 뒤, `OPERATOR`, `REVIEWER`, `CONTENT_CREATOR`, `SUPER_ADMIN` 중 API 명세에 맞는 세부 권한을 요구한다.
 - 시스템 API와 배치/AI 내부 작업은 사용자 계정이 아니라 `SYSTEM_BATCH` 주체로 기록한다.
 - 서비스 간 시스템(배치·스케줄러) 호출 인증은 사용자 토큰과 **분리**한다. 사용자 토큰은 service-user가 발급하는 **RS256**(비대칭, 공개키 검증)이고, 서비스 간 시스템 호출은 전달할 사용자 JWT가 없으므로 **공유 시크릿 기반 HS256 단명 `SYSTEM_BATCH` 토큰**을 사용한다(`security.jwt.system-secret`, 발급=`SystemTokenProvider`, 검증=`SystemTokenValidator`, `sub=0`·`role=SYSTEM_BATCH`·단명 만료). 공통 `JwtAuthenticationFilter`는 RS256 사용자 검증 실패 시 시스템 토큰으로 폴백 검증한다. 시스템 시크릿은 env로만 주입하고 로그·커밋에 남기지 않는다. 근거: `doc/workspaces/Lead_강태오/workflows/2026-06-10_service-to-service-system-auth.md`
@@ -158,3 +159,18 @@ gitleaks detect --source . --redact --exit-code 1
 - PR은 가능하면 10 files 이하, 500 changed lines 이하로 유지한다.
 - 기능 PR은 관련 F-ID를 명시한다.
 - `.gradle`, build output, coverage HTML, generated report, temporary file은 stage하지 않는다.
+
+## 13. Push 전 검증 (.github 자동 리뷰봇·CI 게이트) — 매 push/PR 전 필수
+
+`dev`로 push/PR 하기 전에 항상 `.github`의 자동 게이트 기준을 먼저 점검한다. 이 게이트는 통과 시 Claude 리뷰봇이 자동 squash 머지하므로, 사전 점검 없이 push하지 않는다. 근거: `.github/workflows/{pr-validation,qt-ai-ci,branch-merge-guard,claude-pr-review}.yml`, `.github/pull_request_template.md`.
+
+- 브랜치명: `feature|bugfix|hotfix|chore|release|docs|test` + `/` + kebab-case 만 통과한다. `feat`·`feature/Foo`(대문자)·언더스코어는 실패(`pr-validation.yml`의 `branch-name`).
+- PR 제목: Conventional Commits 타입(`feat|fix|refactor|chore|docs|test|perf|build|ci|revert`).
+- 보호 브랜치끼리(`dev`/`dev-msa`/`dev-admin-web`) PR·머지 금지(`branch-merge-guard.yml`).
+- `ci-all` 집계 잡이 전부 success여야 자동 머지된다:
+  - spring-build: `./gradlew build -x test` → `test` → `jacocoTestReport jacocoTestCoverageVerification`(KPI: Domain 70 / Application 70 / Presentation 50 / Infrastructure 40 / 전체 70).
+  - flutter-test, gitleaks(시크릿 0), spectral(`apis/**` OpenAPI), docker-compose config, **Requirements Guard**.
+- Requirements Guard 금지 패턴(발견 시 BLOCK): SSE(`SseEmitter`/`text/event-stream`/`/ai/sessions`), Kafka, 운영 K8s/Helm, RAG/Vector/ES/EmbeddingStore, 개역개정·`\bESV\b`·`\bNIV\b`, 성서유니온/두란노 본문 텍스트 컬럼(`seobi_union_text` 등 `*_text` 저장), `javax.*`, 교회인증(`church_*`), AI 찬양추천·가사·음원(`lyrics_text`/`audio_url` 등), Anthropic/Claude 구현(DeepSeek만), 금지표현('저작권 문제 없음'·'유실률 0%'·'내부 API 경로'), 사용자 노출 '주석'(→'해설').
+- Claude PR 자동 리뷰(v3.1 9기준): 테스트 누락 시 개선요청, 도메인 경계 직접 import·`@Transactional` 누락·권한(8 role)·검증통과(APPROVED)만 노출 위주로 본다.
+- PR 본문 필수: 관련 F-ID + `workspaces/{담당자}/workflows/{date}_{task}.md` 및 `reports/{date}_{task}_report.md` 링크.
+- 로컬 사전 검증: §11 명령(build/test/jacoco/spectral/gitleaks)을 먼저 통과시킨 뒤 push한다.

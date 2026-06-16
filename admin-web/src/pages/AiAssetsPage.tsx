@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import {
+  Alert,
   Card,
+  Descriptions,
+  Divider,
+  Drawer,
   Table,
   Tag,
   Typography,
@@ -10,42 +14,62 @@ import {
   Tooltip,
   Modal,
   Input,
+  InputNumber,
   Checkbox,
+  Spin,
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined } from '@ant-design/icons';
+import { EyeOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
 import {
   listAiAssets,
+  getAiAsset,
   approveAiAsset,
   rejectAiAsset,
   hideAiAsset,
+  regenerateAiAsset,
   type AiAsset,
+  type AiAssetDetail,
   type AiAssetListParams,
+  type AiValidationLog,
 } from '../api/aiAssets';
+import {
+  createEvaluationCandidate,
+  listEvaluationSets,
+  type EvaluationSet,
+} from '../api/aiEvaluations';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
+import {
+  AI_ASSET_FILTERABLE_STATUSES,
+  AI_ASSET_DEFAULT_STATUS,
+  aiAssetEvaluationSetListParams,
+  isAiAssetApprovable,
+  isAiAssetRegeneratable,
+  isAiAssetReviewable,
+  resolveActiveRegenerationJob,
+  shouldShowAiAssetApproveButton,
+  type RegenerationJobNotice,
+} from './adminPageContracts';
 
 // ===== AD-03 AI 산출물 검증 =====
 // 목록(메타데이터만, 원문 비노출) + 필터 + 승인/반려/숨김 모달. 권한: REVIEWER / SUPER_ADMIN.
 
-const ASSET_TYPE_OPTIONS = [
-  { label: '해설(EXPLANATION)', value: 'EXPLANATION' },
-  { label: '성경구절(BIBLE_VERSE)', value: 'BIBLE_VERSE' },
-];
+const STATUS_LABELS: Record<string, string> = {
+  VALIDATING: '검증중(VALIDATING)',
+  APPROVED: '승인(APPROVED)',
+  REJECTED: '반려(REJECTED)',
+  HIDDEN: '숨김(HIDDEN)',
+};
 
-const STATUS_OPTIONS = [
-  { label: '검증중(VALIDATING)', value: 'VALIDATING' },
-  { label: '검토필요(NEEDS_REVIEW)', value: 'NEEDS_REVIEW' },
-  { label: '승인(APPROVED)', value: 'APPROVED' },
-  { label: '반려(REJECTED)', value: 'REJECTED' },
-  { label: '숨김(HIDDEN)', value: 'HIDDEN' },
-];
+const STATUS_OPTIONS = AI_ASSET_FILTERABLE_STATUSES.map((value) => ({
+  label: STATUS_LABELS[value],
+  value,
+}));
 
 function statusTag(status: string) {
   const map: Record<string, { color: string; text: string }> = {
     VALIDATING: { color: 'blue', text: '검증중' },
-    NEEDS_REVIEW: { color: 'gold', text: '검토필요' },
     APPROVED: { color: 'green', text: '승인' },
     REJECTED: { color: 'red', text: '반려' },
     HIDDEN: { color: 'default', text: '숨김' },
@@ -54,7 +78,80 @@ function statusTag(status: string) {
   return <Tag color={m.color}>{m.text}</Tag>;
 }
 
-const isReviewable = (s: string) => s === 'VALIDATING' || s === 'NEEDS_REVIEW';
+function validationResultTag(result: string, prefix?: string) {
+  const map: Record<string, { color: string; text: string }> = {
+    PASSED: { color: 'green', text: '통과' },
+    REJECTED: { color: 'red', text: '반려' },
+    NEEDS_REVIEW: { color: 'gold', text: '검토 필요' },
+    FAILED: { color: 'red', text: '실패' },
+    BLOCKED: { color: 'red', text: '차단' },
+    WARNING: { color: 'gold', text: '경고' },
+  };
+  const m = map[result] ?? { color: 'default', text: result };
+  return <Tag color={m.color}>{prefix ? `${prefix}: ${m.text}` : m.text}</Tag>;
+}
+
+function validationResultSummary(asset: AiAsset) {
+  if (!asset.autoValidationResult && !asset.advisorValidationResult) {
+    return asset.latestValidationResult ? validationResultTag(asset.latestValidationResult) : '-';
+  }
+  return (
+    <Space size={[4, 4]} wrap>
+      {asset.autoValidationResult
+        ? validationResultTag(asset.autoValidationResult, 'AUTO')
+        : <Tag>AUTO: -</Tag>}
+      {asset.advisorValidationResult
+        ? validationResultTag(asset.advisorValidationResult, 'ADVISOR')
+        : <Tag>ADVISOR: -</Tag>}
+    </Space>
+  );
+}
+
+function approveDisabledReason(asset: AiAsset) {
+  if (asset.advisorValidationResult === 'NEEDS_REVIEW') {
+    return '검증 결과가 NEEDS_REVIEW라 승인할 수 없습니다. 상세 검토 후 반려하거나 재검증이 필요합니다.';
+  }
+  if (asset.autoValidationResult !== 'PASSED') {
+    return '자동 검증 결과가 PASSED가 아니라 승인할 수 없습니다.';
+  }
+  if (asset.advisorValidationResult !== 'PASSED') {
+    return '어드바이저 검증 결과가 PASSED가 아니라 승인할 수 없습니다.';
+  }
+  return undefined;
+}
+
+function targetLabel(target: { targetType: string | null; targetId: number | null }) {
+  return target.targetType
+    ? `${target.targetType}${target.targetId != null ? ` #${target.targetId}` : ''}`
+    : '-';
+}
+
+function promptVersionLabel(promptVersion: AiAsset['promptVersion']) {
+  if (!promptVersion) return '-';
+  const label = `${promptVersion.promptType ?? ''} ${promptVersion.version ?? ''}`.trim();
+  return label || '-';
+}
+
+function formatJson(value: unknown) {
+  if (value == null) return '-';
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+const preStyle: CSSProperties = {
+  margin: '4px 0 0',
+  padding: 8,
+  background: '#f6f8fa',
+  borderRadius: 6,
+  maxHeight: 280,
+  overflow: 'auto',
+  fontSize: 12,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-all',
+};
 
 type ActionMode = 'approve' | 'reject' | 'hide';
 
@@ -63,10 +160,10 @@ export default function AiAssetsPage() {
     usePagedList<AiAsset, AiAssetListParams>(listAiAssets, {
       page: 0,
       size: 20,
+      status: AI_ASSET_DEFAULT_STATUS,
     });
 
-  const [assetType, setAssetType] = useState<string | undefined>(undefined);
-  const [status, setStatus] = useState<string | undefined>(undefined);
+  const [status, setStatus] = useState<string | undefined>(AI_ASSET_DEFAULT_STATUS);
 
   const [action, setAction] = useState<{
     mode: ActionMode;
@@ -75,22 +172,171 @@ export default function AiAssetsPage() {
   const [reason, setReason] = useState('');
   const [activate, setActivate] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<AiAssetDetail | null>(null);
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
+  const [regenerateReason, setRegenerateReason] = useState('');
+  const [regeneratePromptVersionId, setRegeneratePromptVersionId] = useState<
+    number | null
+  >(null);
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenerationJobsByAssetId, setRegenerationJobsByAssetId] = useState<
+    Record<number, RegenerationJobNotice>
+  >({});
+
+  // 평가 항목으로 추가(평가 후보 등록) — 상세 산출물을 평가 세트의 케이스로 등록.
+  // API 함수는 aiEvaluations.ts(AD-11)가 소유, 여기선 import만 해서 연결한다.
+  const [candidateOpen, setCandidateOpen] = useState(false);
+  const [candidateSetId, setCandidateSetId] = useState<number | null>(null);
+  const [candidateSets, setCandidateSets] = useState<EvaluationSet[]>([]);
+  const [candidateSetsLoading, setCandidateSetsLoading] = useState(false);
+  const [candidateSubmitting, setCandidateSubmitting] = useState(false);
 
   const onSearch = () =>
     applyFilters({
-      assetType: assetType || undefined,
       status: status || undefined,
     });
   const onReset = () => {
-    setAssetType(undefined);
-    setStatus(undefined);
-    applyFilters({ assetType: undefined, status: undefined });
+    setStatus(AI_ASSET_DEFAULT_STATUS);
+    applyFilters({ status: AI_ASSET_DEFAULT_STATUS });
   };
 
   const openAction = (mode: ActionMode, asset: AiAsset) => {
     setAction({ mode, asset });
     setReason('');
     setActivate(true);
+  };
+
+  const closeDetail = () => {
+    setDetailOpen(false);
+    setSelectedAsset(null);
+    setDetailError(null);
+    setRegenerateOpen(false);
+    setCandidateOpen(false);
+  };
+
+  const loadDetail = async (assetId: number) => {
+    setDetailLoading(true);
+    setDetailError(null);
+    try {
+      const detail = await getAiAsset(assetId);
+      setSelectedAsset(detail);
+    } catch (e) {
+      const errorMessage =
+        e instanceof Error ? e.message : '상세 조회에 실패했습니다.';
+      setDetailError(errorMessage);
+      message.error(errorMessage);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const openDetail = (asset: AiAsset) => {
+    setDetailOpen(true);
+    setSelectedAsset(null);
+    void loadDetail(asset.id);
+  };
+
+  const openRegenerate = () => {
+    if (!selectedAsset) return;
+    setRegenerateReason('');
+    setRegeneratePromptVersionId(
+      selectedAsset.promptVersion?.id ?? selectedAsset.generationJob.promptVersionId ?? null,
+    );
+    setRegenerateOpen(true);
+  };
+
+  const submitRegenerate = async () => {
+    if (!selectedAsset) return;
+    const trimmedReason = regenerateReason.trim();
+    if (!trimmedReason) {
+      message.error('재생성 사유를 입력하세요.');
+      return;
+    }
+    if (regeneratePromptVersionId == null || regeneratePromptVersionId <= 0) {
+      message.error('프롬프트 버전 ID를 입력하세요.');
+      return;
+    }
+
+    setRegenerating(true);
+    try {
+      const result = await regenerateAiAsset(selectedAsset.id, {
+        reason: trimmedReason,
+        promptVersionId: regeneratePromptVersionId,
+      });
+      setRegenerationJobsByAssetId((prev) => ({
+        ...prev,
+        [selectedAsset.id]: result,
+      }));
+      message.success(
+        `재생성 작업을 요청했습니다. job #${result.generationJobId} (${result.status})`,
+      );
+      setRegenerateOpen(false);
+      await loadDetail(selectedAsset.id);
+      reload();
+    } catch (e) {
+      const errorMessage =
+        e instanceof Error ? e.message : '재생성 요청에 실패했습니다.';
+      if (
+        errorMessage.includes('진행 중 AI 생성 작업') ||
+        errorMessage.includes('상태 전이를 수행할 수 없습니다')
+      ) {
+        setRegenerationJobsByAssetId((prev) => ({
+          ...prev,
+          [selectedAsset.id]: { status: 'QUEUED/RUNNING' },
+        }));
+        setRegenerateOpen(false);
+        message.info('이미 재생성 작업이 진행 중입니다.');
+      } else {
+        message.error(errorMessage);
+      }
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const openCandidate = async () => {
+    if (!selectedAsset) return;
+    setCandidateSetId(null);
+    setCandidateOpen(true);
+    setCandidateSetsLoading(true);
+    try {
+      // 대상 유형이 같은 평가 세트만 후보 등록 가능(서버가 불일치 시 거절) → 같은 targetType으로 필터.
+      const res = await listEvaluationSets(
+        aiAssetEvaluationSetListParams(selectedAsset.targetType),
+      );
+      setCandidateSets(res.content);
+    } catch (e) {
+      message.error(
+        e instanceof Error ? e.message : '평가 세트 목록을 불러오지 못했습니다.',
+      );
+    } finally {
+      setCandidateSetsLoading(false);
+    }
+  };
+
+  const submitCandidate = async () => {
+    if (!selectedAsset) return;
+    if (candidateSetId == null) {
+      message.error('평가 세트을 선택하세요.');
+      return;
+    }
+    setCandidateSubmitting(true);
+    try {
+      await createEvaluationCandidate(selectedAsset.id, {
+        evaluationSetId: candidateSetId,
+      });
+      message.success('평가 항목으로 추가했습니다.');
+      setCandidateOpen(false);
+    } catch (e) {
+      message.error(
+        e instanceof Error ? e.message : '평가 항목 추가에 실패했습니다.',
+      );
+    } finally {
+      setCandidateSubmitting(false);
+    }
   };
 
   const submitAction = async () => {
@@ -120,6 +366,42 @@ export default function AiAssetsPage() {
     }
   };
 
+  const validationLogColumns: ColumnsType<AiValidationLog> = [
+    { title: 'ID', dataIndex: 'validationLogId', width: 80 },
+    {
+      title: '시각',
+      dataIndex: 'createdAt',
+      width: 160,
+      render: (v: string) => formatDateTime(v),
+    },
+    { title: 'Layer', dataIndex: 'layer', width: 80 },
+    { title: '검토자', dataIndex: 'reviewerType', width: 110 },
+    {
+      title: '결과',
+      dataIndex: 'result',
+      width: 100,
+      render: (v: string) => validationResultTag(v),
+    },
+    {
+      title: '체크리스트',
+      dataIndex: 'checklistVersionId',
+      width: 110,
+      render: (v: number | null) => (v != null ? `#${v}` : '-'),
+    },
+    {
+      title: '참조 job',
+      dataIndex: 'validationReferenceJobId',
+      width: 110,
+      render: (v: number | null) => (v != null ? `#${v}` : '-'),
+    },
+    {
+      title: '오류',
+      dataIndex: 'errorMessage',
+      ellipsis: true,
+      render: (v: string | null) => v ?? '-',
+    },
+  ];
+
   const columns: ColumnsType<AiAsset> = [
     { title: 'ID', dataIndex: 'id', width: 70 },
     {
@@ -137,10 +419,7 @@ export default function AiAssetsPage() {
     {
       title: '대상',
       width: 150,
-      render: (_, r) =>
-        r.targetType
-          ? `${r.targetType}${r.targetId != null ? ` #${r.targetId}` : ''}`
-          : '-',
+      render: (_, r) => targetLabel(r),
     },
     {
       title: '상태',
@@ -151,17 +430,13 @@ export default function AiAssetsPage() {
     {
       title: '프롬프트버전',
       width: 150,
-      render: (_, r) =>
-        r.promptVersion
-          ? `${r.promptVersion.promptType ?? ''} ${r.promptVersion.version ?? ''}`.trim() ||
-            '-'
-          : '-',
+      render: (_, r) => promptVersionLabel(r.promptVersion),
     },
     {
       title: '검증결과',
       dataIndex: 'latestValidationResult',
-      width: 140,
-      render: (v: string | null) => v ?? '-',
+      width: 220,
+      render: (_, r) => validationResultSummary(r),
     },
     {
       title: '원문라벨',
@@ -172,19 +447,45 @@ export default function AiAssetsPage() {
     },
     {
       title: '액션',
-      width: 190,
+      width: 260,
       fixed: 'right',
-      render: (_, r) => (
-        <Space>
-          {isReviewable(r.status) && (
+      render: (_, r) => {
+        const canApprove = isAiAssetApprovable(
+          r.status,
+          r.autoValidationResult,
+          r.advisorValidationResult,
+        );
+        const showApprove = shouldShowAiAssetApproveButton(
+          r.status,
+          r.advisorValidationResult,
+        );
+        const approveReason = canApprove ? undefined : approveDisabledReason(r);
+
+        return (
+          <Space>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => openDetail(r)}
+            >
+            상세
+          </Button>
+          {isAiAssetReviewable(r.status) && (
             <>
-              <Button
-                size="small"
-                type="primary"
-                onClick={() => openAction('approve', r)}
-              >
-                승인
-              </Button>
+              {showApprove && (
+                <Tooltip title={approveReason}>
+                  <span>
+                    <Button
+                      size="small"
+                      type="primary"
+                      disabled={!canApprove}
+                      onClick={() => openAction('approve', r)}
+                    >
+                  승인
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
               <Button size="small" danger onClick={() => openAction('reject', r)}>
                 반려
               </Button>
@@ -195,11 +496,9 @@ export default function AiAssetsPage() {
               숨김
             </Button>
           )}
-          {!isReviewable(r.status) && r.status !== 'APPROVED' && (
-            <Typography.Text type="secondary">-</Typography.Text>
-          )}
-        </Space>
-      ),
+          </Space>
+        );
+      },
     },
   ];
 
@@ -209,6 +508,13 @@ export default function AiAssetsPage() {
       : action?.mode === 'reject'
         ? 'AI 산출물 반려'
         : 'AI 산출물 숨김';
+  const activeRegenerationJob = selectedAsset
+    ? resolveActiveRegenerationJob(
+        regenerationJobsByAssetId[selectedAsset.id],
+        selectedAsset.activeGenerationJob,
+        selectedAsset.generationJob,
+      )
+    : undefined;
 
   return (
     <Card>
@@ -228,14 +534,6 @@ export default function AiAssetsPage() {
         </Typography.Paragraph>
 
         <Space wrap>
-          <Select
-            placeholder="유형"
-            allowClear
-            style={{ width: 200 }}
-            value={assetType}
-            onChange={(v) => setAssetType(v)}
-            options={ASSET_TYPE_OPTIONS}
-          />
           <Select
             placeholder="상태"
             allowClear
@@ -286,6 +584,14 @@ export default function AiAssetsPage() {
                   {r.latestValidationResult ?? '-'}
                 </Typography.Text>
                 <Typography.Text>
+                  <Typography.Text strong>자동 검증 결과: </Typography.Text>
+                  {r.autoValidationResult ?? '-'}
+                </Typography.Text>
+                <Typography.Text>
+                  <Typography.Text strong>어드바이저 검증 결과: </Typography.Text>
+                  {r.advisorValidationResult ?? '-'}
+                </Typography.Text>
+                <Typography.Text>
                   <Typography.Text strong>원문 라벨 존재: </Typography.Text>
                   {r.sourceLabelPresent ? '있음' : '없음'}
                 </Typography.Text>
@@ -303,6 +609,222 @@ export default function AiAssetsPage() {
         />
       </Space>
 
+      <Drawer
+        open={detailOpen}
+        title={selectedAsset ? `AI 산출물 #${selectedAsset.id}` : 'AI 산출물 상세'}
+        width={760}
+        onClose={closeDetail}
+        destroyOnHidden
+        extra={
+          selectedAsset ? (
+            <Space>
+              <Button onClick={openCandidate}>평가 항목으로 추가</Button>
+              {isAiAssetRegeneratable(selectedAsset.status)
+                ? activeRegenerationJob
+                  ? (
+                      <Tag color="processing">
+                        재생성 작업 진행 중
+                        {activeRegenerationJob.generationJobId != null
+                          ? ` · job #${activeRegenerationJob.generationJobId}`
+                          : ''}
+                        {' '}
+                        ({activeRegenerationJob.status})
+                      </Tag>
+                    )
+                  : (
+                      <Button
+                        icon={<SyncOutlined />}
+                        loading={regenerating}
+                        onClick={openRegenerate}
+                      >
+                        재생성
+                      </Button>
+                    )
+                : null}
+            </Space>
+          ) : null
+        }
+      >
+        {detailLoading && !selectedAsset ? (
+          <Spin />
+        ) : (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            {detailError && <Alert type="error" showIcon message={detailError} />}
+            {selectedAsset && (
+              <>
+                <Descriptions bordered size="small" column={1}>
+                  <Descriptions.Item label="유형">
+                    <Tag>{selectedAsset.assetType}</Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="대상">
+                    {targetLabel(selectedAsset)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="상태">
+                    {statusTag(selectedAsset.status)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="생성일">
+                    {formatDateTime(selectedAsset.createdAt)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="검토일">
+                    {formatDateTime(selectedAsset.reviewedAt)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="원문 라벨">
+                    {selectedAsset.sourceLabel ? (
+                      <Typography.Text code>{selectedAsset.sourceLabel}</Typography.Text>
+                    ) : (
+                      '-'
+                    )}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="프롬프트 버전">
+                    {selectedAsset.promptVersion
+                      ? `${selectedAsset.promptVersion.promptType ?? '-'} / ${
+                          selectedAsset.promptVersion.version ?? '-'
+                        } (${selectedAsset.promptVersion.status ?? '-'}, id ${
+                          selectedAsset.promptVersion.id ?? '-'
+                        })`
+                      : '-'}
+                  </Descriptions.Item>
+                </Descriptions>
+
+                <Divider orientation="left">생성 작업</Divider>
+                <Descriptions bordered size="small" column={1}>
+                  <Descriptions.Item label="Job ID">
+                    #{selectedAsset.generationJob.id}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="유형">
+                    {selectedAsset.generationJob.jobType}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="대상">
+                    {targetLabel(selectedAsset.generationJob)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="프롬프트 버전 ID">
+                    #{selectedAsset.generationJob.promptVersionId}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="상태">
+                    <Tag>{selectedAsset.generationJob.status}</Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="시작/종료">
+                    {formatDateTime(selectedAsset.generationJob.startedAt)} /{' '}
+                    {formatDateTime(selectedAsset.generationJob.finishedAt)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="오류">
+                    {selectedAsset.generationJob.errorMessage ?? '-'}
+                  </Descriptions.Item>
+                </Descriptions>
+
+                <Divider orientation="left">Payload JSON</Divider>
+                <pre style={preStyle}>{formatJson(selectedAsset.payloadJson)}</pre>
+
+                <Divider orientation="left">검증 로그</Divider>
+                <Table<AiValidationLog>
+                  rowKey="validationLogId"
+                  size="small"
+                  columns={validationLogColumns}
+                  dataSource={selectedAsset.validationLogs}
+                  pagination={false}
+                  scroll={{ x: 'max-content' }}
+                  expandable={{
+                    expandedRowRender: (r) => (
+                      <pre style={preStyle}>{r.errorMessage ?? '-'}</pre>
+                    ),
+                    rowExpandable: (r) => Boolean(r.errorMessage),
+                  }}
+                />
+              </>
+            )}
+          </Space>
+        )}
+      </Drawer>
+
+      <Modal
+        open={regenerateOpen}
+        title="AI 산출물 재생성"
+        okText="재생성 요청"
+        cancelText="취소"
+        confirmLoading={regenerating}
+        onOk={submitRegenerate}
+        onCancel={() => setRegenerateOpen(false)}
+        destroyOnHidden
+      >
+        {selectedAsset && (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Typography.Text type="secondary">
+              {selectedAsset.assetType} · 대상 {targetLabel(selectedAsset)} · 산출물 #
+              {selectedAsset.id}
+            </Typography.Text>
+            <div>
+              <Typography.Text>사유</Typography.Text>
+              <Input.TextArea
+                rows={3}
+                value={regenerateReason}
+                onChange={(e) => setRegenerateReason(e.target.value)}
+                placeholder="재생성 사유"
+                style={{ marginTop: 4 }}
+              />
+            </div>
+            <div>
+              <Typography.Text>프롬프트 버전 ID</Typography.Text>
+              <InputNumber
+                min={1}
+                precision={0}
+                value={regeneratePromptVersionId ?? undefined}
+                onChange={(value) =>
+                  setRegeneratePromptVersionId(
+                    typeof value === 'number' ? value : null,
+                  )
+                }
+                style={{ display: 'block', marginTop: 4, width: '100%' }}
+              />
+            </div>
+          </Space>
+        )}
+      </Modal>
+
+      <Modal
+        open={candidateOpen}
+        title="평가 항목으로 추가"
+        okText="추가"
+        cancelText="취소"
+        confirmLoading={candidateSubmitting}
+        onOk={submitCandidate}
+        onCancel={() => setCandidateOpen(false)}
+        destroyOnHidden
+      >
+        {selectedAsset && (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Typography.Text type="secondary">
+              이 AI 산출물을 평가 세트의 평가 항목으로 등록합니다. · 산출물 #
+              {selectedAsset.id} · 대상 {targetLabel(selectedAsset)}
+            </Typography.Text>
+            <div>
+              <Typography.Text>
+                평가 세트 선택 <Typography.Text type="danger">*</Typography.Text>
+              </Typography.Text>
+              <Select
+                style={{ display: 'block', marginTop: 4, width: '100%' }}
+                placeholder="평가 세트 선택"
+                loading={candidateSetsLoading}
+                value={candidateSetId ?? undefined}
+                onChange={(v) => setCandidateSetId(v ?? null)}
+                options={candidateSets.map((s) => ({
+                  label: `#${s.id} ${s.name} · ${s.version} [${s.status}]`,
+                  value: s.id,
+                }))}
+                notFoundContent={
+                  candidateSetsLoading
+                    ? '불러오는 중...'
+                    : '이 대상 유형에 맞는 평가 세트이 없습니다'
+                }
+              />
+            </div>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              대상 유형이 같은 평가 세트만 보입니다. 없으면 먼저 ‘AI 평가 세트’
+              화면에서 만들어 주세요.
+            </Typography.Text>
+          </Space>
+        )}
+      </Modal>
+
       <Modal
         open={action !== null}
         title={modalTitle}
@@ -318,7 +840,7 @@ export default function AiAssetsPage() {
         confirmLoading={submitting}
         onOk={submitAction}
         onCancel={() => setAction(null)}
-        destroyOnClose
+        destroyOnHidden
       >
         {action && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>

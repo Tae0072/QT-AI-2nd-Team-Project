@@ -1,11 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
 
 import '../../bible/models/bible_models.dart';
-import '../../bible/providers/bible_providers.dart';
+import '../models/note_drawing.dart';
 import '../providers/note_providers.dart';
-import '../widgets/qt_note_format_toolbar.dart';
+import '../widgets/note_rich_text_editor.dart';
 
 class QtNoteEditorArgs {
   final TodayQtPassage passage;
@@ -23,220 +23,170 @@ class QtNoteEditorScreen extends ConsumerStatefulWidget {
 }
 
 class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
-  static const double _defaultEmojiFontSize = 16;
-  static const double _minFontSize = 10;
-  static const double _maxFontSize = 32;
-
   final _titleController = TextEditingController();
-  final _bodyController = _NoteBodyTextEditingController(
-    emojiFontSize: _defaultEmojiFontSize,
-  );
-  final _passageScrollController = ScrollController();
-  final _editorScrollController = ScrollController();
-  Future<List<BibleBook>>? _booksFuture;
-  String? _mentionQuery;
-  String _lastBody = '';
-  bool _applyingAutoPrefix = false;
+  final _bodyController = NoteRichBodyController(emojiFontSize: 16);
+  // 본문 미리보기 핀치 줌(확대/축소) 변환 컨트롤러.
+  final _previewTransform = TransformationController();
+  // 본문 미리보기 패널 높이 비율(0~100). 가운데 핸들을 위아래로 끌어 조절한다.
+  int _previewFlex = 30;
   bool _saving = false;
-  double _fontSize = 16;
+
+  // 페이지 모드(일반/원고)·손그림 — 이 기기에만 로컬 저장한다.
+  NotePageMode _pageMode = NotePageMode.plain;
+  List<DrawingStroke> _strokes = const <DrawingStroke>[];
 
   TodayQtPassage get _passage => widget.args.passage;
+
+  // QT 노트는 해당 QT 본문(qtPassageId)을 키로 로컬 저장한다.
+  String get _canvasKey => 'qt:${_passage.qtPassageId}';
+
+  void _persistCanvas() {
+    final store = ref.read(noteCanvasStoreProvider);
+    store.saveMode(_canvasKey, _pageMode);
+    store.saveStrokes(_canvasKey, _strokes);
+  }
 
   @override
   void initState() {
     super.initState();
     _titleController.text = _passage.title ?? _passage.reference.displayText;
-    _bodyController.addListener(_handleBodyChanged);
+    // 이미 임시저장한 노트가 있으면 그 내용을 불러와 이어서 수정할 수 있게 한다.
+    final draftId = _passage.draftNoteId;
+    if (draftId != null) {
+      Future.microtask(() => _loadDraft(draftId));
+    }
+    // 이 QT에 저장해 둔 페이지 모드·손그림(로컬)을 불러온다.
+    Future.microtask(_loadCanvas);
+  }
+
+  Future<void> _loadCanvas() async {
+    final store = ref.read(noteCanvasStoreProvider);
+    final mode = await store.loadMode(_canvasKey);
+    final strokes = await store.loadStrokes(_canvasKey);
+    if (!mounted) return;
+    setState(() {
+      _pageMode = mode;
+      _strokes = strokes;
+    });
+  }
+
+  Future<void> _loadDraft(int noteId) async {
+    try {
+      final detail = await ref.read(noteRepositoryProvider).getDetail(noteId);
+      if (!mounted) return;
+      setState(() {
+        final title = detail.title;
+        if (title.isNotEmpty) _titleController.text = title;
+        _bodyController.text = detail.body ?? '';
+      });
+    } catch (_) {
+      // 초안 로드 실패 시 빈 편집기로 진행한다(저장은 새로 만들기로 처리).
+    }
   }
 
   @override
   void dispose() {
     _titleController.dispose();
-    _bodyController.removeListener(_handleBodyChanged);
     _bodyController.dispose();
-    _passageScrollController.dispose();
-    _editorScrollController.dispose();
+    _previewTransform.dispose();
     super.dispose();
-  }
-
-  void _handleBodyChanged() {
-    if (_applyingAutoPrefix) {
-      _lastBody = _bodyController.text;
-      return;
-    }
-
-    final text = _bodyController.text;
-    final selection = _bodyController.selection;
-    _updateMentionQuery(text, selection.start);
-
-    if (text.length == _lastBody.length + 1 &&
-        selection.start > 0 &&
-        text[selection.start - 1] == '\n') {
-      final prefix = _nextLinePrefix(text, selection.start);
-      if (prefix.isNotEmpty) {
-        _insertAtCursor(prefix);
-      }
-    }
-    _lastBody = _bodyController.text;
-  }
-
-  void _updateMentionQuery(String text, int cursor) {
-    if (cursor < 0 || cursor > text.length) {
-      setState(() => _mentionQuery = null);
-      return;
-    }
-    final beforeCursor = text.substring(0, cursor);
-    final at = beforeCursor.lastIndexOf('@');
-    final token = at < 0 ? '' : beforeCursor.substring(at);
-    final blockedByWhitespace =
-        at < 0 || token.contains('\n') || token.length > 32;
-    final nextQuery =
-        blockedByWhitespace ? null : beforeCursor.substring(at + 1);
-    if (nextQuery != _mentionQuery) {
-      setState(() {
-        _mentionQuery = nextQuery;
-        if (nextQuery != null) {
-          _booksFuture ??= ref.read(bibleRepositoryProvider).getBooks();
-        }
-      });
-    }
-  }
-
-  String _nextLinePrefix(String text, int cursor) {
-    final previousLineEnd = cursor - 2;
-    if (previousLineEnd < 0) return '';
-    final previousLineStart = text.lastIndexOf('\n', previousLineEnd) + 1;
-    final previousLine = text.substring(previousLineStart, previousLineEnd + 1);
-    final match =
-        RegExp(r'^(\s*)(• |\((\d+)\) |(\d+)\) )').firstMatch(previousLine);
-    if (match == null) return '';
-    final indent = match.group(1) ?? '';
-    final paren = match.group(3);
-    final plain = match.group(4);
-    if (paren != null) return '$indent(${int.parse(paren) + 1}) ';
-    if (plain != null) return '$indent${int.parse(plain) + 1}) ';
-    return '$indent• ';
-  }
-
-  Future<void> _openFontSizeDialog() async {
-    final result = await showDialog<double>(
-      context: context,
-      builder: (context) => _FontSizeDialog(
-        currentFontSize: _fontSize,
-        minFontSize: _minFontSize,
-        maxFontSize: _maxFontSize,
-      ),
-    );
-    if (result == null) {
-      return;
-    }
-    setState(() => _fontSize = result);
-  }
-
-  void _wrapSelection(String marker) {
-    final text = _bodyController.text;
-    final selection = _bodyController.selection;
-    final start = selection.start < 0 ? text.length : selection.start;
-    final end = selection.end < 0 ? text.length : selection.end;
-    final selected = text.substring(start, end);
-    final newText = text.replaceRange(start, end, '$marker$selected$marker');
-    final cursor =
-        selected.isEmpty ? start + marker.length : end + marker.length * 2;
-    _applyText(newText, cursor);
-  }
-
-  void _prefixCurrentLine(String prefix) {
-    final text = _bodyController.text;
-    final selection = _bodyController.selection;
-    final pos = selection.start < 0 ? text.length : selection.start;
-    final lineStart = text.lastIndexOf('\n', pos - 1) + 1;
-    final newText = text.replaceRange(lineStart, lineStart, prefix);
-    _applyText(newText, pos + prefix.length);
-  }
-
-  void _insertAtCursor(String value) {
-    final text = _bodyController.text;
-    final selection = _bodyController.selection;
-    final pos = selection.start < 0 ? text.length : selection.start;
-    _applyText(text.replaceRange(pos, pos, value), pos + value.length);
-  }
-
-  void _applyText(String text, int cursor) {
-    _applyingAutoPrefix = true;
-    _bodyController.value = TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: cursor.clamp(0, text.length)),
-    );
-    _lastBody = text;
-    _applyingAutoPrefix = false;
   }
 
   Future<void> _save(String status) async {
     final body = _bodyController.text.trim();
-    if (body.isEmpty) {
+    // 손그림만 있어도 저장/임시저장이 되도록 그림 유무를 함께 본다.
+    final hasDrawing = _strokes.isNotEmpty;
+    if (body.isEmpty && !hasDrawing) {
       _showMessage('노트 내용을 입력해 주세요');
       return;
     }
+    // 본문이 비고 그림만 있으면, 서버 본문 필수 조건을 위해 안내용 본문을 넣는다.
+    final effectiveBody = body.isEmpty && hasDrawing ? '그림 노트' : body;
 
     setState(() => _saving = true);
+    final repository = ref.read(noteRepositoryProvider);
+    final verseIds = _passage.verses.map((verse) => verse.id).toList();
+    final draftNoteId = _passage.draftNoteId;
+    final title = _titleController.text.trim();
     try {
-      await ref.read(noteRepositoryProvider).createQtNote(
-            qtPassageId: _passage.qtPassageId,
-            title: _titleController.text.trim(),
-            body: body,
-            status: status,
-            verseIds: _passage.verses.map((verse) => verse.id).toList(),
-          );
+      if (draftNoteId != null) {
+        // 이미 만들어진 노트(임시저장)는 새로 만들지 않고 수정한다 → 본문당 1개 제약(N0002) 회피.
+        await repository.update(
+          draftNoteId,
+          category: 'MEDITATION',
+          qtPassageId: _passage.qtPassageId,
+          title: title,
+          body: effectiveBody,
+          verseIds: verseIds,
+          status: status,
+        );
+      } else {
+        await repository.createQtNote(
+          qtPassageId: _passage.qtPassageId,
+          title: title,
+          body: effectiveBody,
+          status: status,
+          verseIds: verseIds,
+        );
+      }
+      // 페이지 모드·손그림(로컬)을 이 QT 키로 저장한다.
+      _persistCanvas();
       if (!mounted) return;
       _showMessage(status == 'SAVED' ? '저장되었습니다' : '임시저장되었습니다');
       Navigator.of(context).pop();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _logSaveError(error, stackTrace);
       if (!mounted) return;
       setState(() => _saving = false);
-      _showMessage('저장에 실패했습니다. 다시 시도해 주세요');
+      if (_isAlreadyExistsError(error)) {
+        // 본문당 노트 1개 제약(N0002): 이미 저장된 노트가 있으면 기록에서 수정하도록 안내.
+        _showMessage('이미 저장한 노트가 있어요. ‘기록’에서 열어 수정해 주세요');
+      } else {
+        _showMessage('저장에 실패했습니다. 다시 시도해 주세요');
+      }
     }
   }
 
-  void _completeMentionBook(BibleBook book) {
-    _replaceMentionWith('@${book.koreanName} ');
+  /// 본문당 노트 1개 제약(409 / N0002) 여부.
+  bool _isAlreadyExistsError(Object error) {
+    if (error is! DioException) return false;
+    if (error.response?.statusCode == 409) return true;
+    final data = error.response?.data;
+    final root = data is Map ? data : null;
+    final apiError = root?['error'];
+    final errorBody = apiError is Map ? apiError : root;
+    return (errorBody?['code'] as String?) == 'N0002';
   }
 
-  Future<void> _insertMentionVerse(
-    BibleBook book,
-    _MentionVerseRange mentionRange,
-  ) async {
-    try {
-      final range = await ref.read(bibleRepositoryProvider).getVerses(
-            bookCode: book.code,
-            chapter: mentionRange.chapter,
-            verseFrom: mentionRange.verseFrom,
-            verseTo: mentionRange.verseTo,
-          );
-      final lines = range.verses.map((verse) {
-        final text = verse.koreanText?.trim();
-        return '${book.koreanName} ${verse.chapterNo}:${verse.verseNo} ${text ?? ''}';
-      }).join('\n');
-      _replaceMentionWith(lines);
-    } catch (_) {
-      if (!mounted) return;
-      _showMessage('구절을 불러오지 못했습니다');
+  void _logSaveError(Object error, StackTrace stackTrace) {
+    if (error is DioException) {
+      final response = error.response;
+      final data = response?.data;
+      final root = data is Map ? data : null;
+      final apiError = root?['error'];
+      final errorBody = apiError is Map ? apiError : root;
+      debugPrint(
+        '[QT_NOTE_SAVE_ERROR] '
+        'status=${response?.statusCode} '
+        'path=${error.requestOptions.path} '
+        'code=${errorBody?['code']} '
+        'message=${errorBody?['message']} '
+        'traceId=${errorBody?['traceId']}',
+      );
+      return;
     }
-  }
 
-  void _replaceMentionWith(String value) {
-    final text = _bodyController.text;
-    final cursor = _bodyController.selection.start;
-    final before = cursor < 0 ? text.length : cursor;
-    final at = text.substring(0, before).lastIndexOf('@');
-    final start = at < 0 ? before : at;
-    final newText = text.replaceRange(start, before, value);
-    _applyText(newText, start + value.length);
-    setState(() => _mentionQuery = null);
+    debugPrint('[QT_NOTE_SAVE_ERROR] $error');
+    debugPrintStack(stackTrace: stackTrace);
   }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+      ));
   }
 
   @override
@@ -254,114 +204,157 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
           child: Column(
             children: [
               Expanded(
-                flex: 5,
-                child: Scrollbar(
-                  key: const ValueKey('qt-note-passage-scroll'),
-                  controller: _passageScrollController,
-                  thumbVisibility: true,
-                  child: ListView(
-                    controller: _passageScrollController,
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                    children: [
-                      Text(
-                        _passage.reference.displayText,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if ((_passage.title ?? '').isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(_passage.title!,
-                            style: theme.textTheme.bodyMedium),
-                      ],
-                      const SizedBox(height: 12),
-                      for (final verse in _passage.verses)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${verse.chapterNo}:${verse.verseNo}',
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.w700,
+                key: const ValueKey('qt-note-passage-panel'),
+                flex: _previewFlex,
+                child: Stack(
+                  children: [
+                    // 본문 미리보기: 두 손가락 핀치로 0.5~3배 확대/축소.
+                    // boundaryMargin=0 → 콘텐츠 밖으로는 못 나가므로 기본 배율에선
+                    // 좌상단에 고정되고, 확대했을 때만 상하좌우 어느 방향이든
+                    // 콘텐츠 범위 안에서 이동할 수 있다.
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return InteractiveViewer(
+                          transformationController: _previewTransform,
+                          minScale: 0.5,
+                          maxScale: 3.0,
+                          boundaryMargin: EdgeInsets.zero,
+                          // constrained:false → 자식이 뷰포트보다 커질 수 있어
+                          // 내부 스크롤뷰 없이 InteractiveViewer가 상하·좌우·대각선
+                          // 이동과 확대를 모두 처리한다(세로 스크롤 제스처 충돌 제거).
+                          constrained: false,
+                          child: SizedBox(
+                            key: const ValueKey('qt-note-passage-scroll'),
+                            width: constraints.maxWidth,
+                            child: SelectionArea(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _passage.reference.displayText,
+                                      style:
+                                          theme.textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    if ((_passage.title ?? '').isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Text(_passage.title!,
+                                          style: theme.textTheme.bodyMedium),
+                                    ],
+                                    const SizedBox(height: 12),
+                                    for (final verse in _passage.verses)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 12),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${verse.chapterNo}:${verse.verseNo}',
+                                              style: theme.textTheme.labelLarge
+                                                  ?.copyWith(
+                                                color:
+                                                    theme.colorScheme.primary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            if ((verse.koreanText ?? '')
+                                                .trim()
+                                                .isNotEmpty)
+                                              Text(
+                                                verse.koreanText!.trim(),
+                                                style: theme
+                                                    .textTheme.bodyMedium
+                                                    ?.copyWith(
+                                                  height: 1.55,
+                                                ),
+                                              ),
+                                            if ((verse.englishText ?? '')
+                                                .trim()
+                                                .isNotEmpty) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                verse.englishText!.trim(),
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(
+                                                  color: theme.colorScheme
+                                                      .onSurfaceVariant,
+                                                  height: 1.45,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              if ((verse.koreanText ?? '').trim().isNotEmpty)
-                                Text(
-                                  verse.koreanText!.trim(),
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    height: 1.55,
-                                  ),
-                                ),
-                              if ((verse.englishText ?? '')
-                                  .trim()
-                                  .isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  verse.englishText!.trim(),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                    height: 1.45,
-                                  ),
-                                ),
-                              ],
-                            ],
+                            ),
                           ),
-                        ),
-                    ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              // 드래그 핸들 — 위아래로 끌어 미리보기 영역 높이를 조절한다.
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragUpdate: (d) => setState(() {
+                  _previewFlex =
+                      (_previewFlex + d.delta.dy * 0.12).round().clamp(12, 70);
+                }),
+                child: Container(
+                  height: 18,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.symmetric(
+                      horizontal: BorderSide(
+                        color: Theme.of(context).dividerColor,
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
                   ),
                 ),
               ),
-              const Divider(height: 1),
               Expanded(
-                flex: 6,
+                key: const ValueKey('qt-note-editor-panel'),
+                flex: 100 - _previewFlex,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                   child: Column(
                     children: [
-                      TextField(
-                        controller: _titleController,
-                        hintLocales: const [Locale('ko', 'KR')],
-                        enableSuggestions: false,
-                        autocorrect: false,
-                        enableIMEPersonalizedLearning: false,
-                        smartDashesType: SmartDashesType.disabled,
-                        smartQuotesType: SmartQuotesType.disabled,
-                        decoration: const InputDecoration(
-                          labelText: '제목',
-                          isDense: true,
-                        ),
-                      ),
-                      QtNoteFormatToolbar(
-                        fontSize: _fontSize,
-                        onFontSize: _openFontSizeDialog,
-                        onBold: () => _wrapSelection('**'),
-                        onHighlight: () => _wrapSelection('=='),
-                        onIndent: () => _prefixCurrentLine('    '),
-                        onBullet: () => _prefixCurrentLine('• '),
-                        onParenNumber: () => _prefixCurrentLine('(1) '),
-                        onPlainNumber: () => _prefixCurrentLine('1) '),
-                        onVerseMention: () => _insertAtCursor('@'),
-                      ),
-                      if (_mentionQuery != null)
-                        _MentionSuggestions(
-                          query: _mentionQuery!,
-                          booksFuture: _booksFuture!,
-                          onSelectBook: _completeMentionBook,
-                          onInsertVerse: _insertMentionVerse,
-                        ),
+                      // 본문 편집(툴바·@멘션·서식)은 자유 노트 N-03과 공유하는 위젯에 위임한다.
                       Expanded(
-                        child: Scrollbar(
-                          key: const ValueKey('qt-note-editor-scroll'),
-                          controller: _editorScrollController,
-                          thumbVisibility: true,
-                          child: TextField(
-                            key: const ValueKey('qt-note-body-input'),
-                            controller: _bodyController,
-                            scrollController: _editorScrollController,
+                        child: NoteRichTextEditor(
+                          controller: _bodyController,
+                          bodyLabel: '노트 작성',
+                          pageMode: _pageMode,
+                          onPageModeChanged: (mode) {
+                            setState(() => _pageMode = mode);
+                            _persistCanvas();
+                          },
+                          strokes: _strokes,
+                          onStrokesChanged: (strokes) {
+                            setState(() => _strokes = strokes);
+                            _persistCanvas();
+                          },
+                          header: TextField(
+                            controller: _titleController,
                             hintLocales: const [Locale('ko', 'KR')],
                             enableSuggestions: false,
                             autocorrect: false,
@@ -369,16 +362,14 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
                             smartDashesType: SmartDashesType.disabled,
                             smartQuotesType: SmartQuotesType.disabled,
                             decoration: const InputDecoration(
-                              labelText: '노트 작성',
-                              alignLabelWithHint: true,
-                              border: OutlineInputBorder(),
+                              labelText: '제목',
+                              isDense: true,
                             ),
-                            style: TextStyle(fontSize: _fontSize, height: 1.55),
-                            maxLines: null,
-                            expands: true,
-                            textAlignVertical: TextAlignVertical.top,
-                            keyboardType: TextInputType.multiline,
                           ),
+                          toolbarPlacement: NoteRichTextToolbarPlacement.left,
+                          bodyFieldKey: const ValueKey('qt-note-body-input'),
+                          bodyScrollKey:
+                              const ValueKey('qt-note-editor-scroll'),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -415,304 +406,6 @@ class _QtNoteEditorScreenState extends ConsumerState<QtNoteEditorScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _NoteBodyTextEditingController extends TextEditingController {
-  static const _highlightColor = Color(0xFFFFF2A8);
-
-  final double emojiFontSize;
-
-  _NoteBodyTextEditingController({required this.emojiFontSize});
-
-  @override
-  TextSpan buildTextSpan({
-    required BuildContext context,
-    TextStyle? style,
-    required bool withComposing,
-  }) {
-    if (text.isEmpty) {
-      return TextSpan(style: style, text: '');
-    }
-
-    final children = <TextSpan>[];
-    var index = 0;
-    while (index < text.length) {
-      if (text.startsWith('==', index)) {
-        final end = text.indexOf('==', index + 2);
-        if (end > index + 2) {
-          _addHiddenMarker(children, style, '==');
-          _addStyledClusters(
-            children,
-            text.substring(index + 2, end),
-            style?.copyWith(backgroundColor: _highlightColor),
-          );
-          _addHiddenMarker(children, style, '==');
-          index = end + 2;
-          continue;
-        }
-      }
-
-      if (text.startsWith('**', index)) {
-        final end = text.indexOf('**', index + 2);
-        if (end > index + 2) {
-          _addHiddenMarker(children, style, '**');
-          _addStyledClusters(
-            children,
-            text.substring(index + 2, end),
-            style?.copyWith(fontWeight: FontWeight.w700),
-          );
-          _addHiddenMarker(children, style, '**');
-          index = end + 2;
-          continue;
-        }
-      }
-
-      final cluster = text.substring(index).characters.first;
-      _addStyledClusters(children, cluster, style);
-      index += cluster.length;
-    }
-
-    return TextSpan(style: style, children: children);
-  }
-
-  void _addHiddenMarker(
-    List<TextSpan> children,
-    TextStyle? baseStyle,
-    String marker,
-  ) {
-    children.add(TextSpan(
-      text: marker,
-      style: baseStyle?.copyWith(
-        color: Colors.transparent,
-        fontSize: 0.1,
-      ),
-    ));
-  }
-
-  void _addStyledClusters(
-    List<TextSpan> children,
-    String value,
-    TextStyle? baseStyle,
-  ) {
-    for (final cluster in value.characters) {
-      children.add(TextSpan(
-        text: cluster,
-        style: _isEmojiCluster(cluster)
-            ? baseStyle?.copyWith(fontSize: emojiFontSize)
-            : baseStyle,
-      ));
-    }
-  }
-
-  bool _isEmojiCluster(String cluster) {
-    return cluster.runes.any((rune) =>
-        (rune >= 0x1F300 && rune <= 0x1FAFF) ||
-        (rune >= 0x2600 && rune <= 0x27BF));
-  }
-}
-
-class _FontSizeDialog extends StatefulWidget {
-  final double currentFontSize;
-  final double minFontSize;
-  final double maxFontSize;
-
-  const _FontSizeDialog({
-    required this.currentFontSize,
-    required this.minFontSize,
-    required this.maxFontSize,
-  });
-
-  @override
-  State<_FontSizeDialog> createState() => _FontSizeDialogState();
-}
-
-class _FontSizeDialogState extends State<_FontSizeDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(
-      text: widget.currentFontSize.round().toString(),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('글씨 크기'),
-      content: TextField(
-        key: const ValueKey('note-font-size-input'),
-        controller: _controller,
-        autofocus: true,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: InputDecoration(
-          labelText: '크기',
-          helperText:
-              '${widget.minFontSize.round()}~${widget.maxFontSize.round()} 사이 숫자',
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final parsed = double.tryParse(_controller.text);
-            if (parsed == null) {
-              return;
-            }
-            final clamped = parsed.clamp(
-              widget.minFontSize,
-              widget.maxFontSize,
-            );
-            Navigator.of(context).pop(clamped.toDouble());
-          },
-          child: const Text('적용'),
-        ),
-      ],
-    );
-  }
-}
-
-class _MentionSuggestions extends StatelessWidget {
-  final String query;
-  final Future<List<BibleBook>> booksFuture;
-  final ValueChanged<BibleBook> onSelectBook;
-  final void Function(BibleBook book, _MentionVerseRange range) onInsertVerse;
-
-  const _MentionSuggestions({
-    required this.query,
-    required this.booksFuture,
-    required this.onSelectBook,
-    required this.onInsertVerse,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return FutureBuilder<List<BibleBook>>(
-      future: booksFuture,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const LinearProgressIndicator();
-        }
-        final parsedRange = _MentionVerseRange.tryParse(query);
-        final bookQuery = parsedRange?.bookQuery ?? query.trim();
-        final normalized = bookQuery.toLowerCase();
-        final books = snapshot.data!
-            .where((book) => _matchesBook(book, bookQuery, normalized))
-            .take(8)
-            .toList();
-        if (books.isEmpty) return const SizedBox.shrink();
-
-        return Container(
-          key: const ValueKey('qt-note-mention-suggestions'),
-          margin: const EdgeInsets.only(bottom: 8),
-          constraints: const BoxConstraints(maxHeight: 188),
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-            borderRadius: BorderRadius.circular(8),
-            color: theme.colorScheme.surface,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: books.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final book = books[index];
-                if (parsedRange != null) {
-                  return ListTile(
-                    dense: true,
-                    leading: const Icon(Icons.menu_book_outlined),
-                    title: Text(
-                      '${book.koreanName} ${parsedRange.displayText} 삽입',
-                    ),
-                    onTap: () => onInsertVerse(book, parsedRange),
-                  );
-                }
-                return ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.menu_book_outlined),
-                  title: Text(book.koreanName),
-                  subtitle: Text(book.englishName),
-                  onTap: () => onSelectBook(book),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  bool _matchesBook(BibleBook book, String bookQuery, String normalized) {
-    if (bookQuery.isEmpty) {
-      return true;
-    }
-    return book.koreanName.contains(bookQuery) ||
-        book.englishName.toLowerCase().contains(normalized) ||
-        book.code.toLowerCase().contains(normalized);
-  }
-}
-
-class _MentionVerseRange {
-  final String bookQuery;
-  final int chapter;
-  final int verseFrom;
-  final int verseTo;
-
-  const _MentionVerseRange({
-    required this.bookQuery,
-    required this.chapter,
-    required this.verseFrom,
-    required this.verseTo,
-  });
-
-  String get displayText {
-    if (verseFrom == verseTo) {
-      return '$chapter:$verseFrom';
-    }
-    return '$chapter:$verseFrom-$verseTo';
-  }
-
-  static _MentionVerseRange? tryParse(String query) {
-    final match =
-        RegExp(r'^(.+?)\s+(\d+):(\d+)(?:[-~](\d+))?$').firstMatch(query.trim());
-    if (match == null) {
-      return null;
-    }
-
-    final chapter = int.tryParse(match.group(2)!);
-    final verseFrom = int.tryParse(match.group(3)!);
-    final verseTo = int.tryParse(match.group(4) ?? match.group(3)!);
-    if (chapter == null ||
-        verseFrom == null ||
-        verseTo == null ||
-        chapter < 1 ||
-        verseFrom < 1 ||
-        verseTo < verseFrom) {
-      return null;
-    }
-
-    return _MentionVerseRange(
-      bookQuery: match.group(1)!.trim(),
-      chapter: chapter,
-      verseFrom: verseFrom,
-      verseTo: verseTo,
     );
   }
 }

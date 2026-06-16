@@ -4,11 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,6 +15,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.qtai.domain.qtvideo.api.GetQtVideoAvailabilityUseCase;
 import com.qtai.domain.study.api.dto.QtStudyAvailability;
 
 /**
@@ -27,7 +26,7 @@ import com.qtai.domain.study.api.dto.QtStudyAvailability;
 @ExtendWith(MockitoExtension.class)
 class QtStudyAvailabilityServiceTest {
 
-    @Mock private SimulatorClipRepository simulatorClipRepository;
+    @Mock private GetQtVideoAvailabilityUseCase getQtVideoAvailabilityUseCase;
     @Mock private VerseExplanationRepository verseExplanationRepository;
 
     @InjectMocks private QtStudyAvailabilityService service;
@@ -44,14 +43,11 @@ class QtStudyAvailabilityServiceTest {
     @Test
     @DisplayName("승인 클립과 승인 해설이 있으면 READY/true")
     void 승인콘텐츠_있으면_READY_true() {
-        when(simulatorClipRepository
-                .findFirstByQtPassageIdAndStatusOrderByApprovedAtDescIdDesc(
-                        1L, SimulatorClipStatus.APPROVED))
-                .thenReturn(Optional.of(mock(SimulatorClip.class)));
+        when(getQtVideoAvailabilityUseCase.hasReadyVideo(1L)).thenReturn(true);
         when(verseExplanationRepository
                 .findByBibleVerseIdInAndStatusAndActiveUniqueKey(
                         List.of(10L), VerseExplanationStatus.APPROVED, "ACTIVE"))
-                .thenReturn(List.of(mock(VerseExplanation.class)));
+                .thenReturn(List.of(new VerseExplanation()));
 
         QtStudyAvailability result = service.getAvailability(1L, List.of(10L));
 
@@ -60,12 +56,9 @@ class QtStudyAvailabilityServiceTest {
     }
 
     @Test
-    @DisplayName("승인 클립이 없으면 시뮬레이터 MISSING")
+    @DisplayName("승인 QT 영상 클립이 없으면 MISSING")
     void 승인클립_없으면_MISSING() {
-        lenient().when(simulatorClipRepository
-                .findFirstByQtPassageIdAndStatusOrderByApprovedAtDescIdDesc(
-                        2L, SimulatorClipStatus.APPROVED))
-                .thenReturn(Optional.empty());
+        lenient().when(getQtVideoAvailabilityUseCase.hasReadyVideo(2L)).thenReturn(false);
 
         QtStudyAvailability result = service.getAvailability(2L, List.of());
 

@@ -27,9 +27,13 @@ import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetCommand;
 import com.qtai.domain.ai.api.admin.asset.dto.ReviewAiAssetResult;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
+import com.qtai.domain.study.api.HidePublishedGlossaryTermsUseCase;
 import com.qtai.domain.study.api.HidePublishedVerseExplanationUseCase;
+import com.qtai.domain.study.api.PublishApprovedGlossaryTermsUseCase;
 import com.qtai.domain.study.api.PublishApprovedVerseExplanationUseCase;
+import com.qtai.domain.study.api.dto.HidePublishedGlossaryTermsCommand;
 import com.qtai.domain.study.api.dto.HidePublishedVerseExplanationCommand;
+import com.qtai.domain.study.api.dto.PublishApprovedGlossaryTermsCommand;
 import com.qtai.domain.study.api.dto.PublishApprovedVerseExplanationCommand;
 
 class AiAssetReviewServiceTest {
@@ -41,6 +45,8 @@ class AiAssetReviewServiceTest {
     private AiValidationLogRepository validationLogRepository;
     private PublishApprovedVerseExplanationUseCase publishApprovedVerseExplanationUseCase;
     private HidePublishedVerseExplanationUseCase hidePublishedVerseExplanationUseCase;
+    private PublishApprovedGlossaryTermsUseCase publishApprovedGlossaryTermsUseCase;
+    private HidePublishedGlossaryTermsUseCase hidePublishedGlossaryTermsUseCase;
     private WriteAuditLogUseCase auditLogUseCase;
     private AiAssetReviewService service;
 
@@ -52,12 +58,18 @@ class AiAssetReviewServiceTest {
                 org.mockito.Mockito.mock(PublishApprovedVerseExplanationUseCase.class);
         hidePublishedVerseExplanationUseCase =
                 org.mockito.Mockito.mock(HidePublishedVerseExplanationUseCase.class);
+        publishApprovedGlossaryTermsUseCase =
+                org.mockito.Mockito.mock(PublishApprovedGlossaryTermsUseCase.class);
+        hidePublishedGlossaryTermsUseCase =
+                org.mockito.Mockito.mock(HidePublishedGlossaryTermsUseCase.class);
         auditLogUseCase = org.mockito.Mockito.mock(WriteAuditLogUseCase.class);
         service = new AiAssetReviewService(
                 generatedAssetRepository,
                 validationLogRepository,
                 publishApprovedVerseExplanationUseCase,
                 hidePublishedVerseExplanationUseCase,
+                publishApprovedGlossaryTermsUseCase,
+                hidePublishedGlossaryTermsUseCase,
                 auditLogUseCase,
                 new ObjectMapper()
         );
@@ -103,6 +115,19 @@ class AiAssetReviewServiceTest {
         assertThat(publishCommand.aiAssetId()).isEqualTo(500L);
         assertThat(publishCommand.approvedAt()).isEqualTo(REVIEWED_AT);
 
+        ArgumentCaptor<PublishApprovedGlossaryTermsCommand> glossaryCaptor =
+                ArgumentCaptor.forClass(PublishApprovedGlossaryTermsCommand.class);
+        verify(publishApprovedGlossaryTermsUseCase)
+                .publishApprovedGlossaryTerms(glossaryCaptor.capture());
+        PublishApprovedGlossaryTermsCommand glossaryCommand = glossaryCaptor.getValue();
+        assertThat(glossaryCommand.aiAssetId()).isEqualTo(500L);
+        assertThat(glossaryCommand.sourceLabel()).isEqualTo("QT-AI DeepSeek");
+        assertThat(glossaryCommand.approvedAt()).isEqualTo(REVIEWED_AT);
+        assertThat(glossaryCommand.terms()).hasSize(1);
+        assertThat(glossaryCommand.terms().get(0).bibleVerseId()).isEqualTo(1001L);
+        assertThat(glossaryCommand.terms().get(0).term()).isEqualTo("validated term");
+        assertThat(glossaryCommand.terms().get(0).meaning()).isEqualTo("validated meaning");
+
         ArgumentCaptor<AuditLogWriteRequest> auditCaptor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
         verify(auditLogUseCase).write(auditCaptor.capture());
         AuditLogWriteRequest audit = auditCaptor.getValue();
@@ -130,6 +155,10 @@ class AiAssetReviewServiceTest {
                         "password",
                         "privateKey"
                 );
+
+        ArgumentCaptor<AiValidationLog> validationLogCaptor = ArgumentCaptor.forClass(AiValidationLog.class);
+        verify(validationLogRepository).save(validationLogCaptor.capture());
+        assertAdminValidationLog(validationLogCaptor.getValue(), AiValidationResult.PASSED, null);
     }
 
     @Test
@@ -142,6 +171,8 @@ class AiAssetReviewServiceTest {
         assertThat(result.status()).isEqualTo("APPROVED");
         verify(publishApprovedVerseExplanationUseCase, never())
                 .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+        verify(publishApprovedGlossaryTermsUseCase, never())
+                .publishApprovedGlossaryTerms(any(PublishApprovedGlossaryTermsCommand.class));
     }
 
     @Test
@@ -173,6 +204,8 @@ class AiAssetReviewServiceTest {
         assertThat(result.status()).isEqualTo("APPROVED");
         verify(publishApprovedVerseExplanationUseCase, never())
                 .publishApprovedVerseExplanation(any(PublishApprovedVerseExplanationCommand.class));
+        verify(publishApprovedGlossaryTermsUseCase, never())
+                .publishApprovedGlossaryTerms(any(PublishApprovedGlossaryTermsCommand.class));
     }
 
     @ParameterizedTest
@@ -334,7 +367,7 @@ class AiAssetReviewServiceTest {
     }
 
     @Test
-    void rejectValidatingAssetWritesRejectAuditOnly() {
+    void rejectValidatingAssetWritesAdminValidationLogAndRejectAudit() {
         AiGeneratedAsset asset = explanationVerseAsset(AiTargetType.BIBLE_VERSE, 1001L);
         when(generatedAssetRepository.findById(500L)).thenReturn(Optional.of(asset));
 
@@ -347,6 +380,9 @@ class AiAssetReviewServiceTest {
         ArgumentCaptor<AuditLogWriteRequest> auditCaptor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
         verify(auditLogUseCase).write(auditCaptor.capture());
         assertThat(auditCaptor.getValue().actionType()).isEqualTo("AI_ASSET_REJECT");
+        ArgumentCaptor<AiValidationLog> validationLogCaptor = ArgumentCaptor.forClass(AiValidationLog.class);
+        verify(validationLogRepository).save(validationLogCaptor.capture());
+        assertAdminValidationLog(validationLogCaptor.getValue(), AiValidationResult.REJECTED, "review reason");
     }
 
     @Test
@@ -365,6 +401,10 @@ class AiAssetReviewServiceTest {
                 ArgumentCaptor.forClass(HidePublishedVerseExplanationCommand.class);
         verify(hidePublishedVerseExplanationUseCase).hidePublishedVerseExplanation(hideCaptor.capture());
         assertThat(hideCaptor.getValue().aiAssetId()).isEqualTo(500L);
+        ArgumentCaptor<HidePublishedGlossaryTermsCommand> glossaryHideCaptor =
+                ArgumentCaptor.forClass(HidePublishedGlossaryTermsCommand.class);
+        verify(hidePublishedGlossaryTermsUseCase).hidePublishedGlossaryTerms(glossaryHideCaptor.capture());
+        assertThat(glossaryHideCaptor.getValue().aiAssetId()).isEqualTo(500L);
         ArgumentCaptor<AuditLogWriteRequest> auditCaptor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
         verify(auditLogUseCase).write(auditCaptor.capture());
         assertThat(auditCaptor.getValue().actionType()).isEqualTo("AI_ASSET_HIDE");
@@ -381,6 +421,8 @@ class AiAssetReviewServiceTest {
         assertThat(result.status()).isEqualTo("HIDDEN");
         verify(hidePublishedVerseExplanationUseCase, never())
                 .hidePublishedVerseExplanation(any(HidePublishedVerseExplanationCommand.class));
+        verify(hidePublishedGlossaryTermsUseCase, never())
+                .hidePublishedGlossaryTerms(any(HidePublishedGlossaryTermsCommand.class));
         verify(auditLogUseCase).write(any(AuditLogWriteRequest.class));
     }
 
@@ -437,6 +479,13 @@ class AiAssetReviewServiceTest {
                               "verseId": 1001,
                               "summary": "validated summary",
                               "explanation": "validated explanation"
+                            }
+                          ],
+                          "glossaryTerms": [
+                            {
+                              "verseId": 1001,
+                              "term": "validated term",
+                              "meaning": "validated meaning"
                             }
                           ]
                         }
@@ -583,6 +632,22 @@ class AiAssetReviewServiceTest {
                 null,
                 REVIEWED_AT.minusMinutes(5)
         );
+    }
+
+    private static void assertAdminValidationLog(
+            AiValidationLog validationLog,
+            AiValidationResult result,
+            String errorMessage
+    ) {
+        assertThat(validationLog.getAiAssetId()).isEqualTo(500L);
+        assertThat(validationLog.getValidationReferenceJobId()).isNull();
+        assertThat(validationLog.getLayer()).isEqualTo(3);
+        assertThat(validationLog.getResult()).isEqualTo(result);
+        assertThat(validationLog.getReviewerType()).isEqualTo(AiValidationReviewerType.ADMIN);
+        assertThat(validationLog.getChecklistVersionId()).isNull();
+        assertThat(validationLog.getChecklistJson()).isEqualTo("{\"source\":\"ADMIN_ASSET_REVIEW\"}");
+        assertThat(validationLog.getErrorMessage()).isEqualTo(errorMessage);
+        assertThat(validationLog.getCreatedAt()).isEqualTo(REVIEWED_AT);
     }
 
     private static AiValidationChecklistVersion activeChecklist(AiValidationChecklistType checklistType) {

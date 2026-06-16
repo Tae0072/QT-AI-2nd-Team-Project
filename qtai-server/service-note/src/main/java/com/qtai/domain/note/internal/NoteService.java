@@ -11,6 +11,7 @@ import com.qtai.domain.note.api.JournalChangedEvent;
 import com.qtai.domain.note.api.JournalEventType;
 import com.qtai.domain.note.api.ListNoteCategoriesUseCase;
 import com.qtai.domain.note.api.ListNotesUseCase;
+import com.qtai.domain.note.api.MarkNoteSharedUseCase;
 import com.qtai.domain.note.api.NoteCategory;
 import com.qtai.domain.note.api.NoteStatus;
 import com.qtai.domain.note.api.NoteVisibility;
@@ -49,7 +50,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNoteUseCase,
-        UpdateNoteUseCase, DeleteNoteUseCase, ListNoteCategoriesUseCase {
+        UpdateNoteUseCase, DeleteNoteUseCase, ListNoteCategoriesUseCase, MarkNoteSharedUseCase {
 
     private static final String DEFAULT_SORT = "updatedAt,desc";
 
@@ -326,11 +327,26 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
         );
     }
 
+    @Override
+    @Transactional
+    public void markShared(Long memberId, Long noteId) {
+        noteRepository.findActiveByIdAndMemberId(noteId, memberId)
+                .ifPresent(Note::markShared);
+    }
+
+    @Override
+    @Transactional
+    public void markUnshared(Long memberId, Long noteId) {
+        noteRepository.findActiveByIdAndMemberId(noteId, memberId)
+                .ifPresent(Note::markUnshared);
+    }
+
     private NoteListItem toListItem(Note note) {
         return new NoteListItem(
                 note.getId(),
                 note.getCategory(),
                 note.getTitle(),
+                buildBodyPreview(note),
                 note.getStatus(),
                 note.getVisibility(),
                 null,
@@ -340,6 +356,54 @@ public class NoteService implements ListNotesUseCase, GetNoteUseCase, CreateNote
                 note.getCreatedAt(),
                 note.getUpdatedAt()
         );
+    }
+
+    /** 목록 카드용 본문 미리보기 길이(글자). */
+    static final int BODY_PREVIEW_MAX = 80;
+
+    private String buildBodyPreview(Note note) {
+        return previewOf(
+                note.getBody(),
+                note.getRememberSection(),
+                note.getInterpretSection(),
+                note.getApplySection(),
+                note.getPraySection());
+    }
+
+    /**
+     * 목록 카드 미리보기 — 자유노트는 body, 묵상(QT)노트는 4섹션 중 먼저 채워진 것을 쓴다.
+     * 줄바꿈·연속 공백을 한 칸으로 합치고 {@link #BODY_PREVIEW_MAX}자에서 자른다.
+     * 서로게이트 페어(이모지 등)는 가운데서 자르지 않는다. 내용이 없으면 null(미리보기 줄 생략).
+     * 단위 테스트를 위해 정적·패키지 가시성으로 둔다.
+     */
+    static String previewOf(String body, String remember, String interpret,
+                            String apply, String pray) {
+        String source = firstNonBlank(body, remember, interpret, apply, pray);
+        if (source == null) {
+            return null;
+        }
+        String collapsed = source.strip().replaceAll("\\s+", " ");
+        if (collapsed.isEmpty()) {
+            return null;
+        }
+        if (collapsed.length() <= BODY_PREVIEW_MAX) {
+            return collapsed;
+        }
+        int cut = BODY_PREVIEW_MAX;
+        // 80번째 글자가 서로게이트 페어의 상위 코드면 한 글자 앞에서 자른다(깨진 글자 방지).
+        if (Character.isHighSurrogate(collapsed.charAt(cut - 1))) {
+            cut--;
+        }
+        return collapsed.substring(0, cut).strip() + "…";
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String v : values) {
+            if (v != null && !v.isBlank()) {
+                return v;
+            }
+        }
+        return null;
     }
 
     private NoteVerseItem toVerseItem(NoteVerse noteVerse, Map<Long, BibleVerseResponse> versesById) {

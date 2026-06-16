@@ -88,7 +88,8 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
 
         // 공개 게이트(CLAUDE.md §6) — QT 범위 공개는 해당일 00:00 KST.
         // 선등록된 미래 본문은 id 순회로도 열람 불가(존재 은닉을 위해 404).
-        if (passage.getQtDate().isAfter(java.time.LocalDate.now(clock))) {
+        // 관리자 게시 상태가 ACTIVE이고 공개일이 지난 QT만 사용자에게 노출한다.
+        if (!isVisibleToUsers(passage)) {
             throw new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND);
         }
 
@@ -142,7 +143,7 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
         // 승인 해설·시뮬레이터 클립이 study 경로로 새는 구멍이었다. study 서비스들은
         // 이 플래그로 노출을 차단한다. (ai 사전 생성 경로는 published를 보지 않으므로
         // 관리자 선생성 워크플로우는 막히지 않는다)
-        boolean published = !passage.getQtDate().isAfter(java.time.LocalDate.now(clock));
+        boolean published = isVisibleToUsers(passage);
 
         return new QtPassageContentContext(
                 passage.getId(),
@@ -151,6 +152,11 @@ public class QtService implements GetTodayQtUseCase, GetQtPassageContentContextU
                 verseIds,
                 published
         );
+    }
+
+    private boolean isVisibleToUsers(QtPassage passage) {
+        return passage.getStatus() == QtPassageStatus.ACTIVE
+                && !passage.getQtDate().isAfter(java.time.LocalDate.now(clock));
     }
 
     // ------------------------------------------------------------------

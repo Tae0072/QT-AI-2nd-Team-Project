@@ -28,6 +28,7 @@ export interface ReportListParams extends PageParams {
 
 // resolve/reject 요청 본문 (백엔드 ProcessReportRequest: reason, notifyReporter)
 export interface ProcessReportPayload {
+  action?: 'HIDE_TARGET';
   reason?: string;
   notifyReporter?: boolean;
 }
@@ -61,5 +62,22 @@ export function rejectReport(reportId: number, payload?: ProcessReportPayload) {
       `/admin/reports/${reportId}/reject`,
       payload ?? {},
     ),
+  );
+}
+
+// ===== AD-18 자가진단(셀프테스트) =====
+//   POST /api/v1/admin/reports/test-seed          자가진단용 테스트 신고 생성
+
+// 테스트 신고 생성 결과 (백엔드 ReportResponse: id/status/createdAt)
+export interface ReportSeedResult {
+  id: number;
+  status: string;
+  createdAt: string;
+}
+
+// 자가진단용 테스트 신고 생성 — 백엔드가 COMMENT 대상 + 고유 targetId + 사유 TEST로 접수.
+export function seedTestReport() {
+  return unwrap<ReportSeedResult>(
+    apiClient.post<ApiResponse<ReportSeedResult>>('/admin/reports/test-seed'),
   );
 }
