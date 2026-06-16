@@ -16,6 +16,42 @@ void main() {
     repository = NoteRepository(dio);
   });
 
+  group('getNoteCategories', () {
+    test('loads note categories from /note-categories', () async {
+      dioAdapter.onGet(
+        '/note-categories',
+        (server) => server.reply(200, {
+          'success': true,
+          'data': {
+            'categories': [
+              {
+                'category': 'PRAYER',
+                'label': 'Prayer',
+                'requiresQtPassage': false,
+                'supportsVerseSelection': false,
+                'writableFromList': true,
+              },
+              {
+                'category': 'MEDITATION',
+                'label': 'QT',
+                'requiresQtPassage': true,
+                'supportsVerseSelection': false,
+                'writableFromList': false,
+              },
+            ],
+          },
+        }),
+      );
+
+      final categories = await repository.getNoteCategories();
+
+      expect(categories.map((e) => e.category), ['PRAYER', 'MEDITATION']);
+      expect(categories.first.label, 'Prayer');
+      expect(categories.first.writableFromList, isTrue);
+      expect(categories.last.requiresQtPassage, isTrue);
+    });
+  });
+
   Map<String, dynamic> emptyPage() => {
         'success': true,
         'data': {'content': <dynamic>[], 'last': true},

@@ -31,6 +31,45 @@ String noteCategoryLabel(String code) => noteCategoryLabels[code] ?? code;
 /// 묵상(QT 화면)·설교(성경 화면)는 다른 화면에서 작성하므로 제외.
 const List<String> writableNoteCategories = ['PRAYER', 'REPENTANCE', 'GRATITUDE'];
 
+class NoteCategoryOption {
+  final String category;
+  final String label;
+  final bool requiresQtPassage;
+  final bool supportsVerseSelection;
+  final bool writableFromList;
+
+  const NoteCategoryOption({
+    required this.category,
+    required this.label,
+    required this.requiresQtPassage,
+    required this.supportsVerseSelection,
+    required this.writableFromList,
+  });
+
+  factory NoteCategoryOption.fromJson(Map<String, dynamic> json) {
+    final category = json['category'] as String? ?? '';
+    return NoteCategoryOption(
+      category: category,
+      label: json['label'] as String? ?? noteCategoryLabel(category),
+      requiresQtPassage: json['requiresQtPassage'] as bool? ?? false,
+      supportsVerseSelection: json['supportsVerseSelection'] as bool? ?? false,
+      writableFromList: json['writableFromList'] as bool? ?? false,
+    );
+  }
+}
+
+List<NoteCategoryOption> fallbackWritableNoteCategoryOptions() {
+  return writableNoteCategories
+      .map((code) => NoteCategoryOption(
+            category: code,
+            label: noteCategoryLabel(code),
+            requiresQtPassage: false,
+            supportsVerseSelection: false,
+            writableFromList: true,
+          ))
+      .toList();
+}
+
 /// 노트 작성/수정(N-03) 라우트 인자 — **화면 간 계약(모델)**.
 ///
 /// 화면 위젯이 아니라 이 계약만 의존하도록 모델에 둔다(bible 성경 화면 등 타 기능이

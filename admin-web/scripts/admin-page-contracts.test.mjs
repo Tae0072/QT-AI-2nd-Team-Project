@@ -343,6 +343,27 @@ test('music track route and menu stay operator-gated', () => {
   );
 });
 
+test('music track upload requests are allowed to use multipart boundaries', () => {
+  const client = fs.readFileSync(path.join(rootDir, 'src', 'api', 'client.ts'), 'utf8');
+  const musicApi = fs.readFileSync(path.join(rootDir, 'src', 'api', 'musicTracks.ts'), 'utf8');
+  const createConfig = client.match(/apiClient\s*=\s*axios\.create\(\{([\s\S]*?)\}\);/);
+
+  assert.ok(createConfig, 'apiClient must be created with axios.create');
+  assert.doesNotMatch(createConfig[1], /Content-Type/);
+  assert.match(musicApi, /new FormData\(\)/);
+  assert.match(musicApi, /apiClient\.post<ApiResponse<MusicTrack>>\([\s\S]*toFormData\(values, true\)/);
+  assert.match(musicApi, /apiClient\.patch<ApiResponse<MusicTrack>>\([\s\S]*toFormData\(values, false\)/);
+});
+
+test('music track upload form rejects non-audio files before submit', () => {
+  const page = fs.readFileSync(path.join(pagesDir, 'MusicTracksPage.tsx'), 'utf8');
+
+  assert.match(page, /AUDIO_FILE_ERROR_MESSAGE\s*=\s*'오디오 파일만 등록할 수 있습니다\.'/);
+  assert.match(page, /validateAudioUploadFile\(file, form\)/);
+  assert.match(page, /Upload\.LIST_IGNORE/);
+  assert.match(page, /accept="audio\/\*,\.mp3,\.m4a,\.aac,\.ogg,\.wav,\.webm,\.flac"/);
+});
+
 test('QT passage filters and row actions use operational statuses only', () => {
   assert.deepEqual(contracts.QT_PASSAGE_FILTERABLE_STATUSES, [
     'pending_review',

@@ -10,6 +10,11 @@ final noteRepositoryProvider = Provider<NoteRepository>((ref) {
   return NoteRepository(ref.watch(dioProvider));
 });
 
+final noteCategoriesProvider =
+    FutureProvider.autoDispose<List<NoteCategoryOption>>((ref) {
+  return ref.watch(noteRepositoryProvider).getNoteCategories();
+});
+
 /// 노트 페이지 모드·손그림을 이 기기에 저장하는 로컬 저장소 주입.
 final noteCanvasStoreProvider = Provider<NoteCanvasStore>((ref) {
   return NoteCanvasStore();

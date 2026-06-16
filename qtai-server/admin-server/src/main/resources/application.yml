@@ -24,6 +24,11 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  servlet:
+    multipart:
+      max-file-size: 11MB
+      max-request-size: 12MB
+
   # Redis 공통
   data:
     redis:
