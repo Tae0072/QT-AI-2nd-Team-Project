@@ -7,6 +7,7 @@ import com.qtai.bible.BibleServiceApplication;
 import com.qtai.bible.JpaAuditingConfig;
 import com.qtai.common.config.TimeConfig;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -62,5 +63,27 @@ class QtPassageRepositoryTest {
 
         assertTrue(
                 repository.findContainingRange((short) 1, (short) 2, (short) 1, (short) 1).isEmpty());
+    }
+
+    @Test
+    @DisplayName("자동게시 대상은 수집 시각이 있는 PENDING 본문만 반환한다")
+    void findAutoPublishTargets_requiresCollectedAt() {
+        LocalDate cutoff = LocalDate.of(2026, 6, 15);
+        QtPassage autoCollected = QtPassage.create(
+                cutoff, (short) 1, (short) 1, (short) 1, (short) 3, "auto", "ref");
+        autoCollected.scheduleForAutoPublish();
+        autoCollected.recordCollected(LocalDateTime.of(2026, 6, 15, 0, 2), null);
+        repository.save(autoCollected);
+
+        QtPassage manualPending = QtPassage.create(
+                cutoff.minusDays(1), (short) 1, (short) 1, (short) 4, (short) 6, "manual", "ref");
+        manualPending.scheduleForAutoPublish();
+        repository.save(manualPending);
+
+        List<QtPassage> result =
+                repository.findAutoPublishTargets(QtPassageStatus.PENDING_REVIEW, cutoff);
+
+        assertEquals(1, result.size());
+        assertEquals(autoCollected.getId(), result.get(0).getId());
     }
 }
