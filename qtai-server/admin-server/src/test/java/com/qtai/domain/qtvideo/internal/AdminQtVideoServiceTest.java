@@ -231,6 +231,45 @@ class AdminQtVideoServiceTest {
     }
 
     @Test
+    void createManualClipBuildsApprovedClipFromGivenTimes() {
+        when(contentContextUseCase.getContentContext(2L)).thenReturn(new QtPassageContentContext(
+                2L, LocalDate.of(2026, 6, 16), "QT title", List.of(101L), true));
+        when(sourceVideoRepository.findById(3L)).thenReturn(Optional.of(activeSourceVideo(3L)));
+        when(clipRepository.findByQtPassageIdAndActiveUniqueKey(2L, QtVideoClip.ACTIVE_UNIQUE_KEY))
+                .thenReturn(Optional.empty());
+        when(clipRepository.save(any(QtVideoClip.class))).thenAnswer(invocation -> {
+            QtVideoClip clip = invocation.getArgument(0);
+            ReflectionTestUtils.setField(clip, "id", 900L);
+            return clip;
+        });
+
+        AdminQtVideoClipItem result = service.createManualClip(
+                ADMIN_USER_ID, 2L, 3L, new BigDecimal("83.000"), new BigDecimal("130.000"));
+
+        assertThat(result.id()).isEqualTo(900L);
+        assertThat(result.startTimeSec()).isEqualByComparingTo("83.000");
+        assertThat(result.endTimeSec()).isEqualByComparingTo("130.000");
+        assertThat(result.status()).isEqualTo(QtVideoClipStatus.APPROVED.name());
+        assertThat(result.videoUrl()).isEqualTo("https://example.com/video.mp4");
+        AuditLogWriteRequest audit = capturedAudit();
+        assertThat(audit.actionType()).isEqualTo("QT_VIDEO_CLIP_PREPARE");
+        assertThat(audit.afterJson()).contains("\"mode\":\"MANUAL\"");
+    }
+
+    @Test
+    void createManualClipRejectsEndBeyondSourceDuration() {
+        when(contentContextUseCase.getContentContext(2L)).thenReturn(new QtPassageContentContext(
+                2L, LocalDate.of(2026, 6, 16), "QT title", List.of(101L), true));
+        when(sourceVideoRepository.findById(3L)).thenReturn(Optional.of(activeSourceVideo(3L)));
+
+        // 원본 길이 3600초를 초과하는 끝 시간
+        assertThatThrownBy(() -> service.createManualClip(
+                ADMIN_USER_ID, 2L, 3L, new BigDecimal("0.000"), new BigDecimal("9999.000")))
+                .isInstanceOf(BusinessException.class);
+        verify(clipRepository, never()).save(any());
+    }
+
+    @Test
     void deleteSourceVideoSoftDeletesSourceClipsAndSegments() {
         SourceVideo sourceVideo = activeSourceVideo(3L);
         when(sourceVideoRepository.findById(3L)).thenReturn(Optional.of(sourceVideo));

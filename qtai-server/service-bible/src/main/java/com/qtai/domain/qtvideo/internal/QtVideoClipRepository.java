@@ -8,7 +8,8 @@ import java.util.Optional;
 
 interface QtVideoClipRepository extends JpaRepository<QtVideoClip, Long> {
 
-    List<QtVideoClip> findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+    // 소프트 삭제(deleted_at) 클립은 사용자 노출 대상에서 제외한다(관리자 삭제 정책과 일치).
+    List<QtVideoClip> findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
             Long qtPassageId,
             Collection<QtVideoClipStatus> statuses);
 

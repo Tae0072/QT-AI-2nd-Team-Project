@@ -320,6 +320,56 @@ public class AdminQtVideoService {
         return result;
     }
 
+    /**
+     * 절별 구간 없이 시작/끝 초를 직접 지정해 QT 클립을 생성·교체한다(하이브리드 escape hatch).
+     * 절↔초 자동 매핑(글자수 가중 분할 등)은 후속 구현 대상.
+     */
+    @Transactional
+    public AdminQtVideoClipItem createManualClip(
+            Long adminUserId,
+            Long qtPassageId,
+            Long sourceVideoId,
+            BigDecimal startTimeSec,
+            BigDecimal endTimeSec
+    ) {
+        requirePositive(qtPassageId, "qtPassageId");
+        QtPassageContentContext context = getQtPassageContentContextUseCase.getContentContext(qtPassageId);
+        if (context == null || !context.published()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "QT 본문이 공개 상태가 아닙니다.");
+        }
+        SourceVideo source = requireSourceVideo(sourceVideoId);
+        if (source.getStatus() != SourceVideoStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "활성 상태의 원본 영상이 아닙니다.");
+        }
+        if (!hasPlayableUrl(source)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "원본 영상 URL이 재생 가능한 상태가 아닙니다.");
+        }
+        requireTimeRange(startTimeSec, endTimeSec);
+        if (source.getDurationSec() != null && endTimeSec.compareTo(source.getDurationSec()) > 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "끝 시간이 원본 영상 길이를 초과합니다.");
+        }
+
+        LocalDateTime approvedAt = LocalDateTime.now(clock.withZone(KST));
+        String title = "QT video " + context.qtDate();
+        Optional<QtVideoClip> activeClip = clipRepository.findByQtPassageIdAndActiveUniqueKey(
+                qtPassageId, QtVideoClip.ACTIVE_UNIQUE_KEY);
+        QtVideoClip clip = activeClip.orElseGet(() -> QtVideoClip.approvedSingleCut(
+                qtPassageId, title, source, source.getVideoUrl(), startTimeSec, endTimeSec, approvedAt));
+        if (activeClip.isPresent()) {
+            clip.replaceWithApprovedSingleCut(
+                    title, source, source.getVideoUrl(), startTimeSec, endTimeSec, approvedAt);
+        }
+        QtVideoClip saved = clipRepository.save(clip);
+        Map<String, Object> after = orderedMap();
+        after.put("qtPassageId", qtPassageId);
+        after.put("sourceVideoId", sourceVideoId);
+        after.put("startTimeSec", startTimeSec);
+        after.put("endTimeSec", endTimeSec);
+        after.put("mode", "MANUAL");
+        writeAudit(adminUserId, ACTION_CLIP_PREPARE, TARGET_QT_PASSAGE, qtPassageId, null, auditJson(after));
+        return toClipItem(saved);
+    }
+
     @Transactional
     public AdminQtVideoClipItem changeClipStatus(Long adminUserId, Long clipId, String status) {
         QtVideoClip clip = clipRepository.findById(requirePositive(clipId, "clipId"))

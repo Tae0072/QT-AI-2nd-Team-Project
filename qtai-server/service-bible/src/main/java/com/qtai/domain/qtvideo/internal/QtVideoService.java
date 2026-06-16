@@ -27,7 +27,7 @@ public class QtVideoService implements GetQtVideoUseCase {
             throw new BusinessException(ErrorCode.QT_PASSAGE_NOT_FOUND);
         }
 
-        var candidates = qtVideoClipRepository.findByQtPassageIdAndStatusInOrderByApprovedAtDescIdDesc(
+        var candidates = qtVideoClipRepository.findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
                 qtPassageId,
                 QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES);
         return QtVideoUserStatusResolver.chooseUserStatusClip(candidates)
