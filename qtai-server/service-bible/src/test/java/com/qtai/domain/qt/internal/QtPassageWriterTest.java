@@ -94,6 +94,27 @@ class QtPassageWriterTest {
         verify(qtPassageRepository).save(any(QtPassage.class));
     }
 
+    @Test
+    @DisplayName("upsert preserves publishedAt when an already published passage is collected again")
+    void upsert_whenAlreadyPublished_preservesPublishedAt() {
+        LocalDate qtDate = LocalDate.of(2026, 6, 16);
+        QtPassage existing = QtPassage.create(
+                qtDate, (short) 46, (short) 9, (short) 1, (short) 5, "old title", "old ref");
+        LocalDateTime originalPublishedAt = LocalDateTime.of(2026, 6, 16, 4, 0);
+        existing.publish(originalPublishedAt);
+        when(qtPassageRepository.findByQtDate(qtDate)).thenReturn(Optional.of(existing));
+        when(qtPassageRepository.save(any(QtPassage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        QtPassage saved = writer.upsert(
+                qtDate, (short) 46, passage((short) 10, (short) 10, (short) 2, (short) 8));
+
+        assertThat(saved.getPublishedAt()).isEqualTo(originalPublishedAt);
+        assertThat(saved.getStatus()).isEqualTo(QtPassageStatus.ACTIVE);
+        assertThat(saved.getCollectedAt()).isEqualTo(LocalDateTime.of(2026, 6, 16, 0, 2));
+        assertThat(saved.getChapter()).isEqualTo((short) 10);
+        assertThat(saved.getEndVerse()).isEqualTo((short) 8);
+    }
+
     private static SuTodayPassage passage(short chapter, short endChapter, short startVerse, short endVerse) {
         return new SuTodayPassage(
                 "오늘의 QT", "고린도전서", "1 Corinthians",

@@ -1,6 +1,12 @@
 package com.qtai;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.time.Clock;
+import java.time.ZoneId;
+
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -14,7 +20,15 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class AdminServerApplicationTest {
 
+    @Autowired
+    private Clock clock;
+
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void clockBeanUsesAsiaSeoulZone() {
+        assertThat(clock.getZone()).isEqualTo(ZoneId.of("Asia/Seoul"));
     }
 }
