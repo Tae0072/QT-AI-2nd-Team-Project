@@ -102,7 +102,9 @@ public class AdminQtPassageService implements
         QtPassage passage = QtPassage.create(
                 command.qtDate(),
                 command.bookId(),
+                command.bookId(),
                 command.chapter(),
+                command.endChapter(),
                 command.startVerse(),
                 command.endVerse(),
                 command.title().trim(),
@@ -127,6 +129,7 @@ public class AdminQtPassageService implements
                 command.qtDate(),
                 command.bookId(),
                 command.chapter(),
+                command.endChapter(),
                 command.startVerse(),
                 command.endVerse(),
                 command.title().trim(),
@@ -210,14 +213,19 @@ public class AdminQtPassageService implements
         if (command.qtDate() == null
                 || !positive(command.bookId())
                 || !positive(command.chapter())
+                || !positive(command.endChapter())
                 || !positive(command.startVerse())
                 || !positive(command.endVerse())
                 || command.title() == null
                 || command.title().isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
-        if (command.startVerse() > command.endVerse()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "시작 절은 종료 절보다 클 수 없습니다.");
+        if (command.endChapter() < command.chapter()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "종료 장은 시작 장 이상이어야 합니다.");
+        }
+        // 같은 장 범위에서만 절 순서를 강제한다. 장 교차(예: 9:1-10:5)는 종료 절이 더 작을 수 있다.
+        if (command.chapter().equals(command.endChapter()) && command.startVerse() > command.endVerse()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "같은 장에서는 시작 절이 종료 절보다 클 수 없습니다.");
         }
     }
 
@@ -247,6 +255,7 @@ public class AdminQtPassageService implements
                 passage.getQtDate(),
                 passage.getBookId(),
                 passage.getChapter(),
+                passage.getEndChapter(),
                 passage.getStartVerse(),
                 passage.getEndVerse(),
                 passage.getTitle(),
@@ -279,6 +288,7 @@ public class AdminQtPassageService implements
         payload.put("qtDate", passage.getQtDate());
         payload.put("bookId", passage.getBookId());
         payload.put("chapter", passage.getChapter());
+        payload.put("endChapter", passage.getEndChapter());
         payload.put("startVerse", passage.getStartVerse());
         payload.put("endVerse", passage.getEndVerse());
         payload.put("title", passage.getTitle());
