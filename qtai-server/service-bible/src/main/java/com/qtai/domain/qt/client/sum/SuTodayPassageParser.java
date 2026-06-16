@@ -26,19 +26,26 @@ public class SuTodayPassageParser {
                 ? startChapter
                 : parseShort(matcher.group(5), "종료 장");
         short endVerse = parseShort(matcher.group(6), "종료 절");
-        if (startChapter != endChapter) {
-            throw invalidInput("QT 본문 범위는 같은 장 안에서만 저장할 수 있습니다.");
+        if (endChapter < startChapter) {
+            throw invalidInput("QT 본문 종료 장이 시작 장보다 앞설 수 없습니다.");
+        }
+        if (startChapter == endChapter && endVerse < startVerse) {
+            throw invalidInput("QT 본문 종료 절이 시작 절보다 앞설 수 없습니다.");
         }
 
         String koreanBookName = matcher.group(1).trim();
         String englishBookName = matcher.group(2).trim();
+        // 같은 장: "권(Eng) 9:1-23", 장 교차: "권(Eng) 9:1-10:5"
         String referenceText = koreanBookName + "(" + englishBookName + ") "
-                + startChapter + ":" + startVerse + "-" + endVerse;
+                + startChapter + ":" + startVerse + "-"
+                + (startChapter == endChapter ? "" : endChapter + ":")
+                + endVerse;
         return new SuTodayPassage(
                 referenceText,
                 koreanBookName,
                 englishBookName,
                 startChapter,
+                endChapter,
                 startVerse,
                 endVerse,
                 referenceText

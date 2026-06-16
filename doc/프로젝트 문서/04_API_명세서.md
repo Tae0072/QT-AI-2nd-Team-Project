@@ -231,6 +231,7 @@
 | AD-06 | 시스템 공지 | `GET /api/v1/admin/notices`, `GET /api/v1/admin/notices/{id}`, `POST /api/v1/admin/notices`, `PATCH /api/v1/admin/notices/{id}`, `POST /api/v1/admin/notices/{id}/publish`, `POST /api/v1/admin/notices/{id}/hide` |
 | AD-07 | 감사 로그 | `GET /api/v1/admin/audit-logs` |
 | AD-08 | AI 운영 모니터링 | `GET /api/v1/admin/ai/monitoring` |
+| AD-20 | QT 영상 관리 | `DELETE /api/v1/admin/qt-videos/source-videos/{sourceVideoId}`, `DELETE /api/v1/admin/qt-videos/clips/{clipId}` |
 | AD-12 | 배경음악 관리 | `GET /api/v1/admin/music-tracks`, `POST /api/v1/admin/music-tracks`, `PATCH /api/v1/admin/music-tracks/{id}`, `POST /api/v1/admin/music-tracks/{id}/publish`, `POST /api/v1/admin/music-tracks/{id}/hide` |
 
 ---
@@ -1441,19 +1442,24 @@
 ```json
 {
   "qtDate": "2026-05-17",
-  "bookId": 19,
-  "chapter": 23,
-  "startVerse": 1,
-  "endVerse": 6,
+  "bookId": 46,
+  "chapter": 9,
+  "endChapter": 10,
+  "startVerse": 20,
+  "endVerse": 5,
   "title": "오늘의 QT",
-  "mainVerseRef": "시편 23:1-6",
+  "mainVerseRef": "고린도전서 9:20-10:5",
   "status": "pending_review"
 }
 ```
 
+- **범위 필드:** `chapter`는 시작 장, `endChapter`는 종료 장이다. `endChapter`를 생략하면 서버가 `chapter`와 같은 값으로 보정하여 기존 단일 장 클라이언트와 호환한다. 조회 응답에도 `endChapter`를 포함한다.
+- **검증:** `endChapter`는 `chapter` 이상이어야 한다. 같은 장이면 `startVerse <= endVerse`를 요구하고, 장 교차 범위에서는 다음 장의 종료 절이 시작 절보다 작을 수 있다(예: `9:20-10:5`).
 - **상태값:** `active`, `hidden`, `pending_review`, `deletion_notified`, `removed`
 
-> 2026-06-10 팀 결정 반영: 요청 본문을 `startVerseId/endVerseId` → `bookId`+`chapter`+`startVerse`+`endVerse`(+`mainVerseRef`)로 변경(이지윤 admin-server 구현 기준). 상태값은 5종(`active/hidden/pending_review/deletion_notified/removed`)으로 정렬하며, 3종 매핑(`DRAFT→pending_review`·`PUBLISHED→active`·`HIDDEN→hidden`)은 admin-web qt-passages 계약(`doc/workspaces/DevE_김지민/workflows/2026-06-10_admin-qt-passages-api-contract.md`) 참조. (별도 문서 저장소 SSoT 동기화 필요)
+> 2026-06-10 팀 결정 반영: 요청 본문을 `startVerseId/endVerseId` → `bookId`+`chapter`+`startVerse`+`endVerse`(+`mainVerseRef`)로 변경(이지윤 admin-server 구현 기준). 상태값은 5종(`active/hidden/pending_review/deletion_notified/removed`)으로 정렬하며, 3종 매핑(`DRAFT→pending_review`·`PUBLISHED→active`·`HIDDEN→hidden`)은 admin-web qt-passages 계약(`doc/workspaces/DevE_김지민/workflows/2026-06-10_admin-qt-passages-api-contract.md`) 참조.
+>
+> 2026-06-15 장 교차 계약 반영: F-01/F-06 및 `doc/workspaces/DevD_이승욱/workflows/2026-06-15_qt-cross-chapter-range.md` 합의에 따라 `endChapter`를 추가했다. 같은 권 내 장 교차만 활성화하며 권 교차는 현재 지원하지 않는다.
 
 ### 4.7.3 AI 산출물 검증
 
@@ -1815,7 +1821,19 @@ PATCH omitted fields keep the existing `music_tracks` values.
 - **성공 코드:** 목록/상세/수정/발행 `200 OK`, 생성 `201 Created`, 숨김 `204 No Content`
 - **실패 코드:** `400 VALIDATION_ERROR` 또는 `C0002 INVALID_INPUT`(생성/수정 입력값 오류), `401 M0002 UNAUTHORIZED`, `403 M0003 FORBIDDEN`(ADMIN 아님), `403 AD0003 ADMIN_ROLE_INSUFFICIENT`(세부 관리자 권한 부족), `404 C0004 RESOURCE_NOT_FOUND`(없는 공지), `409 C0007 INVALID_STATUS_TRANSITION`, `500 C0001 INTERNAL_ERROR`
 
-### 4.7.8 감사 로그 조회
+### 4.7.8 QT 영상 관리
+
+- **Method + URL:** `DELETE /api/v1/admin/qt-videos/source-videos/{sourceVideoId}`
+- **Method + URL:** `DELETE /api/v1/admin/qt-videos/clips/{clipId}`
+- **인증:** ADMIN + OPERATOR/REVIEWER/CONTENT_CREATOR/SUPER_ADMIN
+- **ERD:** `source_videos`, `bible_verse_video_segments`, `qt_video_clips`, `audit_logs`
+- **삭제 정책(soft-delete):** 삭제는 행을 물리 삭제하지 않고 `deleted_at`을 기록하는 소프트 삭제다(프로젝트 공통 정책). 삭제된 행은 `active_unique_key`가 해제되어 목록 조회(`deleted_at IS NULL`)와 활성 선택에서 제외되며, 복구·이력 추적이 가능하다. 삭제 처리와 감사 로그 기록은 같은 트랜잭션에서 원자적으로 수행한다.
+- **원본 영상 삭제:** 원본 영상을 소프트 삭제하면 해당 원본으로 만든 `qt_video_clips`와 `bible_verse_video_segments`도 함께 소프트 삭제한다(cascade). 성공 시 본문 없이 `204 No Content`를 반환하고 `QT_VIDEO_SOURCE_DELETE` 감사 로그(before-state에 동반 삭제된 클립·구간 수 포함)를 기록한다.
+- **QT 클립 삭제:** QT 클립만 소프트 삭제한다. 원본 영상과 절별 구간은 유지한다. 성공 시 본문 없이 `204 No Content`를 반환하고 `QT_VIDEO_CLIP_DELETE` 감사 로그를 기록한다.
+- **운영 주의:** QT 본문 ID·QT 클립 ID·원본 영상 ID는 서로 다른 시퀀스라 값이 일치하지 않을 수 있다. 관리자 화면은 `클립 ID`, `QT 본문 ID`, `원본 영상 ID`를 분리 표기한다.
+- **실패 코드:** `401 M0002 UNAUTHORIZED`, `403 M0003 FORBIDDEN`(ADMIN 아님), `403 AD0003 ADMIN_ROLE_INSUFFICIENT`(세부 관리자 권한 부족), `404 C0004 RESOURCE_NOT_FOUND` 또는 `400 C0002 INVALID_INPUT`(없는 대상/잘못된 id), `500 C0001 INTERNAL_ERROR`
+
+### 4.7.9 감사 로그 조회
 
 - **Method + URL:** `GET /api/v1/admin/audit-logs?actorType=ADMIN&actionType=AI_ASSET_APPROVE&from=2026-05-01&to=2026-05-17&page=0&size=50`
 - **인증:** ADMIN + OPERATOR/REVIEWER/SUPER_ADMIN
@@ -2472,12 +2490,14 @@ PATCH omitted fields keep the existing `music_tracks` values.
 | 87 | PATCH | `/api/v1/admin/notices/{id}` | OPERATOR | 공지 수정 |
 | 88 | POST | `/api/v1/admin/notices/{id}/publish` | OPERATOR | 공지 발행 |
 | 89 | POST | `/api/v1/admin/notices/{id}/hide` | OPERATOR | 공지 숨김 |
-| 90 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
-| 91 | GET | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 목록 |
-| 92 | POST | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 등록 |
-| 93 | PATCH | `/api/v1/admin/music-tracks/{id}` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 수정/교체 |
-| 94 | POST | `/api/v1/admin/music-tracks/{id}/publish` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 노출 |
-| 95 | POST | `/api/v1/admin/music-tracks/{id}/hide` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 숨김 |
+| 90 | DELETE | `/api/v1/admin/qt-videos/source-videos/{sourceVideoId}` | OPERATOR/REVIEWER/CONTENT_CREATOR/SUPER_ADMIN | QT 원본 영상 삭제 |
+| 91 | DELETE | `/api/v1/admin/qt-videos/clips/{clipId}` | OPERATOR/REVIEWER/CONTENT_CREATOR/SUPER_ADMIN | QT 클립 삭제 |
+| 92 | GET | `/api/v1/admin/ai/batch-run-logs` | OPERATOR/REVIEWER/SUPER_ADMIN | AI Batch 실행 로그 목록 |
+| 93 | GET | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 목록 |
+| 94 | POST | `/api/v1/admin/music-tracks` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 등록 |
+| 95 | PATCH | `/api/v1/admin/music-tracks/{id}` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 수정/교체 |
+| 96 | POST | `/api/v1/admin/music-tracks/{id}/publish` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 노출 |
+| 97 | POST | `/api/v1/admin/music-tracks/{id}/hide` | OPERATOR/SUPER_ADMIN | 관리자 배경음악 숨김 |
 
 ---
 
@@ -2498,6 +2518,8 @@ PATCH omitted fields keep the existing `music_tracks` values.
 | v1.10 | 2026-06-12 | 김지민 (DevE) | `07_요구사항_정의서.md` v3.7(F-03 QT 노트 단일 body 확정, Lead 합의 2026-06-12) 반영 — 원본 보존 원칙에 따라 본문은 수정하지 않고 아래 "개정 추가 (2026-06-12)" 절로 기록. 노트 API(§4.3)의 4섹션 필드(`rememberSection`·`interpretSection`·`applySection`·`praySection`)를 **deprecated**(서버 계약·`notes` 테이블에 하위호환으로 잔존, v1 클라이언트 미사용)로 표기하고, QT 노트도 단일 `body` 사용임을 명시. 4섹션 필드·컬럼의 실제 제거는 서버 정리 버전(별도 백엔드 작업)에서 본 명세와 함께 처리한다. 코드 변경 없음. |
 | v1.11 | 2026-06-12 | 김지민 (DevE) | §7.3 평가 케이스 생성/등록을 **식별자·메타 기반**으로 정렬(원문/프롬프트/민감정보 미저장, `07` §7 / CLAUDE.md §7). ① `POST /admin/ai/reports/{reportId}/evaluation-candidates`(신규) — 신고를 평가 케이스 후보로 등록, `sourceType=USER_REPORT`·`sourceId=reportId`, 백엔드가 신고+산출물 메타로 `inputJson` 조립. ② `POST /admin/ai/evaluation-sets/{setId}/cases`(수동 생성) 요청을 식별자 전용(`targetType`·`targetId`·`expectedPolicyJson`)으로 축소 — `inputJson`/`expectedOutputJson` 자유 텍스트 입력 제거, 서버가 `{targetType,targetId,sourceType}` 메타로 조립. 아래 "개정 추가 (2026-06-12) — 평가 케이스 식별자 기반" 절로 상세 기록. 코드 변경: 있음(admin-server + admin-web, FE/BE 동시). |
 | v1.12 | 2026-06-15 | 강상민 (DevC) / Codex | §3 AD-12와 §4.7.7 관리자 배경음악 관리 API 추가. 기존 `music_tracks` DB 음원 모델을 재사용하고, 관리자 등록/수정은 multipart 파일 업로드로 처리한다. 등록은 HIDDEN으로 시작하며 publish/hide로 ACTIVE/HIDDEN을 전환한다. 목록 응답과 감사 로그에는 `audio_data` 원문 바이트를 포함하지 않는다. |
+| v1.13 | 2026-06-15 | 이승욱 (DevD) | §4.7.2 관리자 QT 본문 관리 요청·응답에 `endChapter`를 추가하고, 미지정 시 시작 장 보정·종료 장 역전 거부·같은 장에서만 절 순서 강제 규칙을 명시. F-01/F-06 장 교차 QT 범위 지원과 동기화. |
+| v1.14 | 2026-06-16 | 이승욱 (DevD) | §4.7.2 관리자 QT 본문 관리 응답에 `collectedAt`(수집 시각, 시스템 배치가 성서유니온 범위를 실제로 가져온 시각) 필드 추가. 자동수집 본문(service-bible, status=ACTIVE)은 `publishedAt`(게시 시각)을 QT 날짜 **04:00 KST**(사용자 노출/cache refresh 기준, §6)로 채운다. `qt_passages.collected_at` 컬럼 신규(V51). 관리자 웹은 권 선택을 한글 권 이름으로 표시하고 QT 날짜 입력에 `-` 자동 삽입. F-01/F-06. 코드 변경: 있음(admin-server + admin-web, FE/BE 동시). |
 
 ---
 

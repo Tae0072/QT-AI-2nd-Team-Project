@@ -150,11 +150,14 @@ public class AdminQtPassageController {
     }
 
     private static AdminQtPassageCommand toCommand(Long adminId, AdminQtPassageRequest request) {
+        // endChapter는 선택 필드 — 미입력(null) 시 단일 장으로 간주해 시작 장으로 보정한다.
+        Short endChapter = request.endChapter() == null ? request.chapter() : request.endChapter();
         return new AdminQtPassageCommand(
                 adminId,
                 request.qtDate(),
                 request.bookId(),
                 request.chapter(),
+                endChapter,
                 request.startVerse(),
                 request.endVerse(),
                 request.title(),
@@ -166,6 +169,7 @@ public class AdminQtPassageController {
             @NotNull LocalDate qtDate,
             @NotNull @Min(1) @Max(66) Short bookId,
             @NotNull @Min(1) Short chapter,
+            @Min(1) Short endChapter,
             @NotNull @Min(1) Short startVerse,
             @NotNull @Min(1) Short endVerse,
             @NotBlank @Size(max = 200) String title,

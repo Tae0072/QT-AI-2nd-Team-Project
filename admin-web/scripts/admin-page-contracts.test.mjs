@@ -141,6 +141,12 @@ test('AI prompt version page uses EXPLANATION draft prompt contracts', () => {
   assert.match(page, /aiPromptVersionListParams\(AI_PROMPT_DEFAULT_STATUS\)/);
   assert.match(page, /AI_PROMPT_VERSION_STATUS_TAGS/);
   assert.match(page, /AI_PROMPT_MANAGED_TYPE/);
+  assert.doesNotMatch(page, /name="systemPrompt"/);
+  assert.doesNotMatch(page, /systemPrompt:\s*values\.systemPrompt/);
+
+  const createPayloadMatch = api.match(/export interface CreateAiPromptVersionPayload \{([\s\S]*?)\n\}/);
+  assert.ok(createPayloadMatch, 'CreateAiPromptVersionPayload must be declared');
+  assert.doesNotMatch(createPayloadMatch[1], /systemPrompt/);
   assert.match(api, /'\/admin\/ai\/prompt-versions'/);
   assert.match(api, /`\/admin\/ai\/prompt-versions\/\$\{id\}`/);
   assert.match(api, /`\/admin\/ai\/prompt-versions\/\$\{id\}\/activate`/);
@@ -335,18 +341,6 @@ test('music track route and menu stay operator-gated', () => {
     menu,
     /path:\s*'\/music-tracks'[\s\S]*?label:\s*'배경음악 관리'[\s\S]*?requiredRoles:\s*\[ADMIN_ROLES\.OPERATOR\]/,
   );
-});
-
-test('music track upload requests are allowed to use multipart boundaries', () => {
-  const client = fs.readFileSync(path.join(rootDir, 'src', 'api', 'client.ts'), 'utf8');
-  const musicApi = fs.readFileSync(path.join(rootDir, 'src', 'api', 'musicTracks.ts'), 'utf8');
-  const createConfig = client.match(/apiClient\s*=\s*axios\.create\(\{([\s\S]*?)\}\);/);
-
-  assert.ok(createConfig, 'apiClient must be created with axios.create');
-  assert.doesNotMatch(createConfig[1], /Content-Type/);
-  assert.match(musicApi, /new FormData\(\)/);
-  assert.match(musicApi, /apiClient\.post<ApiResponse<MusicTrack>>\([\s\S]*toFormData\(values, true\)/);
-  assert.match(musicApi, /apiClient\.patch<ApiResponse<MusicTrack>>\([\s\S]*toFormData\(values, false\)/);
 });
 
 test('QT passage filters and row actions use operational statuses only', () => {

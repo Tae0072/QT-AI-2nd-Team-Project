@@ -5,6 +5,7 @@ import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.audit.api.WriteAuditLogUseCase;
 import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 import com.qtai.domain.music.api.CreateAdminMusicTrackUseCase;
+import com.qtai.domain.music.api.DeleteAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.GetMusicTrackAudioUseCase;
 import com.qtai.domain.music.api.HideAdminMusicTrackUseCase;
 import com.qtai.domain.music.api.ListAdminMusicTrackUseCase;
@@ -39,7 +40,8 @@ public class MusicTrackService implements
         CreateAdminMusicTrackUseCase,
         UpdateAdminMusicTrackUseCase,
         PublishAdminMusicTrackUseCase,
-        HideAdminMusicTrackUseCase {
+        HideAdminMusicTrackUseCase,
+        DeleteAdminMusicTrackUseCase {
 
     private final MusicTrackRepository musicTrackRepository;
     private final WriteAuditLogUseCase auditLogUseCase;
@@ -64,10 +66,12 @@ public class MusicTrackService implements
     }
 
     @Override
-    public AdminMusicTrackListResponse listAdmin(String status, Pageable pageable) {
+    public AdminMusicTrackListResponse listAdmin(String status, String category, Pageable pageable) {
         Boolean enabled = MusicTrackStatus.enabledFilter(status);
-        Page<AdminMusicTrackResponse> page = musicTrackRepository.findAdminSummaries(enabled, pageable)
-                .map(this::toAdminResponse);
+        MusicCategory categoryFilter = parseCategoryOrNull(category);
+        Page<AdminMusicTrackResponse> page =
+                musicTrackRepository.findAdminSummaries(enabled, categoryFilter, pageable)
+                        .map(this::toAdminResponse);
         return new AdminMusicTrackListResponse(
                 page.getContent(),
                 page.getNumber(),
@@ -152,6 +156,16 @@ public class MusicTrackService implements
         writeAudit(adminUserId, "MUSIC_TRACK_HIDE", track.getId(), before,
                 auditSnapshotFactory.snapshot(track));
         return toAdminResponse(track);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAdmin(Long adminUserId, Long trackId) {
+        MusicTrack track = findTrack(trackId);
+        String before = auditSnapshotFactory.snapshot(track);
+        track.softDelete();
+        writeAudit(adminUserId, "MUSIC_TRACK_DELETE", track.getId(), before,
+                auditSnapshotFactory.snapshot(track));
     }
 
     private MusicTrack findTrack(Long trackId) {

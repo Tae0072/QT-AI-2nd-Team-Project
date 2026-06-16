@@ -1160,6 +1160,12 @@ abstract class AppLocalizations {
   /// **'My meditation'**
   String get statsTitle;
 
+  /// No description provided for @missionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mission'**
+  String get missionTitle;
+
   /// No description provided for @statsWeek.
   ///
   /// In en, this message translates to:

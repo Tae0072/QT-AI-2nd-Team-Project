@@ -5,9 +5,9 @@
 -- 대상 범위: bookCode=1CO, englishName=1 Corinthians, chapter=1, verses=10-17.
 
 INSERT INTO qt_passages
-    (qt_date, book_id, chapter, start_verse, end_verse, title, main_verse_ref, created_at, updated_at)
+    (qt_date, book_id, end_book_id, chapter, end_chapter, start_verse, end_verse, title, main_verse_ref, created_at, updated_at)
 VALUES
-    ('2026-06-02', 46, 1, 10, 17, '성서유니온 파싱 확인용 더미 QT', '고린도전서(1 Corinthians) 1:10-17', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+    ('2026-06-02', 46, 46, 1, 1, 10, 17, '성서유니온 파싱 확인용 더미 QT', '고린도전서(1 Corinthians) 1:10-17', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO bible_verses
     (book_id, chapter_no, verse_no, korean_text, english_text)

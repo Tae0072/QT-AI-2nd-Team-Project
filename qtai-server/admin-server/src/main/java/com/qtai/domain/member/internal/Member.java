@@ -142,4 +142,20 @@ public class Member extends BaseEntity {
     public boolean isActive() {
         return this.status == MemberStatus.ACTIVE;
     }
+
+    /** 관리자에 의한 회원 정지 — ACTIVE → SUSPENDED. 탈퇴 회원은 불가. */
+    public void suspendByAdmin() {
+        if (this.status == MemberStatus.WITHDRAWN) {
+            throw new IllegalStateException("탈퇴한 회원은 정지할 수 없습니다.");
+        }
+        this.status = MemberStatus.SUSPENDED;
+    }
+
+    /** 관리자에 의한 정지 해제 — SUSPENDED → ACTIVE. 탈퇴 회원은 불가. */
+    public void activateByAdmin() {
+        if (this.status == MemberStatus.WITHDRAWN) {
+            throw new IllegalStateException("탈퇴한 회원은 활성화할 수 없습니다.");
+        }
+        this.status = MemberStatus.ACTIVE;
+    }
 }

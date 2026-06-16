@@ -70,7 +70,6 @@ function statusTag(status: string) {
 
 interface CreatePromptFormValues {
   version: string;
-  systemPrompt: string;
   userPromptTemplate: string;
   modelName?: string;
   temperature: number;
@@ -131,7 +130,6 @@ export default function AiPromptVersionsPage() {
       await createAiPromptVersion({
         promptType: AI_PROMPT_MANAGED_TYPE,
         version: values.version.trim(),
-        systemPrompt: values.systemPrompt.trim(),
         userPromptTemplate: values.userPromptTemplate.trim(),
         modelName: values.modelName?.trim() || undefined,
         temperature: values.temperature,
@@ -379,20 +377,14 @@ export default function AiPromptVersionsPage() {
             <Input placeholder="버전 문자열" maxLength={50} />
           </Form.Item>
           <Form.Item
-            name="systemPrompt"
-            label="시스템 프롬프트"
-            rules={[{ required: true, message: '시스템 프롬프트를 입력하세요.' }]}
-          >
-            <Input.TextArea rows={5} placeholder="EXPLANATION 시스템 프롬프트" />
-          </Form.Item>
-          <Form.Item
             name="userPromptTemplate"
-            label="사용자 프롬프트 템플릿"
+            label="추가 생성 지시사항"
             rules={[
-              { required: true, message: '사용자 프롬프트 템플릿을 입력하세요.' },
+              { required: true, message: '추가 생성 지시사항을 입력하세요.' },
             ]}
+            extra="본문, 구절, 참고자료는 서버가 자동으로 포함합니다."
           >
-            <Input.TextArea rows={8} placeholder="EXPLANATION 사용자 프롬프트 템플릿" />
+            <Input.TextArea rows={8} placeholder="예: 초심자도 이해할 수 있게 차분하고 간결하게 설명하세요." />
           </Form.Item>
           <Form.Item name="modelName" label="모델명 (선택)">
             <Input placeholder="예: deepseek-chat" maxLength={100} />
@@ -470,10 +462,10 @@ export default function AiPromptVersionsPage() {
                 </Descriptions.Item>
               </Descriptions>
 
-              <Typography.Text strong>시스템 프롬프트</Typography.Text>
+              <Typography.Text strong>시스템 프롬프트(고정)</Typography.Text>
               <pre style={promptBlockStyle}>{detail.systemPrompt}</pre>
 
-              <Typography.Text strong>사용자 프롬프트 템플릿</Typography.Text>
+              <Typography.Text strong>추가 생성 지시사항</Typography.Text>
               <pre style={promptBlockStyle}>{detail.userPromptTemplate}</pre>
             </Space>
           )}

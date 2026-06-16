@@ -561,6 +561,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get statsTitle => '나의 묵상';
 
   @override
+  String get missionTitle => '미션';
+
+  @override
   String get statsWeek => '이번 주';
 
   @override

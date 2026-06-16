@@ -1,5 +1,6 @@
 package com.qtai.domain.report.internal;
 
+import java.util.Collection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -32,4 +33,10 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
                               Pageable pageable);
 
     long countByStatus(ReportStatus status);
+
+    /** 특정 회원이 신고한(신고자) 건수 — 회원 상세 통계용. */
+    long countByReporterMemberId(Long reporterMemberId);
+
+    /** 특정 대상(타입+대상ID 목록)에 접수된 신고 건수 — 회원이 받은 신고 집계용. ids가 비면 0. */
+    long countByTargetTypeAndTargetIdIn(ReportTargetType targetType, Collection<Long> targetIds);
 }

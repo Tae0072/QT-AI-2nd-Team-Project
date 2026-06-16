@@ -117,10 +117,10 @@ export default function DashboardPage() {
   const qtLink = todayQt?.qtPassageId
     ? `/qt-passages?focusId=${todayQt.qtPassageId}`
     : '/qt-passages';
-  // 시뮬레이터 문제 → 전용 관리 화면(AD-14). 본문 지정 필터로 진입.
+  // 시뮬레이터/QT 영상 문제 → QT 영상 관리 화면. 본문 지정 필터로 진입.
   const simulatorLink = todayQt?.qtPassageId
-    ? `/simulator-clips?qtPassageId=${todayQt.qtPassageId}`
-    : '/simulator-clips';
+    ? `/qt-videos?qtPassageId=${todayQt.qtPassageId}`
+    : '/qt-videos';
 
   // 해설 "없음" → 관리자 해설 생성 트리거(F-02/F-06). 생성은 배치/시스템 처리라 즉시 완료가 아니다.
   const [generating, setGenerating] = useState(false);
@@ -232,9 +232,9 @@ export default function DashboardPage() {
                           >
                             {todayQt.simulatorStatus || '-'}
                           </Tag>
-                          {/* 시뮬레이터 전용 관리 화면(AD-14)으로 이동. */}
+                          {/* QT 영상 관리 화면으로 이동. */}
                           {todayQt.simulatorStatus && todayQt.simulatorStatus !== 'READY' && (
-                            <CtaLink label="시뮬레이터 관리" to={simulatorLink} />
+                            <CtaLink label="QT 영상 관리" to={simulatorLink} />
                           )}
                         </Space>
                       </Descriptions.Item>

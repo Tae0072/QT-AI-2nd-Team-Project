@@ -74,5 +74,30 @@ public class MissionDefinition {
         this.targetCount = targetCount;
         this.status = status != null ? status : MissionDefinitionStatus.ACTIVE;
         this.createdAt = createdAt;
+        this.updatedAt = createdAt;
+    }
+
+    /** 관리자 미션 정의 수정. null 인자는 기존 값을 유지(부분 수정). code는 변경하지 않는다. */
+    public void update(String title, MissionMetricType metricType, MissionPeriodType periodType,
+                       Integer targetCount, LocalDateTime now) {
+        if (title != null) {
+            this.title = title;
+        }
+        if (metricType != null) {
+            this.metricType = metricType;
+        }
+        if (periodType != null) {
+            this.periodType = periodType;
+        }
+        if (targetCount != null) {
+            this.targetCount = targetCount;
+        }
+        this.updatedAt = now;
+    }
+
+    /** 관리자 미션 노출 상태 변경(ACTIVE/HIDDEN). */
+    public void changeStatus(MissionDefinitionStatus status, LocalDateTime now) {
+        this.status = status;
+        this.updatedAt = now;
     }
 }

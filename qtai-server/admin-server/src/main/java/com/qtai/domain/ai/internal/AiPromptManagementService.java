@@ -126,7 +126,7 @@ public class AiPromptManagementService implements
                 promptType,
                 command.version(),
                 contentHash(command),
-                command.systemPrompt(),
+                AiPromptVersion.defaultSystemPrompt(),
                 command.userPromptTemplate(),
                 command.modelName(),
                 command.temperature(),
@@ -290,14 +290,32 @@ public class AiPromptManagementService implements
     }
 
     private static String contentHash(CreateAiPromptVersionCommand command) {
-        String content = String.join("\n",
+        return contentHash(
                 command.promptType(),
                 command.version(),
-                command.systemPrompt(),
                 command.userPromptTemplate(),
-                nullToEmpty(command.modelName()),
-                String.valueOf(command.temperature()),
-                String.valueOf(command.maxTokens())
+                command.modelName(),
+                command.temperature(),
+                command.maxTokens()
+        );
+    }
+
+    static String contentHash(
+            String promptType,
+            String version,
+            String userPromptTemplate,
+            String modelName,
+            Double temperature,
+            Integer maxTokens
+    ) {
+        String content = String.join("\n",
+                promptType,
+                version,
+                AiPromptVersion.defaultSystemPrompt(),
+                userPromptTemplate,
+                nullToEmpty(modelName),
+                String.valueOf(temperature == null ? AiPromptVersion.DEFAULT_TEMPERATURE : temperature),
+                String.valueOf(maxTokens == null ? AiPromptVersion.DEFAULT_MAX_TOKENS : maxTokens)
         );
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -342,7 +360,6 @@ public class AiPromptManagementService implements
         requireText(command.adminRole(), "adminRole");
         requireText(command.promptType(), "promptType");
         requireText(command.version(), "version");
-        requireText(command.systemPrompt(), "systemPrompt");
         requireText(command.userPromptTemplate(), "userPromptTemplate");
         if (command.temperature() != null && (command.temperature() < 0.0 || command.temperature() > 2.0)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "temperature must be between 0 and 2");
