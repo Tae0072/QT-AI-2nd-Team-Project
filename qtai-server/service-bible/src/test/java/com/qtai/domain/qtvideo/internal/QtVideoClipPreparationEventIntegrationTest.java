@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.qtai.bible.BibleServiceApplication;
 import com.qtai.domain.qt.client.sum.SuTodayPassage;
 import com.qtai.domain.qt.internal.QtPassage;
+import com.qtai.domain.qt.internal.QtPassageAutoPublishService;
 import com.qtai.domain.qt.internal.QtTodayPassageImportService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +34,9 @@ class QtVideoClipPreparationEventIntegrationTest {
 
     @Autowired
     private QtTodayPassageImportService importService;
+
+    @Autowired
+    private QtPassageAutoPublishService autoPublishService;
 
     @Autowired
     private QtVideoClipRepository qtVideoClipRepository;
@@ -84,6 +88,10 @@ class QtVideoClipPreparationEventIntegrationTest {
                         "1 Corinthians 3:1-3"
                 )
         );
+
+        // 모델 A: 수집 본문은 '미게시(PENDING)'라 이 시점엔 클립 준비가 skip된다.
+        // 04:00 자동게시가 게시하며 매핑 변경 이벤트를 재발행 → 그제서야 클립이 준비된다.
+        autoPublishService.publishDue();
 
         var clip = qtVideoClipRepository.findByQtPassageIdAndActiveUniqueKey(
                 passage.getId(),

@@ -86,6 +86,8 @@ class QtPassageWriter {
                 passage.title(),
                 passage.referenceText()
         );
+        // 신규 수집 본문은 '미게시'로 시작 → 04:00 자동게시 대상(수집 즉시 노출 금지, §6).
+        qtPassage.scheduleForAutoPublish();
         return qtPassageRepository.save(qtPassage);
     }
 

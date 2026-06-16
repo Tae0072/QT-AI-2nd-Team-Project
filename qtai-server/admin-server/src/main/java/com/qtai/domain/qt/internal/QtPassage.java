@@ -73,6 +73,15 @@ public class QtPassage extends BaseEntity {
         }
     }
 
+    /**
+     * 자동수집 신규 본문을 '미게시(검토 대기)'로 둔다 — 게시 시각(QT 날짜 04:00 KST)에 자동게시 스케줄러가
+     * 노출시킨다. 수집 즉시 노출하지 않고 공개 정책(00:00~04:00 이전 캐시, §6)을 지키기 위함.
+     */
+    public void scheduleForAutoPublish() {
+        this.status = QtPassageStatus.PENDING_REVIEW;
+        this.publishedAt = null;
+    }
+
     /** 단일 권·장 범위 생성. 시작=종료로 저장한다. */
     public static QtPassage create(
             LocalDate qtDate,

@@ -80,8 +80,9 @@ class QtPassageWriterTest {
         assertThat(saved.getChapter()).isEqualTo((short) 9);
         assertThat(saved.getEndChapter()).isEqualTo((short) 10);
         assertThat(saved.getEndBookId()).isEqualTo((short) 46);
-        // 수집 시각은 기록하되, admin 수집 본문은 검토 대기라 게시 시각은 비워 둔다.
+        // 수집 시각은 기록하되, 신규 수집 본문은 미게시(PENDING_REVIEW)라 게시 시각은 비워 둔다.
         assertThat(saved.getCollectedAt()).isEqualTo(LocalDateTime.of(2026, 6, 16, 0, 2));
+        assertThat(saved.getStatus()).isEqualTo(QtPassageStatus.PENDING_REVIEW);
         assertThat(saved.getPublishedAt()).isNull();
         verify(qtPassageRepository).save(any(QtPassage.class));
     }
