@@ -159,3 +159,18 @@ gitleaks detect --source . --redact --exit-code 1
 - PR은 가능하면 10 files 이하, 500 changed lines 이하로 유지한다.
 - 기능 PR은 관련 F-ID를 명시한다.
 - `.gradle`, build output, coverage HTML, generated report, temporary file은 stage하지 않는다.
+
+## 13. Push 전 검증 (.github 자동 리뷰봇·CI 게이트) — 매 push/PR 전 필수
+
+`dev`로 push/PR 하기 전에 항상 `.github`의 자동 게이트 기준을 먼저 점검한다. 이 게이트는 통과 시 Claude 리뷰봇이 자동 squash 머지하므로, 사전 점검 없이 push하지 않는다. 근거: `.github/workflows/{pr-validation,qt-ai-ci,branch-merge-guard,claude-pr-review}.yml`, `.github/pull_request_template.md`.
+
+- 브랜치명: `feature|bugfix|hotfix|chore|release|docs|test` + `/` + kebab-case 만 통과한다. `feat`·`feature/Foo`(대문자)·언더스코어는 실패(`pr-validation.yml`의 `branch-name`).
+- PR 제목: Conventional Commits 타입(`feat|fix|refactor|chore|docs|test|perf|build|ci|revert`).
+- 보호 브랜치끼리(`dev`/`dev-msa`/`dev-admin-web`) PR·머지 금지(`branch-merge-guard.yml`).
+- `ci-all` 집계 잡이 전부 success여야 자동 머지된다:
+  - spring-build: `./gradlew build -x test` → `test` → `jacocoTestReport jacocoTestCoverageVerification`(KPI: Domain 70 / Application 70 / Presentation 50 / Infrastructure 40 / 전체 70).
+  - flutter-test, gitleaks(시크릿 0), spectral(`apis/**` OpenAPI), docker-compose config, **Requirements Guard**.
+- Requirements Guard 금지 패턴(발견 시 BLOCK): SSE(`SseEmitter`/`text/event-stream`/`/ai/sessions`), Kafka, 운영 K8s/Helm, RAG/Vector/ES/EmbeddingStore, 개역개정·`\bESV\b`·`\bNIV\b`, 성서유니온/두란노 본문 텍스트 컬럼(`seobi_union_text` 등 `*_text` 저장), `javax.*`, 교회인증(`church_*`), AI 찬양추천·가사·음원(`lyrics_text`/`audio_url` 등), Anthropic/Claude 구현(DeepSeek만), 금지표현('저작권 문제 없음'·'유실률 0%'·'내부 API 경로'), 사용자 노출 '주석'(→'해설').
+- Claude PR 자동 리뷰(v3.1 9기준): 테스트 누락 시 개선요청, 도메인 경계 직접 import·`@Transactional` 누락·권한(8 role)·검증통과(APPROVED)만 노출 위주로 본다.
+- PR 본문 필수: 관련 F-ID + `workspaces/{담당자}/workflows/{date}_{task}.md` 및 `reports/{date}_{task}_report.md` 링크.
+- 로컬 사전 검증: §11 명령(build/test/jacoco/spectral/gitleaks)을 먼저 통과시킨 뒤 push한다.

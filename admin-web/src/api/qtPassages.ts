@@ -25,7 +25,8 @@ export interface QtPassage {
   id: number;
   qtDate: string; // YYYY-MM-DD
   bookId: number; // 성경 권 1~66
-  chapter: number;
+  chapter: number; // 시작 장
+  endChapter: number; // 종료 장 (같은 장이면 chapter와 동일)
   startVerse: number;
   endVerse: number;
   title: string;
@@ -44,11 +45,13 @@ export interface QtPassageListParams extends PageParams {
   q?: string; // 제목·대표 구절 검색
 }
 
-// 등록/수정 공통 요청 (계약서 §3). startVerse <= endVerse 만 허용.
+// 등록/수정 공통 요청 (계약서 §3).
+// 같은 장이면 startVerse <= endVerse. endChapter 미지정 시 백엔드가 chapter로 보정(단일 장).
 export interface QtPassageRequest {
   qtDate: string;
   bookId: number;
   chapter: number;
+  endChapter?: number;
   startVerse: number;
   endVerse: number;
   title: string;
