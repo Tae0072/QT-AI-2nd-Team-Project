@@ -47,15 +47,17 @@ public class AdminQtPassageService implements
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final TodayQtCacheEvictor todayQtCacheEvictor;
+    private final AdminQtVideoAutoPreparer autoPreparer;
 
     @Autowired
     public AdminQtPassageService(
             QtPassageRepository qtPassageRepository,
             WriteAuditLogUseCase auditLogUseCase,
             ObjectMapper objectMapper,
-            TodayQtCacheEvictor todayQtCacheEvictor
+            TodayQtCacheEvictor todayQtCacheEvictor,
+            AdminQtVideoAutoPreparer autoPreparer
     ) {
-        this(qtPassageRepository, auditLogUseCase, objectMapper, Clock.systemDefaultZone(), todayQtCacheEvictor);
+        this(qtPassageRepository, auditLogUseCase, objectMapper, Clock.systemDefaultZone(), todayQtCacheEvictor, autoPreparer);
     }
 
     AdminQtPassageService(
@@ -63,13 +65,15 @@ public class AdminQtPassageService implements
             WriteAuditLogUseCase auditLogUseCase,
             ObjectMapper objectMapper,
             Clock clock,
-            TodayQtCacheEvictor todayQtCacheEvictor
+            TodayQtCacheEvictor todayQtCacheEvictor,
+            AdminQtVideoAutoPreparer autoPreparer
     ) {
         this.qtPassageRepository = qtPassageRepository;
         this.auditLogUseCase = auditLogUseCase;
         this.objectMapper = objectMapper;
         this.clock = clock;
         this.todayQtCacheEvictor = todayQtCacheEvictor;
+        this.autoPreparer = autoPreparer;
     }
 
     @Override
@@ -112,6 +116,9 @@ public class AdminQtPassageService implements
         );
         QtPassage saved = qtPassageRepository.save(passage);
         writeAudit(command.adminId(), "QT_PASSAGE_CREATE", saved.getId(), null, snapshot(saved));
+        // 본문 커밋 후 절 매핑을 채운다(미공개라 클립은 게시 시 준비).
+        autoPreparer.syncAfterCommit(command.adminId(), saved.getId(), saved.getBookId(), saved.getChapter(),
+                saved.getEndChapter(), saved.getStartVerse(), saved.getEndVerse(), false);
         return toResponse(saved);
     }
 
@@ -136,6 +143,9 @@ public class AdminQtPassageService implements
                 normalized(command.mainVerseRef())
         );
         writeAudit(command.adminId(), "QT_PASSAGE_UPDATE", passage.getId(), beforeJson, snapshot(passage));
+        // 범위 변경분 반영(절 매핑) + 공개 본문이면 클립 자동 준비.
+        autoPreparer.syncAfterCommit(command.adminId(), passage.getId(), passage.getBookId(), passage.getChapter(),
+                passage.getEndChapter(), passage.getStartVerse(), passage.getEndVerse(), true);
         todayQtCacheEvictor.evictAfterCommit();
         return toResponse(passage);
     }
@@ -149,6 +159,9 @@ public class AdminQtPassageService implements
         String beforeJson = snapshot(passage);
         passage.publish(LocalDateTime.now(clock));
         writeAudit(adminId, "QT_PASSAGE_PUBLISH", passage.getId(), beforeJson, snapshot(passage));
+        // 게시되면 절 매핑 보강 + 클립 자동 준비.
+        autoPreparer.syncAfterCommit(adminId, passage.getId(), passage.getBookId(), passage.getChapter(),
+                passage.getEndChapter(), passage.getStartVerse(), passage.getEndVerse(), true);
         todayQtCacheEvictor.evictAfterCommit();
         return toResponse(passage);
     }

@@ -154,17 +154,25 @@ class AdminQtPassageCacheEvictTest {
         }
 
         @Bean
+        AdminQtVideoAutoPreparer adminQtVideoAutoPreparer() {
+            // 캐시 무효화 검증 전용 컨텍스트 — 영상 자동 준비는 무관하므로 no-op mock으로 둔다.
+            return mock(AdminQtVideoAutoPreparer.class);
+        }
+
+        @Bean
         AdminQtPassageService adminQtPassageService(
                 QtPassageRepository repository,
                 WriteAuditLogUseCase auditLogUseCase,
-                TodayQtCacheEvictor todayQtCacheEvictor
+                TodayQtCacheEvictor todayQtCacheEvictor,
+                AdminQtVideoAutoPreparer autoPreparer
         ) {
             return new AdminQtPassageService(
                     repository,
                     auditLogUseCase,
                     new ObjectMapper().findAndRegisterModules(),
                     CLOCK,
-                    todayQtCacheEvictor
+                    todayQtCacheEvictor,
+                    autoPreparer
             );
         }
     }
