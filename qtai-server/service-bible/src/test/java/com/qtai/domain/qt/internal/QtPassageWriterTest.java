@@ -86,10 +86,33 @@ class QtPassageWriterTest {
         assertThat(saved.getChapter()).isEqualTo((short) 9);
         assertThat(saved.getEndChapter()).isEqualTo((short) 10);
         assertThat(saved.getEndBookId()).isEqualTo((short) 46);
-        // 수집 시각 = 현재 시각(고정 클럭), 게시 시각 = QT 날짜 04:00.
+        // 수집 시각 = 현재 시각(고정 클럭). 신규 수집 본문은 '미게시'(PENDING_REVIEW)로 시작하고
+        // 게시 시각은 비어 있다 — 04:00 자동게시 스케줄러가 게시 시각을 채우며 노출시킨다.
         assertThat(saved.getCollectedAt()).isEqualTo(LocalDateTime.of(2026, 6, 16, 0, 2));
-        assertThat(saved.getPublishedAt()).isEqualTo(LocalDateTime.of(2026, 6, 16, 4, 0));
+        assertThat(saved.getStatus()).isEqualTo(QtPassageStatus.PENDING_REVIEW);
+        assertThat(saved.getPublishedAt()).isNull();
         verify(qtPassageRepository).save(any(QtPassage.class));
+    }
+
+    @Test
+    @DisplayName("upsert preserves publishedAt when an already published passage is collected again")
+    void upsert_whenAlreadyPublished_preservesPublishedAt() {
+        LocalDate qtDate = LocalDate.of(2026, 6, 16);
+        QtPassage existing = QtPassage.create(
+                qtDate, (short) 46, (short) 9, (short) 1, (short) 5, "old title", "old ref");
+        LocalDateTime originalPublishedAt = LocalDateTime.of(2026, 6, 16, 4, 0);
+        existing.publish(originalPublishedAt);
+        when(qtPassageRepository.findByQtDate(qtDate)).thenReturn(Optional.of(existing));
+        when(qtPassageRepository.save(any(QtPassage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        QtPassage saved = writer.upsert(
+                qtDate, (short) 46, passage((short) 10, (short) 10, (short) 2, (short) 8));
+
+        assertThat(saved.getPublishedAt()).isEqualTo(originalPublishedAt);
+        assertThat(saved.getStatus()).isEqualTo(QtPassageStatus.ACTIVE);
+        assertThat(saved.getCollectedAt()).isEqualTo(LocalDateTime.of(2026, 6, 16, 0, 2));
+        assertThat(saved.getChapter()).isEqualTo((short) 10);
+        assertThat(saved.getEndVerse()).isEqualTo((short) 8);
     }
 
     private static SuTodayPassage passage(short chapter, short endChapter, short startVerse, short endVerse) {

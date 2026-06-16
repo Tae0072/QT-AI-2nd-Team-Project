@@ -9,12 +9,15 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.qtai.domain.qt.api.QtPassageVerseMappingsChangedEvent;
+import java.lang.reflect.Method;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @ExtendWith(MockitoExtension.class)
 class QtVideoClipPreparationListenerTest {
@@ -54,5 +57,16 @@ class QtVideoClipPreparationListenerTest {
                     && message.contains("errorType=IllegalStateException")
                     && message.contains("errorMessage=boom");
         }));
+    }
+
+    @Test
+    @DisplayName("Mapping changed event is handled after the publishing transaction commits")
+    void prepareAfterQtVerseMappingsChanged_isAfterCommitListener() throws NoSuchMethodException {
+        Method method = QtVideoClipPreparationListener.class.getDeclaredMethod(
+                "prepareAfterQtVerseMappingsChanged", QtPassageVerseMappingsChangedEvent.class);
+
+        TransactionalEventListener listener = method.getAnnotation(TransactionalEventListener.class);
+
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionPhase.AFTER_COMMIT, listener.phase());
     }
 }

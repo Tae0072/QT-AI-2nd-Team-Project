@@ -8,12 +8,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "qt_passages")
@@ -58,19 +57,21 @@ public class QtPassage extends BaseEntity {
     @Column(name = "hidden_at")
     private LocalDateTime hiddenAt;
 
-    /** 시스템 배치가 성서유니온 범위를 실제로 가져온 시각(게시 시각과 별개). */
+    /** 자동수집이 본문 범위를 실제로 가져온 시각. 게시 시각과 분리한다. */
     @Column(name = "collected_at")
     private LocalDateTime collectedAt;
 
-    /**
-     * 자동수집 메타 기록 — 수집 시각은 매 수집마다 갱신하고, 게시 시각은 아직 비어 있을 때만 설정한다.
-     * {@code publishedAtIfAbsent}가 {@code null}이면 게시 시각은 건드리지 않는다(관리자 검토 대기 유지).
-     */
     public void recordCollected(LocalDateTime collectedAt, LocalDateTime publishedAtIfAbsent) {
         this.collectedAt = collectedAt;
         if (publishedAtIfAbsent != null && this.publishedAt == null) {
             this.publishedAt = publishedAtIfAbsent;
         }
+    }
+
+    /** 자동수집 본문을 04:00 자동게시 전까지 미게시 상태로 예약한다. */
+    public void scheduleForAutoPublish() {
+        this.status = QtPassageStatus.PENDING_REVIEW;
+        this.publishedAt = null;
     }
 
     /** 단일 권·장 범위 생성. 시작=종료로 저장한다. */
@@ -149,7 +150,6 @@ public class QtPassage extends BaseEntity {
             String mainVerseRef
     ) {
         this.qtDate = qtDate;
-        // 관리자 수정은 같은 권 기준 → 종료 권 = 시작 권.
         updateRange(bookId, bookId, chapter, endChapter, startVerse, endVerse, title, mainVerseRef);
     }
 

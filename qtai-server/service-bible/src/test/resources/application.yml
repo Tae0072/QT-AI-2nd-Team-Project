@@ -10,6 +10,10 @@ qt:
       # 성서유니온 수집 스케줄러 빈을 생성하지 않는다(@ConditionalOnProperty).
       # 통합 테스트 기동 시 외부 HTTP 호출이 일어나지 않도록 차단.
       enabled: false
+  auto-publish:
+    # 04:00 자동게시 스케줄러 빈을 생성하지 않는다(@ConditionalOnProperty).
+    # 통합 테스트 기동(ApplicationReadyEvent) 시 자동게시가 데이터를 건드리지 않도록 차단.
+    enabled: false
 
 # 배경음악 번들 시드 비활성(테스트는 음원 리소스를 적재하지 않는다).
 # ddl-auto=create-drop로 만든 H2 스키마는 audio_data가 작아 시드(blob)가 실패하므로
