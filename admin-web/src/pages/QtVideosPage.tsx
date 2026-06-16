@@ -19,6 +19,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useSearchParams } from 'react-router-dom';
 import {
   changeQtVideoClipStatus,
+  createManualQtVideoClip,
   createSourceVideo,
   deleteQtVideoClip,
   deleteSourceVideo,
@@ -110,7 +111,14 @@ export default function QtVideosPage() {
   const [segmentSource, setSegmentSource] = useState<SourceVideo | null>(null);
   const [segmentText, setSegmentText] = useState(segmentTemplate());
   const [submitting, setSubmitting] = useState(false);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
   const [sourceForm] = Form.useForm<SourceVideoFormValues>();
+  const [manualForm] = Form.useForm<{
+    qtPassageId: number;
+    sourceVideoId: number;
+    startTimeSec: number;
+    endTimeSec: number;
+  }>();
 
   useEffect(() => {
     let cancelled = false;
@@ -256,6 +264,27 @@ export default function QtVideosPage() {
       clips.applyFilters({ qtPassageId: clipPassageId });
     } catch (e) {
       message.error(e instanceof Error ? e.message : '클립 생성에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openManualClip = () => {
+    manualForm.resetFields();
+    if (clipPassageId) manualForm.setFieldsValue({ qtPassageId: clipPassageId });
+    setManualModalOpen(true);
+  };
+
+  const submitManualClip = async () => {
+    const values = await manualForm.validateFields();
+    setSubmitting(true);
+    try {
+      const clip = await createManualQtVideoClip(values);
+      message.success(`QT 클립을 직접 생성했습니다. (#${clip.id}, ${clip.startTimeSec}~${clip.endTimeSec}초)`);
+      setManualModalOpen(false);
+      clips.applyFilters({ qtPassageId: values.qtPassageId });
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '직접 클립 생성에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
@@ -509,6 +538,7 @@ export default function QtVideosPage() {
                     <Button onClick={onPrepareClip} loading={submitting}>
                       QT 클립 생성
                     </Button>
+                    <Button onClick={openManualClip}>직접 클립 생성</Button>
                   </Space>
                   <Table<QtVideoClip>
                     rowKey="id"
@@ -590,6 +620,35 @@ export default function QtVideosPage() {
           onChange={(event) => setSegmentText(event.target.value)}
           style={{ fontFamily: 'monospace' }}
         />
+      </Modal>
+
+      <Modal
+        open={manualModalOpen}
+        title="직접 클립 생성 (시작/끝 초 지정)"
+        okText="생성"
+        cancelText="취소"
+        confirmLoading={submitting}
+        onOk={submitManualClip}
+        onCancel={() => setManualModalOpen(false)}
+        destroyOnHidden
+      >
+        <Typography.Paragraph type="secondary">
+          절별 구간 없이 영상의 시작·끝 초를 직접 지정해 QT 클립을 만듭니다. 같은 본문의 활성 클립은 교체됩니다.
+        </Typography.Paragraph>
+        <Form form={manualForm} layout="vertical">
+          <Form.Item name="qtPassageId" label="QT 본문 ID" rules={[{ required: true }]}>
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="sourceVideoId" label="원본 영상 ID" rules={[{ required: true }]}>
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="startTimeSec" label="시작(초)" rules={[{ required: true }]}>
+            <InputNumber min={0} step={0.1} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="endTimeSec" label="끝(초)" rules={[{ required: true }]}>
+            <InputNumber min={0.001} step={0.1} style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
       </Modal>
     </Card>
   );

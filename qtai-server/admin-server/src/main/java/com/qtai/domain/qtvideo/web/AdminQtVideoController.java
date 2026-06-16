@@ -171,6 +171,21 @@ public class AdminQtVideoController {
         return ResponseEntity.ok(ApiResponse.success(adminQtVideoService.prepareClip(adminUserId, qtPassageId)));
     }
 
+    @PostMapping("/clips/manual")
+    public ResponseEntity<ApiResponse<AdminQtVideoClipItem>> createManualClip(
+            Authentication authentication,
+            @Valid @RequestBody ManualClipRequest request
+    ) {
+        Long adminUserId = requireManager(authentication);
+        return ResponseEntity.ok(ApiResponse.success(adminQtVideoService.createManualClip(
+                adminUserId,
+                request.qtPassageId(),
+                request.sourceVideoId(),
+                request.startTimeSec(),
+                request.endTimeSec()
+        )));
+    }
+
     @DeleteMapping("/clips/{clipId}")
     public ResponseEntity<Void> deleteClip(
             Authentication authentication,
@@ -262,6 +277,14 @@ public class AdminQtVideoController {
 
     public record ClipStatusRequest(
             @NotBlank String status
+    ) {
+    }
+
+    public record ManualClipRequest(
+            @NotNull @Positive Long qtPassageId,
+            @NotNull @Positive Long sourceVideoId,
+            @NotNull BigDecimal startTimeSec,
+            @NotNull BigDecimal endTimeSec
     ) {
     }
 }

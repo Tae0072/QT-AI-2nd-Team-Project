@@ -147,6 +147,20 @@ export function prepareQtVideoClip(qtPassageId: number) {
   );
 }
 
+export interface ManualClipPayload {
+  qtPassageId: number;
+  sourceVideoId: number;
+  startTimeSec: number;
+  endTimeSec: number;
+}
+
+// 절별 구간 없이 시작/끝 초를 직접 지정해 QT 클립을 생성·교체한다.
+export function createManualQtVideoClip(payload: ManualClipPayload) {
+  return unwrap<QtVideoClip>(
+    apiClient.post<ApiResponse<QtVideoClip>>('/admin/qt-videos/clips/manual', payload),
+  );
+}
+
 export function deleteQtVideoClip(clipId: number) {
   return apiClient.delete(`/admin/qt-videos/clips/${clipId}`);
 }

@@ -164,6 +164,19 @@ class AdminQtVideoControllerTest {
     }
 
     @Test
+    @DisplayName("직접 클립 생성 — 시작/끝 초로 서비스 호출")
+    void createManualClip() throws Exception {
+        manager();
+        mockMvc.perform(post("/api/v1/admin/qt-videos/clips/manual")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"qtPassageId\":2,\"sourceVideoId\":4,\"startTimeSec\":83,\"endTimeSec\":130}")
+                        .principal(authentication()))
+                .andExpect(status().isOk());
+        verify(adminQtVideoService).createManualClip(
+                eq(100L), eq(2L), eq(4L), eq(new BigDecimal("83")), eq(new BigDecimal("130")));
+    }
+
+    @Test
     @DisplayName("QT 클립 삭제 — 204 + 관리자 ID 전달")
     void deleteClip() throws Exception {
         manager();

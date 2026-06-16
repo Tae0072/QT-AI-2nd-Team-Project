@@ -1830,6 +1830,7 @@ PATCH omitted fields keep the existing `music_tracks` values.
 - **삭제 정책(soft-delete):** 삭제는 행을 물리 삭제하지 않고 `deleted_at`을 기록하는 소프트 삭제다(프로젝트 공통 정책). 삭제된 행은 `active_unique_key`가 해제되어 목록 조회(`deleted_at IS NULL`)와 활성 선택에서 제외되며, 복구·이력 추적이 가능하다. 삭제 처리와 감사 로그 기록은 같은 트랜잭션에서 원자적으로 수행한다.
 - **원본 영상 삭제:** 원본 영상을 소프트 삭제하면 해당 원본으로 만든 `qt_video_clips`와 `bible_verse_video_segments`도 함께 소프트 삭제한다(cascade). 성공 시 본문 없이 `204 No Content`를 반환하고 `QT_VIDEO_SOURCE_DELETE` 감사 로그(before-state에 동반 삭제된 클립·구간 수 포함)를 기록한다.
 - **QT 클립 삭제:** QT 클립만 소프트 삭제한다. 원본 영상과 절별 구간은 유지한다. 성공 시 본문 없이 `204 No Content`를 반환하고 `QT_VIDEO_CLIP_DELETE` 감사 로그를 기록한다.
+- **직접 클립 생성(`POST /api/v1/admin/qt-videos/clips/manual`):** 절별 구간 없이 시작/끝 초를 직접 지정해 활성 QT 클립을 생성·교체한다(하이브리드 경로). Body `{qtPassageId, sourceVideoId, startTimeSec, endTimeSec}`. 본문은 공개 상태, 원본 영상은 활성·재생 가능 URL이어야 하며 `0 ≤ startTimeSec < endTimeSec ≤ 원본 길이`를 강제한다. 같은 본문의 활성 클립이 있으면 교체한다. 성공 시 클립을 반환하고 `QT_VIDEO_CLIP_PREPARE` 감사 로그(`afterJson.mode=MANUAL`)를 기록한다. 절↔초 자동 매핑(글자수 가중 분할 등)은 후속 구현 대상이다.
 - **운영 주의:** QT 본문 ID·QT 클립 ID·원본 영상 ID는 서로 다른 시퀀스라 값이 일치하지 않을 수 있다. 관리자 화면은 `클립 ID`, `QT 본문 ID`, `원본 영상 ID`를 분리 표기한다.
 - **실패 코드:** `401 M0002 UNAUTHORIZED`, `403 M0003 FORBIDDEN`(ADMIN 아님), `403 AD0003 ADMIN_ROLE_INSUFFICIENT`(세부 관리자 권한 부족), `404 C0004 RESOURCE_NOT_FOUND` 또는 `400 C0002 INVALID_INPUT`(없는 대상/잘못된 id), `500 C0001 INTERNAL_ERROR`
 
