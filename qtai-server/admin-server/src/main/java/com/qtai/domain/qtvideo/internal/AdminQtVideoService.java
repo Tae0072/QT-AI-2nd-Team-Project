@@ -13,8 +13,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
+import com.qtai.domain.audit.api.WriteAuditLogUseCase;
+import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 import com.qtai.domain.bible.api.GetBibleVerseUseCase;
 import com.qtai.domain.bible.api.ListBibleBooksUseCase;
 import com.qtai.domain.bible.api.dto.BibleBookResponse;
@@ -52,7 +56,21 @@ public class AdminQtVideoService {
     private final ListBibleBooksUseCase listBibleBooksUseCase;
     private final GetBibleVerseUseCase getBibleVerseUseCase;
     private final GetQtPassageContentContextUseCase getQtPassageContentContextUseCase;
+    private final WriteAuditLogUseCase auditLogUseCase;
+    private final ObjectMapper objectMapper;
     private final Clock clock;
+
+    private static final String ACTOR_TYPE_ADMIN = "ADMIN";
+    private static final String TARGET_SOURCE_VIDEO = "SOURCE_VIDEO";
+    private static final String TARGET_QT_VIDEO_CLIP = "QT_VIDEO_CLIP";
+    private static final String TARGET_QT_PASSAGE = "QT_PASSAGE";
+    private static final String ACTION_SOURCE_CREATE = "QT_VIDEO_SOURCE_CREATE";
+    private static final String ACTION_SOURCE_UPDATE = "QT_VIDEO_SOURCE_UPDATE";
+    private static final String ACTION_SOURCE_DELETE = "QT_VIDEO_SOURCE_DELETE";
+    private static final String ACTION_SEGMENTS_REPLACE = "QT_VIDEO_SEGMENTS_REPLACE";
+    private static final String ACTION_CLIP_PREPARE = "QT_VIDEO_CLIP_PREPARE";
+    private static final String ACTION_CLIP_STATUS_CHANGE = "QT_VIDEO_CLIP_STATUS_CHANGE";
+    private static final String ACTION_CLIP_DELETE = "QT_VIDEO_CLIP_DELETE";
 
     public AdminQtVideoSourceListResponse listSourceVideos(
             Short bibleBookId,
@@ -87,6 +105,7 @@ public class AdminQtVideoService {
 
     @Transactional
     public AdminQtVideoSourceItem createSourceVideo(
+            Long adminUserId,
             Short bibleBookId,
             String title,
             String videoUrl,
@@ -103,11 +122,16 @@ public class AdminQtVideoService {
                     sourceVideoRepository.saveAndFlush(sourceVideo);
                 });
         SourceVideo saved = sourceVideoRepository.save(SourceVideo.active(bibleBookId, title, videoUrl, durationSec));
+        Map<String, Object> after = orderedMap();
+        after.put("bibleBookId", saved.getBibleBookId());
+        after.put("status", saved.getStatus().name());
+        writeAudit(adminUserId, ACTION_SOURCE_CREATE, TARGET_SOURCE_VIDEO, saved.getId(), null, auditJson(after));
         return toSourceItem(saved);
     }
 
     @Transactional
     public AdminQtVideoSourceItem updateSourceVideo(
+            Long adminUserId,
             Long sourceVideoId,
             String title,
             String videoUrl,
@@ -118,6 +142,9 @@ public class AdminQtVideoService {
         requireText(title, "title");
         requireText(videoUrl, "videoUrl");
         requirePositiveDecimal(durationSec, "durationSec");
+        Map<String, Object> before = orderedMap();
+        before.put("title", sourceVideo.getTitle());
+        before.put("status", sourceVideo.getStatus().name());
         sourceVideo.update(title, videoUrl, durationSec);
 
         SourceVideoStatus nextStatus = parseRequiredSourceStatus(status);
@@ -135,15 +162,21 @@ public class AdminQtVideoService {
         } else {
             sourceVideo.deactivate();
         }
+        Map<String, Object> after = orderedMap();
+        after.put("title", sourceVideo.getTitle());
+        after.put("status", sourceVideo.getStatus().name());
+        writeAudit(adminUserId, ACTION_SOURCE_UPDATE, TARGET_SOURCE_VIDEO, sourceVideoId,
+                auditJson(before), auditJson(after));
         return toSourceItem(sourceVideo);
     }
 
     @Transactional
-    public DeletedSourceVideoSummary deleteSourceVideo(Long sourceVideoId) {
+    public void deleteSourceVideo(Long adminUserId, Long sourceVideoId) {
         SourceVideo sourceVideo = requireSourceVideo(sourceVideoId);
         // 삭제 전 상태를 스냅샷으로 남겨 감사 로그 before-state로 기록한다.
-        Short bibleBookId = sourceVideo.getBibleBookId();
-        String status = sourceVideo.getStatus().name();
+        Map<String, Object> before = orderedMap();
+        before.put("bibleBookId", sourceVideo.getBibleBookId());
+        before.put("status", sourceVideo.getStatus().name());
         LocalDateTime deletedAt = LocalDateTime.now(clock.withZone(KST));
         // 원본 영상을 소프트 삭제하면 그 원본으로 만든 QT 클립과 절별 구간도 함께 소프트 삭제한다.
         List<QtVideoClip> clips = clipRepository.findBySourceVideo_IdAndDeletedAtIsNull(sourceVideoId);
@@ -152,18 +185,22 @@ public class AdminQtVideoService {
                 segmentRepository.findBySourceVideo_IdAndDeletedAtIsNullOrderByStartTimeSecAscIdAsc(sourceVideoId);
         segments.forEach(segment -> segment.softDelete(deletedAt));
         sourceVideo.softDelete(deletedAt);
-        return new DeletedSourceVideoSummary(sourceVideoId, bibleBookId, status, clips.size(), segments.size());
+        before.put("deletedClips", clips.size());
+        before.put("deletedSegments", segments.size());
+        writeAudit(adminUserId, ACTION_SOURCE_DELETE, TARGET_SOURCE_VIDEO, sourceVideoId, auditJson(before), null);
     }
 
     @Transactional
-    public DeletedClipSummary deleteClip(Long clipId) {
+    public void deleteClip(Long adminUserId, Long clipId) {
         QtVideoClip clip = clipRepository.findById(requirePositive(clipId, "clipId"))
                 .filter(found -> found.getDeletedAt() == null)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "qt video clip not found"));
-        DeletedClipSummary summary = new DeletedClipSummary(
-                clip.getId(), clip.getQtPassageId(), clip.getStatus().name(), clip.getSourceVideo().getId());
+        Map<String, Object> before = orderedMap();
+        before.put("qtPassageId", clip.getQtPassageId());
+        before.put("status", clip.getStatus().name());
+        before.put("sourceVideoId", clip.getSourceVideo().getId());
         clip.softDelete(LocalDateTime.now(clock.withZone(KST)));
-        return summary;
+        writeAudit(adminUserId, ACTION_CLIP_DELETE, TARGET_QT_VIDEO_CLIP, clipId, auditJson(before), null);
     }
 
     public List<AdminQtVideoSegmentItem> listSegments(Long sourceVideoId) {
@@ -175,7 +212,8 @@ public class AdminQtVideoService {
     }
 
     @Transactional
-    public List<AdminQtVideoSegmentItem> replaceSegments(Long sourceVideoId, List<SegmentCommand> segments) {
+    public List<AdminQtVideoSegmentItem> replaceSegments(
+            Long adminUserId, Long sourceVideoId, List<SegmentCommand> segments) {
         SourceVideo sourceVideo = requireSourceVideo(sourceVideoId);
         if (segments == null || segments.isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "segments must not be empty");
@@ -188,6 +226,9 @@ public class AdminQtVideoService {
                 .map(segment -> segmentEntity(sourceVideo, segment))
                 .map(segmentRepository::save)
                 .toList();
+        Map<String, Object> after = orderedMap();
+        after.put("segmentCount", saved.size());
+        writeAudit(adminUserId, ACTION_SEGMENTS_REPLACE, TARGET_SOURCE_VIDEO, sourceVideoId, null, auditJson(after));
         return saved.stream().map(AdminQtVideoService::toSegmentItem).toList();
     }
 
@@ -217,27 +258,27 @@ public class AdminQtVideoService {
     }
 
     @Transactional
-    public PrepareQtVideoClipResult prepareClip(Long qtPassageId) {
+    public PrepareQtVideoClipResult prepareClip(Long adminUserId, Long qtPassageId) {
         requirePositive(qtPassageId, "qtPassageId");
         QtPassageContentContext context = getQtPassageContentContextUseCase.getContentContext(qtPassageId);
         if (context == null || !context.published()) {
-            return new PrepareQtVideoClipResult(qtPassageId, false, null);
+            return auditedPrepareResult(adminUserId, new PrepareQtVideoClipResult(qtPassageId, false, null));
         }
 
         List<Long> verseIds = distinctVerseIds(context.verseIds());
         if (verseIds.isEmpty()) {
-            return new PrepareQtVideoClipResult(qtPassageId, false, null);
+            return auditedPrepareResult(adminUserId, new PrepareQtVideoClipResult(qtPassageId, false, null));
         }
 
         Optional<SegmentGroup> segmentGroup = findCompleteSegmentGroup(verseIds);
         if (segmentGroup.isEmpty()) {
-            return new PrepareQtVideoClipResult(qtPassageId, false, null);
+            return auditedPrepareResult(adminUserId, new PrepareQtVideoClipResult(qtPassageId, false, null));
         }
 
         SegmentGroup group = segmentGroup.get();
         if (!hasPlayableUrl(group.sourceVideo())
                 || group.endTimeSec().compareTo(group.startTimeSec()) <= 0) {
-            return new PrepareQtVideoClipResult(qtPassageId, false, null);
+            return auditedPrepareResult(adminUserId, new PrepareQtVideoClipResult(qtPassageId, false, null));
         }
 
         Optional<QtVideoClip> activeClip = clipRepository.findByQtPassageIdAndActiveUniqueKey(
@@ -266,15 +307,26 @@ public class AdminQtVideoService {
             );
         }
         QtVideoClip saved = clipRepository.save(clip);
-        return new PrepareQtVideoClipResult(qtPassageId, true, saved.getId());
+        return auditedPrepareResult(adminUserId, new PrepareQtVideoClipResult(qtPassageId, true, saved.getId()));
+    }
+
+    private PrepareQtVideoClipResult auditedPrepareResult(Long adminUserId, PrepareQtVideoClipResult result) {
+        Map<String, Object> after = orderedMap();
+        after.put("qtPassageId", result.qtPassageId());
+        after.put("prepared", result.prepared());
+        after.put("clipId", result.clipId());
+        writeAudit(adminUserId, ACTION_CLIP_PREPARE, TARGET_QT_PASSAGE, result.qtPassageId(),
+                null, auditJson(after));
+        return result;
     }
 
     @Transactional
-    public AdminQtVideoClipItem changeClipStatus(Long clipId, String status) {
+    public AdminQtVideoClipItem changeClipStatus(Long adminUserId, Long clipId, String status) {
         QtVideoClip clip = clipRepository.findById(requirePositive(clipId, "clipId"))
                 .filter(found -> found.getDeletedAt() == null)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "qt video clip not found"));
         QtVideoClipStatus nextStatus = parseRequiredClipStatus(status);
+        String beforeStatus = clip.getStatus().name();
         if (nextStatus == QtVideoClipStatus.APPROVED) {
             clipRepository.findByQtPassageIdAndActiveUniqueKey(clip.getQtPassageId(), QtVideoClip.ACTIVE_UNIQUE_KEY)
                     .filter(active -> !active.getId().equals(clip.getId()))
@@ -290,6 +342,12 @@ public class AdminQtVideoService {
         } else {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "status is not supported");
         }
+        Map<String, Object> before = orderedMap();
+        before.put("status", beforeStatus);
+        Map<String, Object> after = orderedMap();
+        after.put("status", clip.getStatus().name());
+        writeAudit(adminUserId, ACTION_CLIP_STATUS_CHANGE, TARGET_QT_VIDEO_CLIP, clipId,
+                auditJson(before), auditJson(after));
         return toClipItem(clip);
     }
 
@@ -389,6 +447,45 @@ public class AdminQtVideoService {
         return sourceVideoRepository.findById(requirePositive(sourceVideoId, "sourceVideoId"))
                 .filter(found -> found.getDeletedAt() == null)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "source video not found"));
+    }
+
+    // 감사 로그는 변경과 같은 트랜잭션 안에서 기록한다(원자성). 다른 admin 도메인과 동일 패턴.
+    private void writeAudit(
+            Long adminUserId,
+            String actionType,
+            String targetType,
+            Long targetId,
+            String beforeJson,
+            String afterJson
+    ) {
+        auditLogUseCase.write(new AuditLogWriteRequest(
+                adminUserId,
+                ACTOR_TYPE_ADMIN,
+                adminUserId,
+                ACTOR_TYPE_ADMIN + ":" + adminUserId,
+                actionType,
+                targetType,
+                targetId,
+                beforeJson,
+                afterJson
+        ));
+    }
+
+    private String auditJson(Map<String, Object> fields) {
+        if (fields == null) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(fields);
+        } catch (JsonProcessingException exception) {
+            log.warn("Failed to serialize qt video audit json. keys={}, error={}",
+                    fields.keySet(), exception.getMessage());
+            return null;
+        }
+    }
+
+    private static Map<String, Object> orderedMap() {
+        return new LinkedHashMap<>();
     }
 
     private static AdminQtVideoSourceItem toSourceItem(SourceVideo sourceVideo) {
@@ -531,24 +628,5 @@ public class AdminQtVideoService {
     }
 
     private record SegmentGroup(SourceVideo sourceVideo, BigDecimal startTimeSec, BigDecimal endTimeSec) {
-    }
-
-    /** 원본 영상 삭제 직전 상태(감사 before-state용). 동반 삭제된 클립·구간 수를 포함한다. */
-    public record DeletedSourceVideoSummary(
-            Long sourceVideoId,
-            Short bibleBookId,
-            String status,
-            long deletedClips,
-            long deletedSegments
-    ) {
-    }
-
-    /** QT 클립 삭제 직전 상태(감사 before-state용). */
-    public record DeletedClipSummary(
-            Long clipId,
-            Long qtPassageId,
-            String status,
-            Long sourceVideoId
-    ) {
     }
 }

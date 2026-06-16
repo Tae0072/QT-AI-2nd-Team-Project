@@ -17,7 +17,10 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qtai.common.exception.BusinessException;
+import com.qtai.domain.audit.api.WriteAuditLogUseCase;
+import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 import com.qtai.domain.bible.api.GetBibleVerseUseCase;
 import com.qtai.domain.bible.api.ListBibleBooksUseCase;
 import com.qtai.domain.bible.api.dto.BibleBookResponse;
@@ -43,7 +46,10 @@ class AdminQtVideoServiceTest {
     private ListBibleBooksUseCase listBibleBooksUseCase;
     private GetBibleVerseUseCase getBibleVerseUseCase;
     private GetQtPassageContentContextUseCase contentContextUseCase;
+    private WriteAuditLogUseCase auditLogUseCase;
     private AdminQtVideoService service;
+
+    private static final long ADMIN_USER_ID = 100L;
 
     @BeforeEach
     void setUp() {
@@ -53,6 +59,7 @@ class AdminQtVideoServiceTest {
         listBibleBooksUseCase = mock(ListBibleBooksUseCase.class);
         getBibleVerseUseCase = mock(GetBibleVerseUseCase.class);
         contentContextUseCase = mock(GetQtPassageContentContextUseCase.class);
+        auditLogUseCase = mock(WriteAuditLogUseCase.class);
         service = new AdminQtVideoService(
                 sourceVideoRepository,
                 segmentRepository,
@@ -60,8 +67,16 @@ class AdminQtVideoServiceTest {
                 listBibleBooksUseCase,
                 getBibleVerseUseCase,
                 contentContextUseCase,
+                auditLogUseCase,
+                new ObjectMapper(),
                 Clock.fixed(Instant.parse("2026-06-15T00:00:00Z"), ZoneId.of("UTC"))
         );
+    }
+
+    private AuditLogWriteRequest capturedAudit() {
+        ArgumentCaptor<AuditLogWriteRequest> captor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
+        verify(auditLogUseCase).write(captor.capture());
+        return captor.getValue();
     }
 
     @Test
@@ -76,6 +91,7 @@ class AdminQtVideoServiceTest {
         });
 
         AdminQtVideoSourceItem result = service.createSourceVideo(
+                ADMIN_USER_ID,
                 (short) 46,
                 "new source",
                 "https://example.com/new.mp4",
@@ -99,6 +115,7 @@ class AdminQtVideoServiceTest {
                 .thenReturn(Optional.of(previousActive));
 
         AdminQtVideoSourceItem result = service.updateSourceVideo(
+                ADMIN_USER_ID,
                 3L,
                 "updated source",
                 "https://example.com/updated.mp4",
@@ -126,7 +143,7 @@ class AdminQtVideoServiceTest {
         ));
         when(segmentRepository.save(any(BibleVerseVideoSegment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        List<AdminQtVideoSegmentItem> result = service.replaceSegments(3L, List.of(
+        List<AdminQtVideoSegmentItem> result = service.replaceSegments(ADMIN_USER_ID, 3L, List.of(
                 new AdminQtVideoService.SegmentCommand(
                         null,
                         (short) 10,
@@ -147,7 +164,7 @@ class AdminQtVideoServiceTest {
     void replaceSegmentsRejectsEmptySegments() {
         when(sourceVideoRepository.findById(3L)).thenReturn(Optional.of(activeSourceVideo(3L)));
 
-        assertThatThrownBy(() -> service.replaceSegments(3L, List.of()))
+        assertThatThrownBy(() -> service.replaceSegments(ADMIN_USER_ID, 3L, List.of()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("segments must not be empty");
     }
@@ -180,7 +197,7 @@ class AdminQtVideoServiceTest {
             return clip;
         });
 
-        PrepareQtVideoClipResult result = service.prepareClip(10L);
+        PrepareQtVideoClipResult result = service.prepareClip(ADMIN_USER_ID, 10L);
 
         assertThat(result.prepared()).isTrue();
         assertThat(result.clipId()).isEqualTo(700L);
@@ -206,7 +223,7 @@ class AdminQtVideoServiceTest {
                         false
                 ));
 
-        PrepareQtVideoClipResult result = service.prepareClip(10L);
+        PrepareQtVideoClipResult result = service.prepareClip(ADMIN_USER_ID, 10L);
 
         assertThat(result.prepared()).isFalse();
         assertThat(result.clipId()).isNull();
@@ -226,16 +243,20 @@ class AdminQtVideoServiceTest {
         when(segmentRepository.findBySourceVideo_IdAndDeletedAtIsNullOrderByStartTimeSecAscIdAsc(3L))
                 .thenReturn(List.of(segment));
 
-        AdminQtVideoService.DeletedSourceVideoSummary summary = service.deleteSourceVideo(3L);
+        service.deleteSourceVideo(ADMIN_USER_ID, 3L);
 
         // 소프트 삭제: deleted_at만 기록하고 행을 물리 삭제하지 않는다.
         assertThat(sourceVideo.getDeletedAt()).isNotNull();
         assertThat(clip.getDeletedAt()).isNotNull();
         assertThat(segment.getDeletedAt()).isNotNull();
-        assertThat(summary.deletedClips()).isEqualTo(1L);
-        assertThat(summary.deletedSegments()).isEqualTo(1L);
         verify(sourceVideoRepository, never()).delete(any());
         verify(clipRepository, never()).delete(any());
+        // 감사 로그를 같은 트랜잭션에서 before-state(동반삭제 수 포함)로 기록한다.
+        AuditLogWriteRequest audit = capturedAudit();
+        assertThat(audit.actionType()).isEqualTo("QT_VIDEO_SOURCE_DELETE");
+        assertThat(audit.actorId()).isEqualTo(ADMIN_USER_ID);
+        assertThat(audit.beforeJson()).contains("\"deletedClips\":1", "\"deletedSegments\":1");
+        assertThat(audit.afterJson()).isNull();
     }
 
     @Test
@@ -253,12 +274,15 @@ class AdminQtVideoServiceTest {
         ReflectionTestUtils.setField(clip, "id", 700L);
         when(clipRepository.findById(700L)).thenReturn(Optional.of(clip));
 
-        AdminQtVideoService.DeletedClipSummary summary = service.deleteClip(700L);
+        service.deleteClip(ADMIN_USER_ID, 700L);
 
         assertThat(clip.getDeletedAt()).isNotNull();
         assertThat(clip.getActiveUniqueKey()).isNull();
-        assertThat(summary.clipId()).isEqualTo(700L);
         verify(clipRepository, never()).delete(any());
+        AuditLogWriteRequest audit = capturedAudit();
+        assertThat(audit.actionType()).isEqualTo("QT_VIDEO_CLIP_DELETE");
+        assertThat(audit.beforeJson()).contains("\"qtPassageId\":10", "\"sourceVideoId\":3");
+        assertThat(audit.afterJson()).isNull();
     }
 
     @Test
@@ -289,7 +313,7 @@ class AdminQtVideoServiceTest {
         when(clipRepository.findByQtPassageIdAndActiveUniqueKey(10L, QtVideoClip.ACTIVE_UNIQUE_KEY))
                 .thenReturn(Optional.of(previousActive));
 
-        AdminQtVideoClipItem result = service.changeClipStatus(700L, "APPROVED");
+        AdminQtVideoClipItem result = service.changeClipStatus(ADMIN_USER_ID, 700L, "APPROVED");
 
         assertThat(previousActive.getStatus()).isEqualTo(QtVideoClipStatus.HIDDEN);
         assertThat(target.getStatus()).isEqualTo(QtVideoClipStatus.APPROVED);

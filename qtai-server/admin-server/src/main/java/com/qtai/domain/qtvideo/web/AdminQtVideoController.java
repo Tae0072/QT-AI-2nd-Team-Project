@@ -1,20 +1,14 @@
 package com.qtai.domain.qtvideo.web;
 
 import java.math.BigDecimal;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
-import com.qtai.domain.audit.api.WriteAuditLogUseCase;
-import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 import com.qtai.domain.bible.api.ListBibleBooksUseCase;
 import com.qtai.domain.bible.api.dto.BibleBookResponse;
 import com.qtai.domain.qtvideo.api.dto.AdminQtVideoClipItem;
@@ -29,7 +23,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -46,38 +39,21 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@Slf4j
 @RestController
 @RequestMapping("/api/v1/admin/qt-videos")
 public class AdminQtVideoController {
 
-    private static final ObjectMapper AUDIT_MAPPER = new ObjectMapper();
-    private static final String ACTOR_TYPE_ADMIN = "ADMIN";
-    private static final String TARGET_TYPE_SOURCE_VIDEO = "SOURCE_VIDEO";
-    private static final String TARGET_TYPE_QT_VIDEO_CLIP = "QT_VIDEO_CLIP";
-    private static final String TARGET_TYPE_QT_PASSAGE = "QT_PASSAGE";
-    private static final String ACTION_SOURCE_VIDEO_CREATE = "QT_VIDEO_SOURCE_CREATE";
-    private static final String ACTION_SOURCE_VIDEO_UPDATE = "QT_VIDEO_SOURCE_UPDATE";
-    private static final String ACTION_SOURCE_VIDEO_DELETE = "QT_VIDEO_SOURCE_DELETE";
-    private static final String ACTION_SEGMENTS_REPLACE = "QT_VIDEO_SEGMENTS_REPLACE";
-    private static final String ACTION_CLIP_PREPARE = "QT_VIDEO_CLIP_PREPARE";
-    private static final String ACTION_CLIP_STATUS_CHANGE = "QT_VIDEO_CLIP_STATUS_CHANGE";
-    private static final String ACTION_CLIP_DELETE = "QT_VIDEO_CLIP_DELETE";
-
     private final AdminQtVideoService adminQtVideoService;
     private final VerifyAdminRoleUseCase verifyAdminRoleUseCase;
-    private final WriteAuditLogUseCase auditLogUseCase;
     private final ListBibleBooksUseCase listBibleBooksUseCase;
 
     public AdminQtVideoController(
             AdminQtVideoService adminQtVideoService,
             VerifyAdminRoleUseCase verifyAdminRoleUseCase,
-            WriteAuditLogUseCase auditLogUseCase,
             ListBibleBooksUseCase listBibleBooksUseCase
     ) {
         this.adminQtVideoService = adminQtVideoService;
         this.verifyAdminRoleUseCase = verifyAdminRoleUseCase;
-        this.auditLogUseCase = auditLogUseCase;
         this.listBibleBooksUseCase = listBibleBooksUseCase;
     }
 
@@ -107,17 +83,13 @@ public class AdminQtVideoController {
             @Valid @RequestBody SourceVideoRequest request
     ) {
         Long adminUserId = requireManager(authentication);
-        AdminQtVideoSourceItem result = adminQtVideoService.createSourceVideo(
+        return ResponseEntity.ok(ApiResponse.success(adminQtVideoService.createSourceVideo(
+                adminUserId,
                 request.bibleBookId(),
                 request.title(),
                 request.videoUrl(),
                 request.durationSec()
-        );
-        Map<String, Object> after = orderedMap();
-        after.put("bibleBookId", result.bibleBookId());
-        writeAudit(adminUserId, ACTION_SOURCE_VIDEO_CREATE, TARGET_TYPE_SOURCE_VIDEO, result.id(),
-                null, auditJson(after));
-        return ResponseEntity.ok(ApiResponse.success(result));
+        )));
     }
 
     @PatchMapping("/source-videos/{sourceVideoId}")
@@ -127,18 +99,14 @@ public class AdminQtVideoController {
             @Valid @RequestBody SourceVideoUpdateRequest request
     ) {
         Long adminUserId = requireManager(authentication);
-        AdminQtVideoSourceItem result = adminQtVideoService.updateSourceVideo(
+        return ResponseEntity.ok(ApiResponse.success(adminQtVideoService.updateSourceVideo(
+                adminUserId,
                 sourceVideoId,
                 request.title(),
                 request.videoUrl(),
                 request.durationSec(),
                 request.status()
-        );
-        Map<String, Object> after = orderedMap();
-        after.put("status", result.status());
-        writeAudit(adminUserId, ACTION_SOURCE_VIDEO_UPDATE, TARGET_TYPE_SOURCE_VIDEO, sourceVideoId,
-                null, auditJson(after));
-        return ResponseEntity.ok(ApiResponse.success(result));
+        )));
     }
 
     @DeleteMapping("/source-videos/{sourceVideoId}")
@@ -147,15 +115,7 @@ public class AdminQtVideoController {
             @PathVariable Long sourceVideoId
     ) {
         Long adminUserId = requireManager(authentication);
-        AdminQtVideoService.DeletedSourceVideoSummary summary =
-                adminQtVideoService.deleteSourceVideo(sourceVideoId);
-        Map<String, Object> before = orderedMap();
-        before.put("bibleBookId", summary.bibleBookId());
-        before.put("status", summary.status());
-        before.put("deletedClips", summary.deletedClips());
-        before.put("deletedSegments", summary.deletedSegments());
-        writeAudit(adminUserId, ACTION_SOURCE_VIDEO_DELETE, TARGET_TYPE_SOURCE_VIDEO, sourceVideoId,
-                auditJson(before), null);
+        adminQtVideoService.deleteSourceVideo(adminUserId, sourceVideoId);
         return ResponseEntity.noContent().build();
     }
 
@@ -175,7 +135,8 @@ public class AdminQtVideoController {
             @Valid @RequestBody SegmentReplaceRequest request
     ) {
         Long adminUserId = requireManager(authentication);
-        List<AdminQtVideoSegmentItem> result = adminQtVideoService.replaceSegments(
+        return ResponseEntity.ok(ApiResponse.success(adminQtVideoService.replaceSegments(
+                adminUserId,
                 sourceVideoId,
                 request.segments().stream()
                         .map(segment -> new AdminQtVideoService.SegmentCommand(
@@ -186,12 +147,7 @@ public class AdminQtVideoController {
                                 segment.endTimeSec()
                         ))
                         .toList()
-        );
-        Map<String, Object> after = orderedMap();
-        after.put("segmentCount", result.size());
-        writeAudit(adminUserId, ACTION_SEGMENTS_REPLACE, TARGET_TYPE_SOURCE_VIDEO, sourceVideoId,
-                null, auditJson(after));
-        return ResponseEntity.ok(ApiResponse.success(result));
+        )));
     }
 
     @GetMapping("/clips")
@@ -212,14 +168,7 @@ public class AdminQtVideoController {
             @PathVariable Long qtPassageId
     ) {
         Long adminUserId = requireManager(authentication);
-        PrepareQtVideoClipResult result = adminQtVideoService.prepareClip(qtPassageId);
-        Map<String, Object> after = orderedMap();
-        after.put("qtPassageId", result.qtPassageId());
-        after.put("prepared", result.prepared());
-        after.put("clipId", result.clipId());
-        writeAudit(adminUserId, ACTION_CLIP_PREPARE, TARGET_TYPE_QT_PASSAGE, qtPassageId,
-                null, auditJson(after));
-        return ResponseEntity.ok(ApiResponse.success(result));
+        return ResponseEntity.ok(ApiResponse.success(adminQtVideoService.prepareClip(adminUserId, qtPassageId)));
     }
 
     @DeleteMapping("/clips/{clipId}")
@@ -228,13 +177,7 @@ public class AdminQtVideoController {
             @PathVariable Long clipId
     ) {
         Long adminUserId = requireManager(authentication);
-        AdminQtVideoService.DeletedClipSummary summary = adminQtVideoService.deleteClip(clipId);
-        Map<String, Object> before = orderedMap();
-        before.put("qtPassageId", summary.qtPassageId());
-        before.put("status", summary.status());
-        before.put("sourceVideoId", summary.sourceVideoId());
-        writeAudit(adminUserId, ACTION_CLIP_DELETE, TARGET_TYPE_QT_VIDEO_CLIP, clipId,
-                auditJson(before), null);
+        adminQtVideoService.deleteClip(adminUserId, clipId);
         return ResponseEntity.noContent().build();
     }
 
@@ -245,51 +188,8 @@ public class AdminQtVideoController {
             @Valid @RequestBody ClipStatusRequest request
     ) {
         Long adminUserId = requireManager(authentication);
-        AdminQtVideoClipItem result = adminQtVideoService.changeClipStatus(clipId, request.status());
-        Map<String, Object> after = orderedMap();
-        after.put("status", result.status());
-        writeAudit(adminUserId, ACTION_CLIP_STATUS_CHANGE, TARGET_TYPE_QT_VIDEO_CLIP, clipId,
-                null, auditJson(after));
-        return ResponseEntity.ok(ApiResponse.success(result));
-    }
-
-    private void writeAudit(
-            Long adminUserId,
-            String actionType,
-            String targetType,
-            Long targetId,
-            String beforeJson,
-            String afterJson
-    ) {
-        auditLogUseCase.write(new AuditLogWriteRequest(
-                null,
-                ACTOR_TYPE_ADMIN,
-                adminUserId,
-                ACTOR_TYPE_ADMIN + ":" + adminUserId,
-                actionType,
-                targetType,
-                targetId,
-                beforeJson,
-                afterJson
-        ));
-    }
-
-    // 감사 로그 JSON은 문자열 직접 조합 대신 Jackson으로 직렬화한다(특수문자 이스케이프·구조 안전).
-    private static String auditJson(Map<String, Object> fields) {
-        if (fields == null) {
-            return null;
-        }
-        try {
-            return AUDIT_MAPPER.writeValueAsString(fields);
-        } catch (JsonProcessingException exception) {
-            log.warn("Failed to serialize audit json. keys={}, error={}",
-                    fields.keySet(), exception.getMessage());
-            return null;
-        }
-    }
-
-    private static Map<String, Object> orderedMap() {
-        return new LinkedHashMap<>();
+        return ResponseEntity.ok(ApiResponse.success(
+                adminQtVideoService.changeClipStatus(adminUserId, clipId, request.status())));
     }
 
     private Long requireManager(Authentication requestAuthentication) {

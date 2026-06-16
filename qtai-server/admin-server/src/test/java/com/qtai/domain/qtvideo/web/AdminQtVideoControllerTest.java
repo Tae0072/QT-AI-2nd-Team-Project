@@ -1,36 +1,46 @@
 package com.qtai.domain.qtvideo.web;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import com.qtai.common.exception.GlobalExceptionHandler;
 import com.qtai.domain.admin.api.VerifyAdminRoleUseCase;
 import com.qtai.domain.admin.api.dto.AdminUserInfo;
-import com.qtai.domain.audit.api.WriteAuditLogUseCase;
-import com.qtai.domain.audit.api.dto.AuditLogWriteRequest;
 import com.qtai.domain.bible.api.ListBibleBooksUseCase;
 import com.qtai.domain.qtvideo.internal.AdminQtVideoService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+/**
+ * 컨트롤러 슬라이스(standalone MockMvc) 테스트. 컨트롤러는 인증·위임만 담당하고
+ * 감사 로그는 서비스 트랜잭션 안에서 기록하므로, 여기서는 각 엔드포인트가 인증 관리자(adminUserId)와
+ * 함께 서비스를 호출하는지와 응답 상태를 검증한다.
+ */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class AdminQtVideoControllerTest {
 
     @Mock
@@ -38,9 +48,6 @@ class AdminQtVideoControllerTest {
 
     @Mock
     private VerifyAdminRoleUseCase verifyAdminRoleUseCase;
-
-    @Mock
-    private WriteAuditLogUseCase auditLogUseCase;
 
     @Mock
     private ListBibleBooksUseCase listBibleBooksUseCase;
@@ -52,7 +59,6 @@ class AdminQtVideoControllerTest {
         AdminQtVideoController controller = new AdminQtVideoController(
                 adminQtVideoService,
                 verifyAdminRoleUseCase,
-                auditLogUseCase,
                 listBibleBooksUseCase
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -61,81 +67,140 @@ class AdminQtVideoControllerTest {
     }
 
     @Test
-    @DisplayName("관리자는 원본 영상을 삭제할 수 있고 감사 로그를 남긴다")
-    void deleteSourceVideo_returnsNoContentAndWritesAudit() throws Exception {
+    @DisplayName("성경권 목록 조회")
+    void listBibleBooks() throws Exception {
         manager();
-        when(adminQtVideoService.deleteSourceVideo(4L)).thenReturn(
-                new AdminQtVideoService.DeletedSourceVideoSummary(4L, (short) 46, "ACTIVE", 1L, 21L));
-
-        mockMvc.perform(delete("/api/v1/admin/qt-videos/source-videos/4")
-                        .principal(authentication()))
-                .andExpect(status().isNoContent());
-
-        verify(adminQtVideoService).deleteSourceVideo(4L);
-
-        ArgumentCaptor<AuditLogWriteRequest> captor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
-        verify(auditLogUseCase).write(captor.capture());
-        AuditLogWriteRequest audit = captor.getValue();
-        assertThat(audit.actionType()).isEqualTo("QT_VIDEO_SOURCE_DELETE");
-        assertThat(audit.targetType()).isEqualTo("SOURCE_VIDEO");
-        assertThat(audit.targetId()).isEqualTo(4L);
-        assertThat(audit.actorId()).isEqualTo(100L);
-        // 하드삭제 cascade의 삭제 직전 상태를 before-state로 남긴다.
-        assertThat(audit.beforeJson()).contains("\"deletedClips\":1", "\"deletedSegments\":21");
-        assertThat(audit.afterJson()).isNull();
+        mockMvc.perform(get("/api/v1/admin/qt-videos/bible-books").principal(authentication()))
+                .andExpect(status().isOk());
+        verify(listBibleBooksUseCase).listBibleBooks();
     }
 
     @Test
-    @DisplayName("관리자는 QT 클립을 삭제할 수 있고 감사 로그를 남긴다")
-    void deleteClip_returnsNoContentAndWritesAudit() throws Exception {
+    @DisplayName("원본 영상 목록 조회")
+    void listSourceVideos() throws Exception {
         manager();
-        when(adminQtVideoService.deleteClip(7L)).thenReturn(
-                new AdminQtVideoService.DeletedClipSummary(7L, 2L, "APPROVED", 4L));
-
-        mockMvc.perform(delete("/api/v1/admin/qt-videos/clips/7")
+        mockMvc.perform(get("/api/v1/admin/qt-videos/source-videos")
+                        .param("bibleBookId", "46").param("status", "ACTIVE")
                         .principal(authentication()))
-                .andExpect(status().isNoContent());
-
-        verify(adminQtVideoService).deleteClip(7L);
-
-        ArgumentCaptor<AuditLogWriteRequest> captor = ArgumentCaptor.forClass(AuditLogWriteRequest.class);
-        verify(auditLogUseCase).write(captor.capture());
-        AuditLogWriteRequest audit = captor.getValue();
-        assertThat(audit.actionType()).isEqualTo("QT_VIDEO_CLIP_DELETE");
-        assertThat(audit.targetType()).isEqualTo("QT_VIDEO_CLIP");
-        assertThat(audit.targetId()).isEqualTo(7L);
-        assertThat(audit.actorId()).isEqualTo(100L);
-        assertThat(audit.beforeJson()).contains("\"qtPassageId\":2", "\"sourceVideoId\":4");
-        assertThat(audit.afterJson()).isNull();
+                .andExpect(status().isOk());
+        verify(adminQtVideoService).listSourceVideos((short) 46, "ACTIVE", 0, 20);
     }
 
     @Test
-    @DisplayName("SUPER_ADMIN도 verifyAnyRole 우월권 결과로 QT 영상 삭제 API를 통과한다")
-    void deleteClip_allowsSuperAdminResultFromAdminRoleUseCase() throws Exception {
+    @DisplayName("원본 영상 등록 — 관리자 ID와 함께 서비스 호출")
+    void createSourceVideo() throws Exception {
+        manager();
+        mockMvc.perform(post("/api/v1/admin/qt-videos/source-videos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bibleBookId\":46,\"title\":\"t\",\"videoUrl\":\"u\",\"durationSec\":100}")
+                        .principal(authentication()))
+                .andExpect(status().isOk());
+        verify(adminQtVideoService).createSourceVideo(
+                eq(100L), eq((short) 46), eq("t"), eq("u"), eq(new BigDecimal("100")));
+    }
+
+    @Test
+    @DisplayName("원본 영상 수정")
+    void updateSourceVideo() throws Exception {
+        manager();
+        mockMvc.perform(patch("/api/v1/admin/qt-videos/source-videos/3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"t\",\"videoUrl\":\"u\",\"durationSec\":100,\"status\":\"ACTIVE\"}")
+                        .principal(authentication()))
+                .andExpect(status().isOk());
+        verify(adminQtVideoService).updateSourceVideo(
+                eq(100L), eq(3L), eq("t"), eq("u"), eq(new BigDecimal("100")), eq("ACTIVE"));
+    }
+
+    @Test
+    @DisplayName("원본 영상 삭제 — 204 + 관리자 ID 전달")
+    void deleteSourceVideo() throws Exception {
+        manager();
+        mockMvc.perform(delete("/api/v1/admin/qt-videos/source-videos/4").principal(authentication()))
+                .andExpect(status().isNoContent());
+        verify(adminQtVideoService).deleteSourceVideo(100L, 4L);
+    }
+
+    @Test
+    @DisplayName("절별 구간 조회")
+    void listSegments() throws Exception {
+        manager();
+        mockMvc.perform(get("/api/v1/admin/qt-videos/source-videos/3/segments").principal(authentication()))
+                .andExpect(status().isOk());
+        verify(adminQtVideoService).listSegments(3L);
+    }
+
+    @Test
+    @DisplayName("절별 구간 저장")
+    void replaceSegments() throws Exception {
+        manager();
+        mockMvc.perform(put("/api/v1/admin/qt-videos/source-videos/3/segments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"segments\":[{\"chapter\":10,\"verse\":14,\"startTimeSec\":0,\"endTimeSec\":10}]}")
+                        .principal(authentication()))
+                .andExpect(status().isOk());
+        verify(adminQtVideoService).replaceSegments(eq(100L), eq(3L), any());
+    }
+
+    @Test
+    @DisplayName("QT 클립 목록 조회")
+    void listClips() throws Exception {
+        manager();
+        mockMvc.perform(get("/api/v1/admin/qt-videos/clips").param("qtPassageId", "2")
+                        .principal(authentication()))
+                .andExpect(status().isOk());
+        verify(adminQtVideoService).listClips(2L, null, 0, 20);
+    }
+
+    @Test
+    @DisplayName("QT 클립 생성")
+    void prepareClip() throws Exception {
+        manager();
+        mockMvc.perform(post("/api/v1/admin/qt-videos/qt-passages/2/clips/prepare")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}")
+                        .principal(authentication()))
+                .andExpect(status().isOk());
+        verify(adminQtVideoService).prepareClip(100L, 2L);
+    }
+
+    @Test
+    @DisplayName("QT 클립 삭제 — 204 + 관리자 ID 전달")
+    void deleteClip() throws Exception {
+        manager();
+        mockMvc.perform(delete("/api/v1/admin/qt-videos/clips/7").principal(authentication()))
+                .andExpect(status().isNoContent());
+        verify(adminQtVideoService).deleteClip(100L, 7L);
+    }
+
+    @Test
+    @DisplayName("QT 클립 상태 변경")
+    void changeClipStatus() throws Exception {
+        manager();
+        mockMvc.perform(patch("/api/v1/admin/qt-videos/clips/7/status")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"APPROVED\"}")
+                        .principal(authentication()))
+                .andExpect(status().isOk());
+        verify(adminQtVideoService).changeClipStatus(100L, 7L, "APPROVED");
+    }
+
+    @Test
+    @DisplayName("SUPER_ADMIN 우월권으로 통과")
+    void deleteClip_allowsSuperAdmin() throws Exception {
         when(verifyAdminRoleUseCase.verifyAnyRole(eq(7L), eq(List.of("OPERATOR", "REVIEWER", "CONTENT_CREATOR"))))
                 .thenReturn(new AdminUserInfo(100L, 7L, "SUPER_ADMIN"));
-        when(adminQtVideoService.deleteClip(7L)).thenReturn(
-                new AdminQtVideoService.DeletedClipSummary(7L, 2L, "APPROVED", 4L));
-
-        mockMvc.perform(delete("/api/v1/admin/qt-videos/clips/7")
-                        .principal(authentication()))
+        mockMvc.perform(delete("/api/v1/admin/qt-videos/clips/7").principal(authentication()))
                 .andExpect(status().isNoContent());
-
-        verify(adminQtVideoService).deleteClip(7L);
+        verify(adminQtVideoService).deleteClip(100L, 7L);
     }
 
     @Test
-    @DisplayName("ROLE_ADMIN 권한이 없으면 QT 영상 삭제 API를 차단한다")
-    void deleteClip_rejectsNonAdminRoleBeforeServiceCall() throws Exception {
+    @DisplayName("ROLE_ADMIN 권한이 없으면 차단하고 서비스를 호출하지 않는다")
+    void rejectsNonAdminBeforeServiceCall() throws Exception {
         TestingAuthenticationToken user = new TestingAuthenticationToken("7", "n/a", "ROLE_USER");
         user.setAuthenticated(true);
-
-        mockMvc.perform(delete("/api/v1/admin/qt-videos/clips/7")
-                        .principal(user))
+        mockMvc.perform(delete("/api/v1/admin/qt-videos/clips/7").principal(user))
                 .andExpect(status().isForbidden());
-
-        verify(adminQtVideoService, never()).deleteClip(any());
-        verify(auditLogUseCase, never()).write(any());
+        verify(adminQtVideoService, never()).deleteClip(any(), any());
     }
 
     private void manager() {
