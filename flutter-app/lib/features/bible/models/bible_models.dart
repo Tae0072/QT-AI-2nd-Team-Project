@@ -277,7 +277,8 @@ class TodayQtRange {
   final String bookCode;
   final String koreanBookName;
   final String englishBookName;
-  final int chapter;
+  final int chapter; // 시작 장
+  final int endChapter; // 종료 장 (같은 장이면 chapter와 동일)
   final int verseFrom;
   final int verseTo;
   final String displayText;
@@ -288,18 +289,25 @@ class TodayQtRange {
     required this.koreanBookName,
     required this.englishBookName,
     required this.chapter,
+    required this.endChapter,
     required this.verseFrom,
     required this.verseTo,
     required this.displayText,
   });
 
+  /// 장 교차 본문 여부(예: 10:14-11:1).
+  bool get isCrossChapter => endChapter != chapter;
+
   factory TodayQtRange.fromJson(Map<String, dynamic> json) {
+    final chapter = json['chapter'] as int;
     return TodayQtRange(
       testament: json['testament'] as String,
       bookCode: json['bookCode'] as String,
       koreanBookName: json['koreanBookName'] as String,
       englishBookName: json['englishBookName'] as String,
-      chapter: json['chapter'] as int,
+      chapter: chapter,
+      // 구 백엔드 호환: endChapter가 없으면 시작 장과 동일(단일 장)로 본다.
+      endChapter: json['endChapter'] as int? ?? chapter,
       verseFrom: json['verseFrom'] as int,
       verseTo: json['verseTo'] as int,
       displayText: json['displayText'] as String,
@@ -311,6 +319,7 @@ class TodayQtRange {
       koreanBookName: koreanBookName,
       englishBookName: englishBookName,
       chapter: chapter,
+      endChapter: endChapter,
       verseFrom: verseFrom,
       verseTo: verseTo,
     );
