@@ -26,6 +26,8 @@ spring:
 
   servlet:
     multipart:
+      # Business validation rejects files over 10 MiB. Keep resolver limits slightly higher
+      # so the controller can return the domain error for ordinary over-limit uploads.
       max-file-size: 11MB
       max-request-size: 12MB
 

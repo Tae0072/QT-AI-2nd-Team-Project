@@ -114,7 +114,7 @@ public class GlobalExceptionHandler {
         log.warn("MaxUploadSizeExceeded: {}", e.getMessage());
         return ResponseEntity
                 .badRequest()
-                .body(ApiResponse.error(ErrorCode.INVALID_INPUT.getCode(), "upload file size must be 10 MiB or less."));
+                .body(ApiResponse.error(ErrorCode.INVALID_INPUT.getCode(), "업로드 파일은 10 MiB 이하로 등록해 주세요."));
     }
 
     /**

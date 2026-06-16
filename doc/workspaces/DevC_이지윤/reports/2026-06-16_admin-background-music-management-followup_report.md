@@ -26,10 +26,11 @@
   - `MaxUploadSizeExceededException`을 `400 C0002`로 매핑했다.
 - `qtai-server/admin-server/src/main/resources/application.yml`
   - admin-server multipart 제한을 `max-file-size: 11MB`, `max-request-size: 12MB`로 설정했다.
+  - 실제 비즈니스 한도는 10 MiB이며, 일반적인 초과 업로드는 controller 검증에서 도메인 오류로 응답하도록 resolver 제한을 약간 더 크게 두었다.
 - `qtai-server/admin-server/src/main/resources/db/migration/V52__ensure_music_tracks_audio_longblob.sql`
   - 기존 환경에서 `music_tracks.audio_data`가 작은 binary 컬럼으로 생성된 경우를 보정하기 위해 `LONGBLOB` 보장 migration을 추가했다.
 - `MusicTrack` 엔티티(admin-server/service-bible)
-  - `audio_data` 컬럼 정의를 `LONGBLOB`로 명시했다.
+  - H2 create-drop 테스트 호환을 위해 엔티티의 `columnDefinition = "LONGBLOB"`는 사용하지 않고, `@JdbcTypeCode(SqlTypes.LONGVARBINARY)`와 Flyway migration으로 운영 스키마를 보장한다.
 
 ## 노트 카테고리 API 앱 연결
 
@@ -49,7 +50,7 @@
 ## 관리자 회원관리 범위 문서 정합화
 
 - `doc/프로젝트 문서/07_요구사항_정의서.md`
-  - 관리자 회원관리는 Lead 결정에 따라 MVP 관리자 웹 범위에 포함한다고 정리했다.
+  - 관리자 회원관리는 Lead 결정(`doc/workspaces/Lead_강태오/workflows/2026-06-15_admin-member-management-restore.md`)에 따라 MVP 관리자 웹 범위에 포함한다고 정리했다.
   - 포함 범위: 회원 목록·상세 조회, 신고 처리와 연결된 제재/해제, 닉네임 변경 이력, 회원 활동 조회.
   - 제외 범위: 개인정보 직접 수정, 관리자 계정 생성·권한 변경 화면.
 

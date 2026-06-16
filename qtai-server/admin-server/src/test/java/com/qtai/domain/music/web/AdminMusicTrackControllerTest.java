@@ -305,6 +305,7 @@ class AdminMusicTrackControllerTest {
         assertThat(body).isNotNull();
         assertThat(body.success()).isFalse();
         assertThat(body.error().code()).isEqualTo("C0002");
+        assertThat(body.error().message()).isEqualTo("업로드 파일은 10 MiB 이하로 등록해 주세요.");
     }
 
     @Test

@@ -60,7 +60,7 @@ public class MusicTrack extends BaseEntity {
     // (DDL은 각 방언이 알아서 렌더 — MySQL=longblob, H2=large binary. columnDefinition은
     //  H2 create-drop 테스트에서 깨질 수 있어 쓰지 않는다.)
     @JdbcTypeCode(SqlTypes.LONGVARBINARY)
-    @Column(name = "audio_data", nullable = false, columnDefinition = "LONGBLOB")
+    @Column(name = "audio_data", nullable = false)
     private byte[] audioData;
 
     @Builder
