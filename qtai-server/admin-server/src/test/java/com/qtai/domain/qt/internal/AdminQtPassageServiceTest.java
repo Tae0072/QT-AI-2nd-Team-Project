@@ -277,6 +277,44 @@ class AdminQtPassageServiceTest {
                 .isEqualTo(ErrorCode.QT_PASSAGE_NOT_FOUND);
     }
 
+    @Test
+    @DisplayName("create — 미공개 등록이므로 autoPreparer를 prepareClip=false로 호출")
+    void create_triggersAutoPrepareWithoutClip() {
+        AdminQtPassageCommand command = command(LocalDate.of(2026, 6, 11));
+        when(qtPassageRepository.existsByQtDate(command.qtDate())).thenReturn(false);
+        when(qtPassageRepository.save(any(QtPassage.class))).thenAnswer(invocation -> {
+            QtPassage passage = invocation.getArgument(0);
+            ReflectionTestUtils.setField(passage, "id", 10L);
+            return passage;
+        });
+
+        service.create(command);
+
+        verify(autoPreparer).syncAfterCommit(eq(3L), eq(10L), any(), any(), any(), any(), any(), eq(false));
+    }
+
+    @Test
+    @DisplayName("update — 공개 본문 반영이므로 autoPreparer를 prepareClip=true로 호출")
+    void update_triggersAutoPrepareWithClip() {
+        AdminQtPassageCommand command = command(LocalDate.of(2026, 6, 13));
+        when(qtPassageRepository.findById(20L)).thenReturn(Optional.of(passage(20L, LocalDate.of(2026, 6, 12))));
+        when(qtPassageRepository.existsByQtDateAndIdNot(eq(command.qtDate()), eq(20L))).thenReturn(false);
+
+        service.update(20L, command);
+
+        verify(autoPreparer).syncAfterCommit(eq(3L), eq(20L), any(), any(), any(), any(), any(), eq(true));
+    }
+
+    @Test
+    @DisplayName("publish — 게시 시 autoPreparer를 prepareClip=true로 호출")
+    void publish_triggersAutoPrepareWithClip() {
+        when(qtPassageRepository.findById(20L)).thenReturn(Optional.of(passage(20L, LocalDate.of(2026, 6, 12))));
+
+        service.publish(3L, 20L);
+
+        verify(autoPreparer).syncAfterCommit(eq(3L), eq(20L), any(), any(), any(), any(), any(), eq(true));
+    }
+
     private static AdminQtPassageCommand command(LocalDate qtDate) {
         return command(qtDate, (short) 23, (short) 23, (short) 1, (short) 6);
     }

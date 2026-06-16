@@ -117,8 +117,8 @@ public class AdminQtPassageService implements
         QtPassage saved = qtPassageRepository.save(passage);
         writeAudit(command.adminId(), "QT_PASSAGE_CREATE", saved.getId(), null, snapshot(saved));
         // 본문 커밋 후 절 매핑을 채운다(미공개라 클립은 게시 시 준비).
-        autoPreparer.syncAfterCommit(command.adminId(), saved.getId(), command.bookId(), command.chapter(),
-                command.endChapter(), command.startVerse(), command.endVerse(), false);
+        autoPreparer.syncAfterCommit(command.adminId(), saved.getId(), saved.getBookId(), saved.getChapter(),
+                saved.getEndChapter(), saved.getStartVerse(), saved.getEndVerse(), false);
         return toResponse(saved);
     }
 
@@ -144,8 +144,8 @@ public class AdminQtPassageService implements
         );
         writeAudit(command.adminId(), "QT_PASSAGE_UPDATE", passage.getId(), beforeJson, snapshot(passage));
         // 범위 변경분 반영(절 매핑) + 공개 본문이면 클립 자동 준비.
-        autoPreparer.syncAfterCommit(command.adminId(), passage.getId(), command.bookId(), command.chapter(),
-                command.endChapter(), command.startVerse(), command.endVerse(), true);
+        autoPreparer.syncAfterCommit(command.adminId(), passage.getId(), passage.getBookId(), passage.getChapter(),
+                passage.getEndChapter(), passage.getStartVerse(), passage.getEndVerse(), true);
         todayQtCacheEvictor.evictAfterCommit();
         return toResponse(passage);
     }
