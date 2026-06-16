@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.qtai.bible.BibleServiceApplication;
 import com.qtai.bible.JpaAuditingConfig;
 import com.qtai.common.config.TimeConfig;
+import jakarta.persistence.LockModeType;
+import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.test.context.ContextConfiguration;
 
 /**
@@ -85,5 +88,16 @@ class QtPassageRepositoryTest {
 
         assertEquals(1, result.size());
         assertEquals(autoCollected.getId(), result.get(0).getId());
+    }
+
+    @Test
+    @DisplayName("자동게시 대상 조회는 다중 인스턴스 중복 게시 방지를 위해 쓰기 잠금을 사용한다")
+    void findAutoPublishTargets_usesPessimisticWriteLock() throws NoSuchMethodException {
+        Method method = QtPassageRepository.class.getMethod(
+                "findAutoPublishTargets", QtPassageStatus.class, LocalDate.class);
+
+        Lock lock = method.getAnnotation(Lock.class);
+
+        assertEquals(LockModeType.PESSIMISTIC_WRITE, lock.value());
     }
 }
