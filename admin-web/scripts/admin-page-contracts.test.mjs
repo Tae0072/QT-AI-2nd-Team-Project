@@ -337,6 +337,18 @@ test('music track route and menu stay operator-gated', () => {
   );
 });
 
+test('music track upload requests are allowed to use multipart boundaries', () => {
+  const client = fs.readFileSync(path.join(rootDir, 'src', 'api', 'client.ts'), 'utf8');
+  const musicApi = fs.readFileSync(path.join(rootDir, 'src', 'api', 'musicTracks.ts'), 'utf8');
+  const createConfig = client.match(/apiClient\s*=\s*axios\.create\(\{([\s\S]*?)\}\);/);
+
+  assert.ok(createConfig, 'apiClient must be created with axios.create');
+  assert.doesNotMatch(createConfig[1], /Content-Type/);
+  assert.match(musicApi, /new FormData\(\)/);
+  assert.match(musicApi, /apiClient\.post<ApiResponse<MusicTrack>>\([\s\S]*toFormData\(values, true\)/);
+  assert.match(musicApi, /apiClient\.patch<ApiResponse<MusicTrack>>\([\s\S]*toFormData\(values, false\)/);
+});
+
 test('QT passage filters and row actions use operational statuses only', () => {
   assert.deepEqual(contracts.QT_PASSAGE_FILTERABLE_STATUSES, [
     'pending_review',

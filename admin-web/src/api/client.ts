@@ -38,7 +38,6 @@ function endSession(): void {
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
-  headers: { 'Content-Type': 'application/json' },
 });
 
 // [요청 전] 저장된 ADMIN access 토큰을 Authorization 헤더에 자동 첨부.
