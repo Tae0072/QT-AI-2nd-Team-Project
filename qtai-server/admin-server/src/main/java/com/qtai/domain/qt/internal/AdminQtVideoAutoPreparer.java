@@ -48,7 +48,7 @@ public class AdminQtVideoAutoPreparer {
      * 현재 본문 트랜잭션이 커밋된 뒤 매핑(+선택적 클립 준비)을 실행한다. 트랜잭션이 없으면(테스트 등) 즉시 실행.
      */
     public void syncAfterCommit(Long adminUserId, Long qtPassageId, Short bookId,
-                                short startChapter, short endChapter, short startVerse, short endVerse,
+                                Short startChapter, Short endChapter, Short startVerse, Short endVerse,
                                 boolean prepareClip) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             runSync(adminUserId, qtPassageId, bookId, startChapter, endChapter, startVerse, endVerse, prepareClip);
@@ -63,7 +63,7 @@ public class AdminQtVideoAutoPreparer {
     }
 
     private void runSync(Long adminUserId, Long qtPassageId, Short bookId,
-                         short startChapter, short endChapter, short startVerse, short endVerse,
+                         Short startChapter, Short endChapter, Short startVerse, Short endVerse,
                          boolean prepareClip) {
         // 1) 절 매핑 채움(매퍼가 자체 REQUIRES_NEW 쓰기 + best-effort 처리)
         verseMapper.mapVerses(qtPassageId, bookId, startChapter, endChapter, startVerse, endVerse);

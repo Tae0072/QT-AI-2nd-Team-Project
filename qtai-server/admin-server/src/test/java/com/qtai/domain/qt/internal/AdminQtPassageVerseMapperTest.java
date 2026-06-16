@@ -95,4 +95,45 @@ class AdminQtPassageVerseMapperTest {
 
         verify(qtPassageWriter, never()).replaceMappings(any(), any());
     }
+
+    @Test
+    @DisplayName("장 교차 범위 — 장별 조회 + 경계 필터로 모아 매핑한다")
+    void mapVerses_crossChapter_collectsAcrossChaptersWithBoundaryFilter() {
+        when(listBibleBooksUseCase.listBibleBooks()).thenReturn(List.of(book1Co()));
+        // 9장: 24~27절 반환(시작 경계 25 이전인 24는 제외), 10장: 1~3절 반환(종료 경계 2 이후인 3은 제외)
+        when(getBibleVerseUseCase.getVerses("1CO", 9, null, null)).thenReturn(new BibleVerseRangeResponse(
+                null, List.of(verse(924, 9, 24), verse(925, 9, 25), verse(926, 9, 26), verse(927, 9, 27))));
+        when(getBibleVerseUseCase.getVerses("1CO", 10, null, null)).thenReturn(new BibleVerseRangeResponse(
+                null, List.of(verse(1001, 10, 1), verse(1002, 10, 2), verse(1003, 10, 3))));
+
+        // 9:25 ~ 10:2 (장 교차)
+        mapper().mapVerses(500L, (short) 46, (short) 9, (short) 10, (short) 25, (short) 2);
+
+        List<BibleVerseResponse> expected = List.of(
+                verse(925, 9, 25), verse(926, 9, 26), verse(927, 9, 27), verse(1001, 10, 1), verse(1002, 10, 2));
+        verify(qtPassageWriter).replaceMappings(eq(500L), eq(expected));
+    }
+
+    @Test
+    @DisplayName("장 교차 중 한 장이 비면 — 부분 매핑을 막고 저장하지 않는다")
+    void mapVerses_crossChapter_missingChapterSkips() {
+        when(listBibleBooksUseCase.listBibleBooks()).thenReturn(List.of(book1Co()));
+        when(getBibleVerseUseCase.getVerses("1CO", 9, null, null)).thenReturn(new BibleVerseRangeResponse(
+                null, List.of(verse(925, 9, 25))));
+        when(getBibleVerseUseCase.getVerses("1CO", 10, null, null)).thenReturn(new BibleVerseRangeResponse(
+                null, List.of()));
+
+        mapper().mapVerses(500L, (short) 46, (short) 9, (short) 10, (short) 25, (short) 2);
+
+        verify(qtPassageWriter, never()).replaceMappings(any(), any());
+    }
+
+    @Test
+    @DisplayName("범위 값이 null(예: endChapter) — 언박싱 NPE 없이 매핑만 보류")
+    void mapVerses_nullRangeValue_skipsWithoutNpe() {
+        // endChapter=null 이어도 예외 없이 보류해야 한다(레거시/미영속 본문 방어).
+        mapper().mapVerses(500L, (short) 46, (short) 9, null, (short) 1, (short) 7);
+
+        verify(qtPassageWriter, never()).replaceMappings(any(), any());
+    }
 }

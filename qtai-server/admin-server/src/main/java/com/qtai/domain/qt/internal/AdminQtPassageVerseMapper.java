@@ -15,8 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -27,21 +25,15 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 관리자 등록 경로에도 자동수집과 동등하게 절 매핑을 채운다. 매핑은 이미 DB에 있는 성경 절을
  * 범위로 조회해 verse id를 연결하는 작업이라 외부 호출이 필요 없다(bible 조회는 admin-server 내부 도메인).
  *
- * <p>트랜잭션 설계(중요):
- * <ul>
- *   <li>bible {@code getVerses}는 {@code @Transactional(readOnly=true)}라 빈 장이면 예외를 던지는데, 이를
- *       본문 저장과 같은 트랜잭션에서 호출하면 rollback-only가 되어 본문 저장까지 롤백된다. 따라서 매핑은
- *       본문 저장 트랜잭션 <b>커밋 이후</b>({@link #mapVersesAfterCommit})에 수행한다.</li>
- *   <li>절 조회는 커밋 후(활성 트랜잭션 없음) 각자의 read 트랜잭션으로 돌려 예외를 격리한다.</li>
- *   <li>매핑 쓰기({@link #persistTx})는 <b>프로그래매틱 REQUIRES_NEW</b> 트랜잭션으로 커밋한다.
- *       {@code afterCommit} 단계에서 어노테이션 {@code @Transactional}(REQUIRED) 쓰기는 완료 중인
- *       트랜잭션 리소스에 묶여 커밋되지 않는 Spring의 함정이 있어, 새 트랜잭션을 명시적으로 연다.</li>
- * </ul>
- * 매핑 실패는 best-effort로 로그만 남기고 등록 요청을 실패시키지 않는다.
+ * <p>호출 시점/트랜잭션: 본문 저장 트랜잭션이 <b>커밋된 이후</b> {@link AdminQtVideoAutoPreparer}가 호출한다.
+ * bible {@code getVerses}는 {@code @Transactional(readOnly=true)}라 빈 장이면 예외를 던지는데, 커밋 이후엔
+ * 활성 트랜잭션이 없어 각 조회가 독립 read 트랜잭션으로 돌아 예외가 격리된다. 매핑 쓰기는
+ * <b>프로그래매틱 REQUIRES_NEW</b>({@link #persistTx})로 커밋한다 — {@code afterCommit} 단계에서
+ * 어노테이션 {@code @Transactional}(REQUIRED) 쓰기는 완료 중 트랜잭션에 묶여 커밋되지 않는 함정이 있다.
+ * 모든 실패는 best-effort로 로그만 남기고 등록 요청을 실패시키지 않는다.
  *
- * <p>이벤트는 발행하지 않는다 — QT영상 클립 소비자는 service-bible에 있고 admin-server와 프로세스가
- * 분리돼 있어 인-프로세스 이벤트가 닿지 않는다. 클립 준비는 service-bible의 일일 스케줄러가
- * 공유 DB의 매핑을 읽어 수행한다(2b).
+ * <p>이벤트는 발행하지 않는다 — 클립 준비는 같은 admin-server 프로세스에서 {@link AdminQtVideoAutoPreparer}가
+ * 이어서 인-프로세스로 수행한다(2b 폴링 스케줄러 폐기).
  */
 @Slf4j
 @Component
@@ -65,31 +57,21 @@ public class AdminQtPassageVerseMapper {
     }
 
     /**
-     * 현재 쓰기 트랜잭션이 커밋된 뒤 절 매핑을 채운다. 트랜잭션이 없으면(테스트 등) 즉시 수행한다.
-     * 호출자({@link AdminQtPassageService})의 {@code @Transactional} create/update 안에서 호출한다.
-     */
-    public void mapVersesAfterCommit(Long qtPassageId, Short bookId,
-                                     short startChapter, short endChapter,
-                                     short startVerse, short endVerse) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            mapVerses(qtPassageId, bookId, startChapter, endChapter, startVerse, endVerse);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                mapVerses(qtPassageId, bookId, startChapter, endChapter, startVerse, endVerse);
-            }
-        });
-    }
-
-    /**
      * 본문 범위의 절을 조회해 qt_passage_verses를 교체 저장한다. 절 조회는 read 트랜잭션(예외 격리),
      * 쓰기는 REQUIRES_NEW 트랜잭션으로 커밋한다. 모든 실패는 best-effort로 로그만 남긴다.
+     *
+     * <p>범위 값({@code bookId/chapter/verse})이 하나라도 null이면 매핑을 건너뛴다 — 호출부의 박싱 값을
+     * 그대로 받아 언박싱 NPE를 피하고(특히 미영속/레거시 본문의 endChapter), 잘못된 입력은 보류한다.
      */
     public void mapVerses(Long qtPassageId, Short bookId,
-                          short startChapter, short endChapter,
-                          short startVerse, short endVerse) {
+                          Short startChapter, Short endChapter,
+                          Short startVerse, Short endVerse) {
+        if (qtPassageId == null || bookId == null || startChapter == null
+                || endChapter == null || startVerse == null || endVerse == null) {
+            log.warn("절 매핑 보류 — 범위 값 누락. qtPassageId={}, bookId={}, range={}:{}~{}:{}",
+                    qtPassageId, bookId, startChapter, startVerse, endChapter, endVerse);
+            return;
+        }
         try {
             BibleBookResponse book = findBookById(bookId);
             if (book == null) {
