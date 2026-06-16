@@ -50,6 +50,9 @@ class AdminQtPassageServiceTest {
     @Mock
     private TodayQtCacheEvictor todayQtCacheEvictor;
 
+    @Mock
+    private AdminQtVideoAutoPreparer autoPreparer;
+
     private AdminQtPassageService service;
 
     @BeforeEach
@@ -59,7 +62,8 @@ class AdminQtPassageServiceTest {
                 auditLogUseCase,
                 new ObjectMapper().findAndRegisterModules(),
                 CLOCK,
-                todayQtCacheEvictor
+                todayQtCacheEvictor,
+                autoPreparer
         );
     }
 

@@ -26,6 +26,7 @@ import com.qtai.domain.bible.api.dto.BibleVerseRangeResponse;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.qt.api.GetQtPassageContentContextUseCase;
 import com.qtai.domain.qt.api.dto.QtPassageContentContext;
+import com.qtai.domain.qtvideo.api.PrepareQtVideoClipUseCase;
 import com.qtai.domain.qtvideo.api.dto.AdminQtVideoClipItem;
 import com.qtai.domain.qtvideo.api.dto.AdminQtVideoClipListResponse;
 import com.qtai.domain.qtvideo.api.dto.AdminQtVideoSegmentItem;
@@ -44,7 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class AdminQtVideoService {
+public class AdminQtVideoService implements PrepareQtVideoClipUseCase {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final int MAX_PAGE_SIZE = 100;
@@ -257,6 +258,7 @@ public class AdminQtVideoService {
         );
     }
 
+    @Override
     @Transactional
     public PrepareQtVideoClipResult prepareClip(Long adminUserId, Long qtPassageId) {
         requirePositive(qtPassageId, "qtPassageId");
