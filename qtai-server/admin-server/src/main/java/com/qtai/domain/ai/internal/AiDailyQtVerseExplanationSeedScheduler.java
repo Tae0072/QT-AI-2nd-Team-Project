@@ -20,7 +20,7 @@ class AiDailyQtVerseExplanationSeedScheduler {
     AiDailyQtVerseExplanationSeedScheduler(
             AiDailyQtVerseExplanationSeedService service,
             AiBatchMonitoringService monitoringService,
-            @Value("${ai.daily-qt-verse-seed.enabled:true}") boolean enabled,
+            @Value("${ai.daily-qt-verse-seed.enabled:false}") boolean enabled,
             Clock clock
     ) {
         this.service = service;
