@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Button,
   Card,
+  type FormInstance,
   Form,
   Input,
   InputNumber,
@@ -72,6 +73,27 @@ const CATEGORY_OPTIONS: Array<{ label: string; value: MusicTrackCategory }> = [
   { label: CATEGORY_LABELS.HYMN, value: 'HYMN' },
 ];
 
+const ALLOWED_AUDIO_MIME_TYPES = new Set([
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/aac',
+  'audio/ogg',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/webm',
+  'audio/flac',
+]);
+const ALLOWED_AUDIO_FILE_EXTENSIONS = [
+  '.mp3',
+  '.m4a',
+  '.aac',
+  '.ogg',
+  '.wav',
+  '.webm',
+  '.flac',
+];
+const AUDIO_FILE_ERROR_MESSAGE = '오디오 파일만 등록할 수 있습니다.';
+
 function statusTag(status: MusicTrackStatus) {
   return status === 'ACTIVE' ? (
     <Tag color="green">노출</Tag>
@@ -89,6 +111,31 @@ function formatBytes(value: number) {
 
 function fileFromList(fileList: UploadFile[] | undefined): File | undefined {
   return fileList?.[0]?.originFileObj as File | undefined;
+}
+
+function isAllowedAudioFile(file: File) {
+  const mimeType = file.type.toLowerCase();
+  const fileName = file.name.toLowerCase();
+  return (
+    (mimeType !== '' && ALLOWED_AUDIO_MIME_TYPES.has(mimeType)) ||
+    ALLOWED_AUDIO_FILE_EXTENSIONS.some((extension) => fileName.endsWith(extension))
+  );
+}
+
+function validateAudioUploadFile(
+  file: File,
+  form: FormInstance<MusicTrackEditorValues>,
+) {
+  if (!isAllowedAudioFile(file)) {
+    form.setFields([{ name: 'fileList', errors: [AUDIO_FILE_ERROR_MESSAGE] }]);
+    message.error(AUDIO_FILE_ERROR_MESSAGE);
+    return Upload.LIST_IGNORE;
+  }
+  if (file.type) {
+    form.setFieldValue('mimeType', file.type.toLowerCase());
+  }
+  form.setFields([{ name: 'fileList', errors: [] }]);
+  return false;
 }
 
 function toPayload(values: MusicTrackEditorValues): MusicTrackFormValues {
@@ -434,6 +481,21 @@ function MusicTrackForm({
   form: ReturnType<typeof Form.useForm<MusicTrackEditorValues>>[0];
   requireFile: boolean;
 }) {
+  const fileRules = [
+    ...(requireFile
+      ? [{ required: true, message: '음원 파일을 선택하세요.' }]
+      : []),
+    {
+      validator: (_: unknown, fileList?: UploadFile[]) => {
+        const file = fileFromList(fileList);
+        if (file && !isAllowedAudioFile(file)) {
+          return Promise.reject(new Error(AUDIO_FILE_ERROR_MESSAGE));
+        }
+        return Promise.resolve();
+      },
+    },
+  ];
+
   return (
     <Form form={form} layout="vertical">
       <Form.Item
@@ -473,13 +535,13 @@ function MusicTrackForm({
         label="음원 파일"
         valuePropName="fileList"
         getValueFromEvent={(event) => event?.fileList}
-        rules={
-          requireFile
-            ? [{ required: true, message: '음원 파일을 선택하세요' }]
-            : undefined
-        }
+        rules={fileRules}
       >
-        <Upload beforeUpload={() => false} maxCount={1} accept="audio/*">
+        <Upload
+          beforeUpload={(file) => validateAudioUploadFile(file, form)}
+          maxCount={1}
+          accept="audio/*,.mp3,.m4a,.aac,.ogg,.wav,.webm,.flac"
+        >
           <Button icon={<UploadOutlined />}>파일 선택</Button>
         </Upload>
       </Form.Item>

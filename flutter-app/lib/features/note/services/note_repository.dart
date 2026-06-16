@@ -12,6 +12,15 @@ class NoteRepository {
 
   NoteRepository(this._dio);
 
+  Future<List<NoteCategoryOption>> getNoteCategories() async {
+    final response = await _dio.get('/note-categories');
+    final data = response.data['data'] as Map<String, dynamic>? ?? const {};
+    final categories = data['categories'] as List<dynamic>? ?? const [];
+    return categories
+        .map((e) => NoteCategoryOption.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// QT 묵상 노트 생성 (POST /api/v1/notes).
   Future<void> createQtNote({
     required int? qtPassageId,

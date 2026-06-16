@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.qtai.common.dto.ApiResponse;
 import com.qtai.common.exception.BusinessException;
 import com.qtai.common.exception.ErrorCode;
 import com.qtai.common.exception.GlobalExceptionHandler;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -44,6 +46,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @ExtendWith(MockitoExtension.class)
 class AdminMusicTrackControllerTest {
@@ -292,7 +295,21 @@ class AdminMusicTrackControllerTest {
     }
 
     @Test
-    @DisplayName("허용하지 않는 MIME 타입이면 400")
+    @DisplayName("multipart resolver size limit returns 400 C0002")
+    void maxUploadSizeExceeded_returnsBadRequest() {
+        var response = new GlobalExceptionHandler()
+                .handleMaxUploadSizeExceeded(new MaxUploadSizeExceededException(1024L));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ApiResponse<Void> body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.success()).isFalse();
+        assertThat(body.error().code()).isEqualTo("C0002");
+        assertThat(body.error().message()).isEqualTo("업로드 파일은 10 MiB 이하로 등록해 주세요.");
+    }
+
+    @Test
+    @DisplayName("unsupported audio MIME returns 400")
     void create_withUnsupportedMime_returnsBadRequest() throws Exception {
         operator();
 
@@ -306,7 +323,22 @@ class AdminMusicTrackControllerTest {
     }
 
     @Test
-    @DisplayName("인증이 없으면 401 M0002")
+    @DisplayName("file content type is validated even when requested MIME is audio")
+    void create_withPdfFileAndAudioMimeParam_returnsBadRequest() throws Exception {
+        operator();
+
+        mockMvc.perform(multipart("/api/v1/admin/music-tracks")
+                        .file(pdfFile())
+                        .param("title", "not audio")
+                        .param("category", "BGM")
+                        .param("mimeType", "audio/mpeg")
+                        .principal(authentication("ROLE_ADMIN")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("C0002"));
+    }
+
+    @Test
+    @DisplayName("unauthenticated request returns 401 M0002")
     void noPrincipal_returnsUnauthorized() throws Exception {
         mockMvc.perform(get("/api/v1/admin/music-tracks")
                         .principal(new AnonymousAuthenticationToken(

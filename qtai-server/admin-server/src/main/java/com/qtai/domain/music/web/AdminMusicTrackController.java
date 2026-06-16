@@ -151,8 +151,10 @@ public class AdminMusicTrackController {
             MultipartFile file,
             boolean requireFile) {
         byte[] audioData = null;
+        String uploadedMimeType = null;
         if (file != null && !file.isEmpty()) {
             validateAudioFileSize(file);
+            uploadedMimeType = validateUploadedFileMimeType(file);
             try {
                 audioData = file.getBytes();
             } catch (IOException exception) {
@@ -164,7 +166,7 @@ public class AdminMusicTrackController {
         return new AdminMusicTrackCommand(
                 title,
                 category,
-                resolveMimeType(mimeType, file, requireFile),
+                resolveMimeType(mimeType, uploadedMimeType, file, requireFile),
                 durationSec,
                 sortOrder,
                 licenseNote,
@@ -172,14 +174,26 @@ public class AdminMusicTrackController {
         );
     }
 
-    private static String resolveMimeType(String requestedMimeType, MultipartFile file, boolean requireFile) {
+    private static String resolveMimeType(
+            String requestedMimeType,
+            String uploadedMimeType,
+            MultipartFile file,
+            boolean requireFile) {
+        if (uploadedMimeType != null) {
+            return uploadedMimeType;
+        }
         if (requestedMimeType != null && !requestedMimeType.isBlank()) {
             return validateMimeType(requestedMimeType.trim());
         }
-        if (file != null && file.getContentType() != null && !file.getContentType().isBlank()) {
-            return validateMimeType(file.getContentType().trim());
-        }
         return requireFile || (file != null && !file.isEmpty()) ? "audio/mpeg" : null;
+    }
+
+    private static String validateUploadedFileMimeType(MultipartFile file) {
+        String contentType = file.getContentType();
+        if (contentType == null || contentType.isBlank()) {
+            return null;
+        }
+        return validateMimeType(contentType.trim());
     }
 
     private static String validateMimeType(String mimeType) {
