@@ -9,7 +9,11 @@ import static org.mockito.Mockito.when;
 
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.qt.client.sum.SuTodayPassage;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,11 +29,14 @@ class QtPassageWriterTest {
     @Mock private QtPassageRepository qtPassageRepository;
     @Mock private QtPassageVerseRepository qtPassageVerseRepository;
 
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(Instant.parse("2026-06-16T00:02:00Z"), ZoneOffset.UTC);
+
     private QtPassageWriter writer;
 
     @BeforeEach
     void setUp() {
-        writer = new QtPassageWriter(qtPassageRepository, qtPassageVerseRepository);
+        writer = new QtPassageWriter(qtPassageRepository, qtPassageVerseRepository, FIXED_CLOCK);
     }
 
     @Test
@@ -68,11 +75,14 @@ class QtPassageWriterTest {
         when(qtPassageRepository.save(any(QtPassage.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         QtPassage saved = writer.upsert(
-                LocalDate.of(2026, 6, 15), (short) 46, passage((short) 9, (short) 10, (short) 1, (short) 5));
+                LocalDate.of(2026, 6, 16), (short) 46, passage((short) 9, (short) 10, (short) 1, (short) 5));
 
         assertThat(saved.getChapter()).isEqualTo((short) 9);
         assertThat(saved.getEndChapter()).isEqualTo((short) 10);
         assertThat(saved.getEndBookId()).isEqualTo((short) 46);
+        // 수집 시각은 기록하되, admin 수집 본문은 검토 대기라 게시 시각은 비워 둔다.
+        assertThat(saved.getCollectedAt()).isEqualTo(LocalDateTime.of(2026, 6, 16, 0, 2));
+        assertThat(saved.getPublishedAt()).isNull();
         verify(qtPassageRepository).save(any(QtPassage.class));
     }
 

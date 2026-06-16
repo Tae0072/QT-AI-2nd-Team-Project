@@ -1,6 +1,9 @@
 package com.qtai.domain.qt.internal;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,16 +32,27 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 class QtPassageWriter {
 
+    /** 자동수집 본문의 게시 시각 = QT 날짜 04:00 KST(사용자 노출/cache refresh 기준, CLAUDE.md §6). */
+    private static final LocalTime PUBLISH_TIME = LocalTime.of(4, 0);
+
     private final QtPassageRepository qtPassageRepository;
     private final QtPassageVerseRepository qtPassageVerseRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final Clock clock;
 
-    /** 본문을 upsert 한다(같은 날짜가 있으면 갱신, 없으면 생성). 자체 트랜잭션에서 커밋된다. */
+    /**
+     * 본문을 upsert 한다(같은 날짜가 있으면 갱신, 없으면 생성). 자체 트랜잭션에서 커밋된다.
+     *
+     * <p>자동수집 메타도 함께 기록한다 — 수집 시각은 현재 시각, 게시 시각은 비어 있으면 QT 날짜 04:00 KST.
+     * service-bible 수집 본문은 status=ACTIVE라 게시 시각을 채워 관리자 목록에 일관되게 표시한다.
+     */
     @Transactional
     public QtPassage upsert(LocalDate qtDate, Short bookId, SuTodayPassage passage) {
-        return qtPassageRepository.findByQtDate(qtDate)
+        QtPassage saved = qtPassageRepository.findByQtDate(qtDate)
                 .map(existing -> updateExisting(existing, bookId, passage))
                 .orElseGet(() -> createNew(qtDate, bookId, passage));
+        saved.recordCollected(LocalDateTime.now(clock), qtDate.atTime(PUBLISH_TIME));
+        return saved;
     }
 
     /**

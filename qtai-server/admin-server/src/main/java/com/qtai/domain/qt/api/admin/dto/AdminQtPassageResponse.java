@@ -15,6 +15,7 @@ public record AdminQtPassageResponse(
         String mainVerseRef,
         String status,
         LocalDateTime publishedAt,
+        LocalDateTime collectedAt,
         LocalDateTime hiddenAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt

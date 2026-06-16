@@ -32,6 +32,7 @@ import {
 } from '../api/qtPassages';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDateTime } from '../utils/datetime';
+import { BIBLE_BOOKS, bibleBookName } from '../constants/bibleBooks';
 import { ApiClientError } from '../api/client';
 import {
   QT_PASSAGE_FILTERABLE_STATUSES,
@@ -59,6 +60,13 @@ const STATUS_OPTIONS = QT_PASSAGE_FILTERABLE_STATUSES.map((s) => ({
 function errMessage(e: unknown, fallback: string): string {
   if (e instanceof ApiClientError) return e.code ? `[${e.code}] ${e.message}` : e.message;
   return e instanceof Error ? e.message : fallback;
+}
+
+// QT 날짜 입력 마스킹 — 숫자만 입력해도 YYYY-MM-DD로 '-'를 자동 삽입한다.
+function maskQtDate(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8); // YYYYMMDD
+  const parts = [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)].filter(Boolean);
+  return parts.join('-');
 }
 
 export default function QtPassagesPage() {
@@ -164,7 +172,7 @@ export default function QtPassagesPage() {
       width: 200,
       render: (_, r) =>
         r.mainVerseRef ??
-        `#${r.bookId} ${r.chapter}:${r.startVerse}-${
+        `${bibleBookName(r.bookId)} ${r.chapter}:${r.startVerse}-${
           r.chapter === r.endChapter ? '' : `${r.endChapter}:`
         }${r.endVerse}`,
     },
@@ -180,6 +188,12 @@ export default function QtPassagesPage() {
     {
       title: '게시 시각',
       dataIndex: 'publishedAt',
+      width: 170,
+      render: (v: string | null) => formatDateTime(v),
+    },
+    {
+      title: '수집 시각',
+      dataIndex: 'collectedAt',
       width: 170,
       render: (v: string | null) => formatDateTime(v),
     },
@@ -333,20 +347,27 @@ export default function QtPassagesPage() {
           <Form.Item
             label="QT 날짜"
             name="qtDate"
+            getValueFromEvent={(e) => maskQtDate(e.target.value)}
             rules={[
               { required: true, message: 'QT 날짜를 입력해 주세요' },
               { pattern: /^\d{4}-\d{2}-\d{2}$/, message: 'YYYY-MM-DD 형식으로 입력해 주세요' },
             ]}
           >
-            <Input placeholder="2026-06-10" />
+            <Input placeholder="2026-06-16 (숫자만 입력해도 - 자동)" maxLength={10} inputMode="numeric" />
           </Form.Item>
           <Space size="middle" style={{ display: 'flex' }} align="start">
             <Form.Item
-              label="성경 권(ID)"
+              label="성경 권"
               name="bookId"
-              rules={[{ required: true, message: '권 ID(1~66)' }]}
+              rules={[{ required: true, message: '권을 선택해 주세요' }]}
             >
-              <InputNumber min={1} max={66} style={{ width: 120 }} />
+              <Select
+                showSearch
+                placeholder="권 선택 (예: 창세기)"
+                style={{ width: 180 }}
+                optionFilterProp="label"
+                options={BIBLE_BOOKS.map((b) => ({ value: b.id, label: b.korean }))}
+              />
             </Form.Item>
             <Form.Item label="시작 장" name="chapter" rules={[{ required: true, message: '장' }]}>
               <InputNumber min={1} style={{ width: 100 }} />

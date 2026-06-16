@@ -296,6 +296,7 @@ class AdminQtPassageControllerTest {
                 null,
                 null,
                 null,
+                null,
                 null
         );
     }
