@@ -58,6 +58,21 @@ public class QtPassage extends BaseEntity {
     @Column(name = "hidden_at")
     private LocalDateTime hiddenAt;
 
+    /** 시스템 배치가 성서유니온 범위를 실제로 가져온 시각(게시 시각과 별개). */
+    @Column(name = "collected_at")
+    private LocalDateTime collectedAt;
+
+    /**
+     * 자동수집 메타 기록 — 수집 시각은 매 수집마다 갱신하고, 게시 시각은 아직 비어 있을 때만 설정한다.
+     * {@code publishedAtIfAbsent}가 {@code null}이면 게시 시각은 건드리지 않는다(관리자 검토 대기 유지).
+     */
+    public void recordCollected(LocalDateTime collectedAt, LocalDateTime publishedAtIfAbsent) {
+        this.collectedAt = collectedAt;
+        if (publishedAtIfAbsent != null && this.publishedAt == null) {
+            this.publishedAt = publishedAtIfAbsent;
+        }
+    }
+
     /** 단일 권·장 범위 생성. 시작=종료로 저장한다. */
     public static QtPassage create(
             LocalDate qtDate,

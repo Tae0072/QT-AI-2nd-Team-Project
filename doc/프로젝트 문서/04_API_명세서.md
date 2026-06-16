@@ -2504,6 +2504,7 @@ PATCH omitted fields keep the existing `music_tracks` values.
 | v1.11 | 2026-06-12 | 김지민 (DevE) | §7.3 평가 케이스 생성/등록을 **식별자·메타 기반**으로 정렬(원문/프롬프트/민감정보 미저장, `07` §7 / CLAUDE.md §7). ① `POST /admin/ai/reports/{reportId}/evaluation-candidates`(신규) — 신고를 평가 케이스 후보로 등록, `sourceType=USER_REPORT`·`sourceId=reportId`, 백엔드가 신고+산출물 메타로 `inputJson` 조립. ② `POST /admin/ai/evaluation-sets/{setId}/cases`(수동 생성) 요청을 식별자 전용(`targetType`·`targetId`·`expectedPolicyJson`)으로 축소 — `inputJson`/`expectedOutputJson` 자유 텍스트 입력 제거, 서버가 `{targetType,targetId,sourceType}` 메타로 조립. 아래 "개정 추가 (2026-06-12) — 평가 케이스 식별자 기반" 절로 상세 기록. 코드 변경: 있음(admin-server + admin-web, FE/BE 동시). |
 | v1.12 | 2026-06-15 | 강상민 (DevC) / Codex | §3 AD-12와 §4.7.7 관리자 배경음악 관리 API 추가. 기존 `music_tracks` DB 음원 모델을 재사용하고, 관리자 등록/수정은 multipart 파일 업로드로 처리한다. 등록은 HIDDEN으로 시작하며 publish/hide로 ACTIVE/HIDDEN을 전환한다. 목록 응답과 감사 로그에는 `audio_data` 원문 바이트를 포함하지 않는다. |
 | v1.13 | 2026-06-15 | 이승욱 (DevD) | §4.7.2 관리자 QT 본문 관리 요청·응답에 `endChapter`를 추가하고, 미지정 시 시작 장 보정·종료 장 역전 거부·같은 장에서만 절 순서 강제 규칙을 명시. F-01/F-06 장 교차 QT 범위 지원과 동기화. |
+| v1.14 | 2026-06-16 | 이승욱 (DevD) | §4.7.2 관리자 QT 본문 관리 응답에 `collectedAt`(수집 시각, 시스템 배치가 성서유니온 범위를 실제로 가져온 시각) 필드 추가. 자동수집 본문(service-bible, status=ACTIVE)은 `publishedAt`(게시 시각)을 QT 날짜 **04:00 KST**(사용자 노출/cache refresh 기준, §6)로 채운다. `qt_passages.collected_at` 컬럼 신규(V51). 관리자 웹은 권 선택을 한글 권 이름으로 표시하고 QT 날짜 입력에 `-` 자동 삽입. F-01/F-06. 코드 변경: 있음(admin-server + admin-web, FE/BE 동시). |
 
 ---
 

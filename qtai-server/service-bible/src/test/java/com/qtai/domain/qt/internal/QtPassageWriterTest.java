@@ -10,7 +10,11 @@ import static org.mockito.Mockito.when;
 import com.qtai.domain.bible.api.dto.BibleVerseResponse;
 import com.qtai.domain.qt.api.QtPassageVerseMappingsChangedEvent;
 import com.qtai.domain.qt.client.sum.SuTodayPassage;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,11 +32,15 @@ class QtPassageWriterTest {
     @Mock private QtPassageVerseRepository qtPassageVerseRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
 
+    // 2026-06-16 00:02 UTC 고정 — 수집 시각 검증용.
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(Instant.parse("2026-06-16T00:02:00Z"), ZoneOffset.UTC);
+
     private QtPassageWriter writer;
 
     @BeforeEach
     void setUp() {
-        writer = new QtPassageWriter(qtPassageRepository, qtPassageVerseRepository, eventPublisher);
+        writer = new QtPassageWriter(qtPassageRepository, qtPassageVerseRepository, eventPublisher, FIXED_CLOCK);
     }
 
     @Test
@@ -73,11 +81,14 @@ class QtPassageWriterTest {
         when(qtPassageRepository.save(any(QtPassage.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         QtPassage saved = writer.upsert(
-                LocalDate.of(2026, 6, 15), (short) 46, passage((short) 9, (short) 10, (short) 1, (short) 5));
+                LocalDate.of(2026, 6, 16), (short) 46, passage((short) 9, (short) 10, (short) 1, (short) 5));
 
         assertThat(saved.getChapter()).isEqualTo((short) 9);
         assertThat(saved.getEndChapter()).isEqualTo((short) 10);
         assertThat(saved.getEndBookId()).isEqualTo((short) 46);
+        // 수집 시각 = 현재 시각(고정 클럭), 게시 시각 = QT 날짜 04:00.
+        assertThat(saved.getCollectedAt()).isEqualTo(LocalDateTime.of(2026, 6, 16, 0, 2));
+        assertThat(saved.getPublishedAt()).isEqualTo(LocalDateTime.of(2026, 6, 16, 4, 0));
         verify(qtPassageRepository).save(any(QtPassage.class));
     }
 
