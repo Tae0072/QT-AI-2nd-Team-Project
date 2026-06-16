@@ -7,7 +7,6 @@ import 'package:qtai_app/features/note/providers/note_providers.dart';
 import 'package:qtai_app/features/note/screens/note_category_select_screen.dart';
 import 'package:qtai_app/features/note/services/note_repository.dart';
 import 'package:qtai_app/l10n/app_localizations.dart';
-import 'package:qtai_app/routes/app_router.dart';
 
 class _FakeNoteRepository extends NoteRepository {
   _FakeNoteRepository(this.categories) : super(Dio());
