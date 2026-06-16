@@ -116,4 +116,10 @@ public class QtVideoClip extends BaseEntity {
         this.status = QtVideoClipStatus.FAILED;
         this.activeUniqueKey = null;
     }
+
+    /** 소프트 삭제: 행을 보존하되 활성 키를 비우고 deleted_at을 기록한다(프로젝트 공통 삭제 정책). */
+    public void softDelete(LocalDateTime deletedAt) {
+        this.activeUniqueKey = null;
+        markDeletedAt(deletedAt);
+    }
 }

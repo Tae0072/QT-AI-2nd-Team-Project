@@ -1,6 +1,7 @@
 package com.qtai.domain.qtvideo.internal;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import com.qtai.common.entity.BaseEntity;
 import jakarta.persistence.Column;
@@ -58,5 +59,10 @@ public class BibleVerseVideoSegment extends BaseEntity {
     public void updateRange(BigDecimal startTimeSec, BigDecimal endTimeSec) {
         this.startTimeSec = startTimeSec;
         this.endTimeSec = endTimeSec;
+    }
+
+    /** 소프트 삭제: 행을 보존하되 deleted_at을 기록한다(프로젝트 공통 삭제 정책). */
+    public void softDelete(LocalDateTime deletedAt) {
+        markDeletedAt(deletedAt);
     }
 }

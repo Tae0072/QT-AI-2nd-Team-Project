@@ -65,13 +65,14 @@ public class AdminQtVideoService {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         Page<SourceVideo> result;
         if (bibleBookId != null && parsedStatus != null) {
-            result = sourceVideoRepository.findByBibleBookIdAndStatus(bibleBookId, parsedStatus, pageRequest);
+            result = sourceVideoRepository.findByBibleBookIdAndStatusAndDeletedAtIsNull(
+                    bibleBookId, parsedStatus, pageRequest);
         } else if (bibleBookId != null) {
-            result = sourceVideoRepository.findByBibleBookId(bibleBookId, pageRequest);
+            result = sourceVideoRepository.findByBibleBookIdAndDeletedAtIsNull(bibleBookId, pageRequest);
         } else if (parsedStatus != null) {
-            result = sourceVideoRepository.findByStatus(parsedStatus, pageRequest);
+            result = sourceVideoRepository.findByStatusAndDeletedAtIsNull(parsedStatus, pageRequest);
         } else {
-            result = sourceVideoRepository.findAll(pageRequest);
+            result = sourceVideoRepository.findByDeletedAtIsNull(pageRequest);
         }
         return new AdminQtVideoSourceListResponse(
                 result.getContent().stream().map(AdminQtVideoService::toSourceItem).toList(),
@@ -143,27 +144,31 @@ public class AdminQtVideoService {
         // 삭제 전 상태를 스냅샷으로 남겨 감사 로그 before-state로 기록한다.
         Short bibleBookId = sourceVideo.getBibleBookId();
         String status = sourceVideo.getStatus().name();
-        // 원본 영상을 지우면 그 원본으로 만든 QT 클립과 절별 구간도 함께 삭제한다.
-        long deletedClips = clipRepository.deleteBySourceVideo_Id(sourceVideoId);
-        long deletedSegments = segmentRepository.deleteBySourceVideo_Id(sourceVideoId);
-        segmentRepository.flush();
-        sourceVideoRepository.delete(sourceVideo);
-        return new DeletedSourceVideoSummary(sourceVideoId, bibleBookId, status, deletedClips, deletedSegments);
+        LocalDateTime deletedAt = LocalDateTime.now(clock.withZone(KST));
+        // 원본 영상을 소프트 삭제하면 그 원본으로 만든 QT 클립과 절별 구간도 함께 소프트 삭제한다.
+        List<QtVideoClip> clips = clipRepository.findBySourceVideo_IdAndDeletedAtIsNull(sourceVideoId);
+        clips.forEach(clip -> clip.softDelete(deletedAt));
+        List<BibleVerseVideoSegment> segments =
+                segmentRepository.findBySourceVideo_IdAndDeletedAtIsNullOrderByStartTimeSecAscIdAsc(sourceVideoId);
+        segments.forEach(segment -> segment.softDelete(deletedAt));
+        sourceVideo.softDelete(deletedAt);
+        return new DeletedSourceVideoSummary(sourceVideoId, bibleBookId, status, clips.size(), segments.size());
     }
 
     @Transactional
     public DeletedClipSummary deleteClip(Long clipId) {
         QtVideoClip clip = clipRepository.findById(requirePositive(clipId, "clipId"))
+                .filter(found -> found.getDeletedAt() == null)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "qt video clip not found"));
         DeletedClipSummary summary = new DeletedClipSummary(
                 clip.getId(), clip.getQtPassageId(), clip.getStatus().name(), clip.getSourceVideo().getId());
-        clipRepository.delete(clip);
+        clip.softDelete(LocalDateTime.now(clock.withZone(KST)));
         return summary;
     }
 
     public List<AdminQtVideoSegmentItem> listSegments(Long sourceVideoId) {
         requireSourceVideo(sourceVideoId);
-        return segmentRepository.findBySourceVideo_IdOrderByStartTimeSecAscIdAsc(sourceVideoId)
+        return segmentRepository.findBySourceVideo_IdAndDeletedAtIsNullOrderByStartTimeSecAscIdAsc(sourceVideoId)
                 .stream()
                 .map(AdminQtVideoService::toSegmentItem)
                 .toList();
@@ -192,13 +197,13 @@ public class AdminQtVideoService {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         Page<QtVideoClip> result;
         if (qtPassageId != null && parsedStatus != null) {
-            result = clipRepository.findByQtPassageIdAndStatus(qtPassageId, parsedStatus, pageRequest);
+            result = clipRepository.findByQtPassageIdAndStatusAndDeletedAtIsNull(qtPassageId, parsedStatus, pageRequest);
         } else if (qtPassageId != null) {
-            result = clipRepository.findByQtPassageId(qtPassageId, pageRequest);
+            result = clipRepository.findByQtPassageIdAndDeletedAtIsNull(qtPassageId, pageRequest);
         } else if (parsedStatus != null) {
-            result = clipRepository.findByStatus(parsedStatus, pageRequest);
+            result = clipRepository.findByStatusAndDeletedAtIsNull(parsedStatus, pageRequest);
         } else {
-            result = clipRepository.findAll(pageRequest);
+            result = clipRepository.findByDeletedAtIsNull(pageRequest);
         }
         return new AdminQtVideoClipListResponse(
                 result.getContent().stream().map(AdminQtVideoService::toClipItem).toList(),
@@ -267,6 +272,7 @@ public class AdminQtVideoService {
     @Transactional
     public AdminQtVideoClipItem changeClipStatus(Long clipId, String status) {
         QtVideoClip clip = clipRepository.findById(requirePositive(clipId, "clipId"))
+                .filter(found -> found.getDeletedAt() == null)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "qt video clip not found"));
         QtVideoClipStatus nextStatus = parseRequiredClipStatus(status);
         if (nextStatus == QtVideoClipStatus.APPROVED) {
@@ -381,6 +387,7 @@ public class AdminQtVideoService {
 
     private SourceVideo requireSourceVideo(Long sourceVideoId) {
         return sourceVideoRepository.findById(requirePositive(sourceVideoId, "sourceVideoId"))
+                .filter(found -> found.getDeletedAt() == null)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "source video not found"));
     }
 

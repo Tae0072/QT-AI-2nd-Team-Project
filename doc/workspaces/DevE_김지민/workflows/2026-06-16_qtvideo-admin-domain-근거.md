@@ -35,7 +35,16 @@
 - admin `qtvideo` 코드는 타 도메인의 `internal`을 직접 import하지 않는다.
 - 성경 절 조회·QT 본문 컨텍스트는 `bible.api`/`qt.api`의 UseCase·DTO를 통해서만 접근한다(`GetBibleVerseUseCase`, `ListBibleBooksUseCase`, `GetQtPassageContentContextUseCase`).
 
-## 5. Lead 확인 요청 항목
+## 5. 삭제 정책: soft-delete 채택(프로젝트 공통 정책과 통일)
+
+- 삭제는 **soft-delete**로 통일했다(노트·나눔 등 기존 도메인과 동일). 행을 물리 삭제하지 않고 `deleted_at`을 기록하고 `active_unique_key`를 비운다.
+  - 엔티티 `softDelete(deletedAt)`: `SourceVideo`/`QtVideoClip`(active_unique_key=null + markDeletedAt), `BibleVerseVideoSegment`(markDeletedAt).
+  - 원본 영상 soft-delete 시 그 원본의 클립·구간도 동반 soft-delete(cascade).
+  - 목록 조회는 `deleted_at IS NULL` 필터로 삭제분을 제외한다. 활성 선택(`active_unique_key='ACTIVE'`) 경로는 키가 비워져 자동 제외되므로 유저앱(service-bible) 조회는 변경 없이 삭제분이 노출되지 않는다.
+  - 감사 로그는 삭제 직전 상태를 before-state로 남긴다(동반 삭제된 클립·구간 수 포함).
+- `replaceSegments`만 예외적으로 기존 구간을 **물리 삭제** 후 재삽입한다. `(bible_verse_id, source_video_id)` 유니크 제약이 `deleted_at`을 포함하지 않아, soft-delete로 남겨두면 동일 절 재삽입 시 충돌하기 때문이다.
+
+## 6. Lead 확인 요청 항목
 
 - [ ] AD-20 관리자 도메인(admin-server `qtvideo`)을 정식 운영 도메인으로 승인.
-- [ ] 삭제 정책: 현재 **하드 삭제 + cascade**(원본 삭제 시 클립·구간 동반 삭제). soft-delete(`deleted_at`) 전환 필요 여부 Lead 판단 요청. 현 결정 근거는 "운영자가 잘못 등록한 원본/클립을 깔끔히 제거" 목적.
+- [ ] (참고) 삭제 정책은 프로젝트 관례에 맞춰 soft-delete로 확정함 — 추가 이견 없으면 그대로 진행.
