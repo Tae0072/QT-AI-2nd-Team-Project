@@ -1,6 +1,8 @@
 package com.qtai.domain.qt.internal;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,13 +31,21 @@ class QtPassageWriter {
 
     private final QtPassageRepository qtPassageRepository;
     private final QtPassageVerseRepository qtPassageVerseRepository;
+    private final Clock clock;
 
-    /** 본문을 upsert 한다(같은 날짜가 있으면 갱신, 없으면 생성). 자체 트랜잭션에서 커밋된다. */
+    /**
+     * 본문을 upsert 한다(같은 날짜가 있으면 갱신, 없으면 생성). 자체 트랜잭션에서 커밋된다.
+     *
+     * <p>자동수집 수집 시각을 기록한다. admin-server 수집 본문은 status=PENDING_REVIEW(검토 대기)라
+     * 게시 시각은 채우지 않고(관리자 게시 시 기록), 수집 시각만 남긴다.
+     */
     @Transactional
     public QtPassage upsert(LocalDate qtDate, Short bookId, SuTodayPassage passage) {
-        return qtPassageRepository.findByQtDate(qtDate)
+        QtPassage saved = qtPassageRepository.findByQtDate(qtDate)
                 .map(existing -> updateExisting(existing, bookId, passage))
                 .orElseGet(() -> createNew(qtDate, bookId, passage));
+        saved.recordCollected(LocalDateTime.now(clock), null);
+        return saved;
     }
 
     /**

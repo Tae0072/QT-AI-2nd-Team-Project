@@ -262,6 +262,7 @@ public class AdminQtPassageService implements
                 passage.getMainVerseRef(),
                 passage.getStatus().apiValue(),
                 passage.getPublishedAt(),
+                passage.getCollectedAt(),
                 passage.getHiddenAt(),
                 passage.getCreatedAt(),
                 passage.getUpdatedAt()
@@ -295,6 +296,7 @@ public class AdminQtPassageService implements
         payload.put("mainVerseRef", passage.getMainVerseRef());
         payload.put("status", passage.getStatus().apiValue());
         payload.put("publishedAt", passage.getPublishedAt());
+        payload.put("collectedAt", passage.getCollectedAt());
         payload.put("hiddenAt", passage.getHiddenAt());
         try {
             return objectMapper.writeValueAsString(payload);

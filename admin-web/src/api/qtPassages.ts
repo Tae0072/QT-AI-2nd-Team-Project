@@ -32,7 +32,8 @@ export interface QtPassage {
   title: string;
   mainVerseRef: string | null;
   status: QtPassageStatus;
-  publishedAt: string | null;
+  publishedAt: string | null; // 게시 시각 (자동수집 본문은 QT 날짜 04:00 KST)
+  collectedAt: string | null; // 수집 시각 (시스템 배치가 실제로 가져온 시각)
   hiddenAt: string | null;
   createdAt: string;
   updatedAt: string;
