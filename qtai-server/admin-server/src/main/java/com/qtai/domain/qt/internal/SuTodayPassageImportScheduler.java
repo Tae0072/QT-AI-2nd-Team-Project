@@ -30,7 +30,7 @@ class SuTodayPassageImportScheduler {
             QtTodayPassageImportService importService,
             QtPassageRepository qtPassageRepository,
             Clock clock,
-            @Value("${qt.today-source.sum.enabled:true}") boolean enabled
+            @Value("${qt.today-source.sum.enabled:false}") boolean enabled
     ) {
         this.client = client;
         this.importService = importService;
