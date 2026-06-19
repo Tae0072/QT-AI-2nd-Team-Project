@@ -152,6 +152,10 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
   bool _eraserEnabled = false;
   static const double _penStrokeWidth = 3;
 
+  // 펜(손그림) 색. null이면 '테마 기본색'을 따른다(라이트=검정, 다크=흰색).
+  // 사용자가 펜 버튼을 길게 눌러 색을 고르면 그 색으로 고정된다.
+  Color? _penColor;
+
   Color _textColor = _defaultTextColor;
   Color _backgroundColor = _defaultBackgroundColor;
   final List<Color> _recentColors = <Color>[
@@ -257,6 +261,26 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
     );
     if (color == null) return;
     _applyColor(color, isBackground: true);
+  }
+
+  /// 테마에 맞춘 펜 기본색 — 라이트 모드=검정, 다크 모드=흰색.
+  Color _themeDefaultPenColor() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark ? const Color(0xFFFFFFFF) : const Color(0xFF000000);
+  }
+
+  /// 실제 그릴 펜 색 — 사용자가 고른 색이 있으면 그 색, 없으면 테마 기본색.
+  Color _effectivePenColor() => _penColor ?? _themeDefaultPenColor();
+
+  /// 펜 버튼 길게 누르기 → 펜 색 선택 시트. 투명은 펜으로 쓸 수 없어 무시한다.
+  Future<void> _openPenColorSheet() async {
+    final color = await _openColorSheet(
+      title: '펜 색상',
+      selectedColor: _effectivePenColor(),
+      colors: _penColors,
+    );
+    if (color == null || color == Colors.transparent) return;
+    setState(() => _penColor = color);
   }
 
   Future<Color?> _openColorSheet({
@@ -526,6 +550,7 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
       penActive: _penEnabled,
       eraserActive: _eraserEnabled,
       onTogglePen: _canDraw ? _togglePen : null,
+      onTogglePenLongPress: _canDraw ? _openPenColorSheet : null,
       onToggleEraser: _canDraw ? _toggleEraser : null,
       onUndoStroke: _canDraw ? _undoStroke : null,
       onClearStrokes: _canDraw ? _clearStrokes : null,
@@ -589,7 +614,8 @@ class _NoteRichTextEditorState extends ConsumerState<NoteRichTextEditor> {
                     strokes: widget.strokes,
                     enabled: _penEnabled,
                     eraserEnabled: _eraserEnabled,
-                    colorValue: _textColor.toARGB32(),
+                    // 펜은 텍스트 색과 분리 — 고른 색 또는 테마 기본색(라이트 검정/다크 흰색).
+                    colorValue: _effectivePenColor().toARGB32(),
                     strokeWidth: _penStrokeWidth,
                     onStrokesChanged: widget.onStrokesChanged!,
                   ),
@@ -1283,6 +1309,20 @@ class _MentionVerseRange {
     );
   }
 }
+
+// 펜 색 팔레트 — 테마 기본색(검정/흰색)을 직접 고를 수 있게 맨 앞에 둔다.
+const _penColors = [
+  Color(0xFF000000), // 검정(라이트 기본)
+  Color(0xFFFFFFFF), // 흰색(다크 기본)
+  Color(0xFFDC2626), // 빨강
+  Color(0xFFEA580C), // 주황
+  Color(0xFFD97706), // 노랑/주황
+  Color(0xFF16A34A), // 초록
+  Color(0xFF2563EB), // 파랑
+  Color(0xFF0EA5E9), // 하늘
+  Color(0xFF7C3AED), // 보라
+  Color(0xFFDB2777), // 분홍
+];
 
 const _textColors = [
   Color(0xFF111827),

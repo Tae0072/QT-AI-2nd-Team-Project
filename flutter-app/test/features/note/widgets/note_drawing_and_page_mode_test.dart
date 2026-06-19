@@ -142,6 +142,33 @@ void main() {
       expect(strokes.first.points.length, greaterThanOrEqualTo(2));
     });
 
+    testWidgets('펜 버튼을 길게 누르면 펜 색상 선택 시트가 열린다', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: NoteRichTextEditor(
+                controller: NoteRichBodyController(),
+                bodyLabel: '본문',
+                pageMode: NotePageMode.plain,
+                onPageModeChanged: (_) {},
+                strokes: const [],
+                onStrokesChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byTooltip('펜으로 그리기'));
+      await tester.longPress(find.byTooltip('펜으로 그리기'));
+      await tester.pumpAndSettle();
+
+      // 펜 색상 선택 바텀시트가 떠야 한다(롱프레스 동작). 시트는 제목을 2곳에 표시한다.
+      expect(find.text('펜 색상'), findsWidgets);
+    });
+
     testWidgets('지우개로 획 위를 지나가면 그 획이 지워진다', (tester) async {
       // 가운데(0.5,0.5)를 지나는 획 하나로 시작 → 레이어 중앙을 지우면 사라진다.
       var strokes = <DrawingStroke>[

@@ -33,6 +33,9 @@ class QtNoteFormatToolbar extends StatelessWidget {
   final bool eraserActive;
   final bool manuscriptActive;
   final VoidCallback? onTogglePen;
+
+  /// 펜 버튼을 '길게 누르면' 호출 — 펜 색상 선택 시트를 연다(선택 사항).
+  final VoidCallback? onTogglePenLongPress;
   final VoidCallback? onToggleEraser;
   final VoidCallback? onUndoStroke;
   final VoidCallback? onClearStrokes;
@@ -45,6 +48,7 @@ class QtNoteFormatToolbar extends StatelessWidget {
     this.eraserActive = false,
     this.manuscriptActive = false,
     this.onTogglePen,
+    this.onTogglePenLongPress,
     this.onToggleEraser,
     this.onUndoStroke,
     this.onClearStrokes,
@@ -108,7 +112,9 @@ class QtNoteFormatToolbar extends StatelessWidget {
         _button(Icons.horizontal_rule, '원고/일반 전환', onToggleManuscript!,
             active: manuscriptActive),
       if (onTogglePen != null)
-        _button(Icons.draw, '펜으로 그리기', onTogglePen!, active: penActive),
+        // 툴팁은 기존 그대로 유지(테스트·UX 계약). 길게 누르면 펜 색 선택이 뜬다.
+        _button(Icons.draw, '펜으로 그리기', onTogglePen!,
+            active: penActive, onLongPress: onTogglePenLongPress),
       if (onToggleEraser != null)
         _button(Icons.auto_fix_normal, '지우개', onToggleEraser!,
             active: eraserActive),
@@ -159,19 +165,45 @@ class QtNoteFormatToolbar extends StatelessWidget {
     String tooltip,
     VoidCallback onPressed, {
     bool active = false,
+    VoidCallback? onLongPress,
   }) {
     // 적용 중인 서식은 색칠된 배경 + 강조색 아이콘으로 켜진 상태를 보여준다.
-    return IconButton(
-      tooltip: tooltip,
-      icon: Icon(icon, size: 21),
-      isSelected: active,
-      style: active
-          ? IconButton.styleFrom(
-              backgroundColor: const Color(0xFFE5E7EB),
-              foregroundColor: const Color(0xFF111827),
-            )
-          : null,
-      onPressed: onPressed,
+    // 길게 누르기가 필요 없는 일반 버튼은 기존처럼 IconButton을 쓴다.
+    if (onLongPress == null) {
+      return IconButton(
+        tooltip: tooltip,
+        icon: Icon(icon, size: 21),
+        isSelected: active,
+        style: active
+            ? IconButton.styleFrom(
+                backgroundColor: const Color(0xFFE5E7EB),
+                foregroundColor: const Color(0xFF111827),
+              )
+            : null,
+        onPressed: onPressed,
+      );
+    }
+    // 길게 누르기가 필요한 버튼(펜)은 InkWell로 직접 구성한다.
+    // IconButton 바깥을 GestureDetector로 감싸면 내부 InkWell이 제스처를 가로채
+    // 롱프레스가 동작하지 않으므로, 탭·롱프레스를 같은 InkWell에 둔다(아레나 충돌 없음).
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: active
+              ? BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(8),
+                )
+              : null,
+          child: Icon(icon,
+              size: 21, color: active ? const Color(0xFF111827) : null),
+        ),
+      ),
     );
   }
 
