@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import { API_BASE_URL } from '../config/env';
+import { API_BASE_URL, USE_ADMIN_MOCK } from '../config/env';
 import {
   getToken,
   setToken,
@@ -8,6 +8,7 @@ import {
   clearToken,
 } from '../auth/tokenStorage';
 import type { ApiResponse } from './types';
+import { mockAdapter } from './mock/mockAdapter';
 
 export class ApiClientError extends Error {
   constructor(
@@ -39,6 +40,16 @@ export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
 });
+
+// ⚠️ 시연(데모) 전용: VITE_ADMIN_MOCK=1 일 때만 모든 호출을 인메모리 목업으로 대체.
+// 일반 dev/build 에서는 USE_ADMIN_MOCK=false 라 이 분기는 실행되지 않는다.
+if (USE_ADMIN_MOCK) {
+  void import('./mock/mockAdapter').then(({ mockAdapter }) => {
+    apiClient.defaults.adapter = mockAdapter;
+    // 콘솔로 데모 모드임을 명확히 알린다(운영 오인 방지).
+    console.warn('[QT-AI admin] 목업(데모) 모드 활성화 — 백엔드 호출 없이 인메모리 데이터로 동작합니다.');
+  });
+}
 
 // [요청 전] 저장된 ADMIN access 토큰을 Authorization 헤더에 자동 첨부.
 // dev·prod 동일: 자체 아이디/비밀번호 로그인으로 발급된 실토큰만 사용한다(dev-bypass 제거, 2026-06-11).
