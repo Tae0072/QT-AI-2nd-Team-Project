@@ -20,8 +20,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
 class QtVideoServiceTest {
@@ -31,9 +34,14 @@ class QtVideoServiceTest {
 
     private QtVideoService service;
 
+    // [임시 2026-06-19] 폴백의 '오늘' 판정을 결정적으로 만드는 고정 시계(오늘 = 2026-06-19 KST). 원복 시 제거.
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(LocalDate.of(2026, 6, 19).atStartOfDay(KST).toInstant(), KST);
+
     @BeforeEach
     void setUp() {
-        service = new QtVideoService(getQtPassageContentContextUseCase, qtVideoClipRepository);
+        service = new QtVideoService(getQtPassageContentContextUseCase, qtVideoClipRepository, FIXED_CLOCK);
     }
 
     @Test
@@ -202,6 +210,62 @@ class QtVideoServiceTest {
                 () -> service.getVideo(0L));
 
         assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("[임시 2026-06-19] 오늘 본문에 영상이 없으면 가장 최근 등록 영상으로 폴백한다")
+    void todayMissing_fallsBackToRecentApprovedClip() {
+        when(getQtPassageContentContextUseCase.getContentContext(20L)).thenReturn(
+                new QtPassageContentContext(20L, LocalDate.of(2026, 6, 19), "today QT", List.of(100L, 101L), true));
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
+                20L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
+                .thenReturn(List.of());
+        SourceVideo sourceVideo = TestEntityFactory.sourceVideo(1L, (short) 46, "https://cdn.example.com/1co.mp4");
+        QtVideoClip recent = TestEntityFactory.qtVideoClip(
+                99L, 15L, sourceVideo, "https://cdn.example.com/qt-2026-06-15.mp4");
+        when(qtVideoClipRepository.findTopByStatusAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
+                QtVideoClipStatus.APPROVED)).thenReturn(Optional.of(recent));
+
+        QtVideoClipResponse result = service.getVideo(20L);
+
+        assertEquals("READY", result.status());
+        assertEquals(99L, result.clipId());
+        assertEquals("https://cdn.example.com/qt-2026-06-15.mp4", result.videoUrl());
+        assertEquals("APPROVED", result.clipStatus());
+    }
+
+    @Test
+    @DisplayName("[임시 2026-06-19] 오늘이 아닌 본문은 폴백하지 않고 MISSING을 유지한다")
+    void nonTodayMissing_noFallback() {
+        when(getQtPassageContentContextUseCase.getContentContext(21L)).thenReturn(
+                new QtPassageContentContext(21L, LocalDate.of(2026, 6, 10), "past QT", List.of(100L, 101L), true));
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
+                21L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
+                .thenReturn(List.of());
+
+        QtVideoClipResponse result = service.getVideo(21L);
+
+        assertEquals("MISSING", result.status());
+        verify(qtVideoClipRepository, never())
+                .findTopByStatusAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(QtVideoClipStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("[임시 2026-06-19] 오늘 본문이지만 최근 등록 영상도 없으면 MISSING을 유지한다")
+    void todayMissing_noRecentClip_staysMissing() {
+        when(getQtPassageContentContextUseCase.getContentContext(22L)).thenReturn(
+                new QtPassageContentContext(22L, LocalDate.of(2026, 6, 19), "today QT", List.of(100L, 101L), true));
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
+                22L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
+                .thenReturn(List.of());
+        when(qtVideoClipRepository.findTopByStatusAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
+                QtVideoClipStatus.APPROVED)).thenReturn(Optional.empty());
+
+        QtVideoClipResponse result = service.getVideo(22L);
+
+        assertEquals("MISSING", result.status());
+        assertEquals(22L, result.qtPassageId());
+        assertNull(result.videoUrl());
     }
 
     private static QtPassageContentContext context(Long qtPassageId, boolean published) {

@@ -16,4 +16,7 @@ interface QtVideoClipRepository extends JpaRepository<QtVideoClip, Long> {
     Optional<QtVideoClip> findByQtPassageIdAndActiveUniqueKey(Long qtPassageId, String activeUniqueKey);
 
     boolean existsByQtPassageIdAndStatus(Long qtPassageId, QtVideoClipStatus status);
+
+    // [임시 2026-06-19] 오늘 QT 영상 미생성 한시적 폴백용 — 가장 최근 등록(APPROVED, 미삭제) 클립 1건. 원복 시 제거.
+    Optional<QtVideoClip> findTopByStatusAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(QtVideoClipStatus status);
 }
