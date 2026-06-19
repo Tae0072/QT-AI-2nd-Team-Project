@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../bible/models/bible_models.dart';
 import '../../bible/providers/bible_providers.dart';
@@ -170,10 +171,12 @@ class _ExplanationItem extends StatelessWidget {
                   Expanded(
                     child: Text(
                       verse,
-                      // 절 본문도 절 번호(9:1)와 같은 굵기로 진하게.
+                      // 절 본문: 절 번호(9:1)와 같은 굵기 + 본문 강조색으로 진하게(F-08).
+                      // bodyMedium 기본색은 회색(text2)이라 본문이 묻히므로 text로 올린다.
                       style: theme.textTheme.bodyMedium?.copyWith(
                         height: 1.5,
                         fontWeight: FontWeight.w700,
+                        color: context.appColors.text,
                       ),
                     ),
                   ),
@@ -193,7 +196,11 @@ class _ExplanationItem extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 explanation.explanation.trim(),
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+                // 해설(설명) 줄: 파란색으로 요약(회색)과 구분(F-08, 라이트/다크 테마색).
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  height: 1.55,
+                  color: context.appColors.explanationBlue,
+                ),
               ),
             ],
           ],

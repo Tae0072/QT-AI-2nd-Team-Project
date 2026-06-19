@@ -45,6 +45,8 @@ class AppTheme {
     textMuted: Color(0xFFB8B5B0),
     hairline: Color(0xFFE8E6E2),
     onAccent: Color(0xFFFFFFFF),
+    // 라이트: 종이 위에서 또렷한 파랑(해설 본문 강조 전용, F-08).
+    explanationBlue: Color(0xFF2563EB),
   );
 
   /// 다크 = "잉크 위의 종이" — 웜 다크 차콜 배경 + 종이색 텍스트, 도트는 동일.
@@ -61,6 +63,8 @@ class AppTheme {
     textMuted: Color(0xFF6E6B66),
     hairline: Color(0xFF383531),
     onAccent: Color(0xFF1F1F1F),
+    // 다크: 차콜 배경에서 가독성 높은 밝은 파랑(해설 본문 강조 전용, F-08).
+    explanationBlue: Color(0xFF8AB4F8),
   );
 
   // ── 테마 ──
@@ -242,6 +246,7 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.textMuted,
     required this.hairline,
     required this.onAccent,
+    required this.explanationBlue,
   });
 
   final Color pageBg;
@@ -263,6 +268,10 @@ class AppColors extends ThemeExtension<AppColors> {
   /// [accent] 면 위에 올라가는 글자색.
   final Color onAccent;
 
+  /// 해설(절별 해설 본문) 강조 파랑 — 라이트/다크 각각 가독성에 맞춘 유채색.
+  /// Lead 요청(2026-06-19, F-08)으로 해설 가독성을 위해 도입한 예외적 유채색이다.
+  final Color explanationBlue;
+
   @override
   AppColors copyWith({
     Color? pageBg,
@@ -277,6 +286,7 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? textMuted,
     Color? hairline,
     Color? onAccent,
+    Color? explanationBlue,
   }) {
     return AppColors(
       pageBg: pageBg ?? this.pageBg,
@@ -291,6 +301,7 @@ class AppColors extends ThemeExtension<AppColors> {
       textMuted: textMuted ?? this.textMuted,
       hairline: hairline ?? this.hairline,
       onAccent: onAccent ?? this.onAccent,
+      explanationBlue: explanationBlue ?? this.explanationBlue,
     );
   }
 
@@ -310,6 +321,7 @@ class AppColors extends ThemeExtension<AppColors> {
       textMuted: Color.lerp(textMuted, other.textMuted, t)!,
       hairline: Color.lerp(hairline, other.hairline, t)!,
       onAccent: Color.lerp(onAccent, other.onAccent, t)!,
+      explanationBlue: Color.lerp(explanationBlue, other.explanationBlue, t)!,
     );
   }
 }

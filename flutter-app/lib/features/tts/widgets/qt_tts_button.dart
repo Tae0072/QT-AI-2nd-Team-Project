@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:dio/dio.dart' show CancelToken, DioException;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -177,7 +179,11 @@ class _QtTtsButtonState extends ConsumerState<QtTtsButton> {
         await _player.setFilePath(audioPath);
       }
       if (_canceled || !mounted) return;
-      if (autoPlay) await _player.play();
+      // just_audio의 play()가 반환하는 Future는 "재생이 끝날 때" 완료된다.
+      // 여기서 await하면 finally의 _isGenerating=false가 음성이 다 끝날 때까지 미뤄져
+      // 재생 내내 버튼이 로딩 스피너로 멈춰 보이고(재생/정지 토글 불능), 탭이 '생성 취소'로
+      // 처리된다. 재생은 시작만 하고 기다리지 않는다(F-17).
+      if (autoPlay) unawaited(_player.play());
     } catch (e) {
       // 사용자가 취소한 경우는 에러로 안내하지 않는다.
       if (e is DioException && CancelToken.isCancel(e)) return;
