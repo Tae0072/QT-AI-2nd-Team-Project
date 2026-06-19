@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../models/sharing_post_response.dart';
 import '../services/sharing_repository.dart';
+import 'dev_mock_sharing.dart'; // ⚠️ 테스트 목업(디버그+내계정 한정), 운영 전 제거
 
 final sharingRepositoryProvider = Provider<SharingRepository>((ref) {
   return SharingRepository(ref.watch(dioProvider));
@@ -166,8 +167,10 @@ final bookmarksProvider = AsyncNotifierProvider.autoDispose<BookmarksNotifier,
 /// status 미지정으로 공개+숨김을 한 목록에 받아 상태 뱃지로 구분한다(v1).
 /// autoDispose = 화면 떠나면 캐시 정리. 숨김/되돌리기/삭제 후 invalidate로 새로고침한다.
 final mySharingPostsProvider =
-    FutureProvider.autoDispose<MySharingPostListResponse>((ref) {
-  return ref.watch(sharingRepositoryProvider).getMySharingPosts();
+    FutureProvider.autoDispose<MySharingPostListResponse>((ref) async {
+  final base = await ref.watch(sharingRepositoryProvider).getMySharingPosts();
+  // ⚠️ 테스트 목업: 디버그 + 내 계정일 때만 앞에 가짜 글 2개를 끼운다(운영 전 제거).
+  return withDebugMockMySharing(ref, base);
 });
 
 /// 내가 태그(멘션)된 글 목록 (GET /me/mentions). 화면 진입 시 1회 조회, 새로고침은 invalidate.

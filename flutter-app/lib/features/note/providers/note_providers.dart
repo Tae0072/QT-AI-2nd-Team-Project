@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../models/note_models.dart';
 import '../services/note_canvas_store.dart';
 import '../services/note_repository.dart';
+import 'dev_mock_notes.dart'; // ⚠️ 테스트 목업(디버그+내계정 한정), 운영 전 제거
 
 /// 노트 Repository 주입.
 final noteRepositoryProvider = Provider<NoteRepository>((ref) {
@@ -58,9 +59,11 @@ final notesProvider = FutureProvider.autoDispose<NoteListResponse>((ref) async {
     status: isSharedFilter ? null : statusFilter,
     q: q,
   );
-  if (!isSharedFilter) return response;
+  // ⚠️ 테스트 목업: 디버그 + 내 계정일 때만 목록 앞에 가짜 노트 2개를 끼운다(운영 전 제거).
+  if (!isSharedFilter) return withDebugMockNotes(ref, response);
   final sharedItems = response.items.where((item) => item.shared).toList();
-  return NoteListResponse(items: sharedItems, hasNext: false);
+  return withDebugMockNotes(
+      ref, NoteListResponse(items: sharedItems, hasNext: false));
 });
 
 /// 목록 다중 선택 모드 on/off. AppBar 햄버거(선택) 토글로 켜고, ✕로 끈다.
