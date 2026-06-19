@@ -42,12 +42,16 @@ class FakeKakaoAuthClient implements KakaoAuthClient {
   bool throwOnUnlink = false;
   bool throwOnLogout = false;
 
+  /// 설정 시 [loginWithKakaoTalk] 가 이 예외를 던진다(폴백 테스트용).
+  Object? throwOnTalkLogin;
+
   @override
   Future<bool> isKakaoTalkAvailable() async => kakaoTalkInstalled;
 
   @override
   Future<String> loginWithKakaoTalk() async {
     calls.add('loginWithKakaoTalk');
+    if (throwOnTalkLogin != null) throw throwOnTalkLogin!;
     return 'kakao-token-talk';
   }
 
@@ -140,6 +144,30 @@ void main() {
       await repository.loginWithKakao();
 
       expect(kakao.calls, contains('loginWithKakaoTalk'));
+      expect(kakao.calls, isNot(contains('loginWithKakaoAccount')));
+    });
+
+    test('카카오톡 로그인이 실패하면 웹(계정) 로그인으로 폴백한다', () async {
+      kakao.kakaoTalkInstalled = true;
+      // 키 해시 미등록 등으로 카카오톡 로그인이 즉시 실패하는 상황을 모사.
+      kakao.throwOnTalkLogin = PlatformException(code: 'KAKAO_LOGIN_FAILED');
+      dioAdapter.onPost('/auth/kakao', (server) => server.reply(200, loginResponse()),
+          data: Matchers.any);
+
+      final result = await repository.loginWithKakao();
+
+      // 톡 시도 후 계정(웹) 로그인으로 폴백 → 최종 성공.
+      expect(kakao.calls, ['loginWithKakaoTalk', 'loginWithKakaoAccount']);
+      expect(result.accessToken, 'server-access');
+    });
+
+    test('사용자가 카카오톡 화면에서 취소(CANCELED)하면 폴백하지 않고 중단한다', () async {
+      kakao.kakaoTalkInstalled = true;
+      kakao.throwOnTalkLogin = PlatformException(code: 'CANCELED');
+
+      await expectLater(repository.loginWithKakao(), throwsA(isA<PlatformException>()));
+
+      // 웹 로그인으로 폴백하지 않는다(사용자의 명시적 취소).
       expect(kakao.calls, isNot(contains('loginWithKakaoAccount')));
     });
   });
