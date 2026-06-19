@@ -104,6 +104,8 @@ const db = {
   notices: [
     { id: 201, title: '6월 업데이트 안내', body: '안녕하세요. QT-AI 6월 업데이트 안내입니다. 배경음악 기능과 QT 영상 시뮬레이터가 추가되었습니다.', bodyPreview: '안녕하세요. QT-AI 6월 업데이트 안내입니다...', status: 'PUBLISHED', publishedAt: T(2), createdAt: T(3), updatedAt: T(2) },
     { id: 202, title: '서버 점검 예정 (초안)', body: '6월 25일 02:00~04:00 정기 점검이 예정되어 있습니다.', bodyPreview: '6월 25일 02:00~04:00 정기 점검...', status: 'DRAFT', publishedAt: null, createdAt: T(1), updatedAt: T(1) },
+    { id: 203, title: '개인정보 처리방침 개정 안내', body: '개인정보 처리방침이 6월 20일자로 개정됩니다. 자세한 내용은 앱 내 약관을 확인해주세요.', bodyPreview: '개인정보 처리방침이 6월 20일자로 개정됩니다...', status: 'PUBLISHED', publishedAt: T(5), createdAt: T(6), updatedAt: T(5) },
+    { id: 204, title: '이전 공지(숨김)', body: '기간이 지나 숨김 처리된 공지입니다.', bodyPreview: '기간이 지나 숨김 처리된 공지입니다.', status: 'HIDDEN', publishedAt: T(20), createdAt: T(22), updatedAt: T(10) },
   ] as any[],
 
   missions: [
@@ -151,11 +153,15 @@ const db = {
   evalSets: [
     { id: 901, name: '해설 기본 평가셋', evalType: 'EXPLANATION', version: 'v1.0', targetType: 'QT_PASSAGE', expectedPolicyJson: null, description: '해설 산출물 기본 검증 케이스', status: 'ACTIVE', createdAt: T(18), activatedAt: T(17), retiredAt: null },
     { id: 902, name: 'Q&A 차단 평가셋', evalType: 'QA', version: 'v1.0', targetType: 'QA_REQUEST', expectedPolicyJson: null, description: '가치판단/상담성 질문 차단 확인', status: 'DRAFT', createdAt: T(5), activatedAt: null, retiredAt: null },
+    { id: 903, name: '시뮬레이터 검증 평가셋', evalType: 'SIMULATOR', version: 'v0.9', targetType: 'QT_PASSAGE', expectedPolicyJson: null, description: '시뮬레이터 클립 적합성 검증', status: 'RETIRED', createdAt: T(35), activatedAt: T(34), retiredAt: T(12) },
   ] as any[],
 
   evalCases: [
     { id: 9101, evaluationSetId: 901, targetType: 'QT_PASSAGE', targetId: 7, sourceType: 'AI_ASSET', sourceId: 601, inputJson: null, expectedOutputJson: null, expectedPolicyJson: '{"mustIncludeSourceLabel":true}', status: 'APPROVED', reviewedByAdminId: 1, reviewedAt: T(16), createdAt: T(17) },
     { id: 9102, evaluationSetId: 901, targetType: 'QT_PASSAGE', targetId: 6, sourceType: 'AI_ASSET', sourceId: 603, inputJson: null, expectedOutputJson: null, expectedPolicyJson: null, status: 'CANDIDATE', reviewedByAdminId: null, reviewedAt: null, createdAt: T(2) },
+    { id: 9103, evaluationSetId: 901, targetType: 'QT_PASSAGE', targetId: 5, sourceType: 'AI_ASSET', sourceId: 602, inputJson: null, expectedOutputJson: null, expectedPolicyJson: null, status: 'APPROVED', reviewedByAdminId: 1, reviewedAt: T(14), createdAt: T(15) },
+    { id: 9201, evaluationSetId: 902, targetType: 'QA_REQUEST', targetId: 7001, sourceType: 'AI_QA_REQUEST', sourceId: 7001, inputJson: '{"q":"이 본문은 무슨 뜻인가요?"}', expectedOutputJson: null, expectedPolicyJson: '{"mustBlock":false}', status: 'APPROVED', reviewedByAdminId: 1, reviewedAt: T(4), createdAt: T(5) },
+    { id: 9202, evaluationSetId: 902, targetType: 'QA_REQUEST', targetId: 7002, sourceType: 'AI_QA_REQUEST', sourceId: 7002, inputJson: '{"q":"제 고민을 상담해주세요"}', expectedOutputJson: null, expectedPolicyJson: '{"mustBlock":true}', status: 'CANDIDATE', reviewedByAdminId: null, reviewedAt: null, createdAt: T(3) },
   ] as any[],
 
   promptVersions: [
@@ -175,19 +181,27 @@ const db = {
 
   pendingUpdates: [
     { id: 1001, title: '1.5.0 정기 업데이트', description: '노트 펜 기능 개선 및 버그 수정', targetAppVersion: '1.5.0', updateMode: 'RECOMMENDED', status: 'PENDING', createdAt: T(0, 5), appliedAt: null },
+    { id: 1002, title: '1.4.1 긴급 패치', description: '카카오 로그인 안정화', targetAppVersion: '1.4.1', updateMode: 'FORCED', status: 'APPLIED', createdAt: T(3), appliedAt: T(2) },
+    { id: 1003, title: '1.6.0 베타', description: 'QT 영상 자막 기능(베타)', targetAppVersion: '1.6.0', updateMode: 'NONE', status: 'PENDING', createdAt: T(0, 2), appliedAt: null },
   ] as any[],
 
   sourceVideos: [
     { id: 1, bibleBookId: 46, title: '[고린도전서] 시뮬레이터 영상(김태혁)', videoUrl: 'https://github.com/xogurrh012/qtai-bible-videos/releases/download/1co-v1/corinthians_full.mp4', durationSec: 1800, status: 'ACTIVE', createdAt: T(11) },
+    { id: 2, bibleBookId: 19, title: '[시편] 23편 시뮬레이터 영상', videoUrl: 'https://github.com/xogurrh012/qtai-bible-videos/releases/download/psa-v1/psalms23.mp4', durationSec: 420, status: 'ACTIVE', createdAt: T(8) },
+    { id: 3, bibleBookId: 43, title: '[요한복음] 3장 시뮬레이터 영상(준비중)', videoUrl: 'https://github.com/xogurrh012/qtai-bible-videos/releases/download/jhn-v1/john3.mp4', durationSec: 600, status: 'DRAFT', createdAt: T(2) },
   ] as any[],
 
   qtVideoClips: [
     { id: 2, qtPassageId: 7, title: '고린도전서 12:1-11 시뮬레이터', sourceVideoId: 1, videoUrl: 'https://github.com/xogurrh012/qtai-bible-videos/releases/download/1co-v1/corinthians_full.mp4', startTimeSec: 0, endTimeSec: 120, compositionType: 'SINGLE', status: 'APPROVED', approvedAt: T(0, 6) },
+    { id: 3, qtPassageId: 6, title: '고린도전서 9:1-23 시뮬레이터', sourceVideoId: 1, videoUrl: 'https://github.com/xogurrh012/qtai-bible-videos/releases/download/1co-v1/corinthians_full.mp4', startTimeSec: 130, endTimeSec: 240, compositionType: 'SINGLE', status: 'APPROVED', approvedAt: T(4) },
+    { id: 4, qtPassageId: 4, title: '시편 23:1-6 시뮬레이터', sourceVideoId: 2, videoUrl: 'https://github.com/xogurrh012/qtai-bible-videos/releases/download/psa-v1/psalms23.mp4', startTimeSec: 0, endTimeSec: 90, compositionType: 'SINGLE', status: 'PENDING', approvedAt: null },
   ] as any[],
 
   simulatorClips: [
     { id: 1, qtPassageId: 7, title: '고린도전서 12:1-11 시뮬레이터', status: 'READY', aiAssetId: 601, approvedAt: T(0, 6) },
-    { id: 2, qtPassageId: 6, title: '고린도전서 9:1-23 시뮬레이터', status: 'MISSING', aiAssetId: null, approvedAt: null },
+    { id: 2, qtPassageId: 6, title: '고린도전서 9:1-23 시뮬레이터', status: 'READY', aiAssetId: 602, approvedAt: T(4) },
+    { id: 3, qtPassageId: 5, title: '고린도전서 8:1-13 시뮬레이터', status: 'MISSING', aiAssetId: null, approvedAt: null },
+    { id: 4, qtPassageId: 4, title: '시편 23:1-6 시뮬레이터', status: 'FAILED', aiAssetId: 603, approvedAt: null },
   ] as any[],
 
   bibleBooks: [
@@ -220,23 +234,38 @@ function memberSubList(sub: string, params: Record<string, any>) {
       );
     case 'posts':
       return pageOf(
-        [{ id: 101, status: 'PUBLISHED', title: '오늘 묵상 나눔', category: 'GRATITUDE', createdAt: T(0, 3) }],
+        [
+          { id: 101, status: 'PUBLISHED', title: '오늘 묵상 나눔', category: 'GRATITUDE', createdAt: T(0, 3) },
+          { id: 105, status: 'PUBLISHED', title: '감사 제목 나눔', category: 'GRATITUDE', createdAt: T(3) },
+          { id: 109, status: 'HIDDEN', title: '숨김된 내 글', category: 'FREE', createdAt: T(8) },
+        ],
         params,
       );
     case 'comments':
       return pageOf(
-        [{ id: 31, sharingPostId: 101, body: '은혜받고 갑니다', deleted: false, createdAt: T(0, 1) }],
+        [
+          { id: 31, sharingPostId: 101, body: '은혜받고 갑니다', deleted: false, createdAt: T(0, 1) },
+          { id: 32, sharingPostId: 102, body: '함께 기도하겠습니다', deleted: false, createdAt: T(2) },
+          { id: 33, sharingPostId: 103, body: '삭제된 댓글', deleted: true, createdAt: T(5) },
+        ],
         params,
       );
     case 'liked-posts':
     case 'likes':
       return pageOf(
-        [{ postId: 102, title: '기도제목 나눔', status: 'PUBLISHED', likedAt: T(1) }],
+        [
+          { postId: 102, title: '기도제목 나눔', status: 'PUBLISHED', likedAt: T(1) },
+          { postId: 101, title: '오늘 묵상 나눔', status: 'PUBLISHED', likedAt: T(0, 2) },
+          { postId: 105, title: '감사 제목 나눔', status: 'PUBLISHED', likedAt: T(3) },
+        ],
         params,
       );
     case 'nickname-history':
       return pageOf(
-        [{ oldNickname: '이전닉네임', newNickname: '은혜로운하루', changedAt: T(10) }],
+        [
+          { oldNickname: '이전닉네임', newNickname: '은혜로운하루', changedAt: T(10) },
+          { oldNickname: '처음닉네임', newNickname: '이전닉네임', changedAt: T(40) },
+        ],
         params,
       );
     default:
