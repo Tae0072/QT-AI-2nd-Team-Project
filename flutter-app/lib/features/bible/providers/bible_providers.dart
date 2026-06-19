@@ -10,11 +10,13 @@ final bibleRepositoryProvider = Provider<BibleRepository>((ref) {
 });
 
 final todayQtPassageProvider =
-    FutureProvider.autoDispose<TodayQtPassage>((ref) {
+    FutureProvider.autoDispose<TodayQtPassage>((ref) async {
   final repository = ref.watch(bibleRepositoryProvider);
   // 하드코딩 fallback 본문 제거(P0-9) — range가 없으면 repository가 StateError를 던지고
   // UI는 '준비 중/오류'로 처리한다. 다른 본문을 오늘 QT로 보여주지 않는다.
-  return repository.getTodayQtPassage();
+  final passage = await repository.getTodayQtPassage();
+  // demo(remove before production): force simulator READY so the video button is enabled.
+  return withDemoSimulatorReady(passage);
 });
 
 /// 성경 권 목록 (B-02 성경 브라우저 드롭다운).
