@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import '../../../core/dev/dev_mode.dart'; // [DEV_MODE]
@@ -35,7 +36,19 @@ class AuthRepository {
         kakaoAccessToken =
             await _kakao.loginWithKakaoAccount(prompts: [Prompt.login]);
       } else if (await _kakao.isKakaoTalkAvailable()) {
-        kakaoAccessToken = await _kakao.loginWithKakaoTalk();
+        // 카카오톡 앱 로그인을 먼저 시도하되, 실패하면 카카오계정(웹) 로그인으로 폴백한다.
+        // (개발자콘솔 키 해시 미등록·앱 미승인 등으로 카카오톡 로그인이 즉시 실패해도
+        //  로그인이 되도록 — 카카오 공식 권장 패턴.) 단, 사용자가 카카오톡 동의화면에서
+        // 직접 '취소/뒤로'한 경우(PlatformException code 'CANCELED')는 폴백하지 않고 중단한다.
+        try {
+          kakaoAccessToken = await _kakao.loginWithKakaoTalk();
+        } catch (talkError) {
+          if (talkError is PlatformException && talkError.code == 'CANCELED') {
+            rethrow;
+          }
+          KakaoLoginLog.add('카카오톡 로그인 실패 → 웹 로그인 폴백: $talkError'); // [DEV_MODE]
+          kakaoAccessToken = await _kakao.loginWithKakaoAccount();
+        }
       } else {
         kakaoAccessToken = await _kakao.loginWithKakaoAccount();
       }
