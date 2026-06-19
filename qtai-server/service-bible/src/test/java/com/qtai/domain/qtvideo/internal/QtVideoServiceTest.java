@@ -250,6 +250,24 @@ class QtVideoServiceTest {
                 .findTopByStatusAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(QtVideoClipStatus.APPROVED);
     }
 
+    @Test
+    @DisplayName("[임시 2026-06-19] 오늘 본문이지만 최근 등록 영상도 없으면 MISSING을 유지한다")
+    void todayMissing_noRecentClip_staysMissing() {
+        when(getQtPassageContentContextUseCase.getContentContext(22L)).thenReturn(
+                new QtPassageContentContext(22L, LocalDate.of(2026, 6, 19), "today QT", List.of(100L, 101L), true));
+        when(qtVideoClipRepository.findByQtPassageIdAndStatusInAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
+                22L, QtVideoUserStatusResolver.USER_STATUS_CANDIDATE_STATUSES))
+                .thenReturn(List.of());
+        when(qtVideoClipRepository.findTopByStatusAndDeletedAtIsNullOrderByApprovedAtDescIdDesc(
+                QtVideoClipStatus.APPROVED)).thenReturn(Optional.empty());
+
+        QtVideoClipResponse result = service.getVideo(22L);
+
+        assertEquals("MISSING", result.status());
+        assertEquals(22L, result.qtPassageId());
+        assertNull(result.videoUrl());
+    }
+
     private static QtPassageContentContext context(Long qtPassageId, boolean published) {
         return new QtPassageContentContext(
                 qtPassageId,

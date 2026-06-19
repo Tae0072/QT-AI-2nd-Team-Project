@@ -22,3 +22,8 @@
 
 ## 검증
 - BUILD SUCCESSFUL(34s). 단위 2 신규 + 8 기존 + 통합(QtVideoControllerTest) 통과.
+
+## 리뷰 반영 (#694)
+- (경계 테스트 보강) "오늘 본문 + 최근 등록 영상도 없음 → MISSING" 단위 테스트 추가(`todayMissing_noRecentClip_staysMissing`).
+- (앱 의존성 확인) 앱은 영상 응답의 `clipId`/`qtPassageId`를 텔레메트리·후속 호출에 사용하지 않음 — 영상은 `videoUrl`로만 재생/캐시하고, 해설·시뮬레이터 등 후속 버튼은 `/qt/today`의 오늘 본문 id(`data.qtPassageId`)를 사용. 따라서 폴백 클립 id 불일치는 무해.
+- (임시 재확인) 영구 로직화 금지 — QT 영상 생성 정상화 시 즉시 원복(코드 마커 `[임시 2026-06-19]` + 본 문서/워크플로우 절차).
