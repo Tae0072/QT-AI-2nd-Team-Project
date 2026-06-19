@@ -6,9 +6,11 @@ import 'package:qtai_app/l10n/app_localizations.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../routes/app_router.dart';
 import '../../sharing/providers/sharing_providers.dart';
+import '../models/note_drawing.dart';
 import '../models/note_models.dart';
 import '../models/qt_note_rich_text.dart';
 import '../providers/note_providers.dart';
+import '../widgets/note_drawing_layer.dart';
 import '../widgets/note_publish_sheet.dart';
 import '../widgets/note_share_sheet.dart';
 
@@ -215,13 +217,18 @@ class _Actions extends ConsumerWidget {
 }
 
 /// 상세 본문 — 카테고리에 따라 body 또는 4섹션을 표시.
-class _DetailBody extends StatelessWidget {
+class _DetailBody extends ConsumerWidget {
   final NoteDetail detail;
 
   const _DetailBody({required this.detail});
 
+  /// 손그림 저장 키(편집기와 동일). QT(묵상)는 `qt:{qtPassageId}`, 그 외는 `note:{noteId}`.
+  String get _canvasKey => detail.category == kNoteCatMeditation
+      ? 'qt:${detail.qtPassageId}'
+      : 'note:${detail.id}';
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l = AppLocalizations.of(context);
 
@@ -271,9 +278,39 @@ class _DetailBody extends StatelessWidget {
         const Divider(height: 24),
 
         //   전 카테고리 단일 body(QT 포함). 마커는 편집기와 동일 파서로 렌더.
-        (detail.body?.isNotEmpty ?? false)
-            ? _RichNoteText(text: detail.body!, style: theme.textTheme.bodyLarge)
-            : Text(l.noteNoContent, style: theme.textTheme.bodyLarge),
+        //   펜(손그림)이 있으면 본문 위에 읽기 전용으로 겹쳐 그린다(저장된 그림 표시).
+        FutureBuilder<List<DrawingStroke>>(
+          future: ref.read(noteCanvasStoreProvider).loadStrokes(_canvasKey),
+          builder: (context, snapshot) {
+            final bodyText = (detail.body?.isNotEmpty ?? false)
+                ? _RichNoteText(
+                    text: detail.body!, style: theme.textTheme.bodyLarge)
+                : Text(l.noteNoContent, style: theme.textTheme.bodyLarge);
+            final strokes = snapshot.data ?? const <DrawingStroke>[];
+            if (strokes.isEmpty) return bodyText;
+            return Stack(
+              children: [
+                // 그림이 충분히 보이도록 최소 높이를 확보(본문이 짧아도 그림 표시).
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 260),
+                  child: bodyText,
+                ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: NoteDrawingLayer(
+                      strokes: strokes,
+                      enabled: false,
+                      eraserEnabled: false,
+                      colorValue: 0xFF111827,
+                      strokeWidth: 3,
+                      onStrokesChanged: (_) {},
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
 
         // 인용 절(있을 때만 표시) — V1은 보기 전용
         if (detail.verses.isNotEmpty) ...[

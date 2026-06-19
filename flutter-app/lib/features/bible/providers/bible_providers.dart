@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../models/bible_models.dart';
 import '../services/bible_repository.dart';
+import 'dev_demo_qt_video.dart'; // ⚠️ 시연용 데모 영상(디버그 한정), 운영 전 제거
 
 final bibleRepositoryProvider = Provider<BibleRepository>((ref) {
   return BibleRepository(ref.watch(dioProvider));
@@ -30,9 +31,11 @@ final qtStudyContentProvider =
 });
 
 final qtVideoClipProvider =
-    FutureProvider.autoDispose.family<QtVideoClip, int>((ref, qtPassageId) {
+    FutureProvider.autoDispose.family<QtVideoClip, int>((ref, qtPassageId) async {
   final repository = ref.watch(bibleRepositoryProvider);
-  return repository.getQtVideo(qtPassageId);
+  final clip = await repository.getQtVideo(qtPassageId);
+  // ⚠️ 시연용: 디버그 + 클립이 준비 안 됐을 때만 샘플 영상으로 대체(운영 전 제거).
+  return withDemoQtVideo(clip, qtPassageId);
 });
 
 /// 성경 본문 범위의 해설 진입점 가용성 (전체 페이지의 '해설' 버튼 활성 기준).
