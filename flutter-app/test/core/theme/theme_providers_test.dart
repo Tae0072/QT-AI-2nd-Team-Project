@@ -19,11 +19,11 @@ void main() {
     return c;
   }
 
-  test('기본값은 시스템 따름이다(저장값 없음)', () async {
+  test('기본값은 라이트다(저장값·구버전값 없음·최초 실행)', () async {
     SharedPreferences.setMockInitialValues({});
     final c = await container();
 
-    expect(c.read(themeModeProvider), ThemeMode.system);
+    expect(c.read(themeModeProvider), ThemeMode.light);
   });
 
   test('모드를 고르면 바뀌고 theme_mode에 저장된다', () async {
@@ -53,5 +53,26 @@ void main() {
     final c = await container();
 
     expect(c.read(themeModeProvider), ThemeMode.dark);
+  });
+
+  test('구버전 dark_mode=false는 라이트로 마이그레이션된다', () async {
+    SharedPreferences.setMockInitialValues({'dark_mode': false});
+    final c = await container();
+
+    expect(c.read(themeModeProvider), ThemeMode.light);
+  });
+
+  test('직접 고른 theme_mode=system은 재시작 후에도 시스템으로 복원된다', () async {
+    SharedPreferences.setMockInitialValues({'theme_mode': 'system'});
+    final c = await container();
+
+    expect(c.read(themeModeProvider), ThemeMode.system);
+  });
+
+  test('알 수 없는 theme_mode 값은 라이트(앱 기본값)로 처리된다', () async {
+    SharedPreferences.setMockInitialValues({'theme_mode': 'oops'});
+    final c = await container();
+
+    expect(c.read(themeModeProvider), ThemeMode.light);
   });
 }
