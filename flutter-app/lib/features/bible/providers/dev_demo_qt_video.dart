@@ -31,3 +31,26 @@ QtVideoClip withDemoQtVideo(QtVideoClip real, int qtPassageId) {
     clipStatus: 'READY',
   );
 }
+
+/// 디버그 + (qtPassageId 있음 + 아직 READY 아님)일 때만 시뮬레이터 상태를 READY로 바꿔
+/// '영상 보기' 버튼을 켠다(시연용). 버튼을 누르면 [withDemoQtVideo]가 샘플 영상을 재생한다.
+/// 그 외(릴리스, qtPassageId 없음, 이미 READY)에는 [real] 을 그대로 돌려준다.
+TodayQtPassage withDemoSimulatorReady(TodayQtPassage real) {
+  if (!kDebugMode ||
+      real.qtPassageId == null ||
+      real.simulatorStatus == 'READY') {
+    return real;
+  }
+  return TodayQtPassage(
+    qtPassageId: real.qtPassageId,
+    passageDate: real.passageDate,
+    title: real.title,
+    cacheStatus: real.cacheStatus,
+    simulatorStatus: 'READY',
+    hasExplanation: real.hasExplanation,
+    draftNoteId: real.draftNoteId,
+    reference: real.reference,
+    book: real.book,
+    verses: real.verses,
+  );
+}
