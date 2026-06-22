@@ -14,7 +14,7 @@ jobs:
     name: qtai-server Build & Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
         if: hashFiles('qtai-server/gradlew') != ''
@@ -57,7 +57,7 @@ jobs:
     name: Flutter Analyze & Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Flutter
         if: hashFiles('flutter-app/pubspec.yaml') != ''
@@ -95,7 +95,7 @@ jobs:
     name: Requirements Guard (v3.1)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check v3.1 forbidden patterns
         run: |
@@ -229,7 +229,7 @@ jobs:
     name: Gitleaks Secret Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -246,7 +246,7 @@ jobs:
     name: OpenAPI Spectral Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check apis/ directory
         id: check_apis
@@ -294,7 +294,7 @@ jobs:
     name: Docker Compose Config Validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check docker-compose file
         id: check_compose
