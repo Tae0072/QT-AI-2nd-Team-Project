@@ -31,7 +31,7 @@ dependencies {
 
     // QT 일자별 스냅샷 오브젝트 스토리지(S3 호환: 로컬 MinIO / 배포 S3·R2) — S3 어댑터에서만 사용.
     // 기본(로컬 파일) 어댑터는 이 의존 없이 동작. (회의록 2026-06-09 §2)
-    implementation(platform("software.amazon.awssdk:bom:2.28.16"))
+    implementation(platform("software.amazon.awssdk:bom:2.46.15"))
     implementation("software.amazon.awssdk:s3")
 
     compileOnly("org.projectlombok:lombok")
